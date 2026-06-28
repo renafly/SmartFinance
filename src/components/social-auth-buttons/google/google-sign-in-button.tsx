@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { TouchableOpacity } from 'react-native'
 
 import Constants from 'expo-constants'
-import { Text } from '@react-navigation/elements'
+import { Text } from 'react-native'
 import * as WebBrowser from 'expo-web-browser'
 
 WebBrowser.maybeCompleteAuthSession()
@@ -26,6 +26,9 @@ export default function GoogleSignInButton() {
 
   async function onSignInButtonPress() {
     console.debug('onSignInButtonPress - start')
+    const redirectTo = `${Constants.expoConfig?.scheme}://google-auth`;
+    console.log("Redirect URL:", redirectTo);
+    
     const res = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

@@ -5,24 +5,31 @@ import { useAuthContext } from '../src/hooks/use-auth-context'
 import { SplashScreenController } from '../src/screens/SplashScreenController'
 
 function RouteGuard() {
-  const { isLoggedIn, isLoading } = useAuthContext()
-  const segments = useSegments()
-  const router = useRouter()
+  const { isLoggedIn, isLoading } = useAuthContext();
+
+  const segments = useSegments();
+
+  const router = useRouter();
 
   useEffect(() => {
-    if (isLoading) return
+    if (isLoading) return;
 
-    const inAuthScreen = segments[0] === 'login'
+    const inAuthGroup = segments[0] === "(auth)";
 
-    if (!isLoggedIn && !inAuthScreen) {
-      router.replace('/login')
-    } else if (isLoggedIn && inAuthScreen) {
-      router.replace('/')
+    if (!isLoggedIn && !inAuthGroup) {
+      router.replace("/(auth)/login");
+      return;
     }
-  }, [isLoggedIn, isLoading])
 
-  return <Slot />
-}
+    if (isLoggedIn && inAuthGroup) {
+      router.replace({
+        pathname: "/",
+      });
+    }
+  }, [isLoggedIn, isLoading, segments]);
+
+    return <Slot />;
+  }
 
 export default function RootLayout() {
   return (
