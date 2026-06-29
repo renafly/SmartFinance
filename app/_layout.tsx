@@ -1,8 +1,8 @@
 import { Slot, useRouter, useSegments } from 'expo-router'
 import { useEffect } from 'react'
-import AuthProvider from '../src/providers/auth-provider'
-import { useAuthContext } from '../src/hooks/use-auth-context'
-import { SplashScreenController } from '../src/screens/SplashScreenController'
+import AuthProvider from '../src/shared/providers/auth-provider'
+import { useAuthContext } from '../src/shared/hooks/use-auth-context'
+import { SplashScreenController } from '../src/shared/providers/SplashScreenController'
 
 function RouteGuard() {
   const { isLoggedIn, isLoading } = useAuthContext();

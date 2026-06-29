@@ -1,13 +1,13 @@
-import Screen from "@/components/ui/Screen";
-import PageHeader from "@/components/ui/PageHeader";
+import Screen from "@/shared/components/ui/Screen";
+import PageHeader from "@/shared/components/ui/PageHeader";
 
-import DashboardStats from "@/components/dashboard/DashboardStats";
-import DashboardGrid from "@/components/dashboard/DashboardGrid";
+import DashboardStats from "@/features/dashboard/components/dashboard-stats";
+import DashboardGrid from "@/features/dashboard/components/dashboard-grid";
 
-import AccountsCard from "@/components/dashboard/AccountsCard";
-import GoalsCard from "@/components/dashboard/GoalsCard";
-import RecentTransactionsCard from "@/components/dashboard/RecentTransactionsCard";
-import UpcomingPaymentsCard from "@/components/dashboard/UpcomingPaymentsCard";
+import AccountsCard from "@/features/dashboard/components/accounts-card";
+import GoalsCard from "@/features/dashboard/components/goals-card";
+import RecentTransactionsCard from "@/features/dashboard/components/recent-transactions-card";
+import UpcomingPaymentsCard from "@/features/dashboard/components/upcoming-payments-card";
 
 export default function DashboardPage() {
   return (

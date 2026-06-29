@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
-import GoogleSignInButton from '@/components/social-auth-buttons/google/google-sign-in-button';
+import GoogleSignInButton from '@/features/auth/components/google-sign-in-button';
 import {
   colors,
   spacing,
@@ -8,7 +8,7 @@ import {
   globalStyles,
   border,
   shadows,
-} from '@/theme';
+} from '@/shared/theme';
 
 export default function LoginScreen() {
   return (

@@ -1,7 +1,7 @@
 import { Drawer } from "expo-router/drawer";
 import { useWindowDimensions } from "react-native";
 
-import DrawerContent from "@/components/drawer/DrawerContent";
+import { DrawerContent } from "@/shared/components";
 
 export default function AppLayout() {
   const { width } = useWindowDimensions();
