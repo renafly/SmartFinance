@@ -2,10 +2,14 @@
   "expo": {
     "name": "SmartFinance",
     "slug": "SmartFinance",
+    "scheme": "smartfinance",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "experiments": {
+      "typedRoutes": true
+    },
     "ios": {
       "supportsTablet": true
     },
@@ -16,10 +20,24 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.renafly.SmartFinance"
     },
     "web": {
+      "bundler": "metro",
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "5653e5f0-be40-4f73-8255-867f9c734a58"
+      }
+    },
+    "plugins": [
+      "expo-web-browser",
+      "expo-splash-screen",
+      "expo-router",
+      "expo-status-bar",
+      "expo-image"
+    ]
   }
 }
