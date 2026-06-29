@@ -1,4 +1,18 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+} from "react-native";
+
+import {
+  border,
+  colors,
+  radius,
+  shadows,
+  spacing,
+  typography,
+} from "@/theme";
 
 type Props = {
   title: string;
@@ -27,7 +41,7 @@ export default function Button({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color="#fff" />
+        <ActivityIndicator color={colors.text} />
       ) : (
         <Text style={[styles.text, variant !== "primary" && styles.darkText]}>
           {title}
@@ -39,42 +53,51 @@ export default function Button({
 
 const styles = StyleSheet.create({
   button: {
-    height: 50,
-    borderRadius: 12,
+    height: 58,
+    paddingHorizontal: spacing.lg,
+
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
+
+    borderRadius: radius.md,
+    borderWidth: border.thick,
+    borderColor: colors.border,
+
+    ...shadows.md,
   },
 
   primary: {
-    backgroundColor: "#2563eb",
+    backgroundColor: colors.primary,
   },
 
   secondary: {
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
+    backgroundColor: colors.white,
   },
 
   danger: {
-    backgroundColor: "#dc2626",
+    backgroundColor: colors.danger,
   },
 
   text: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
+    ...typography.body,
+    fontWeight: "900",
+    color: colors.text,
   },
 
   darkText: {
-    color: "#0f172a",
+    color: colors.text,
   },
 
   pressed: {
-    opacity: 0.85,
+    transform: [
+      { translateX: 4 },
+      { translateY: 4 },
+    ],
+    elevation: 0,
+    shadowOpacity: 0,
   },
 
   disabled: {
-    opacity: 0.5,
+    opacity: .55,
   },
 });

@@ -1,5 +1,13 @@
 
 import { StyleSheet, Text, View } from "react-native";
+import {
+  typography,
+  colors,
+  spacing,
+  radius,
+  border,
+  shadows,
+} from "@/theme";
 
 type Props = {
   title: string;
@@ -26,23 +34,29 @@ export default function StatCard({
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    minWidth: 180,
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
+    minWidth: 170,
+
+    backgroundColor: colors.primary,
+
+    padding: spacing.lg,
+
+    borderRadius: radius.md,
+
+    borderWidth: border.thick,
+    borderColor: colors.border,
+
+    ...shadows.md,
   },
 
   title: {
-    color: "#64748b",
-    marginBottom: 10,
-    fontSize: 14,
+    ...typography.caption,
+    color: colors.text,
+    textTransform: "uppercase",
+    marginBottom: spacing.sm,
   },
 
   value: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#0f172a",
+    ...typography.h1,
+    color: colors.text,
   },
 });

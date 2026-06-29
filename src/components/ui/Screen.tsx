@@ -1,3 +1,4 @@
+import { colors, spacing } from "@/theme";
 import { ReactNode } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 
@@ -18,8 +19,12 @@ export default function Screen({ children }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
     flexGrow: 1,
-    backgroundColor: "#f8fafc",
+
+    backgroundColor: colors.background,
+
+    padding: spacing.lg,
+
+    gap: spacing.lg,
   },
 });

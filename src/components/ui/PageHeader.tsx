@@ -1,4 +1,9 @@
 import { StyleSheet, Text, View } from "react-native";
+import {
+  typography,
+  colors,
+  spacing,
+} from "@/theme";
 
 type Props = {
   title: string;
@@ -24,18 +29,17 @@ export default function PageHeader({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 28,
+    marginBottom: spacing.xxl,
   },
 
   title: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#0f172a",
+    ...typography.display,
+    color: colors.text,
   },
 
   subtitle: {
-    marginTop: 6,
-    fontSize: 15,
-    color: "#64748b",
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
 });

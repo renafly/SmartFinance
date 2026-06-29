@@ -1,6 +1,11 @@
 
 import { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import {
+  typography,
+  colors,
+  spacing,
+} from "@/theme";
 
 type Props = {
   title: string;
@@ -24,13 +29,12 @@ export default function Section({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 30,
+    marginBottom: spacing.xxl,
+    gap: spacing.md,
   },
 
   title: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 16,
-    color: "#0f172a",
+    ...typography.h2,
+    color: colors.text,
   },
 });

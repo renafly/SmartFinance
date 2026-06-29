@@ -1,27 +1,48 @@
 import { Platform } from "react-native";
 
-const shadowBase = (elevation: number, opacity: number) =>
-  Platform.select({
+export const shadows = {
+  sm: Platform.select({
     ios: {
-      shadowColor: "#0F172A",
-      shadowOffset: { width: 0, height: elevation },
-      shadowOpacity: opacity,
-      shadowRadius: elevation * 2,
+      shadowColor: "#111",
+      shadowOpacity: 1,
+      shadowRadius: 0,
+      shadowOffset: {
+        width: 2,
+        height: 2,
+      },
     },
     android: {
-      elevation: elevation * 2,
+      elevation: 3,
     },
-    default: {},
-  });
+  }),
 
-export const shadows = {
-  none: {},
-  sm: shadowBase(1, 0.06),
-  md: shadowBase(2, 0.08),
-  lg: shadowBase(4, 0.1),
-  xl: shadowBase(8, 0.12),
+  md: Platform.select({
+    ios: {
+      shadowColor: "#111",
+      shadowOpacity: 1,
+      shadowRadius: 0,
+      shadowOffset: {
+        width: 4,
+        height: 4,
+      },
+    },
+    android: {
+      elevation: 6,
+    },
+  }),
 
-  card: shadowBase(2, 0.08),
-  button: shadowBase(1, 0.06),
-  modal: shadowBase(8, 0.15),
+  lg: Platform.select({
+    ios: {
+      shadowColor: "#111",
+      shadowOpacity: 1,
+      shadowRadius: 0,
+      shadowOffset: {
+        width: 6,
+        height: 6,
+      },
+    },
+    android: {
+      elevation: 9,
+    },
+  }),
 };

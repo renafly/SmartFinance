@@ -1,4 +1,9 @@
 import { StyleSheet, Text, View } from "react-native";
+import {
+  typography,
+  colors,
+  spacing,
+} from "@/theme";
 
 type Props = {
   message: string;
@@ -18,12 +23,13 @@ export default function EmptyState({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 50,
+    paddingVertical: spacing.xxl,
     alignItems: "center",
   },
 
   text: {
-    color: "#94a3b8",
-    fontSize: 16,
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: "center",
   },
 });

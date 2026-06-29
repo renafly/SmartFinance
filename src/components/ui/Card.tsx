@@ -1,6 +1,13 @@
 
 import { ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
+import {
+  border,
+  colors,
+  radius,
+  shadows,
+  spacing,
+} from "@/theme";
 
 type Props = {
   children: ReactNode;
@@ -16,11 +23,16 @@ export default function Card({ children }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "white",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
+    backgroundColor: colors.surface,
+
+    padding: spacing.xl,
+    marginBottom: spacing.lg,
+
+    borderRadius: radius.md,
+
+    borderWidth: border.thick,
+    borderColor: colors.border,
+
+    ...shadows.lg,
   },
 });
