@@ -1,10 +1,11 @@
 import { AuthContext } from '../hooks/use-auth-context'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../lib/supabase/client'
 import { PropsWithChildren, useEffect, useState } from 'react'
 
 export default function AuthProvider({ children }: PropsWithChildren) {
   const [claims, setClaims] = useState<Record<string, any> | undefined | null>()
   const [profile, setProfile] = useState<any>()
+  const [householdId, setHouseholdId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
 
   // Fetch the claims once, and subscribe to auth state changes
@@ -27,38 +28,49 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, _session) => {
-      console.log('Auth state changed:', { event: _event })
       const { data } = await supabase.auth.getClaims()
       setClaims(data?.claims ?? null)
     })
 
-    // Cleanup subscription on unmount
     return () => {
       subscription.unsubscribe()
     }
   }, [])
 
-  // Fetch the profile when the claims change
+  // Fetch the profile and household when claims change
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchProfileAndHousehold = async () => {
       setIsLoading(true)
 
       if (claims) {
-        const { data } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", claims.sub)
-        .single();
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', claims.sub)
+          .single()
 
-        setProfile(data)
+        setProfile(profileData)
+
+        const { data: membershipData, error: membershipError } = await supabase
+          .from('household_members')
+          .select('household_id')
+          .eq('user_id', claims.sub)
+          .single()
+
+        if (membershipError) {
+          console.error('Error fetching household membership:', membershipError)
+        }
+
+        setHouseholdId(membershipData?.household_id ?? null)
       } else {
         setProfile(null)
+        setHouseholdId(null)
       }
 
       setIsLoading(false)
     }
 
-    fetchProfile()
+    fetchProfileAndHousehold()
   }, [claims])
 
   return (
@@ -67,6 +79,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
         claims,
         isLoading,
         profile,
+        householdId,
         isLoggedIn: claims != undefined,
       }}
     >

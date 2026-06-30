@@ -62,15 +62,6 @@ export default function AppLayout() {
       {/* Hidden */}
 
       <Drawer.Screen
-        name="accounts/[id]"
-        options={{
-          drawerItemStyle: {
-            display: "none",
-          },
-        }}
-      />
-
-      <Drawer.Screen
         name="transactions/new"
         options={{
           drawerItemStyle: {

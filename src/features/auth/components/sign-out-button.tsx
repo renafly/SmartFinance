@@ -1,4 +1,4 @@
-import { supabase } from '@/shared/lib/supabase'
+import { supabase } from '@/shared/lib/supabase/client'
 import { TouchableOpacity, Text, StyleSheet } from 'react-native'
 import { colors, spacing, typography, radius } from '@/shared/theme'
 
@@ -20,12 +20,12 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.xl,
-    borderRadius: radius.button,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.danger,
   },
   text: {
-    ...typography.label,
+    ...typography.body,
     color: colors.danger,
   },
 })

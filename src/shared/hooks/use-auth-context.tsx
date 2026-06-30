@@ -5,12 +5,14 @@ export type AuthData = {
   profile?: any | null
   isLoading: boolean
   isLoggedIn: boolean
+  householdId: string | null
 }
 
 export const AuthContext = createContext<AuthData>({
   claims: undefined,
   profile: undefined,
   isLoading: true,
+  householdId: null,
   isLoggedIn: false,
 })
 

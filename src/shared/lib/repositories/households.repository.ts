@@ -1,0 +1,140 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/shared/types/database.types'
+import { BaseRepository, type RepoResult } from '@/shared/lib/repositories/base.repository'
+
+type Household = Database['public']['Tables']['households']['Row']
+type HouseholdMember = Database['public']['Tables']['household_members']['Row']
+type HouseholdInvitation = Database['public']['Tables']['household_invitations']['Row']
+type HouseholdRole = Database['public']['Enums']['household_role']
+
+export class HouseholdsRepository extends BaseRepository<'households'> {
+  constructor(client: SupabaseClient<Database>) {
+    super(client, 'households')
+  }
+
+  /** All households the given user belongs to (owner or member), via household_members. */
+  async listForUser(userId: string): Promise<RepoResult<Household[]>> {
+    const { data, error } = await this.client
+      .from('household_members')
+      .select('household:households(*)')
+      .eq('user_id', userId)
+      .eq('status', 'accepted')
+
+    if (error) return { data: null, error }
+    const households = (data ?? [])
+      .map((row) => row.household)
+      .filter((h): h is Household => h !== null)
+    return { data: households, error: null }
+  }
+
+  /** Members of a household, joined with profile info. */
+  async listMembers(householdId: string): Promise<RepoResult<HouseholdMember[]>> {
+    const { data, error } = await this.client
+      .from('household_members')
+      .select('*, profile:profiles(*)')
+      .eq('household_id', householdId)
+
+    if (error) return { data: null, error }
+    return { data: data as unknown as HouseholdMember[], error: null }
+  }
+
+  async addMember(
+    householdId: string,
+    userId: string,
+    role: HouseholdRole,
+    status: 'pending' | 'accepted' = 'pending'
+  ): Promise<RepoResult<HouseholdMember>> {
+    const { data, error } = await this.client
+      .from('household_members')
+      .insert({ household_id: householdId, user_id: userId, role, status })
+      .select()
+      .single()
+
+    if (error) return { data: null, error }
+    return { data, error: null }
+  }
+
+  async removeMember(householdId: string, userId: string): Promise<RepoResult<null>> {
+    const { error } = await this.client
+      .from('household_members')
+      .delete()
+      .eq('household_id', householdId)
+      .eq('user_id', userId)
+
+    if (error) return { data: null, error }
+    return { data: null, error: null }
+  }
+
+  async createInvitation(
+    invite: Database['public']['Tables']['household_invitations']['Insert']
+  ): Promise<RepoResult<HouseholdInvitation>> {
+    const { data, error } = await this.client
+      .from('household_invitations')
+      .insert(invite)
+      .select()
+      .single()
+
+    if (error) return { data: null, error }
+    return { data, error: null }
+  }
+
+  async acceptInvitation(token: string): Promise<RepoResult<HouseholdInvitation>> {
+    const { data, error } = await this.client
+      .from('household_invitations')
+      .update({ accepted_at: new Date().toISOString() })
+      .eq('token', token)
+      .select()
+      .single()
+
+    if (error) return { data: null, error }
+    return { data, error: null }
+  }
+
+  /** Wraps the is_household_member RPC. */
+  async isMember(householdId: string, userId: string): Promise<RepoResult<boolean>> {
+    const { data, error } = await this.client.rpc('is_household_member', {
+      p_household_id: householdId,
+      p_user_id: userId,
+    })
+
+    if (error) return { data: null, error }
+    return { data: data ?? false, error: null }
+  }
+
+  /** Wraps the is_household_admin RPC. */
+  async isAdmin(householdId: string, userId: string): Promise<RepoResult<boolean>> {
+    const { data, error } = await this.client.rpc('is_household_admin', {
+      p_household_id: householdId,
+      p_user_id: userId,
+    })
+
+    if (error) return { data: null, error }
+    return { data: data ?? false, error: null }
+  }
+
+  /** Wraps the is_household_owner RPC. */
+  async isOwner(householdId: string, userId: string): Promise<RepoResult<boolean>> {
+    const { data, error } = await this.client.rpc('is_household_owner', {
+      p_household_id: householdId,
+      p_user_id: userId,
+    })
+
+    if (error) return { data: null, error }
+    return { data: data ?? false, error: null }
+  }
+
+  /** Seeds default categories + accounts for a newly created household. */
+  async seedDefaults(householdId: string): Promise<RepoResult<null>> {
+    const { error: catError } = await this.client.rpc('create_default_categories', {
+      p_household_id: householdId,
+    })
+    if (catError) return { data: null, error: catError }
+
+    const { error: acctError } = await this.client.rpc('create_default_accounts', {
+      p_household_id: householdId,
+    })
+    if (acctError) return { data: null, error: acctError }
+
+    return { data: null, error: null }
+  }
+}

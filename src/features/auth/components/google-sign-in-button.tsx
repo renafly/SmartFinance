@@ -1,4 +1,4 @@
-import { supabase } from '@/shared/lib/supabase'
+import { supabase } from '@/shared/lib/supabase/client'
 import { useEffect } from 'react'
 import { TouchableOpacity } from 'react-native'
 

@@ -1,7 +1,7 @@
-import { supabase } from '@/shared/lib/supabase'
+import { supabase } from '@/shared/lib/supabase/client'
 import { CredentialResponse, GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google'
 import { SignInWithIdTokenCredentials } from '@supabase/supabase-js'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import 'react-native-get-random-values'
 
@@ -35,7 +35,11 @@ export default function GoogleSignInButton() {
     console.error('Error signing in with Google')
   }
 
+  const nonceRef = useRef<string | null>(null)
+
   useEffect(() => {
+    if (nonceRef.current) return // guard against StrictMode double-invoke
+
     function generateNonce(): string {
       const array = new Uint32Array(1)
       window.crypto.getRandomValues(array)
@@ -48,12 +52,11 @@ export default function GoogleSignInButton() {
       return array.map((b) => b.toString(16).padStart(2, '0')).join('')
     }
 
-    let nonce = generateNonce()
+    const nonce = generateNonce()
+    nonceRef.current = nonce
     setNonce(nonce)
 
-    generateSha256Nonce(nonce).then((sha256Nonce) => {
-      setSha256Nonce(sha256Nonce)
-    })
+    generateSha256Nonce(nonce).then((sha256Nonce) => setSha256Nonce(sha256Nonce))
   }, [])
 
 return (
