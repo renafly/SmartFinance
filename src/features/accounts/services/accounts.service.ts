@@ -81,7 +81,7 @@ export class AccountsService {
     return result.data
   }
 
-  async deleteAccount({ id }: AccountIdInput) {
+  async deleteAccount(id: string) {
     const result = await accountsRepository.delete(id)
 
     if (result.error) throw result.error

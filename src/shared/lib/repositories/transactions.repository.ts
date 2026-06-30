@@ -1,15 +1,33 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/shared/types/database.types'
 import { BaseRepository, type RepoResult } from '@/shared/lib/repositories/base.repository'
+import { supabase } from '@/shared/lib/supabase/client'
 
 type Transaction = Database['public']['Tables']['transactions']['Row']
 type TransactionType = Database['public']['Enums']['transaction_type']
 type MonthlySummary = Database['public']['Views']['monthly_summary']['Row']
 type MonthlyCategorySpending = Database['public']['Views']['monthly_category_spending']['Row']
 
+// Transaction row plus the joined account, creator profile, and category
+export type TransactionWithRelations = Transaction & {
+  account: Pick<Database['public']['Tables']['accounts']['Row'], 'id' | 'name'> | null
+  created_by_profile: Pick<
+    Database['public']['Tables']['profiles']['Row'],
+    'id' | 'full_name'
+  > | null
+  category: Pick<
+    Database['public']['Tables']['categories']['Row'],
+    'id' | 'name'
+  > | null
+}
+
+const TRANSACTION_WITH_RELATIONS_SELECT =
+  '*, account:accounts(id, name), created_by_profile:profiles!transactions_created_by_fkey(id, full_name), category:categories(id, name)'
+
 export interface TransactionFilters {
   accountId?: string
   categoryId?: string
+  createdBy?: string
   type?: TransactionType
   /** ISO date string, inclusive lower bound on transaction_date */
   from?: string
@@ -38,15 +56,16 @@ export class TransactionsRepository extends BaseRepository<'transactions'> {
   async listForHousehold(
     householdId: string,
     filters: TransactionFilters = {}
-  ): Promise<RepoResult<Transaction[]>> {
+  ): Promise<RepoResult<TransactionWithRelations[]>> {
     let query = this.client
       .from('transactions')
-      .select('*')
+      .select(TRANSACTION_WITH_RELATIONS_SELECT)
       .eq('household_id', householdId)
       .order('transaction_date', { ascending: false })
 
     if (filters.accountId) query = query.eq('account_id', filters.accountId)
     if (filters.categoryId) query = query.eq('category_id', filters.categoryId)
+    if (filters.createdBy) query = query.eq('created_by', filters.createdBy)
     if (filters.type) query = query.eq('type', filters.type)
     if (filters.from) query = query.gte('transaction_date', filters.from)
     if (filters.to) query = query.lte('transaction_date', filters.to)
@@ -59,7 +78,19 @@ export class TransactionsRepository extends BaseRepository<'transactions'> {
 
     const { data, error } = await query
     if (error) return { data: null, error }
-    return { data: data ?? [], error: null }
+    return { data: (data as TransactionWithRelations[]) ?? [], error: null }
+  }
+
+  /** Single transaction with account, creator profile, and category joined in. */
+  async findByIdWithRelations(id: string): Promise<RepoResult<TransactionWithRelations>> {
+    const { data, error } = await this.client
+      .from('transactions')
+      .select(TRANSACTION_WITH_RELATIONS_SELECT)
+      .eq('id', id)
+      .single()
+
+    if (error) return { data: null, error }
+    return { data: data as TransactionWithRelations, error: null }
   }
 
   /**
@@ -122,3 +153,5 @@ export class TransactionsRepository extends BaseRepository<'transactions'> {
     return { data: data ?? [], error: null }
   }
 }
+
+export const transactionsRepository = new TransactionsRepository(supabase)

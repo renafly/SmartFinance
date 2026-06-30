@@ -1,3 +1,5 @@
+import { Heading4 } from "lucide-react-native";
+
 export const typography = {
   display: {
     fontSize: 36,
@@ -21,6 +23,12 @@ export const typography = {
     fontSize: 20,
     fontWeight: "800",
     lineHeight: 26,
+  },
+
+  h4: {
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 24,
   },
 
   body: {

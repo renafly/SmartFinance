@@ -1,1 +1,143 @@
 
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+
+import { TransactionForm } from "@/features/transactions/components/transaction-form";
+import { useTransaction } from "@/features/transactions/hooks/useTransactions";
+import { useUpdateTransaction } from "@/features/transactions/hooks/useUpdateTransaction";
+import { useDeleteTransaction } from "@/features/transactions/hooks/useDeleteTransaction";
+import { useAccounts } from "@/features/accounts/hooks";
+import { useCategories } from "@/features/categories/hooks";
+
+import Button from "@/shared/components/ui/Button";
+import {
+  colors,
+  spacing,
+  typography,
+  radius,
+} from "@/shared/theme";
+
+export default function EditTransactionScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+
+  const { data: transaction, isPending } = useTransaction(id);
+  const { data: accounts, isPending: accountsLoading } = useAccounts();
+  const { data: categories, isPending: categoriesLoading } = useCategories();
+
+  const update = useUpdateTransaction();
+  const deleteMutation = useDeleteTransaction();
+
+  if (isPending || accountsLoading || categoriesLoading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (!transaction) return null;
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Edit Transaction</Text>
+
+      <View style={styles.card}>
+        <TransactionForm
+          defaultValues={{
+            account_id: transaction.account_id,
+            category_id: transaction.category_id,
+            type: transaction.type,
+            title: transaction.title,
+            amount: transaction.amount,
+            notes: transaction.notes,
+            date: transaction.transaction_date,
+          }}
+          loading={update.isPending}
+          accounts={accounts ?? []}
+          categories={categories ?? []}
+          onSubmit={async (data) => {
+            await update.mutateAsync({
+              id,
+              data,
+            });
+
+            router.back();
+          }}
+        />
+      </View>
+
+      <View style={styles.dangerZone}>
+        <Text style={styles.dangerTitle}>Danger Zone</Text>
+
+        <Button
+          title="Delete Transaction"
+          variant="danger"
+          loading={deleteMutation.isPending}
+          onPress={() =>
+            Alert.alert(
+              "Delete transaction",
+              "This action cannot be undone.",
+              [
+                {
+                  text: "Cancel",
+                  style: "cancel",
+                },
+                {
+                  text: "Delete",
+                  style: "destructive",
+                  onPress: async () => {
+                    await deleteMutation.mutateAsync(id);
+                    router.back();
+                  },
+                },
+              ]
+            )
+          }
+        />
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  title: {
+    ...typography.h2,
+    color: colors.text,
+  },
+
+  card: {
+    backgroundColor: colors.surface,
+    borderWidth: 3,
+    borderColor: colors.text,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+  },
+
+  dangerZone: {
+    marginTop: spacing.md,
+    borderWidth: 3,
+    borderColor: colors.danger,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    backgroundColor: "#FFE8E8",
+    gap: spacing.md,
+  },
+
+  dangerTitle: {
+    ...typography.h4,
+    color: colors.danger,
+  },
+});
