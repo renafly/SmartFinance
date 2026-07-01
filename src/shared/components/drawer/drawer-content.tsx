@@ -57,8 +57,8 @@ export default function DrawerContent(
 
       <DrawerItem
         icon={PiggyBank}
-        title={t("drawer.budgets")}
-        href="/budgets"
+        title={t("drawer.savings")}
+        href="/savings"
       />
 
       <DrawerItem

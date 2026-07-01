@@ -123,9 +123,9 @@ export default function RecurringScreen() {
               label={t("recurring.frequency")}
               options={[
                 { id: "daily", label: "Daily" },
-                { id: "weekly", label: t("budgets.weekly") },
-                { id: "monthly", label: t("budgets.monthly") },
-                { id: "yearly", label: t("budgets.yearly") },
+                { id: "weekly", label: t("common.weekly") },
+                { id: "monthly", label: t("common.monthly") },
+                { id: "yearly", label: t("common.yearly") },
               ]}
               selected={frequency}
               onSelect={(value) => setFrequency(value as Frequency)}

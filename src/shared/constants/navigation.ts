@@ -5,9 +5,7 @@ import {
   FolderTree,
   Users,
   PiggyBank,
-  Target,
-  TrendingUp,
-  Settings,
+  Tettings,
 } from "lucide-react-native";
 
 export const navigation = [
@@ -37,9 +35,9 @@ export const navigation = [
     icon: Users,
   },
   {
-    title: "Budgets",
-    href: "/budgets",
-    icon: Target,
+    title: "Savings",
+    href: "/savings",
+    icon: PiggyBank,
   },
   {
     title: "Savings",

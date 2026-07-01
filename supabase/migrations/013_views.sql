@@ -32,23 +32,21 @@ select
 from public.transactions
 group by household_id, date_trunc('month', transaction_date);
 
--- Budget progress: how much spent vs budgeted per category
-create or replace view public.budget_progress as
+-- Saving pot balances: saved / spent / net balance per pot
+create or replace view public.saving_pot_balances as
 select
-    b.id,
-    b.household_id,
-    b.category_id,
-    c.name as category,
-    b.amount as budget,
-    coalesce(sum(t.amount), 0) as spent,
-    b.amount - coalesce(sum(t.amount), 0) as remaining
-from public.budgets b
-join public.categories c on c.id = b.category_id
-left join public.transactions t
-    on  t.category_id = b.category_id
-    and t.type = 'expense'
-    and t.transaction_date::date between b.start_date and b.end_date
-group by b.id, c.name;
+    sp.id,
+    sp.household_id,
+    sp.name,
+    sp.target_amount,
+    sp.color,
+    sp.icon,
+    coalesce(sum(case when t.type = 'income'  then t.amount else 0 end), 0) as saved,
+    coalesce(sum(case when t.type = 'expense' then t.amount else 0 end), 0) as spent,
+    coalesce(sum(case when t.type = 'income'  then t.amount else -t.amount end), 0) as balance
+from public.saving_pots sp
+left join public.transactions t on t.pot_id = sp.id
+group by sp.id, sp.household_id, sp.name, sp.target_amount, sp.color, sp.icon;
 
 -- Monthly spending totals per category per household
 create or replace view public.monthly_category_spending as

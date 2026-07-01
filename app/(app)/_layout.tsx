@@ -72,10 +72,7 @@ export default function AppLayout() {
 
       <Drawer.Screen
         name="budgets"
-        options={{
-          drawerLabel: t("drawer.budgets"),
-          lazy: true,
-        }}
+        options={{ drawerItemStyle: { display: "none" } }}
       />
 
       <Drawer.Screen

@@ -12,6 +12,7 @@ import { colors, spacing } from "@/shared/theme";
 const transferSchema = z.object({
   fromAccountId: z.string().min(1, "Select a source account"),
   toAccountId: z.string().min(1, "Select a destination account"),
+  categoryId: z.string().nullable().optional(),
   title: z.string().min(1, "Title is required").max(120),
   amount: z.coerce.number().positive("Amount must be greater than zero"),
   notes: z.string().max(1000).nullable().optional(),
@@ -21,14 +22,16 @@ const transferSchema = z.object({
 export type TransferFormValues = z.output<typeof transferSchema>;
 
 type AccountOption = { id: string; name: string };
+type CategoryOption = { id: string; name: string };
 
 type Props = {
   loading?: boolean;
   accounts: AccountOption[];
+  categories: CategoryOption[];
   onSubmit: (data: TransferFormValues) => void | Promise<void>;
 };
 
-export function TransferForm({ loading, accounts, onSubmit }: Props) {
+export function TransferForm({ loading, accounts, categories, onSubmit }: Props) {
   const { t } = useI18n();
   const { width } = useWindowDimensions();
   const useDesktopRow = width >= 960;
@@ -46,10 +49,11 @@ export function TransferForm({ loading, accounts, onSubmit }: Props) {
   } as const;
 
   const { control, handleSubmit, formState: { errors } } = useForm<TransferFormValues>({
-    resolver: zodResolver(transferSchema),
+    resolver: zodResolver(transferSchema) as any,
     defaultValues: {
       fromAccountId: accounts[0]?.id ?? "",
       toAccountId: accounts[1]?.id ?? accounts[0]?.id ?? "",
+      categoryId: null,
       title: "Account transfer",
       amount: 0,
       notes: null,
@@ -88,6 +92,22 @@ export function TransferForm({ loading, accounts, onSubmit }: Props) {
           )}
         />
       </View>
+
+      <Controller
+        control={control}
+        name="categoryId"
+        render={({ field: { onChange, value } }) => (
+          <Select
+            label={t("transfers.formCategory")}
+            nullable
+            nullLabel={t("transfers.formCategoryNone")}
+            options={categories.map((category) => ({ id: category.id, label: category.name }))}
+            selected={value ?? ""}
+            onSelect={(nextValue) => onChange(nextValue === "" ? null : nextValue)}
+            error={errors.categoryId?.message}
+          />
+        )}
+      />
 
       <Controller
         control={control}

@@ -42,7 +42,7 @@ begin
 
     elsif tg_table_name in (
         'accounts', 'categories', 'transactions',
-        'budgets', 'recurring_transactions'
+        'recurring_transactions', 'saving_pots'
     ) then
         v_household_id := coalesce(new.household_id, old.household_id);
 
@@ -99,8 +99,8 @@ create trigger audit_transactions
 after insert or update or delete on public.transactions
 for each row execute function public.audit_trigger();
 
-create trigger audit_budgets
-after insert or update or delete on public.budgets
+create trigger audit_saving_pots
+after insert or update or delete on public.saving_pots
 for each row execute function public.audit_trigger();
 
 create trigger audit_recurring_transactions

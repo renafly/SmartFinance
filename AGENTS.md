@@ -6,7 +6,7 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before 
 
 ### Purpose And Context
 
-Rena is building a household finance tracker mobile app. The app supports accounts, transactions, budgets, categories, recurring transactions, and attachments, with household-based multi-user access.
+Rena is building a household finance tracker mobile app. The app supports accounts, transactions, saving pots, categories, recurring transactions, and attachments, with household-based multi-user access.
 
 ### Tech Stack
 
@@ -29,8 +29,8 @@ database.types.ts -> BaseRepository<T> -> feature repositories -> services -> Ta
 
 ### DB Schema Highlights
 
-- Tables: accounts, transactions, categories, budgets, recurring_transactions, attachments, profiles, households, household_members
-- Views: account_balances, budget_progress, monthly_summary, monthly_category_spending
+- Tables: accounts, transactions, categories, saving_pots, recurring_transactions, attachments, profiles, households, household_members
+- Views: account_balances, saving_pot_balances, monthly_summary, monthly_category_spending
 - RPCs: create_transfer, is_household_member, is_household_admin, is_household_owner, create_default_accounts, create_default_categories
 
 ### Key Learnings And Principles

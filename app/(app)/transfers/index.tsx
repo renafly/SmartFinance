@@ -6,6 +6,7 @@ import PageHeader from "@/shared/components/ui/PageHeader";
 import { TransferForm } from "@/features/transfers/components/transfer-form";
 import { useCreateTransfer } from "@/features/transfers/hooks";
 import { useAccounts } from "@/features/accounts/hooks";
+import { useCategories } from "@/features/categories/hooks";
 import { useI18n } from "@/shared/i18n";
 import { useSession } from "@/shared/session";
 import { colors, spacing } from "@/shared/theme";
@@ -14,9 +15,10 @@ export default function TransfersScreen() {
   const { t } = useI18n();
   const { data: session } = useSession();
   const { data: accounts = [], isPending: accountsLoading } = useAccounts();
+  const { data: accountCategories = [], isPending: categoriesLoading } = useCategories("account");
   const createTransfer = useCreateTransfer();
 
-  if (accountsLoading) {
+  if (accountsLoading || categoriesLoading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" />
@@ -32,6 +34,7 @@ export default function TransfersScreen() {
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <TransferForm
             accounts={accounts ?? []}
+            categories={accountCategories}
             loading={createTransfer.isPending}
             onSubmit={async (data) => {
               if (!session?.household.id) throw new Error("No household selected");
@@ -42,6 +45,7 @@ export default function TransfersScreen() {
                 fromAccountId: data.fromAccountId,
                 toAccountId: data.toAccountId,
                 amount: data.amount,
+                categoryId: data.categoryId ?? null,
                 title: data.title,
                 notes: data.notes ?? undefined,
                 transactionDate: data.transactionDate,

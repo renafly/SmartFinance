@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -13,6 +14,7 @@ import { TransactionForm } from "@/features/transactions/components/transaction-
 import { useAuthContext } from "@/shared/hooks/use-auth-context";
 import { useAccounts } from "@/features/accounts/hooks";
 import { useCategories } from "@/features/categories/hooks";
+import { useSavingPots } from "@/features/saving-pots/hooks";
 import { TransactionFormValues } from "@/features/transactions/transaction.schema";
 
 import { colors, spacing } from "@/shared/theme";
@@ -23,6 +25,12 @@ export default function CreateTransactionScreen() {
 
   const { data: accounts, isPending: accountsLoading } = useAccounts();
   const { data: categories, isPending: categoriesLoading } = useCategories();
+  const { data: pots = [] } = useSavingPots();
+
+  const potOptions = useMemo(
+    () => pots.map((p) => ({ id: p.id, label: p.name })),
+    [pots]
+  );
 
   const onSubmit = async (data: TransactionFormValues) => {
     if (!householdId) throw new Error("No household selected");
@@ -31,6 +39,7 @@ export default function CreateTransactionScreen() {
     await mutateAsync({
       account_id: data.account_id,
       category_id: data.category_id,
+      pot_id: data.pot_id ?? null,
       type: data.type,
       title: data.title,
       amount: data.amount,
@@ -67,6 +76,7 @@ export default function CreateTransactionScreen() {
           onSubmit={onSubmit}
           accounts={accounts ?? []}
           categories={categories ?? []}
+          pots={potOptions}
         />
       </ScrollView>
     </KeyboardAvoidingView>

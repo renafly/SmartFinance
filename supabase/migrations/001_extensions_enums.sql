@@ -32,12 +32,6 @@ create type public.transaction_type as enum (
     'expense'
 );
 
-create type public.budget_period as enum (
-    'weekly',
-    'monthly',
-    'yearly'
-);
-
 create type public.recurring_frequency as enum (
     'daily',
     'weekly',

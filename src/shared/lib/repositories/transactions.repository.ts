@@ -43,6 +43,7 @@ export interface CreateTransferInput {
   toAccountId: string
   amount: number
   title: string
+  categoryId?: string | null
   notes?: string
   transactionDate?: string
   createdBy: string
@@ -108,6 +109,7 @@ export class TransactionsRepository extends BaseRepository<'transactions'> {
       p_notes: input.notes ?? '',
       p_transaction_date: input.transactionDate ?? new Date().toISOString(),
       p_created_by: input.createdBy,
+      p_category_id: input.categoryId ?? null,
     })
 
     if (error) return { data: null, error }

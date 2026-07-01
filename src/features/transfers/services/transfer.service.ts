@@ -1,5 +1,4 @@
 import { transactionsRepository } from "@/shared/lib/repositories/transactions.repository";
-import { useSession } from "@/shared/session";
 
 type CreateTransferInput = {
   householdId: string;
@@ -7,6 +6,7 @@ type CreateTransferInput = {
   toAccountId: string;
   amount: number;
   title: string;
+  categoryId?: string | null;
   notes?: string | null;
   transactionDate?: string;
   createdBy: string;
@@ -14,7 +14,11 @@ type CreateTransferInput = {
 
 class TransferService {
   async createTransfer(input: CreateTransferInput) {
-    const { data, error } = await transactionsRepository.createTransfer(input);
+    const { data, error } = await transactionsRepository.createTransfer({
+      ...input,
+      notes: input.notes ?? undefined,
+      categoryId: input.categoryId ?? null,
+    });
 
     if (error) throw error;
 

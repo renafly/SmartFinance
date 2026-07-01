@@ -1,4 +1,5 @@
 
+import { useMemo } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 
@@ -8,6 +9,7 @@ import { useUpdateTransaction } from "@/features/transactions/hooks/useUpdateTra
 import { useDeleteTransaction } from "@/features/transactions/hooks/useDeleteTransaction";
 import { useAccounts } from "@/features/accounts/hooks";
 import { useCategories } from "@/features/categories/hooks";
+import { useSavingPots } from "@/features/saving-pots/hooks";
 
 import Button from "@/shared/components/ui/Button";
 import { useI18n } from "@/shared/i18n";
@@ -25,6 +27,12 @@ export default function EditTransactionScreen() {
   const { data: transaction, isPending } = useTransaction(id);
   const { data: accounts, isPending: accountsLoading } = useAccounts();
   const { data: categories, isPending: categoriesLoading } = useCategories();
+  const { data: pots = [] } = useSavingPots();
+
+  const potOptions = useMemo(
+    () => pots.map((p) => ({ id: p.id, label: p.name })),
+    [pots]
+  );
 
   const update = useUpdateTransaction();
   const deleteMutation = useDeleteTransaction();
@@ -48,6 +56,7 @@ export default function EditTransactionScreen() {
           defaultValues={{
             account_id: transaction.account_id,
             category_id: transaction.category_id,
+            pot_id: transaction.pot_id,
             type: transaction.type,
             title: transaction.title,
             amount: transaction.amount,
@@ -57,10 +66,20 @@ export default function EditTransactionScreen() {
           loading={update.isPending}
           accounts={accounts ?? []}
           categories={categories ?? []}
+          pots={potOptions}
           onSubmit={async (data) => {
             await update.mutateAsync({
               id,
-              data,
+              data: {
+                account_id: data.account_id,
+                category_id: data.category_id,
+                pot_id: data.pot_id ?? null,
+                type: data.type,
+                title: data.title,
+                amount: data.amount,
+                notes: data.notes,
+                transaction_date: data.date,
+              },
             });
 
             router.back();
