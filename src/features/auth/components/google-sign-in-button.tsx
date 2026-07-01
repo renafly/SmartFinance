@@ -1,6 +1,6 @@
 import { supabase } from '@/shared/lib/supabase/client'
 import { useEffect } from 'react'
-import { TouchableOpacity } from 'react-native'
+import { TouchableOpacity, Platform } from 'react-native'
 
 import Constants from 'expo-constants'
 import { Text } from 'react-native'
@@ -100,11 +100,18 @@ export default function GoogleSignInButton() {
         paddingVertical: 10,
         paddingHorizontal: 15,
         justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2, // For Android shadow
+        elevation: 2,
+        ...Platform.select({
+          ios: {
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 2,
+          },
+          web: {
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+          },
+        }),
       }}
       activeOpacity={0.8}
     >

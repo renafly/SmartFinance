@@ -6,6 +6,7 @@ import {
   useHouseholdMemberDetails,
 } from "@/features/households/hooks";
 import { MemberCard } from "@/features/households/components/member-card";
+import { useI18n } from "@/shared/i18n";
 import { useSession } from "@/shared/session";
 import { colors, spacing, typography } from "@/shared/theme";
 
@@ -18,6 +19,7 @@ type Member = {
 };
 
 export default function MembersScreen() {
+  const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { data: session } = useSession();
@@ -37,7 +39,7 @@ export default function MembersScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, { marginTop: insets.top + spacing.md }]}>
-        <Text style={styles.loadingText}>Loading members...</Text>
+        <Text style={styles.loadingText}>{t("members.loading")}</Text>
       </View>
     );
   }
@@ -45,7 +47,7 @@ export default function MembersScreen() {
   if (error) {
     return (
       <View style={[styles.container, { marginTop: insets.top + spacing.md }]}>
-        <Text style={styles.errorText}>Failed to load members</Text>
+        <Text style={styles.errorText}>{t("members.error")}</Text>
       </View>
     );
   }
@@ -53,7 +55,7 @@ export default function MembersScreen() {
   if (!members || members.length === 0) {
     return (
       <View style={[styles.container, { marginTop: insets.top + spacing.md }]}>
-        <Text style={styles.emptyText}>No members in this household</Text>
+        <Text style={styles.emptyText}>{t("members.empty")}</Text>
       </View>
     );
   }

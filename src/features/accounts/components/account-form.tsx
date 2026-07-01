@@ -1,14 +1,16 @@
 // features/accounts/components/account-form.tsx
-import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
-import { Picker } from "@react-native-picker/picker";
+import { TextInput as NativeTextInput, useWindowDimensions, View } from "react-native";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Button, Text } from "react-native-paper";
 
 import {
   accountSchema,
   AccountFormInput,
   AccountFormValues,
 } from "../account.schema";
+import { Select } from "@/shared/components/ui/Select";
+import { colors, spacing } from "@/shared/theme";
 
 const ACCOUNT_TYPES: { label: string; value: AccountFormInput["type"] }[] = [
   { label: "Bank", value: "bank" },
@@ -21,9 +23,32 @@ type AccountFormProps = {
   loading?: boolean;
   onSubmit: (data: AccountFormValues) => void | Promise<void>;
   defaultValues?: Partial<AccountFormInput>;
+  ownerOptions?: { id: string; label: string }[];
 };
 
-export function AccountForm({ loading, onSubmit, defaultValues }: AccountFormProps) {
+export function AccountForm({ loading, onSubmit, defaultValues, ownerOptions = [] }: AccountFormProps) {
+  const { width } = useWindowDimensions();
+  const useDesktopRow = width >= 960;
+
+  const fieldGroupStyle = {
+    gap: spacing.sm,
+    flex: 1,
+  } as const;
+
+  const labelStyle = {
+    fontWeight: "700" as const,
+  };
+
+  const inputStyle = {
+    borderWidth: 3,
+    borderColor: colors.text,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    minHeight: 56,
+    color: colors.text,
+  } as const;
+
   const {
     control,
     handleSubmit,
@@ -35,122 +60,117 @@ export function AccountForm({ loading, onSubmit, defaultValues }: AccountFormPro
       type: "bank",
       currency: "EUR",
       initial_balance: 0,
+      owner_profile_id: null,
       ...defaultValues,
     },
   });
 
   return (
-    <View style={styles.container}>
-      {/* Name */}
-      <Text style={styles.label}>Name</Text>
+    <View style={{ gap: spacing.lg, paddingBottom: spacing.xl }}>
       <Controller
         control={control}
         name="name"
         render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            style={styles.input}
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            placeholder="e.g. Main Checking"
-          />
-        )}
-      />
-      {errors.name && <Text style={styles.error}>{errors.name.message}</Text>}
-
-      {/* Type */}
-      <Text style={styles.label}>Type</Text>
-      <Controller
-        control={control}
-        name="type"
-        render={({ field: { onChange, value } }) => (
-          <View style={styles.pickerWrapper}>
-            <Picker selectedValue={value} onValueChange={onChange}>
-              {ACCOUNT_TYPES.map((t) => (
-                <Picker.Item key={t.value} label={t.label} value={t.value} />
-              ))}
-            </Picker>
+          <View style={fieldGroupStyle}>
+            <Text style={labelStyle}>Name</Text>
+            <NativeTextInput
+              value={value}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              placeholder="e.g. Main Checking"
+              placeholderTextColor={colors.textMuted}
+              style={inputStyle}
+            />
+            {errors.name && <Text style={{ color: colors.danger, fontSize: 12 }}>{errors.name.message}</Text>}
           </View>
         )}
       />
-      {errors.type && <Text style={styles.error}>{errors.type.message}</Text>}
 
-      {/* Currency */}
-      <Text style={styles.label}>Currency</Text>
-      <Controller
-        control={control}
-        name="currency"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            style={styles.input}
-            value={value}
-            onChangeText={(v) => onChange(v.toUpperCase())}
-            onBlur={onBlur}
-            placeholder="EUR"
-            maxLength={3}
-            autoCapitalize="characters"
-          />
-        )}
-      />
-      {errors.currency && <Text style={styles.error}>{errors.currency.message}</Text>}
+      <View style={{ flexDirection: useDesktopRow ? "row" : "column", gap: spacing.lg }}>
+        <Controller
+          control={control}
+          name="owner_profile_id"
+          render={({ field: { onChange, value } }) => (
+            <Select
+              label="Owner"
+              nullable
+              nullLabel="Shared household account"
+              options={ownerOptions}
+              selected={value ?? null}
+              onSelect={(v) => onChange(v === "" ? null : v)}
+              error={errors.owner_profile_id?.message}
+            />
+          )}
+        />
 
-      {/* Initial Balance */}
-      <Text style={styles.label}>Initial Balance</Text>
-      <Controller
-        control={control}
-        name="initial_balance"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            style={styles.input}
-            value={String(value ?? "")}
-            onChangeText={(v) => onChange(Number(v))}
-            onBlur={onBlur}
-            keyboardType="numeric"
-            placeholder="0"
-          />
-        )}
-      />
-      {errors.initial_balance && (
-        <Text style={styles.error}>{errors.initial_balance.message}</Text>
-      )}
+        <Controller
+          control={control}
+          name="type"
+          render={({ field: { onChange, value } }) => (
+            <Select
+              label="Type"
+              options={ACCOUNT_TYPES.map((t) => ({ id: t.value, label: t.label }))}
+              selected={value}
+              onSelect={(v) => onChange(v as AccountFormInput["type"])}
+              error={errors.type?.message}
+            />
+          )}
+        />
+
+        <Controller
+          control={control}
+          name="currency"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <View style={fieldGroupStyle}>
+              <Text style={labelStyle}>Currency</Text>
+              <NativeTextInput
+                value={value}
+                onChangeText={(v) => onChange(v.toUpperCase())}
+                onBlur={onBlur}
+                placeholder="EUR"
+                placeholderTextColor={colors.textMuted}
+                maxLength={3}
+                autoCapitalize="characters"
+                style={inputStyle}
+              />
+              {errors.currency && <Text style={{ color: colors.danger, fontSize: 12 }}>{errors.currency.message}</Text>}
+            </View>
+          )}
+        />
+
+        <Controller
+          control={control}
+          name="initial_balance"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <View style={fieldGroupStyle}>
+              <Text style={labelStyle}>Initial Balance</Text>
+              <NativeTextInput
+                value={String(value ?? "")}
+                onChangeText={(v) => onChange(v === "" ? 0 : Number(v))}
+                onBlur={onBlur}
+                keyboardType="numeric"
+                placeholder="0"
+                placeholderTextColor={colors.textMuted}
+                style={inputStyle}
+              />
+              {errors.initial_balance && (
+                <Text style={{ color: colors.danger, fontSize: 12 }}>{errors.initial_balance.message}</Text>
+              )}
+            </View>
+          )}
+        />
+      </View>
 
       {/* Submit */}
-      <Pressable
-        style={[styles.button, loading && styles.buttonDisabled]}
+      <Button
+        mode="contained"
         onPress={handleSubmit(onSubmit)}
         disabled={loading}
+        loading={loading}
+        style={{ marginTop: spacing.lg }}
       >
-        <Text style={styles.buttonText}>
-          {loading ? "Saving..." : "Save"}
-        </Text>
-      </Pressable>
+        {loading ? "Saving..." : "Save"}
+      </Button>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { gap: 4 },
-  label: { fontSize: 14, fontWeight: "600", marginTop: 12, marginBottom: 4 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 16,
-  },
-  pickerWrapper: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-  },
-  error: { color: "#d33", fontSize: 12, marginTop: 2 },
-  button: {
-    marginTop: 24,
-    backgroundColor: "#222",
-    borderRadius: 8,
-    padding: 14,
-    alignItems: "center",
-  },
-  buttonDisabled: { opacity: 0.5 },
-  buttonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
-});

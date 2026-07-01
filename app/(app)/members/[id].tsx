@@ -4,10 +4,12 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { useHouseholdMemberDetails } from "@/features/households/hooks";
 import { MemberActionButtons } from "@/features/households/components/member-action-buttons";
+import { useI18n } from "@/shared/i18n";
 import { useSession } from "@/shared/session";
 import { colors, spacing, typography, radius } from "@/shared/theme";
 
 export default function MemberDetailScreen() {
+  const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id: memberId } = useLocalSearchParams<{ id: string }>();
@@ -23,7 +25,7 @@ export default function MemberDetailScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, { marginTop: insets.top + spacing.md }]}>
-        <Text style={styles.loadingText}>Loading...</Text>
+        <Text style={styles.loadingText}>{t("members.loading")}</Text>
       </View>
     );
   }
@@ -31,7 +33,7 @@ export default function MemberDetailScreen() {
   if (!member) {
     return (
       <View style={[styles.container, { marginTop: insets.top + spacing.md }]}>
-        <Text style={styles.errorText}>Member not found</Text>
+        <Text style={styles.errorText}>{t("members.notFound")}</Text>
       </View>
     );
   }
@@ -44,20 +46,20 @@ export default function MemberDetailScreen() {
       contentContainerStyle={styles.scrollContent}
     >
       <View style={styles.card}>
-        <Text style={styles.name}>{member.fullName || "Unknown"}</Text>
+        <Text style={styles.name}>{member.fullName || t("members.unknown")}</Text>
         {member.email && (
           <Text style={styles.email}>{member.email}</Text>
         )}
 
         <View style={styles.roleContainer}>
-          <Text style={styles.roleLabel}>Role</Text>
+          <Text style={styles.roleLabel}>{t("members.role")}</Text>
           <Text style={styles.roleValue}>
             {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
           </Text>
         </View>
 
         <View style={styles.statusContainer}>
-          <Text style={styles.statusLabel}>Status</Text>
+          <Text style={styles.statusLabel}>{t("members.status")}</Text>
           <Text style={styles.statusValue}>
             {member.status.charAt(0).toUpperCase() + member.status.slice(1)}
           </Text>
@@ -65,7 +67,7 @@ export default function MemberDetailScreen() {
 
         {isCurrentUser && (
           <View style={styles.yourBadge}>
-            <Text style={styles.yourBadgeText}>This is you</Text>
+            <Text style={styles.yourBadgeText}>{t("members.thisIsYou")}</Text>
           </View>
         )}
       </View>

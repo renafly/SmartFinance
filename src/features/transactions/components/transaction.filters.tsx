@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { colors, spacing, typography, radius } from "@/shared/theme";
 import type { Database } from "@/shared/types/database.types";
@@ -47,6 +47,9 @@ export function TransactionFilters({
   onOpenMemberSheet,
   onOpenCustomDate,
 }: Props) {
+  const { width } = useWindowDimensions();
+  const mobile = width < 820;
+
   const accountLabel =
     value.accountIds.length === 0
       ? "Account"
@@ -61,12 +64,8 @@ export function TransactionFilters({
       ? members.find((m) => m.id === value.createdByIds[0])?.label ?? "Person"
       : `Person (${value.createdByIds.length})`;
 
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.container}
-    >
+  const content = (
+    <>
       <Segment
         options={TYPE_OPTIONS}
         selected={value.type}
@@ -95,6 +94,20 @@ export function TransactionFilters({
         active={value.createdByIds.length > 0}
         onPress={onOpenMemberSheet}
       />
+    </>
+  );
+
+  if (mobile) {
+    return <View style={styles.mobileContainer}>{content}</View>;
+  }
+
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.container}
+    >
+      {content}
     </ScrollView>
   );
 }
@@ -162,6 +175,13 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+
+  mobileContainer: {
+    flexDirection: "column",
+    alignItems: "stretch",
     gap: spacing.sm,
     paddingVertical: spacing.xs,
   },

@@ -7,6 +7,7 @@ import { useUpdateAccount } from "@/features/accounts/hooks/useUpdateAccount";
 import { useDeleteAccount } from "@/features/accounts/hooks/useDeleteAccount";
 
 import Button from "@/shared/components/ui/Button";
+import { useI18n } from "@/shared/i18n";
 import {
   colors,
   spacing,
@@ -15,6 +16,7 @@ import {
 } from "@/shared/theme";
 
 export default function EditAccountScreen() {
+  const { t } = useI18n();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { data: account, isPending } = useAccount(id);
@@ -34,7 +36,7 @@ export default function EditAccountScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Edit Account</Text>
+      <Text style={styles.title}>{t("accounts.editTitle")}</Text>
 
       <View style={styles.card}>
         <AccountForm
@@ -57,23 +59,23 @@ export default function EditAccountScreen() {
       </View>
 
       <View style={styles.dangerZone}>
-        <Text style={styles.dangerTitle}>Danger Zone</Text>
+        <Text style={styles.dangerTitle}>{t("accounts.dangerZone")}</Text>
 
         <Button
-          title="Delete Account"
+          title={t("accounts.delete")}
           variant="danger"
           loading={deleteMutation.isPending}
           onPress={() =>
             Alert.alert(
-              "Delete account",
-              "This action cannot be undone.",
+              t("accounts.deleteTitle"),
+              t("accounts.deleteMessage"),
               [
                 {
-                  text: "Cancel",
+                  text: t("common.cancel"),
                   style: "cancel",
                 },
                 {
-                  text: "Delete",
+                  text: t("common.delete"),
                   style: "destructive",
                   onPress: async () => {
                     await deleteMutation.mutateAsync(id);

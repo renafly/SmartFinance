@@ -14,6 +14,9 @@ export const shadows = {
     android: {
       elevation: 3,
     },
+    web: {
+      boxShadow: "2px 2px 0px rgba(17, 17, 17, 0.3)",
+    },
   }),
 
   md: Platform.select({
@@ -29,6 +32,9 @@ export const shadows = {
     android: {
       elevation: 6,
     },
+    web: {
+      boxShadow: "4px 4px 0px rgba(17, 17, 17, 0.3)",
+    },
   }),
 
   lg: Platform.select({
@@ -43,6 +49,9 @@ export const shadows = {
     },
     android: {
       elevation: 9,
+    },
+    web: {
+      boxShadow: "6px 6px 0px rgba(17, 17, 17, 0.3)",
     },
   }),
 };

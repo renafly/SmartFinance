@@ -4,11 +4,13 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 
 import GoogleSignInButton from "@/features/auth/components/google-sign-in-button";
 import { useAcceptHouseholdInvitation } from "@/features/households/hooks/useHouseholdInvitations";
+import { useI18n } from "@/shared/i18n";
 import Button from "@/shared/components/ui/Button";
 import { useAuthContext } from "@/shared/hooks/use-auth-context";
 import { border, colors, radius, spacing, typography } from "@/shared/theme";
 
 export default function InviteTokenScreen() {
+  const { t } = useI18n();
   const router = useRouter();
   const { token } = useLocalSearchParams<{ token?: string | string[] }>();
   const { isLoggedIn, isLoading } = useAuthContext();
@@ -40,11 +42,11 @@ export default function InviteTokenScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.card}>
-          <Text style={styles.title}>Invalid invitation link</Text>
+          <Text style={styles.title}>{t("invite.invalidTitle")}</Text>
           <Text style={styles.message}>
-            This invitation link is missing a token. Ask the household admin to send a new invite.
+            {t("invite.invalidMessage")}
           </Text>
-          <Button title="Go to Home" onPress={() => router.replace("/")} />
+          <Button title={t("invite.goHome")} onPress={() => router.replace("/")} />
         </View>
       </View>
     );
@@ -55,7 +57,7 @@ export default function InviteTokenScreen() {
       <View style={styles.container}>
         <View style={styles.card}>
           <ActivityIndicator size="large" />
-          <Text style={styles.message}>Loading your session...</Text>
+          <Text style={styles.message}>{t("invite.loadingSession")}</Text>
         </View>
       </View>
     );
@@ -65,9 +67,9 @@ export default function InviteTokenScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.card}>
-          <Text style={styles.title}>Sign in to accept invitation</Text>
+          <Text style={styles.title}>{t("invite.signInTitle")}</Text>
           <Text style={styles.message}>
-            Use your invited account, then this screen will continue automatically.
+            {t("invite.signInMessage")}
           </Text>
           <GoogleSignInButton />
         </View>
@@ -80,7 +82,7 @@ export default function InviteTokenScreen() {
       <View style={styles.container}>
         <View style={styles.card}>
           <ActivityIndicator size="large" />
-          <Text style={styles.message}>Accepting invitation...</Text>
+          <Text style={styles.message}>{t("invite.accepting")}</Text>
         </View>
       </View>
     );
@@ -90,18 +92,18 @@ export default function InviteTokenScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.card}>
-          <Text style={styles.title}>Could not accept invitation</Text>
+          <Text style={styles.title}>{t("invite.errorTitle")}</Text>
           <Text style={styles.errorText}>
-            {String(acceptInvitation.error?.message ?? "Unknown error")}
+            {String(acceptInvitation.error?.message ?? t("invite.unknownError"))}
           </Text>
           <Button
-            title="Try Again"
+            title={t("invite.tryAgain")}
             onPress={() => acceptInvitation.mutate(inviteToken)}
             disabled={acceptInvitation.isPending}
             loading={acceptInvitation.isPending}
           />
           <Button
-            title="Open Settings"
+            title={t("invite.openSettings")}
             variant="secondary"
             onPress={() => router.replace("/(app)/settings")}
           />
@@ -113,8 +115,8 @@ export default function InviteTokenScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.title}>Invitation accepted</Text>
-        <Text style={styles.message}>Redirecting you to Settings...</Text>
+        <Text style={styles.title}>{t("invite.acceptedTitle")}</Text>
+        <Text style={styles.message}>{t("invite.acceptedMessage")}</Text>
       </View>
     </View>
   );

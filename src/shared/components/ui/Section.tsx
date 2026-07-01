@@ -1,11 +1,7 @@
-
 import { ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import {
-  typography,
-  colors,
-  spacing,
-} from "@/shared/theme";
+import { View } from "react-native";
+import { Text } from "react-native-paper";
+import { spacing } from "@/shared/theme";
 
 type Props = {
   title: string;
@@ -17,24 +13,11 @@ export default function Section({
   children,
 }: Props) {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>
+    <View style={{ marginBottom: spacing.xxl, gap: spacing.md }}>
+      <Text variant="headlineSmall" style={{ fontWeight: "900" }}>
         {title}
       </Text>
-
       {children}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing.xxl,
-    gap: spacing.md,
-  },
-
-  title: {
-    ...typography.h2,
-    color: colors.text,
-  },
-});

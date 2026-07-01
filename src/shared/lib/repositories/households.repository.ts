@@ -23,6 +23,22 @@ export class HouseholdsRepository extends BaseRepository<'households'> {
     super(client, 'households')
   }
 
+  async createHousehold(name: string): Promise<RepoResult<Household>> {
+    const { data, error } = await (this.client.rpc as any)('create_household', {
+      p_name: name,
+    })
+
+    if (error) return { data: null, error }
+
+    const household = (Array.isArray(data) ? data[0] : data) as Household | undefined
+
+    if (!household) {
+      return { data: null, error: new Error('Household creation did not return a household.') }
+    }
+
+    return { data: household, error: null }
+  }
+
   /** All households the given user belongs to (owner or member), via household_members. */
   async listForUser(userId: string): Promise<RepoResult<Household[]>> {
     const { data, error } = await this.client

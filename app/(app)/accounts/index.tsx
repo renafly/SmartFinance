@@ -4,9 +4,11 @@ import { router } from "expo-router";
 import { useAccounts } from "@/features/accounts/hooks";
 import { AccountCard } from "@/features/accounts/components/account-card";
 import Button from "@/shared/components/ui/Button";
+import { useI18n } from "@/shared/i18n";
 import { colors, spacing, typography } from "@/shared/theme";
 
 export default function AccountsScreen() {
+  const { t } = useI18n();
   const { data: accounts, isPending, error } = useAccounts();
 
   if (isPending) {
@@ -27,10 +29,10 @@ export default function AccountsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Accounts</Text>
+      <Text style={styles.title}>{t("accounts.title")}</Text>
 
       <Button
-        title="+ New Account"
+        title={t("accounts.new")}
         onPress={() => router.push("/accounts/new")}
       />
 
@@ -39,7 +41,7 @@ export default function AccountsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {accounts?.length === 0 ? (
-          <Text style={styles.empty}>No accounts yet.</Text>
+          <Text style={styles.empty}>{t("accounts.empty")}</Text>
         ) : (
           accounts?.map((account) => (
             <AccountCard

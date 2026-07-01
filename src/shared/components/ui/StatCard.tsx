@@ -1,13 +1,7 @@
 
-import { StyleSheet, Text, View } from "react-native";
-import {
-  typography,
-  colors,
-  spacing,
-  radius,
-  border,
-  shadows,
-} from "@/shared/theme";
+import { Text, View } from "react-native";
+import { Card } from "react-native-paper";
+import { typography, colors, spacing } from "@/shared/theme";
 
 type Props = {
   title: string;
@@ -19,44 +13,15 @@ export default function StatCard({
   value,
 }: Props) {
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>
-        {title}
-      </Text>
-
-      <Text style={styles.value}>
-        {value}
-      </Text>
-    </View>
+    <Card style={{ flex: 1, minWidth: 170 }}>
+      <Card.Content style={{ justifyContent: "center", paddingVertical: spacing.lg }}>
+        <Text style={[typography.caption, { color: colors.textMuted, textTransform: "uppercase", marginBottom: spacing.sm }]}>
+          {title}
+        </Text>
+        <Text style={[typography.h1, { color: colors.text }]}>
+          {value}
+        </Text>
+      </Card.Content>
+    </Card>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    flex: 1,
-    minWidth: 170,
-
-    backgroundColor: colors.primary,
-
-    padding: spacing.lg,
-
-    borderRadius: radius.md,
-
-    borderWidth: border.thick,
-    borderColor: colors.border,
-
-    ...shadows.md,
-  },
-
-  title: {
-    ...typography.caption,
-    color: colors.text,
-    textTransform: "uppercase",
-    marginBottom: spacing.sm,
-  },
-
-  value: {
-    ...typography.h1,
-    color: colors.text,
-  },
-});

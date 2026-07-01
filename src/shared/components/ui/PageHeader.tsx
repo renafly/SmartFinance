@@ -1,9 +1,6 @@
-import { StyleSheet, Text, View } from "react-native";
-import {
-  typography,
-  colors,
-  spacing,
-} from "@/shared/theme";
+import { View } from "react-native";
+import { Text } from "react-native-paper";
+import { spacing } from "@/shared/theme";
 
 type Props = {
   title: string;
@@ -15,31 +12,16 @@ export default function PageHeader({
   subtitle,
 }: Props) {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
+    <View style={{ marginBottom: spacing.xxl }}>
+      <Text variant="displaySmall" style={{ fontWeight: "900", marginBottom: subtitle ? spacing.sm : 0 }}>
+        {title}
+      </Text>
 
       {subtitle && (
-        <Text style={styles.subtitle}>
+        <Text variant="bodyMedium">
           {subtitle}
         </Text>
       )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing.xxl,
-  },
-
-  title: {
-    ...typography.display,
-    color: colors.text,
-  },
-
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-  },
-});

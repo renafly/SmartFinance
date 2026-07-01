@@ -1,9 +1,11 @@
 import { Drawer } from "expo-router/drawer";
 import { useWindowDimensions } from "react-native";
 
+import { useI18n } from "@/shared/i18n";
 import { DrawerContent } from "@/shared/components";
 
 export default function AppLayout() {
+  const { t } = useI18n();
   const { width } = useWindowDimensions();
 
   return (
@@ -20,62 +22,83 @@ export default function AppLayout() {
       <Drawer.Screen
         name="index"
         options={{
-          drawerLabel: "Dashboard",
+          drawerLabel: t("drawer.dashboard"),
         }}
       />
 
       <Drawer.Screen
         name="accounts"
         options={{
-          drawerLabel: "Accounts",
+          drawerLabel: t("drawer.accounts"),
         }}
       />
 
       <Drawer.Screen
         name="transactions"
         options={{
-          drawerLabel: "Transactions",
+          drawerLabel: t("drawer.transactions"),
+          lazy: true,
+        }}
+      />
+
+      <Drawer.Screen
+        name="transfers"
+        options={{
+          drawerLabel: t("drawer.transfers"),
+          lazy: true,
         }}
       />
 
       <Drawer.Screen
         name="categories"
         options={{
-          drawerLabel: "Categories",
+          drawerLabel: t("drawer.categories"),
         }}
       />
 
       <Drawer.Screen
         name="members"
         options={{
-          drawerLabel: "Members",
+          drawerLabel: t("drawer.members"),
         }}
       />
 
       <Drawer.Screen
         name="settings"
         options={{
-          drawerLabel: "Settings",
-        }}
-      />
-
-      {/* Hidden */}
-
-      <Drawer.Screen
-        name="transactions/new"
-        options={{
-          drawerItemStyle: {
-            display: "none",
-          },
+          drawerLabel: t("drawer.settings"),
         }}
       />
 
       <Drawer.Screen
-        name="transactions/[id]"
+        name="budgets"
         options={{
-          drawerItemStyle: {
-            display: "none",
-          },
+          drawerLabel: t("drawer.budgets"),
+          lazy: true,
+        }}
+      />
+
+      <Drawer.Screen
+        name="recurring"
+        options={{
+          drawerLabel: t("drawer.recurring"),
+          lazy: true,
+        }}
+      />
+
+      <Drawer.Screen
+        name="savings"
+        options={{
+          drawerLabel: t("drawer.savings"),
+          lazy: true,
+        }}
+      />
+
+      <Drawer.Screen
+        name="investments"
+        options={{
+          drawerLabel: t("drawer.investments"),
+          lazy: true,
         }}
       />
     </Drawer>

@@ -1,7 +1,9 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { List } from "react-native-paper";
+import { Text } from "react-native";
 
+import { useFormatters } from "@/shared/i18n";
 import type { Transaction } from "../types/types";
-import { colors, spacing, typography, radius } from "@/shared/theme";
+import { colors } from "@/shared/theme";
 
 type Props = {
   transaction: Transaction;
@@ -9,12 +11,11 @@ type Props = {
 };
 
 export function TransactionCard({ transaction, onPress }: Props) {
+  const { formatDate } = useFormatters();
   const isExpense = transaction.type === "expense";
   const sign = isExpense ? "-" : "+";
 
-  const formattedDate = new Date(
-    transaction.transaction_date
-  ).toLocaleDateString(undefined, {
+  const formattedDate = formatDate(transaction.transaction_date, {
     month: "short",
     day: "numeric",
   });
@@ -29,69 +30,25 @@ export function TransactionCard({ transaction, onPress }: Props) {
   ].filter(Boolean);
 
   return (
-    <Pressable
+    <List.Item
+      title={transaction.title}
+      description={metaParts.join(" · ")}
+      right={() => (
+        <Text style={{
+          fontWeight: "700",
+          fontSize: 16,
+          color: isExpense ? colors.danger : colors.success,
+        }}>
+          {sign}{formattedAmount}
+        </Text>
+      )}
       onPress={onPress}
-      style={({ pressed }) => [styles.container, pressed && styles.pressed]}
-    >
-      <View style={styles.details}>
-        <Text style={styles.title} numberOfLines={1}>
-          {transaction.title}
-        </Text>
-        <Text style={styles.meta} numberOfLines={1}>
-          {metaParts.join(" · ")}
-        </Text>
-      </View>
-
-      <Text style={isExpense ? styles.expense : styles.income}>
-        {sign}
-        {formattedAmount}
-      </Text>
-    </Pressable>
+      style={{
+        backgroundColor: colors.surface,
+        borderWidth: 3,
+        borderColor: colors.text,
+        marginBottom: 8,
+      }}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderWidth: 3,
-    borderColor: colors.text,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-
-  pressed: {
-    opacity: 0.7,
-  },
-
-  details: {
-    flex: 1,
-    marginRight: spacing.md,
-    gap: 2,
-  },
-
-  title: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: "600",
-  },
-
-  meta: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
-
-  expense: {
-    ...typography.body,
-    fontWeight: "600",
-    color: colors.danger,
-  },
-
-  income: {
-    ...typography.body,
-    fontWeight: "600",
-    color: colors.success,
-  },
-});

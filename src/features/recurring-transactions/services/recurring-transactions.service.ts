@@ -1,0 +1,53 @@
+import { repositories } from "@/shared/lib/repositories";
+
+type Frequency = "daily" | "weekly" | "monthly" | "yearly";
+type TransactionType = "income" | "expense";
+
+class RecurringTransactionsService {
+  async getRecurringTransactions(householdId: string) {
+    const { data, error } = await repositories.recurringTransactions.listForHousehold(householdId, false);
+
+    if (error) throw error;
+
+    return data ?? [];
+  }
+
+  async createRecurringTransaction(input: {
+    household_id: string;
+    account_id: string;
+    category_id?: string | null;
+    title: string;
+    notes?: string | null;
+    amount: number;
+    type: TransactionType;
+    frequency: Frequency;
+    next_run: string;
+    created_by: string;
+  }) {
+    const { data, error } = await repositories.recurringTransactions.create(input as any);
+
+    if (error) throw error;
+
+    return data;
+  }
+
+  async toggleRecurringTransaction(id: string, active: boolean) {
+    const { data, error } = active
+      ? await repositories.recurringTransactions.activate(id)
+      : await repositories.recurringTransactions.deactivate(id);
+
+    if (error) throw error;
+
+    return data;
+  }
+
+  async deleteRecurringTransaction(id: string) {
+    const { data, error } = await repositories.recurringTransactions.delete(id);
+
+    if (error) throw error;
+
+    return data;
+  }
+}
+
+export const recurringTransactionsService = new RecurringTransactionsService();

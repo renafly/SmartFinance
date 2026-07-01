@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import GoogleSignInButton from '@/features/auth/components/google-sign-in-button';
+import { useI18n } from '@/shared/i18n';
 import {
   colors,
   spacing,
@@ -11,6 +12,8 @@ import {
 } from '@/shared/theme';
 
 export default function LoginScreen() {
+  const { t } = useI18n();
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -27,25 +30,24 @@ export default function LoginScreen() {
           </Text>
 
           <Text style={[globalStyles.screenSubtitle, styles.subtitle]}>
-            Controla as tuas finanças{"\n"}
-            com inteligência.
+            {t('auth.loginSubtitle')}
           </Text>
         </View>
 
         <View style={[globalStyles.card, styles.authCard]}>
           <Text style={globalStyles.sectionTitle}>
-            Entrar
+            {t('auth.loginTitle')}
           </Text>
 
           <Text style={[globalStyles.caption, styles.cardDescription]}>
-            Continua com a tua conta Google para sincronizar os teus dados.
+            {t('auth.loginDescription')}
           </Text>
 
           <GoogleSignInButton />
         </View>
 
         <Text style={[globalStyles.caption, styles.footer]}>
-          Ao continuar aceitas os Termos de Serviço e a Política de Privacidade.
+          {t('auth.loginFooter')}
         </Text>
 
       </View>

@@ -26,20 +26,33 @@ import {
 } from "@/features/households/hooks/useDefaultHousehold";
 import { useHouseholdMemberDetails } from "@/features/households/hooks/useHouseholdMemberDetails";
 import Button from "@/shared/components/ui/Button";
+import HouseholdCreateCard from "@/features/households/components/household-create-card";
 import { useSession } from "@/shared/session";
 import type { Database } from "@/shared/types/database.types";
 import { border, colors, radius, spacing, typography } from "@/shared/theme";
+import { AppLanguage, TranslationKey, useI18n } from "@/shared/i18n";
 
 type HouseholdRole = Database["public"]["Enums"]["household_role"];
 
 const ROLE_OPTIONS: HouseholdRole[] = ["member", "admin"];
 
-function formatDate(value: string | null): string {
-  if (!value) return "No date";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Invalid date";
+function roleLabel(role: HouseholdRole, t: (key: TranslationKey, params?: Record<string, string>) => string): string {
+  if (role === "owner") return t("settings.role.owner");
+  if (role === "admin") return t("settings.role.admin");
+  return t("settings.role.member");
+}
 
-  return date.toLocaleDateString();
+function formatDate(
+  value: string | null,
+  locale: string,
+  noDateLabel: string,
+  invalidDateLabel: string
+): string {
+  if (!value) return noDateLabel;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return invalidDateLabel;
+
+  return date.toLocaleDateString(locale);
 }
 
 function isValidEmail(email: string): boolean {
@@ -47,6 +60,7 @@ function isValidEmail(email: string): boolean {
 }
 
 export default function SettingsScreen() {
+  const { t, language, setLanguage } = useI18n();
   const { data: session, isPending: sessionLoading } = useSession();
   const router = useRouter();
   const { data: invitations = [], isPending: invitationsLoading } =
@@ -71,7 +85,7 @@ export default function SettingsScreen() {
   const [emailQueued, setEmailQueued] = useState<boolean | null>(null);
 
   const householdId = session?.household.id;
-  const householdName = session?.household.name ?? "Household";
+  const householdName = session?.household.name ?? t("settings.title");
   const defaultHouseholdId =
     session?.profile.default_household_id ?? session?.household.id;
   const currentUserRole = session?.membership?.role;
@@ -83,16 +97,16 @@ export default function SettingsScreen() {
     const normalizedEmail = inviteEmail.trim().toLowerCase();
 
     if (!normalizedEmail) return null;
-    if (!isValidEmail(normalizedEmail)) return "Enter a valid email address.";
+    if (!isValidEmail(normalizedEmail)) return t("settings.invalidEmail");
 
     const alreadyInvited = invitations.some(
       (invitation) => invitation.email.toLowerCase() === normalizedEmail
     );
 
-    if (alreadyInvited) return "This email already has a pending invitation.";
+    if (alreadyInvited) return t("settings.alreadyInvited");
 
     return null;
-  }, [inviteEmail, invitations]);
+  }, [inviteEmail, invitations, t]);
 
   const isSubmitting = createInvitation.isPending;
   const isInviteDisabled =
@@ -122,16 +136,16 @@ export default function SettingsScreen() {
     if (!householdId) return;
 
     Alert.alert(
-      "Leave Household?",
-      `Are you sure you want to leave ${householdName}? You'll lose access to all household data.`,
+      t("settings.leaveTitle"),
+      t("settings.leaveMessage", { householdName }),
       [
-        { text: "Cancel", onPress: () => {} },
+        { text: t("settings.cancel"), onPress: () => {} },
         {
-          text: "Leave",
+          text: t("settings.leave"),
           onPress: () => {
             leaveHouseholdMutation.mutate(householdId, {
               onSuccess: () => {
-                Alert.alert("Success", "You left the household.", [
+                Alert.alert(t("settings.success"), t("settings.leftHousehold"), [
                   {
                     text: "OK",
                     onPress: () => {
@@ -141,7 +155,7 @@ export default function SettingsScreen() {
                 ]);
               },
               onError: (error) => {
-                Alert.alert("Error", error.message);
+                Alert.alert(t("settings.error"), error.message);
               },
             });
           },
@@ -161,16 +175,48 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Household Settings</Text>
+      <Text style={styles.title}>{t("settings.title")}</Text>
       <Text style={styles.subtitle}>{householdName}</Text>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Default Household</Text>
+        <Text style={styles.sectionTitle}>{t("settings.language")}</Text>
+        <Text style={styles.infoText}>{t("settings.languageSubtitle")}</Text>
+        <View style={styles.roleRow}>
+          {([
+            { value: "pt-PT", label: t("settings.languagePortuguese") },
+            { value: "en", label: t("settings.languageEnglish") },
+          ] as const).map((option) => {
+            const selected = language === option.value;
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => void setLanguage(option.value as AppLanguage)}
+                style={[styles.roleChip, selected && styles.roleChipSelected]}
+              >
+                <Text style={[styles.roleChipText, selected && styles.roleChipTextSelected]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t("settings.householdManagement")}</Text>
+        <HouseholdCreateCard
+          title={t("settings.createHousehold")}
+          subtitle={t("settings.createHouseholdSubtitle")}
+        />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t("settings.defaultHousehold")}</Text>
 
         {householdsLoading ? (
           <ActivityIndicator />
         ) : myHouseholds.length === 0 ? (
-          <Text style={styles.emptyText}>No available households.</Text>
+          <Text style={styles.emptyText}>{t("settings.noHouseholds")}</Text>
         ) : (
           myHouseholds.map((household) => {
             const isDefault = household.id === defaultHouseholdId;
@@ -182,17 +228,17 @@ export default function SettingsScreen() {
                   <Text style={styles.cardTitle}>{household.name}</Text>
                   <View style={styles.badgeRow}>
                     {isCurrent ? (
-                      <Text style={styles.cardMeta}>active</Text>
+                      <Text style={styles.cardMeta}>{t("settings.active")}</Text>
                     ) : null}
                     {isDefault ? (
-                      <Text style={styles.cardMeta}>default</Text>
+                      <Text style={styles.cardMeta}>{t("settings.default")}</Text>
                     ) : null}
                   </View>
                 </View>
 
                 {!isDefault ? (
                   <Button
-                    title="Set As Default"
+                    title={t("settings.setAsDefault")}
                     variant="secondary"
                     onPress={() => setDefaultHousehold.mutate(household.id)}
                     loading={setDefaultHousehold.isPending}
@@ -210,11 +256,11 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Invite Member</Text>
+        <Text style={styles.sectionTitle}>{t("settings.inviteMember")}</Text>
 
         {!canManageInvites ? (
           <Text style={styles.infoText}>
-            Only owners and admins can send invitations.
+            {t("settings.onlyAdminsInvite")}
           </Text>
         ) : null}
 
@@ -237,7 +283,7 @@ export default function SettingsScreen() {
                 style={[styles.roleChip, selected && styles.roleChipSelected]}
               >
                 <Text style={[styles.roleChipText, selected && styles.roleChipTextSelected]}>
-                  {role}
+                  {roleLabel(role, t)}
                 </Text>
               </Pressable>
             );
@@ -252,47 +298,56 @@ export default function SettingsScreen() {
         {lastInviteLink ? (
           <View style={styles.linkBox}>
             <Text style={styles.linkLabel}>
-              Invite link
+              {t("settings.inviteLink")}
             </Text>
             <Text style={styles.linkValue}>{lastInviteLink}</Text>
             <Text style={styles.infoText}>
               {emailQueued
-                ? "Email dispatch requested successfully."
-                : "Email function is not available yet. Share this link manually for now."}
+                ? t("settings.emailQueued")
+                : t("settings.emailNotAvailable")}
             </Text>
           </View>
         ) : null}
 
-        <Button title="Send Invitation" onPress={onInvite} disabled={isInviteDisabled} loading={isSubmitting} />
+        <Button title={t("settings.sendInvitation")} onPress={onInvite} disabled={isInviteDisabled} loading={isSubmitting} />
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>My Invitations</Text>
+        <Text style={styles.sectionTitle}>{t("settings.myInvitations")}</Text>
 
         {myInvitationsLoading ? (
           <ActivityIndicator />
         ) : myInvitations.length === 0 ? (
-          <Text style={styles.emptyText}>No invitations pending for your account.</Text>
+          <Text style={styles.emptyText}>{t("settings.noMyInvitations")}</Text>
         ) : (
           myInvitations.map((invitation) => (
             <View key={invitation.id} style={styles.listCard}>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>{invitation.household_name}</Text>
-                <Text style={styles.cardMeta}>{invitation.role}</Text>
+                <Text style={styles.cardMeta}>{roleLabel(invitation.role, t)}</Text>
               </View>
 
-              <Text style={styles.cardMeta}>Invited as: {invitation.email}</Text>
-              <Text style={styles.cardMeta}>Expires: {formatDate(invitation.expires_at)}</Text>
+              <Text style={styles.cardMeta}>{t("settings.invitedAs", { email: invitation.email })}</Text>
+              <Text style={styles.cardMeta}>
+                {t("settings.expires", {
+                  date: formatDate(
+                    invitation.expires_at,
+                    language,
+                    t("settings.noDate"),
+                    t("settings.invalidDate")
+                  ),
+                })}
+              </Text>
 
               <View style={styles.inlineActions}>
                 <Button
-                  title="Accept"
+                  title={t("settings.accept")}
                   onPress={() => acceptInvitation.mutate(invitation.token)}
                   loading={acceptInvitation.isPending}
                   disabled={acceptInvitation.isPending || declineInvitation.isPending}
                 />
                 <Button
-                  title="Decline"
+                  title={t("settings.decline")}
                   variant="secondary"
                   onPress={() => declineInvitation.mutate(invitation.token)}
                   loading={declineInvitation.isPending}
@@ -305,26 +360,35 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Pending Invitations</Text>
+        <Text style={styles.sectionTitle}>{t("settings.pendingInvitations")}</Text>
 
         {invitationsLoading ? (
           <ActivityIndicator />
         ) : invitations.length === 0 ? (
-          <Text style={styles.emptyText}>No pending invitations.</Text>
+          <Text style={styles.emptyText}>{t("settings.noPendingInvitations")}</Text>
         ) : (
           invitations.map((invitation) => (
             <View key={invitation.id} style={styles.listCard}>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>{invitation.email}</Text>
-                <Text style={styles.cardMeta}>{invitation.role}</Text>
+                <Text style={styles.cardMeta}>{roleLabel(invitation.role, t)}</Text>
               </View>
 
-              <Text style={styles.cardMeta}>Expires: {formatDate(invitation.expires_at)}</Text>
+              <Text style={styles.cardMeta}>
+                {t("settings.expires", {
+                  date: formatDate(
+                    invitation.expires_at,
+                    language,
+                    t("settings.noDate"),
+                    t("settings.invalidDate")
+                  ),
+                })}
+              </Text>
 
               {canManageInvites ? (
                 <View style={styles.cardActionRow}>
                   <Button
-                    title="Revoke"
+                    title={t("settings.revoke")}
                     variant="secondary"
                     onPress={() => revokeInvitation.mutate(invitation.id)}
                     loading={revokeInvitation.isPending}
@@ -338,31 +402,31 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Members</Text>
+        <Text style={styles.sectionTitle}>{t("settings.members")}</Text>
 
         {membersLoading ? (
           <ActivityIndicator />
         ) : members.length === 0 ? (
-          <Text style={styles.emptyText}>No household members found.</Text>
+          <Text style={styles.emptyText}>{t("settings.noMembers")}</Text>
         ) : (
           members.map((member) => (
             <View key={member.userId} style={styles.listCard}>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>{member.fullName ?? member.email ?? member.userId}</Text>
-                <Text style={styles.cardMeta}>{member.role}</Text>
+                <Text style={styles.cardMeta}>{t(`settings.role.${member.role}` as const)}</Text>
               </View>
 
-              <Text style={styles.cardMeta}>{member.email ?? "No email"}</Text>
-              <Text style={styles.cardMeta}>Status: {member.status}</Text>
+              <Text style={styles.cardMeta}>{member.email ?? t("settings.noEmail")}</Text>
+              <Text style={styles.cardMeta}>{t("settings.status", { status: member.status })}</Text>
             </View>
           ))
         )}
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Danger Zone</Text>
+        <Text style={styles.sectionTitle}>{t("settings.dangerZone")}</Text>
         <Button
-          title="Leave Household"
+          title={t("settings.leaveHousehold")}
           onPress={handleLeaveHousehold}
           loading={leaveHouseholdMutation.isPending}
           disabled={leaveHouseholdMutation.isPending}

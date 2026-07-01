@@ -11,6 +11,20 @@ type CreateInvitationInput = {
 };
 
 class HouseholdsService {
+  async createHousehold(name: string) {
+    const householdName = name.trim();
+
+    if (!householdName) {
+      throw new Error('Household name is required.');
+    }
+
+    const { data, error } = await repositories.households.createHousehold(householdName);
+
+    if (error) throw error;
+
+    return data;
+  }
+
   async getMyHouseholds(userId: string) {
     const { data, error } = await repositories.households.listForUser(userId);
 
@@ -128,7 +142,7 @@ class HouseholdsService {
       newOwnerId
     );
 
-    if (error) throw error;
+    if (error) throw new Error((error as any)?.message ?? 'Failed to transfer ownership');
     if (!data?.success) throw new Error(data?.message ?? 'Failed to transfer ownership');
     return data;
   }
@@ -139,7 +153,7 @@ class HouseholdsService {
       userIdToRemove
     );
 
-    if (error) throw error;
+    if (error) throw new Error((error as any)?.message ?? 'Failed to remove member');
     if (!data?.success) throw new Error(data?.message ?? 'Failed to remove member');
     return data;
   }
@@ -147,7 +161,7 @@ class HouseholdsService {
   async leaveHousehold(householdId: string) {
     const { data, error } = await repositories.households.leaveHousehold(householdId);
 
-    if (error) throw error;
+    if (error) throw new Error((error as any)?.message ?? 'Failed to leave household');
     if (!data?.success) throw new Error(data?.message ?? 'Failed to leave household');
     return data;
   }

@@ -1,18 +1,4 @@
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-} from "react-native";
-
-import {
-  border,
-  colors,
-  radius,
-  shadows,
-  spacing,
-  typography,
-} from "@/shared/theme";
+import { Button as PaperButton } from "react-native-paper";
 
 type Props = {
   title: string;
@@ -22,6 +8,16 @@ type Props = {
   variant?: "primary" | "secondary" | "danger";
 };
 
+const variantMap: Record<string, "contained" | "outlined" | "text"> = {
+  primary: "contained",
+  secondary: "outlined",
+  danger: "contained",
+};
+
+const modeToButtonColor: Record<string, any> = {
+  danger: { backgroundColor: "#FF6B6B" },
+};
+
 export default function Button({
   title,
   onPress,
@@ -29,75 +25,18 @@ export default function Button({
   loading = false,
   variant = "primary",
 }: Props) {
+  const mode = variantMap[variant] || "contained";
+  const buttonColor = variant === "danger" ? "#FF6B6B" : undefined;
+
   return (
-    <Pressable
+    <PaperButton
+      mode={mode}
       onPress={onPress}
       disabled={disabled || loading}
-      style={({ pressed }) => [
-        styles.button,
-        styles[variant],
-        pressed && styles.pressed,
-        (disabled || loading) && styles.disabled,
-      ]}
+      loading={loading}
+      buttonColor={buttonColor}
     >
-      {loading ? (
-        <ActivityIndicator color={colors.text} />
-      ) : (
-        <Text style={[styles.text, variant !== "primary" && styles.darkText]}>
-          {title}
-        </Text>
-      )}
-    </Pressable>
+      {title}
+    </PaperButton>
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    height: 58,
-    paddingHorizontal: spacing.lg,
-
-    justifyContent: "center",
-    alignItems: "center",
-
-    borderRadius: radius.md,
-    borderWidth: border.thick,
-    borderColor: colors.border,
-
-    ...shadows.md,
-  },
-
-  primary: {
-    backgroundColor: colors.primary,
-  },
-
-  secondary: {
-    backgroundColor: colors.white,
-  },
-
-  danger: {
-    backgroundColor: colors.danger,
-  },
-
-  text: {
-    ...typography.body,
-    fontWeight: "900",
-    color: colors.text,
-  },
-
-  darkText: {
-    color: colors.text,
-  },
-
-  pressed: {
-    transform: [
-      { translateX: 4 },
-      { translateY: 4 },
-    ],
-    elevation: 0,
-    shadowOpacity: 0,
-  },
-
-  disabled: {
-    opacity: .55,
-  },
-});

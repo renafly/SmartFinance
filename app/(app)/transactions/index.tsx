@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { router } from "expo-router";
 
 import { useTransactions } from "@/features/transactions/hooks/useTransactions";
@@ -12,8 +19,8 @@ import {
 } from "@/features/transactions/components/transaction.filters";
 import { MultiSelectSheet } from "@/shared/components/ui/MultiSelectSheet";
 import { CustomDateRangeSheet } from "@/shared/components/ui/CustomDateRangeSheet";
-import Button from "@/shared/components/ui/Button";
-import { colors, spacing, typography } from "@/shared/theme";
+import { useI18n } from "@/shared/i18n";
+import { colors, spacing, typography, radius } from "@/shared/theme";
 
 type SheetType = "account" | "member" | "customDate" | null;
 
@@ -26,22 +33,16 @@ const DEFAULT_FILTERS: TransactionFilterState = {
 
 function toDateRange(
   preset: TransactionFilterState["datePreset"],
-  customRange?: { from: Date; to: Date }
+  customRange?: { from: string; to: string }
 ): { from?: string; to?: string } {
   if (preset === "all_time") return {};
-
   if (preset === "custom") {
     if (!customRange) return {};
-    return {
-      from: formatLocalDate(customRange.from),
-      to: formatLocalDate(customRange.to),
-    };
+    return { from: customRange.from, to: customRange.to };
   }
-
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
   return { from: formatLocalDate(firstDay), to: formatLocalDate(lastDay) };
 }
 
@@ -53,10 +54,10 @@ function formatLocalDate(date: Date): string {
 }
 
 export default function TransactionsScreen() {
-  const [filterState, setFilterState] =
-    useState<TransactionFilterState>(DEFAULT_FILTERS);
+  const { t } = useI18n();
+  const [filterState, setFilterState] = useState<TransactionFilterState>(DEFAULT_FILTERS);
   const [openSheet, setOpenSheet] = useState<SheetType>(null);
-  const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | undefined>();
+  const [customRange, setCustomRange] = useState<{ from: string; to: string } | undefined>();
 
   const { data: accounts = [] } = useAccounts();
   const { data: members = [] } = useHouseholdMembers();
@@ -75,48 +76,35 @@ export default function TransactionsScreen() {
   const { data: transactions, isPending, error } = useTransactions(queryFilters);
 
   const accountOptions = accounts.map((a) => ({ id: a.id, label: a.name }));
-  const memberOptions = members.map((m) => ({
-    id: m.id,
-    label: m.full_name ?? m.id,
-  }));
+  const memberOptions = members.map((m) => ({ id: m.id, label: m.full_name ?? m.id }));
 
   const toggleId = (key: "accountIds" | "createdByIds", id: string) => {
     setFilterState((prev) => {
       const current = prev[key];
       return {
         ...prev,
-        [key]: current.includes(id)
-          ? current.filter((x) => x !== id)
-          : [...current, id],
+        [key]: current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
       };
     });
   };
 
-  if (isPending) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
+  const activeFilterCount =
+    (filterState.type !== "all" ? 1 : 0) +
+    (filterState.datePreset !== "this_month" ? 1 : 0) +
+    filterState.accountIds.length +
+    filterState.createdByIds.length;
+
+  const Header = (
+    <View>
+      {/* Title row */}
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>{t("transactions.title")}</Text>
+        <Pressable style={styles.newButton} onPress={() => router.push("/transactions/new")}>
+          <Text style={styles.newButtonText}>{t("transactions.new")}</Text>
+        </Pressable>
       </View>
-    );
-  }
 
-  if (error) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{String(error)}</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Transactions</Text>
-
-      <Button
-        title="+ New Transaction"
-        onPress={() => router.push("/transactions/new")}
-      />
-
+      {/* Filters */}
       <TransactionFilters
         value={filterState}
         onChange={setFilterState}
@@ -127,26 +115,64 @@ export default function TransactionsScreen() {
         onOpenCustomDate={() => setOpenSheet("customDate")}
       />
 
-      <ScrollView
+      {/* Active filter summary */}
+      {activeFilterCount > 0 && (
+        <Pressable
+          style={styles.clearRow}
+          onPress={() => { setFilterState(DEFAULT_FILTERS); setCustomRange(undefined); }}
+        >
+          <Text style={styles.clearText}>
+            {t("transactions.activeFilters", { count: String(activeFilterCount) })}
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
+
+  if (isPending) {
+    return (
+      <View style={styles.screen}>
+        {Header}
+        <View style={styles.center}>
+          <ActivityIndicator size="large" />
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.screen}>
+        {Header}
+        <View style={styles.center}>
+          <Text style={styles.errorText}>{String(error)}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.screen}>
+      <FlatList
+        data={transactions ?? []}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <TransactionCard
+            transaction={item}
+            onPress={() => router.push(`/transactions/${item.id}`)}
+          />
+        )}
+        ListHeaderComponent={Header}
+        ListEmptyComponent={
+          <Text style={styles.empty}>{t("transactions.empty")}</Text>
+        }
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-      >
-        {transactions?.length === 0 ? (
-          <Text style={styles.empty}>No transactions found.</Text>
-        ) : (
-          transactions?.map((transaction) => (
-            <TransactionCard
-              key={transaction.id}
-              transaction={transaction}
-              onPress={() => router.push(`/transactions/${transaction.id}`)}
-            />
-          ))
-        )}
-      </ScrollView>
+      />
 
       <MultiSelectSheet
         visible={openSheet === "account"}
-        title="Account"
+        title={t("transactions.accountFilter")}
         options={accountOptions}
         selected={filterState.accountIds}
         onToggle={(id) => toggleId("accountIds", id)}
@@ -156,13 +182,11 @@ export default function TransactionsScreen() {
 
       <MultiSelectSheet
         visible={openSheet === "member"}
-        title="Person"
+        title={t("transactions.personFilter")}
         options={memberOptions}
         selected={filterState.createdByIds}
         onToggle={(id) => toggleId("createdByIds", id)}
-        onClear={() =>
-          setFilterState((prev) => ({ ...prev, createdByIds: [] }))
-        }
+        onClear={() => setFilterState((prev) => ({ ...prev, createdByIds: [] }))}
         onClose={() => setOpenSheet(null)}
       />
 
@@ -178,10 +202,36 @@ export default function TransactionsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.lg },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  screen: { flex: 1, backgroundColor: colors.background },
+  list: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: spacing.xl },
+  titleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
   title: { ...typography.h2, color: colors.text },
-  list: { gap: spacing.md, paddingBottom: spacing.lg },
+  newButton: {
+    backgroundColor: colors.text,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  newButtonText: {
+    ...typography.caption,
+    color: colors.surface,
+    fontWeight: "700",
+  },
+  clearRow: {
+    marginTop: spacing.sm,
+    alignItems: "center",
+  },
+  clearText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textDecorationLine: "underline",
+  },
   empty: { ...typography.body, color: colors.textMuted, textAlign: "center", marginTop: spacing.xl },
   errorText: { ...typography.body, color: colors.danger },
 });

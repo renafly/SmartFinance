@@ -1,6 +1,7 @@
-
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text } from "react-native";
+import { Avatar, Card } from "react-native-paper";
 import { useAuthContext } from "@/shared/hooks/use-auth-context";
+import { spacing, colors } from "@/shared/theme";
 
 export default function UserCard() {
   const { claims } = useAuthContext();
@@ -8,46 +9,19 @@ export default function UserCard() {
   const email = claims?.email ?? "";
 
   return (
-    <View style={styles.container}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>
-          {email.charAt(0).toUpperCase()}
+    <Card
+      style={{
+        marginTop: spacing.lg,
+        borderWidth: 3,
+        borderColor: colors.text,
+      }}
+    >
+      <Card.Content style={{ alignItems: "center", paddingVertical: spacing.lg }}>
+        <Avatar.Text label={email.charAt(0).toUpperCase()} size={48} />
+        <Text style={{ marginTop: spacing.md, fontWeight: "700", textAlign: "center" }}>
+          {email}
         </Text>
-      </View>
-
-      <Text numberOfLines={1} style={styles.email}>
-        {email}
-      </Text>
-    </View>
+      </Card.Content>
+    </Card>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderColor: "#e2e8f0",
-    alignItems: "center",
-  },
-
-  avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "#2563eb",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-
-  avatarText: {
-    color: "white",
-    fontSize: 20,
-    fontWeight: "700",
-  },
-
-  email: {
-    color: "#64748b",
-    fontSize: 13,
-  },
-});

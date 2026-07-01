@@ -3,7 +3,7 @@ import type { Database } from '@/shared/types/database.types'
 import { BaseRepository, type RepoResult } from '@/shared/lib/repositories/base.repository'
 
 type Category = Database['public']['Tables']['categories']['Row']
-type TransactionType = Database['public']['Enums']['transaction_type']
+export type CategoryType = 'income' | 'expense' | 'account'
 
 export class CategoriesRepository extends BaseRepository<'categories'> {
   constructor(client: SupabaseClient<Database>) {
@@ -12,12 +12,14 @@ export class CategoriesRepository extends BaseRepository<'categories'> {
 
   async listForHousehold(
     householdId: string,
-    type?: TransactionType
+    type?: CategoryType,
+    includeArchived = false
   ): Promise<RepoResult<Category[]>> {
     let query = this.client
       .from('categories')
       .select('*')
       .eq('household_id', householdId)
+      .eq('is_archived', includeArchived)
       .order('sort_order', { ascending: true })
 
     if (type) {
@@ -32,13 +34,15 @@ export class CategoriesRepository extends BaseRepository<'categories'> {
   /** Top-level categories only (parent_id is null). */
   async listTopLevel(
     householdId: string,
-    type?: TransactionType
+    type?: CategoryType,
+    includeArchived = false
   ): Promise<RepoResult<Category[]>> {
     let query = this.client
       .from('categories')
       .select('*')
       .eq('household_id', householdId)
       .is('parent_id', null)
+      .eq('is_archived', includeArchived)
       .order('sort_order', { ascending: true })
 
     if (type) {
@@ -60,5 +64,13 @@ export class CategoriesRepository extends BaseRepository<'categories'> {
 
     if (error) return { data: null, error }
     return { data: data ?? [], error: null }
+  }
+
+  async archive(id: string): Promise<RepoResult<Category>> {
+    return this.update(id, { is_archived: true } as any)
+  }
+
+  async restore(id: string): Promise<RepoResult<Category>> {
+    return this.update(id, { is_archived: false } as any)
   }
 }

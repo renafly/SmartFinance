@@ -6,13 +6,35 @@
 
 - Status: In progress
 - Started: July 1, 2026
-- Active Sprint: Sprint 1 (Household invites + household settings base)
+- Active Sprint: Cross-feature stabilization and MVP progression
 - Current Focus:
-  - Invite member flow UI and hooks
-  - Pending invitations list and revoke action
-  - Household settings screen foundation
-  - Invitation token accept/decline flow
-  - Invitation email delivery integration
+  - Categories management polish (CRUD, validation, reassignment behavior)
+  - Dashboard data quality and UX consistency
+  - Transactions filter and mobile interaction quality
+  - Finalizing remaining household invite flows
+
+### Completed Today (July 1, 2026)
+
+- Unified form system between New Account and New Transaction screens (matching field layouts and styling).
+- Replaced fragile selector interactions with reusable `Select` and `DateField` components.
+- Fixed mobile date input in transactions with native picker behavior.
+- Improved mobile transaction filters layout and interaction model.
+- Implemented Categories screen with:
+  - Type filtering
+  - Create category action
+  - Delete category action
+  - Categories hooks/service wiring and query invalidation
+- Added category archive support with:
+  - Archive/restore actions
+  - Archived category visibility toggle
+  - Picker filtering to keep archived categories hidden by default
+- Added basic category icon and color inputs to creation flow.
+- Implemented dashboard cards with live data (accounts, transactions, spending summaries, upcoming payments).
+- Added DB migration `015_category_delete_reassign_transactions.sql` and applied via `supabase db push`.
+- Added DB migration `016_categories_archive.sql` for category archive support.
+- Category delete behavior now:
+  - Reassigns existing transactions to `Other Income` / `Other Expenses` when present
+  - Falls back to `NULL` category when no fallback category exists
 
 ---
 
@@ -111,7 +133,7 @@ Deliver a production-ready MVP in iterative milestones, prioritizing core money 
 
 ### Acceptance Criteria
 
-- Cannot delete in-use category (clear user feedback)
+- In-use category deletion reassigns transactions to same-type `Other` category or `NULL` fallback
 - Archive keeps historical transaction integrity
 - Category picker reflects active/archived rules correctly
 

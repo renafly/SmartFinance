@@ -1,4 +1,5 @@
 import { DrawerContentScrollView, DrawerContentComponentProps } from "expo-router/drawer";
+import { useI18n } from "@/shared/i18n";
 
 import DrawerHeader from "./drawer-header";
 import DrawerFooter from "./drawer-footer";
@@ -8,6 +9,9 @@ import {
   Home,
   Wallet,
   Receipt,
+  ArrowLeftRight,
+  PiggyBank,
+  Repeat2,
   Tags,
   Users,
   Settings,
@@ -16,6 +20,8 @@ import {
 export default function DrawerContent(
   props: DrawerContentComponentProps
 ) {
+  const { t } = useI18n();
+
   return (
     <DrawerContentScrollView
       {...props}
@@ -27,37 +33,55 @@ export default function DrawerContent(
 
       <DrawerItem
         icon={Home}
-        title="Dashboard"
+        title={t("drawer.dashboard")}
         href="/"
       />
 
       <DrawerItem
         icon={Wallet}
-        title="Accounts"
+        title={t("drawer.accounts")}
         href="/accounts"
       />
 
       <DrawerItem
         icon={Receipt}
-        title="Transactions"
+        title={t("drawer.transactions")}
         href="/transactions"
       />
 
       <DrawerItem
+        icon={ArrowLeftRight}
+        title={t("drawer.transfers")}
+        href="/transfers"
+      />
+
+      <DrawerItem
+        icon={PiggyBank}
+        title={t("drawer.budgets")}
+        href="/budgets"
+      />
+
+      <DrawerItem
+        icon={Repeat2}
+        title={t("drawer.recurring")}
+        href="/recurring"
+      />
+
+      <DrawerItem
         icon={Tags}
-        title="Categories"
+        title={t("drawer.categories")}
         href="/categories"
       />
 
       <DrawerItem
         icon={Users}
-        title="Members"
+        title={t("drawer.members")}
         href="/members"
       />
 
       <DrawerItem
         icon={Settings}
-        title="Settings"
+        title={t("drawer.settings")}
         href="/settings"
       />
 

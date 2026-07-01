@@ -2,11 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 
 import { categoriesService } from "../services/categories.service";
 import { useSession } from "@/shared/session";
-import type { Database } from "@/shared/types/database.types";
+import type { CategoryType } from "@/shared/lib/repositories/categories.repository";
 
-type TransactionType = Database["public"]["Enums"]["transaction_type"];
-
-export function useCategories(type?: TransactionType) {
+export function useCategories(type?: CategoryType) {
   const { data: session, isPending: sessionLoading } = useSession();
 
   const householdId = session?.household.id;
@@ -20,7 +18,7 @@ export function useCategories(type?: TransactionType) {
 
 // Top-level only (parent_id is null) — use this for a flat picker like the
 // transaction form, where you don't want subcategories mixed in.
-export function useTopLevelCategories(type?: TransactionType) {
+export function useTopLevelCategories(type?: CategoryType) {
   const { data: session, isPending: sessionLoading } = useSession();
 
   const householdId = session?.household.id;

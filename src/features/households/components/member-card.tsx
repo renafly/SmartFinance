@@ -1,6 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { List, Chip } from "react-native-paper";
 
-import { colors, spacing, typography, radius } from "@/shared/theme";
+import { colors } from "@/shared/theme";
 
 type Props = {
   fullName: string | null;
@@ -26,72 +26,26 @@ export function MemberCard({
   const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
 
   return (
-    <Pressable
+    <List.Item
+      title={`${fullName || "Unknown"}${isCurrentUser ? " (You)" : ""}`}
+      description={email || ""}
+      right={() => (
+        <Chip
+          label={roleLabel}
+          style={{
+            backgroundColor: roleColors[role],
+            borderWidth: 2,
+            borderColor: colors.text,
+          }}
+        />
+      )}
       onPress={onPress}
-      style={({ pressed }) => [styles.container, pressed && styles.pressed]}
-    >
-      <View style={styles.details}>
-        <Text style={styles.title} numberOfLines={1}>
-          {fullName || "Unknown"}
-          {isCurrentUser && " (You)"}
-        </Text>
-        {email && (
-          <Text style={styles.email} numberOfLines={1}>
-            {email}
-          </Text>
-        )}
-      </View>
-
-      <View style={[styles.roleBadge, { backgroundColor: roleColors[role] }]}>
-        <Text style={styles.roleText}>{roleLabel}</Text>
-      </View>
-    </Pressable>
+      style={{
+        backgroundColor: colors.surface,
+        borderWidth: 3,
+        borderColor: colors.text,
+        marginBottom: 8,
+      }}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-
-  pressed: {
-    opacity: 0.7,
-  },
-
-  details: {
-    flex: 1,
-    marginRight: spacing.md,
-    gap: 4,
-  },
-
-  title: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: "600",
-  },
-
-  email: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
-
-  roleBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.sm,
-  },
-
-  roleText: {
-    ...typography.caption,
-    color: colors.surface,
-    fontWeight: "600",
-  },
-});

@@ -19,6 +19,8 @@ export const accountSchema = z.object({
   initial_balance: z.coerce
     .number()
     .min(0, "Balance cannot be negative"),
+
+  owner_profile_id: z.uuid().nullable().optional(),
 });
 
 export type AccountFormInput = z.input<typeof accountSchema>;

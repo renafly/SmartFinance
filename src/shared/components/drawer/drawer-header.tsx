@@ -1,12 +1,15 @@
 import { StyleSheet, Text, View } from "react-native";
+import { useI18n } from "@/shared/i18n";
 
 export default function DrawerHeader() {
+  const { t } = useI18n();
+
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>SmartFinance</Text>
 
       <Text style={styles.version}>
-        Personal Finance
+        {t("drawer.subtitle")}
       </Text>
     </View>
   );

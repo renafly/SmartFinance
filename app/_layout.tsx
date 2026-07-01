@@ -1,5 +1,6 @@
 import { Slot, useRouter, useSegments } from 'expo-router'
 import { useEffect } from 'react'
+import { LogBox, Platform } from 'react-native'
 import { useAuthContext } from '../src/shared/hooks/use-auth-context'
 import { SplashScreenController } from '../src/shared/providers/SplashScreenController'
 import { AppProviders } from '@/shared/providers/app-providers'
@@ -30,6 +31,12 @@ function RouteGuard() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      LogBox.ignoreLogs(['props.pointerEvents is deprecated. Use style.pointerEvents'])
+    }
+  }, [])
+
   return (
     <AppProviders>
       <SplashScreenController />

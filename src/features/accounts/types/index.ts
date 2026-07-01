@@ -8,7 +8,7 @@ export type UpdateAccount =
 
 export type CreateAccountDTO = Pick<
   NewAccount,
-  'household_id' | 'name' | 'type' | 'currency' | 'initial_balance'
+  'household_id' | 'owner_profile_id' | 'name' | 'type' | 'currency' | 'initial_balance'
 >
 
 export type UpdateAccountDTO = Pick<

@@ -10,6 +10,7 @@ import { useAccounts } from "@/features/accounts/hooks";
 import { useCategories } from "@/features/categories/hooks";
 
 import Button from "@/shared/components/ui/Button";
+import { useI18n } from "@/shared/i18n";
 import {
   colors,
   spacing,
@@ -18,6 +19,7 @@ import {
 } from "@/shared/theme";
 
 export default function EditTransactionScreen() {
+  const { t } = useI18n();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { data: transaction, isPending } = useTransaction(id);
@@ -39,7 +41,7 @@ export default function EditTransactionScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Edit Transaction</Text>
+      <Text style={styles.title}>{t("transactions.editTitle")}</Text>
 
       <View style={styles.card}>
         <TransactionForm
@@ -67,23 +69,23 @@ export default function EditTransactionScreen() {
       </View>
 
       <View style={styles.dangerZone}>
-        <Text style={styles.dangerTitle}>Danger Zone</Text>
+        <Text style={styles.dangerTitle}>{t("transactions.dangerZone")}</Text>
 
         <Button
-          title="Delete Transaction"
+          title={t("transactions.delete")}
           variant="danger"
           loading={deleteMutation.isPending}
           onPress={() =>
             Alert.alert(
-              "Delete transaction",
-              "This action cannot be undone.",
+              t("transactions.deleteTitle"),
+              t("transactions.deleteMessage"),
               [
                 {
-                  text: "Cancel",
+                  text: t("common.cancel"),
                   style: "cancel",
                 },
                 {
-                  text: "Delete",
+                  text: t("common.delete"),
                   style: "destructive",
                   onPress: async () => {
                     await deleteMutation.mutateAsync(id);
