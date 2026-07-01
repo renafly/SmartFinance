@@ -14,8 +14,9 @@ function RouteGuard() {
     if (isLoading) return
 
     const inAuthGroup = segments[0] === '(auth)'
+    const inInviteRoute = segments[0] === 'invite'
 
-    if (!isLoggedIn && !inAuthGroup) {
+    if (!isLoggedIn && !inAuthGroup && !inInviteRoute) {
       router.replace('/(auth)/login')
       return
     }

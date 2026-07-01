@@ -4,6 +4,8 @@ type InvitePayload = {
   email: string;
   role: "owner" | "admin" | "member";
   inviteLink: string;
+  nativeInviteLink?: string;
+  webInviteLink?: string | null;
   householdId: string;
 };
 
@@ -20,8 +22,11 @@ type EmailLogInsert = {
   sent_at?: string;
 };
 
+const SANDBOX_RECIPIENT_EMAIL = "renafly@gmail.com";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -57,7 +62,17 @@ Deno.serve(async (req) => {
     return jsonResponse(500, { error: "Missing RESEND_API_KEY or RESEND_FROM_EMAIL secret." });
   }
 
-  const authHeader = req.headers.get("Authorization");
+  const rawAuthHeader =
+    req.headers.get("authorization") ??
+    req.headers.get("Authorization") ??
+    req.headers.get("x-authorization");
+
+  const authHeader = rawAuthHeader
+    ? rawAuthHeader.startsWith("Bearer ")
+      ? rawAuthHeader
+      : `Bearer ${rawAuthHeader}`
+    : null;
+
   if (!authHeader) {
     return jsonResponse(401, { error: "Missing Authorization header." });
   }
@@ -82,10 +97,12 @@ Deno.serve(async (req) => {
     return jsonResponse(400, { error: "Invalid JSON body." });
   }
 
-  const email = payload.email?.trim().toLowerCase();
-  if (!email || !payload.householdId || !payload.inviteLink || !payload.role) {
+  const requestedEmail = payload.email?.trim().toLowerCase();
+  if (!requestedEmail || !payload.householdId || !payload.inviteLink || !payload.role) {
     return jsonResponse(400, { error: "Missing required fields." });
   }
+
+  const recipientEmail = SANDBOX_RECIPIENT_EMAIL;
 
   const { data: isAdmin, error: adminError } = await supabase.rpc("is_household_admin", {
     p_household_id: payload.householdId,
@@ -103,7 +120,7 @@ Deno.serve(async (req) => {
   const logBase: EmailLogInsert = {
     household_id: payload.householdId,
     requested_by: userData.user.id,
-    recipient_email: email,
+    recipient_email: recipientEmail,
     recipient_role: payload.role,
     invite_link: payload.inviteLink,
     provider: "resend",
@@ -133,18 +150,38 @@ Deno.serve(async (req) => {
 
   const householdName = householdData?.name ?? "your household";
 
+  const webInviteLink = payload.webInviteLink?.trim() || null;
+  const nativeInviteLink = payload.nativeInviteLink?.trim() || payload.inviteLink;
+  const primaryInviteLink = webInviteLink ?? payload.inviteLink;
+
+  const webBlock = webInviteLink
+    ? `
+      <p>If you are on desktop/web, use this link:</p>
+      <p><a href="${webInviteLink}">${webInviteLink}</a></p>
+    `
+    : "";
+
+  const nativeBlock = nativeInviteLink && nativeInviteLink !== primaryInviteLink
+    ? `
+      <p>If you are on mobile app, use this deep link:</p>
+      <p><a href="${nativeInviteLink}">${nativeInviteLink}</a></p>
+    `
+    : "";
+
   const html = `
     <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111;">
       <h2>You were invited to join ${householdName}</h2>
       <p>You have been invited as <strong>${payload.role}</strong>.</p>
       <p>Click below to accept the invitation:</p>
       <p>
-        <a href="${payload.inviteLink}" style="display:inline-block;padding:10px 16px;background:#111;color:#fff;text-decoration:none;border-radius:6px;">
+        <a href="${primaryInviteLink}" style="display:inline-block;padding:10px 16px;background:#111;color:#fff;text-decoration:none;border-radius:6px;">
           Accept Invitation
         </a>
       </p>
       <p>If the button does not work, open this link:</p>
-      <p><a href="${payload.inviteLink}">${payload.inviteLink}</a></p>
+      <p><a href="${primaryInviteLink}">${primaryInviteLink}</a></p>
+      ${webBlock}
+      ${nativeBlock}
     </div>
   `;
 
@@ -156,7 +193,7 @@ Deno.serve(async (req) => {
     },
     body: JSON.stringify({
       from: resendFromEmail,
-      to: [email],
+      to: [recipientEmail],
       subject: `Invitation to join ${householdName}`,
       html,
     }),
@@ -194,6 +231,8 @@ Deno.serve(async (req) => {
   return jsonResponse(200, {
     ok: true,
     provider: "resend",
+    sandboxRecipient: recipientEmail,
+    requestedEmail,
     deliveryId: resendBody?.id ?? null,
     logId: emailLogId,
   });

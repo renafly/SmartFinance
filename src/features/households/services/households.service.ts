@@ -56,7 +56,21 @@ class HouseholdsService {
 
     if (error) throw error;
 
-    const inviteLink = `smartfinance://invite/${token}`;
+    const nativeInviteLink = `smartfinance://invite/${token}`;
+
+    const configuredWebBase = process.env.EXPO_PUBLIC_INVITE_WEB_URL?.replace(/\/$/, "");
+    const runtimeWebBase =
+      typeof window !== "undefined" && window.location?.origin
+        ? window.location.origin
+        : undefined;
+
+    const inviteWebBaseUrl = configuredWebBase ?? runtimeWebBase;
+    const webInviteLink = inviteWebBaseUrl
+      ? `${inviteWebBaseUrl}/invite/${token}`
+      : null;
+
+    // Prefer a web URL in browsers so localhost testing works from email click-through.
+    const inviteLink = webInviteLink ?? nativeInviteLink;
 
     // Optional async delivery: if the edge function is not deployed yet, keep the
     // invitation creation successful and allow manual link sharing.
@@ -67,6 +81,8 @@ class HouseholdsService {
           email,
           role: input.role,
           inviteLink,
+          nativeInviteLink,
+          webInviteLink,
           householdId: input.householdId,
         },
       }
