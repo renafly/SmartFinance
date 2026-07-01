@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,6 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 
 import {
   useAcceptHouseholdInvitation,
@@ -16,7 +18,8 @@ import {
   useMyHouseholdInvitations,
   useDeclineHouseholdInvitation,
   useRevokeHouseholdInvitation,
-} from "@/features/households/hooks/useHouseholdInvitations";
+  useLeaveHousehold,
+} from "@/features/households/hooks";
 import {
   useMyHouseholds,
   useSetDefaultHousehold,
@@ -45,6 +48,7 @@ function isValidEmail(email: string): boolean {
 
 export default function SettingsScreen() {
   const { data: session, isPending: sessionLoading } = useSession();
+  const router = useRouter();
   const { data: invitations = [], isPending: invitationsLoading } =
     useHouseholdInvitations();
   const { data: myInvitations = [], isPending: myInvitationsLoading } =
@@ -59,6 +63,7 @@ export default function SettingsScreen() {
   const createInvitation = useCreateHouseholdInvitation();
   const declineInvitation = useDeclineHouseholdInvitation();
   const revokeInvitation = useRevokeHouseholdInvitation();
+  const leaveHouseholdMutation = useLeaveHousehold();
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<HouseholdRole>("member");
@@ -110,6 +115,39 @@ export default function SettingsScreen() {
           setEmailQueued(result.emailQueued);
         },
       }
+    );
+  };
+
+  const handleLeaveHousehold = () => {
+    if (!householdId) return;
+
+    Alert.alert(
+      "Leave Household?",
+      `Are you sure you want to leave ${householdName}? You'll lose access to all household data.`,
+      [
+        { text: "Cancel", onPress: () => {} },
+        {
+          text: "Leave",
+          onPress: () => {
+            leaveHouseholdMutation.mutate(householdId, {
+              onSuccess: () => {
+                Alert.alert("Success", "You left the household.", [
+                  {
+                    text: "OK",
+                    onPress: () => {
+                      router.replace("/(app)");
+                    },
+                  },
+                ]);
+              },
+              onError: (error) => {
+                Alert.alert("Error", error.message);
+              },
+            });
+          },
+          style: "destructive",
+        },
+      ]
     );
   };
 
@@ -318,6 +356,21 @@ export default function SettingsScreen() {
               <Text style={styles.cardMeta}>Status: {member.status}</Text>
             </View>
           ))
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Danger Zone</Text>
+        <Button
+          title="Leave Household"
+          onPress={handleLeaveHousehold}
+          loading={leaveHouseholdMutation.isPending}
+          disabled={leaveHouseholdMutation.isPending}
+        />
+        {leaveHouseholdMutation.error && (
+          <Text style={styles.errorText}>
+            {String(leaveHouseholdMutation.error.message)}
+          </Text>
         )}
       </View>
     </ScrollView>

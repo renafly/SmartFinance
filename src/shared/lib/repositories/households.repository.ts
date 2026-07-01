@@ -223,4 +223,66 @@ export class HouseholdsRepository extends BaseRepository<'households'> {
 
     return { data: null, error: null }
   }
+
+  /** Transfer household ownership to another member. */
+  async transferOwnership(
+    householdId: string,
+    newOwnerId: string
+  ): Promise<RepoResult<{ success: boolean; message: string }>> {
+    const { data, error } = await (this.client.rpc as any)('transfer_household_ownership', {
+      p_household_id: householdId,
+      p_new_owner_id: newOwnerId,
+    })
+
+    if (error) return { data: null, error }
+
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | { success?: boolean; message?: string }
+      | undefined
+
+    if (!row || typeof row.success !== 'boolean' || !row.message) {
+      return { data: null, error: new Error('Invalid RPC response for transfer ownership.') }
+    }
+
+    return { data: { success: row.success, message: row.message }, error: null }
+  }
+
+  /** Remove a household member. */
+  async removeMemberByRpc(householdId: string, userIdToRemove: string): Promise<RepoResult<{ success: boolean; message: string }>> {
+    const { data, error } = await (this.client.rpc as any)('remove_household_member', {
+      p_household_id: householdId,
+      p_user_id_to_remove: userIdToRemove,
+    })
+
+    if (error) return { data: null, error }
+
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | { success?: boolean; message?: string }
+      | undefined
+
+    if (!row || typeof row.success !== 'boolean' || !row.message) {
+      return { data: null, error: new Error('Invalid RPC response for remove member.') }
+    }
+
+    return { data: { success: row.success, message: row.message }, error: null }
+  }
+
+  /** Leave a household. */
+  async leaveHousehold(householdId: string): Promise<RepoResult<{ success: boolean; message: string }>> {
+    const { data, error } = await (this.client.rpc as any)('leave_household', {
+      p_household_id: householdId,
+    })
+
+    if (error) return { data: null, error }
+
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | { success?: boolean; message?: string }
+      | undefined
+
+    if (!row || typeof row.success !== 'boolean' || !row.message) {
+      return { data: null, error: new Error('Invalid RPC response for leave household.') }
+    }
+
+    return { data: { success: row.success, message: row.message }, error: null }
+  }
 }

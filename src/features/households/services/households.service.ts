@@ -121,6 +121,36 @@ class HouseholdsService {
     if (error) throw error;
     return data ?? false;
   }
+
+  async transferOwnership(householdId: string, newOwnerId: string) {
+    const { data, error } = await repositories.households.transferOwnership(
+      householdId,
+      newOwnerId
+    );
+
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.message ?? 'Failed to transfer ownership');
+    return data;
+  }
+
+  async removeMember(householdId: string, userIdToRemove: string) {
+    const { data, error } = await repositories.households.removeMemberByRpc(
+      householdId,
+      userIdToRemove
+    );
+
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.message ?? 'Failed to remove member');
+    return data;
+  }
+
+  async leaveHousehold(householdId: string) {
+    const { data, error } = await repositories.households.leaveHousehold(householdId);
+
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.message ?? 'Failed to leave household');
+    return data;
+  }
 }
 
 export const householdsService = new HouseholdsService();

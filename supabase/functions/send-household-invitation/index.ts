@@ -232,8 +232,7 @@ Deno.serve(async (req) => {
   return jsonResponse(200, {
     ok: true,
     provider: "resend",
-    sandboxRecipient: recipientEmail,
-    requestedEmail,
+    recipient: recipientEmail,
     deliveryId: resendBody?.id ?? null,
     logId: emailLogId,
   });
