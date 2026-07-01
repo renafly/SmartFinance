@@ -9,12 +9,19 @@ export class SessionRepository {
       .single()
   }
 
-  async getMembership(userId: string) {
+  async getAcceptedMemberships(userId: string) {
     return supabase
       .from('household_members')
       .select('*')
       .eq('user_id', userId)
-      .single()
+      .eq('status', 'accepted')
+      .order('joined_at', { ascending: false })
+  }
+
+  async setDefaultHousehold(householdId: string) {
+    return supabase.rpc('set_default_household', {
+      p_household_id: householdId,
+    })
   }
 
   async getHousehold(householdId: string) {

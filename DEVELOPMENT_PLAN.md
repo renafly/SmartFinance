@@ -2,6 +2,18 @@
 
 > Based on Remaining Development Tasks (July 2026)
 
+## Execution Status
+
+- Status: In progress
+- Started: July 1, 2026
+- Active Sprint: Sprint 1 (Household invites + household settings base)
+- Current Focus:
+  - Invite member flow UI and hooks
+  - Pending invitations list and revoke action
+  - Household settings screen foundation
+  - Invitation token accept/decline flow
+  - Invitation email delivery integration
+
 ---
 
 ## 1) Goal
@@ -43,6 +55,7 @@ Deliver a production-ready MVP in iterative milestones, prioritizing core money 
 - Transfer household ownership
 - Remove member
 - Household settings screen
+- Invitation email delivery (send + fallback link sharing)
 
 ### Dependencies
 

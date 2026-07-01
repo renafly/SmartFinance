@@ -7,6 +7,17 @@ type HouseholdMember = Database['public']['Tables']['household_members']['Row']
 type HouseholdInvitation = Database['public']['Tables']['household_invitations']['Row']
 type HouseholdRole = Database['public']['Enums']['household_role']
 
+export type MyHouseholdInvitation = {
+  id: string
+  household_id: string
+  household_name: string
+  email: string
+  role: HouseholdRole
+  token: string
+  expires_at: string | null
+  created_at: string | null
+}
+
 export class HouseholdsRepository extends BaseRepository<'households'> {
   constructor(client: SupabaseClient<Database>) {
     super(client, 'households')
@@ -78,6 +89,28 @@ export class HouseholdsRepository extends BaseRepository<'households'> {
     return { data, error: null }
   }
 
+  async listInvitations(householdId: string): Promise<RepoResult<HouseholdInvitation[]>> {
+    const { data, error } = await this.client
+      .from('household_invitations')
+      .select('*')
+      .eq('household_id', householdId)
+      .is('accepted_at', null)
+      .order('created_at', { ascending: false })
+
+    if (error) return { data: null, error }
+    return { data: data ?? [], error: null }
+  }
+
+  async deleteInvitation(invitationId: string): Promise<RepoResult<null>> {
+    const { error } = await this.client
+      .from('household_invitations')
+      .delete()
+      .eq('id', invitationId)
+
+    if (error) return { data: null, error }
+    return { data: null, error: null }
+  }
+
   async acceptInvitation(token: string): Promise<RepoResult<HouseholdInvitation>> {
     const { data, error } = await this.client
       .from('household_invitations')
@@ -88,6 +121,59 @@ export class HouseholdsRepository extends BaseRepository<'households'> {
 
     if (error) return { data: null, error }
     return { data, error: null }
+  }
+
+  async listMyInvitations(): Promise<RepoResult<MyHouseholdInvitation[]>> {
+    const { data, error } = await (this.client as unknown as {
+      rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: any }>
+    }).rpc('list_my_household_invitations')
+
+    if (error) return { data: null, error }
+    return { data: (data ?? []) as unknown as MyHouseholdInvitation[], error: null }
+  }
+
+  async acceptInvitationByToken(token: string): Promise<RepoResult<{ household_id: string; role: HouseholdRole }>> {
+    const { data, error } = await (this.client as unknown as {
+      rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: any }>
+    }).rpc('accept_household_invitation', {
+      p_token: token,
+    })
+
+    if (error) return { data: null, error }
+
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | { household_id?: string; role?: HouseholdRole; out_household_id?: string; out_role?: HouseholdRole }
+      | undefined
+
+    if (!row) {
+      return { data: null, error: new Error('Invitation response did not return a household.') }
+    }
+
+    const householdId = row.household_id ?? row.out_household_id
+    const role = row.role ?? row.out_role
+
+    if (!householdId || !role) {
+      return { data: null, error: new Error('Invitation response payload is incomplete.') }
+    }
+
+    return {
+      data: {
+        household_id: householdId,
+        role,
+      },
+      error: null,
+    }
+  }
+
+  async declineInvitationByToken(token: string): Promise<RepoResult<boolean>> {
+    const { data, error } = await (this.client as unknown as {
+      rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: any }>
+    }).rpc('decline_household_invitation', {
+      p_token: token,
+    })
+
+    if (error) return { data: null, error }
+    return { data: Boolean(data), error: null }
   }
 
   /** Wraps the is_household_member RPC. */

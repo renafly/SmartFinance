@@ -3,19 +3,34 @@ import { UserProfile } from "./session.types"
 
 export class SessionService {
   async load(profile: UserProfile) {
-    const membership = await sessionRepository.getMembership(profile.id)
+    const memberships = await sessionRepository.getAcceptedMemberships(profile.id)
 
-    if (membership.error) throw membership.error
+    if (memberships.error) throw memberships.error
+
+    const acceptedMemberships = memberships.data ?? []
+
+    const selectedMembership =
+      acceptedMemberships.find(
+        (membership) => membership.household_id === profile.default_household_id
+      ) ?? acceptedMemberships[0] ?? null
+
+    if (!selectedMembership) {
+      return {
+        profile,
+        membership: null,
+        household: null,
+      }
+    }
 
     const household = await sessionRepository.getHousehold(
-      membership.data.household_id
+      selectedMembership.household_id
     )
 
     if (household.error) throw household.error
 
     return {
       profile,
-      membership: membership.data,
+      membership: selectedMembership,
       household: household.data,
     }
   }

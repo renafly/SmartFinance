@@ -1,0 +1,110 @@
+import { repositories } from "@/shared/lib/repositories";
+import { supabase } from "@/shared/lib/supabase/client";
+import type { Database } from "@/shared/types/database.types";
+
+type HouseholdRole = Database["public"]["Enums"]["household_role"];
+
+type CreateInvitationInput = {
+  householdId: string;
+  email: string;
+  role: HouseholdRole;
+};
+
+class HouseholdsService {
+  async getMyHouseholds(userId: string) {
+    const { data, error } = await repositories.households.listForUser(userId);
+
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  async setDefaultHousehold(householdId: string) {
+    const { data, error } = await supabase.rpc("set_default_household", {
+      p_household_id: householdId,
+    });
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getInvitations(householdId: string) {
+    const { data, error } = await repositories.households.listInvitations(
+      householdId
+    );
+
+    if (error) throw error;
+
+    return data ?? [];
+  }
+
+  async createInvitation(input: CreateInvitationInput) {
+    const email = input.email.trim().toLowerCase();
+
+    const token = `invite_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 12)}`;
+
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
+
+    const { data, error } = await repositories.households.createInvitation({
+      household_id: input.householdId,
+      email,
+      role: input.role,
+      token,
+      expires_at: expiresAt,
+    });
+
+    if (error) throw error;
+
+    const inviteLink = `smartfinance://invite/${token}`;
+
+    // Optional async delivery: if the edge function is not deployed yet, keep the
+    // invitation creation successful and allow manual link sharing.
+    const { error: emailError } = await supabase.functions.invoke(
+      "send-household-invitation",
+      {
+        body: {
+          email,
+          role: input.role,
+          inviteLink,
+          householdId: input.householdId,
+        },
+      }
+    );
+
+    return {
+      invitation: data,
+      inviteLink,
+      emailQueued: !emailError,
+    };
+  }
+
+  async revokeInvitation(invitationId: string) {
+    const { error } = await repositories.households.deleteInvitation(invitationId);
+
+    if (error) throw error;
+  }
+
+  async getMyInvitations() {
+    const { data, error } = await repositories.households.listMyInvitations();
+
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  async acceptMyInvitation(token: string) {
+    const { data, error } = await repositories.households.acceptInvitationByToken(token);
+
+    if (error) throw error;
+    return data;
+  }
+
+  async declineMyInvitation(token: string) {
+    const { data, error } = await repositories.households.declineInvitationByToken(token);
+
+    if (error) throw error;
+    return data ?? false;
+  }
+}
+
+export const householdsService = new HouseholdsService();

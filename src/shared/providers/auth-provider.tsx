@@ -55,13 +55,22 @@ export default function AuthProvider({ children }: PropsWithChildren) {
           .from('household_members')
           .select('household_id')
           .eq('user_id', claims.sub)
-          .single()
+          .eq('status', 'accepted')
+          .order('joined_at', { ascending: false })
+        
+        const memberships = membershipData ?? []
 
         if (membershipError) {
           console.error('Error fetching household membership:', membershipError)
         }
 
-        setHouseholdId(membershipData?.household_id ?? null)
+        const defaultMembership = memberships.find(
+          (member) => member.household_id === profileData?.default_household_id
+        )
+
+        const selectedMembership = defaultMembership ?? memberships[0] ?? null
+
+        setHouseholdId(selectedMembership?.household_id ?? null)
       } else {
         setProfile(null)
         setHouseholdId(null)

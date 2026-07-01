@@ -14,6 +14,11 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-, "src/features/accounts/components/account-empty-statetsx"  ]
+    "expo-env.d.ts",
+    "src/features/accounts/components/account-empty-statetsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "supabase/functions"
+  ]
 }

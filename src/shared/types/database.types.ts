@@ -422,6 +422,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          default_household_id: string | null
           email: string
           full_name: string | null
           id: string
@@ -433,6 +434,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          default_household_id?: string | null
           email: string
           full_name?: string | null
           id: string
@@ -444,6 +446,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          default_household_id?: string | null
           email?: string
           full_name?: string | null
           id?: string
@@ -452,7 +455,15 @@ export type Database = {
           timezone?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_default_household_id_fkey"
+            columns: ["default_household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       recurring_transactions: {
         Row: {
@@ -753,6 +764,10 @@ export type Database = {
       is_household_owner: {
         Args: { p_household_id: string; p_user_id: string }
         Returns: boolean
+      }
+      set_default_household: {
+        Args: { p_household_id: string }
+        Returns: string
       }
     }
     Enums: {
