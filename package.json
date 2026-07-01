@@ -5,6 +5,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "9.1.0",
     "@react-native-picker/picker": "2.11.4",
     "@react-navigation/drawer": "^7.12.3",
     "@react-oauth/google": "^0.13.5",

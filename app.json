@@ -37,7 +37,8 @@
       "expo-splash-screen",
       "expo-router",
       "expo-status-bar",
-      "expo-image"
+      "expo-image",
+      "@react-native-community/datetimepicker"
     ]
   }
 }

@@ -31,13 +31,13 @@ export class HouseholdsRepository extends BaseRepository<'households'> {
   async listMembers(householdId: string): Promise<RepoResult<HouseholdMember[]>> {
     const { data, error } = await this.client
       .from('household_members')
-      .select('*, profile:profiles(*)')
+      .select('*, profile:profiles!household_members_user_id_fkey(*)')
       .eq('household_id', householdId)
 
     if (error) return { data: null, error }
     return { data: data as unknown as HouseholdMember[], error: null }
   }
-
+  
   async addMember(
     householdId: string,
     userId: string,
