@@ -22,7 +22,7 @@ type EmailLogInsert = {
   sent_at?: string;
 };
 
-const SANDBOX_RECIPIENT_EMAIL = "renafly@gmail.com";
+// const SANDBOX_RECIPIENT_EMAIL = "renafly@gmail.com";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -102,7 +102,8 @@ Deno.serve(async (req) => {
     return jsonResponse(400, { error: "Missing required fields." });
   }
 
-  const recipientEmail = SANDBOX_RECIPIENT_EMAIL;
+  // const recipientEmail = SANDBOX_RECIPIENT_EMAIL;
+  const recipientEmail = requestedEmail;
 
   const { data: isAdmin, error: adminError } = await supabase.rpc("is_household_admin", {
     p_household_id: payload.householdId,
