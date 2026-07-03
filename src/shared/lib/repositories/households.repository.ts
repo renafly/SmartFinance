@@ -49,7 +49,7 @@ export class HouseholdsRepository extends BaseRepository<'households'> {
 
     if (error) return { data: null, error }
     const households = (data ?? [])
-      .map((row) => row.household)
+      .map((row) => (row as unknown as { household: Household | null }).household)
       .filter((h): h is Household => h !== null)
     return { data: households, error: null }
   }

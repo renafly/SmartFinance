@@ -79,7 +79,7 @@ export class TransactionsRepository extends BaseRepository<'transactions'> {
 
     const { data, error } = await query
     if (error) return { data: null, error }
-    return { data: (data as TransactionWithRelations[]) ?? [], error: null }
+    return { data: (data as unknown as TransactionWithRelations[]) ?? [], error: null }
   }
 
   /** Single transaction with account, creator profile, and category joined in. */
@@ -91,7 +91,7 @@ export class TransactionsRepository extends BaseRepository<'transactions'> {
       .single()
 
     if (error) return { data: null, error }
-    return { data: data as TransactionWithRelations, error: null }
+    return { data: data as unknown as TransactionWithRelations, error: null }
   }
 
   /**
