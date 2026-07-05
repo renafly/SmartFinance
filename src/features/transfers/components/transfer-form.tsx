@@ -39,8 +39,8 @@ export function TransferForm({ loading, accounts, categories, onSubmit }: Props)
   const fieldGroupStyle = { gap: spacing.sm, flex: 1 } as const;
   const labelStyle = { fontWeight: "700" as const };
   const inputStyle = {
-    borderWidth: 3,
-    borderColor: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

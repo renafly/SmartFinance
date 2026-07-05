@@ -12,8 +12,8 @@ export default function UserCard() {
     <Card
       style={{
         marginTop: spacing.lg,
-        borderWidth: 3,
-        borderColor: colors.text,
+        borderWidth: 1,
+        borderColor: colors.border,
       }}
     >
       <Card.Content style={{ alignItems: "center", paddingVertical: spacing.lg }}>

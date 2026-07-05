@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
+import { Wallet } from 'lucide-react-native';
 import GoogleSignInButton from '@/features/auth/components/google-sign-in-button';
 import { useI18n } from '@/shared/i18n';
 import {
@@ -22,7 +23,7 @@ export default function LoginScreen() {
 
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logo}>💰</Text>
+            <Wallet size={48} color={colors.onPrimary} strokeWidth={2.25} />
           </View>
 
           <Text style={globalStyles.screenTitle}>

@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
     borderWidth: border.thick,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     ...typography.body,
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
   },
 
   roleChipSelected: {
@@ -515,14 +515,14 @@ const styles = StyleSheet.create({
   },
 
   roleChipTextSelected: {
-    color: colors.text,
+    color: colors.onPrimary,
   },
 
   listCard: {
     borderWidth: border.thin,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     padding: spacing.md,
     gap: spacing.xs,
   },
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
     borderWidth: border.thin,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     padding: spacing.sm,
     gap: spacing.xs,
   },

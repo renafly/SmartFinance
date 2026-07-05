@@ -61,8 +61,8 @@ export function SelectSheet({
           paddingVertical: spacing.lg,
           paddingHorizontal: spacing.lg,
           backgroundColor: colors.surface,
-          borderWidth: 3,
-          borderColor: colors.text,
+          borderWidth: 1,
+          borderColor: colors.border,
           maxHeight: isWeb ? 320 : "80%",
           width: "100%",
           shadowColor: isWeb ? undefined : undefined,
@@ -93,7 +93,7 @@ export function SelectSheet({
                 backgroundColor: selected === null || selected === "" ? colors.primary : colors.surface,
               }}
             >
-              <Text style={{ fontWeight: "900", width: 20 }}>{selected === null || selected === "" ? "●" : "○"}</Text>
+              <Text style={{ fontWeight: "700", width: 20 }}>{selected === null || selected === "" ? "●" : "○"}</Text>
               <Text style={{ flex: 1 }}>{nullLabel}</Text>
             </Pressable>
           )}
@@ -116,7 +116,7 @@ export function SelectSheet({
                 backgroundColor: option.id === selected ? colors.primary : colors.surface,
               }}
             >
-              <Text style={{ fontWeight: "900", width: 20 }}>{option.id === selected ? "●" : "○"}</Text>
+              <Text style={{ fontWeight: "700", width: 20 }}>{option.id === selected ? "●" : "○"}</Text>
               <Text style={{ flex: 1 }}>{option.label}</Text>
             </Pressable>
           ))}

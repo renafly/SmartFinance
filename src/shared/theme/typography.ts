@@ -1,51 +1,53 @@
-import { Heading4 } from "lucide-react-native";
-
 export const typography = {
   display: {
-    fontSize: 36,
-    fontWeight: "900",
-    lineHeight: 42,
+    fontSize: 34,
+    fontWeight: "700",
+    lineHeight: 40,
+    letterSpacing: -0.5,
   },
 
   h1: {
-    fontSize: 30,
-    fontWeight: "900",
-    lineHeight: 36,
+    fontSize: 28,
+    fontWeight: "700",
+    lineHeight: 34,
+    letterSpacing: -0.4,
   },
 
   h2: {
-    fontSize: 24,
-    fontWeight: "800",
-    lineHeight: 30,
+    fontSize: 22,
+    fontWeight: "700",
+    lineHeight: 28,
+    letterSpacing: -0.3,
   },
 
   h3: {
-    fontSize: 20,
-    fontWeight: "800",
-    lineHeight: 26,
+    fontSize: 18,
+    fontWeight: "600",
+    lineHeight: 24,
+    letterSpacing: -0.2,
   },
 
   h4: {
-    fontSize: 18,
-    fontWeight: "800",
-    lineHeight: 24,
+    fontSize: 16,
+    fontWeight: "600",
+    lineHeight: 22,
   },
 
   body: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 15,
+    fontWeight: "400",
     lineHeight: 22,
   },
 
   caption: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "500",
     lineHeight: 18,
   },
 
   tiny: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "500",
     lineHeight: 16,
   },
 } as const;

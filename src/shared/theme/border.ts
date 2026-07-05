@@ -1,5 +1,5 @@
 export const border = {
-  thin: 2,
-  normal: 3,
-  thick: 4,
+  thin: 1,
+  normal: 1,
+  thick: 2,
 };

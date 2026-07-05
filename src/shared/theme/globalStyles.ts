@@ -3,6 +3,7 @@ import { colors } from './colors';
 import { spacing } from './spacing';
 import { radius } from './radius';
 import { border } from './border';
+import { shadows } from './shadows';
 import { typography } from './typography';
 
 export const globalStyles = StyleSheet.create({
@@ -17,33 +18,30 @@ export const globalStyles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // Neo-brutalism: Bold borders, NO shadows
+  // Modern minimal: soft borders, gentle rounding, subtle shadow
   card: {
     width: '100%',
     backgroundColor: colors.surface,
-    padding: spacing.xl,
-    borderRadius: 0, // Sharp corners for brutalism
-    borderWidth: 4, // Extra thick border
-    borderColor: colors.text,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: border.thin,
+    borderColor: colors.border,
+    ...shadows.sm,
   },
 
   screenTitle: {
     ...typography.display,
     color: colors.text,
-    textAlign: 'center',
-    fontWeight: '900', // Extra bold
   },
 
   screenSubtitle: {
     ...typography.body,
     color: colors.textSecondary,
-    textAlign: 'center',
   },
 
   sectionTitle: {
     ...typography.h2,
     color: colors.text,
-    fontWeight: '900', // Extra bold
   },
 
   caption: {

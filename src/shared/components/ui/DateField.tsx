@@ -40,8 +40,8 @@ const formatDisplay = (value: string): string => {
 };
 
 const boxStyle = {
-  borderWidth: 3,
-  borderColor: colors.text,
+  borderWidth: 1,
+  borderColor: colors.border,
   backgroundColor: colors.surface,
   paddingHorizontal: spacing.md,
   paddingVertical: spacing.md,
@@ -74,9 +74,9 @@ export function DateField({
             paddingLeft: spacing.md,
             paddingRight: spacing.md,
             minHeight: 56,
-            borderWidth: 3,
+            borderWidth: 1,
             borderStyle: "solid",
-            borderColor: colors.text,
+            borderColor: colors.border,
             color: colors.text,
             background: colors.surface,
             boxSizing: "border-box",

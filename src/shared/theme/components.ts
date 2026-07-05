@@ -7,36 +7,29 @@ export const componentStyles = {
   card: {
     backgroundColor: colors.surface,
 
-    borderWidth: border.normal,
+    borderWidth: border.thin,
     borderColor: colors.border,
 
-    borderRadius: radius.md,
-
-    ...shadows.md,
-  },
-
-  button: {
-    borderWidth: border.normal,
-    borderColor: colors.border,
-
-    borderRadius: radius.md,
-
-    ...shadows.md,
-  },
-
-  input: {
-    backgroundColor: colors.white,
-
-    borderWidth: border.normal,
-    borderColor: colors.border,
-
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
 
     ...shadows.sm,
   },
 
+  button: {
+    borderRadius: radius.md,
+  },
+
+  input: {
+    backgroundColor: colors.surface,
+
+    borderWidth: border.thin,
+    borderColor: colors.border,
+
+    borderRadius: radius.md,
+  },
+
   badge: {
-    borderWidth: border.normal,
+    borderWidth: border.thin,
     borderColor: colors.border,
 
     borderRadius: radius.pill,

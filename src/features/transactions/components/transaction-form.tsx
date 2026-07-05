@@ -52,8 +52,8 @@ export function TransactionForm({
   };
 
   const inputStyle = {
-    borderWidth: 3,
-    borderColor: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

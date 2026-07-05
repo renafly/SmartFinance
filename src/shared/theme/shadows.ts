@@ -1,57 +1,53 @@
 import { Platform } from "react-native";
+import { colorScheme } from "./colors";
+
+// Modern, soft, diffused shadows (no hard neo-brutalist offsets).
+const shadowColor = "#0F172A";
+const opacity = colorScheme === "dark" ? 0.5 : 0.08;
 
 export const shadows = {
   sm: Platform.select({
     ios: {
-      shadowColor: "#111",
-      shadowOpacity: 1,
-      shadowRadius: 0,
-      shadowOffset: {
-        width: 2,
-        height: 2,
-      },
+      shadowColor,
+      shadowOpacity: opacity,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
     },
     android: {
-      elevation: 3,
+      elevation: 2,
     },
     web: {
-      boxShadow: "2px 2px 0px rgba(17, 17, 17, 0.3)",
+      boxShadow: `0px 1px 3px rgba(15, 23, 42, ${opacity})`,
     },
   }),
 
   md: Platform.select({
     ios: {
-      shadowColor: "#111",
-      shadowOpacity: 1,
-      shadowRadius: 0,
-      shadowOffset: {
-        width: 4,
-        height: 4,
-      },
+      shadowColor,
+      shadowOpacity: opacity,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 6 },
     },
     android: {
-      elevation: 6,
+      elevation: 4,
     },
     web: {
-      boxShadow: "4px 4px 0px rgba(17, 17, 17, 0.3)",
+      boxShadow: `0px 6px 18px rgba(15, 23, 42, ${opacity})`,
     },
   }),
 
   lg: Platform.select({
     ios: {
-      shadowColor: "#111",
-      shadowOpacity: 1,
-      shadowRadius: 0,
-      shadowOffset: {
-        width: 6,
-        height: 6,
-      },
+      shadowColor,
+      shadowOpacity: opacity + 0.02,
+      shadowRadius: 28,
+      shadowOffset: { width: 0, height: 12 },
     },
     android: {
-      elevation: 9,
+      elevation: 8,
     },
     web: {
-      boxShadow: "6px 6px 0px rgba(17, 17, 17, 0.3)",
+      boxShadow: `0px 14px 40px rgba(15, 23, 42, ${opacity + 0.02})`,
     },
   }),
 };

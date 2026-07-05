@@ -13,7 +13,7 @@ export default function PageHeader({
 }: Props) {
   return (
     <View style={{ marginBottom: spacing.xxl }}>
-      <Text variant="displaySmall" style={{ fontWeight: "900", marginBottom: subtitle ? spacing.sm : 0 }}>
+      <Text variant="displaySmall" style={{ fontWeight: "700", marginBottom: subtitle ? spacing.sm : 0 }}>
         {title}
       </Text>
 

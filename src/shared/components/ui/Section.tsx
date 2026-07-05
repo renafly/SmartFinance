@@ -14,7 +14,7 @@ export default function Section({
 }: Props) {
   return (
     <View style={{ marginBottom: spacing.xxl, gap: spacing.md }}>
-      <Text variant="headlineSmall" style={{ fontWeight: "900" }}>
+      <Text variant="headlineSmall" style={{ fontWeight: "700" }}>
         {title}
       </Text>
       {children}

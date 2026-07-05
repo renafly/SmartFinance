@@ -132,16 +132,16 @@ export default function RecurringScreen() {
             />
             <View style={{ gap: spacing.sm }}>
               <Text style={{ fontWeight: "700" }}>{t("recurring.titleLabel")}</Text>
-              <NativeTextInput value={title} onChangeText={setTitle} placeholder={t("recurring.placeholderTitle")} placeholderTextColor={colors.textMuted} style={{ borderWidth: 3, borderColor: colors.text, backgroundColor: colors.surface, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, minHeight: 56, color: colors.text }} />
+              <NativeTextInput value={title} onChangeText={setTitle} placeholder={t("recurring.placeholderTitle")} placeholderTextColor={colors.textMuted} style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, minHeight: 56, color: colors.text }} />
             </View>
             <View style={{ gap: spacing.sm }}>
               <Text style={{ fontWeight: "700" }}>{t("recurring.amount")}</Text>
-              <NativeTextInput value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.textMuted} style={{ borderWidth: 3, borderColor: colors.text, backgroundColor: colors.surface, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, minHeight: 56, color: colors.text }} />
+              <NativeTextInput value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.textMuted} style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, minHeight: 56, color: colors.text }} />
             </View>
             <DateField label={t("recurring.nextRun")} value={nextRun} onChange={setNextRun} />
             <View style={{ gap: spacing.sm }}>
               <Text style={{ fontWeight: "700" }}>{t("recurring.notes")}</Text>
-              <NativeTextInput value={notes} onChangeText={setNotes} multiline numberOfLines={4} placeholder={t("recurring.placeholderNotes")} placeholderTextColor={colors.textMuted} style={{ borderWidth: 3, borderColor: colors.text, backgroundColor: colors.surface, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, minHeight: 120, color: colors.text, textAlignVertical: "top" }} />
+              <NativeTextInput value={notes} onChangeText={setNotes} multiline numberOfLines={4} placeholder={t("recurring.placeholderNotes")} placeholderTextColor={colors.textMuted} style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, minHeight: 120, color: colors.text, textAlignVertical: "top" }} />
             </View>
             <Button title={t("recurring.create")} onPress={onCreate} loading={createRecurring.isPending} disabled={createRecurring.isPending || !accountId || !title.trim()} />
           </View>

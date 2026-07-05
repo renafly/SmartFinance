@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Text } from "react-native-paper";
 
 import { DateField } from "@/shared/components/ui/DateField";
-import { colors, spacing } from "@/shared/theme";
+import { colors, spacing, radius } from "@/shared/theme";
 
 type Props = {
   visible: boolean;
@@ -70,13 +70,13 @@ export function CustomDateRangeSheet({
             width: "100%",
             maxWidth: isWeb ? 480 : undefined,
             backgroundColor: colors.surface,
-            borderWidth: 3,
-            borderColor: colors.text,
+            borderWidth: 1,
+            borderColor: colors.border,
             padding: spacing.lg,
             paddingBottom: spacing.xl,
           }}
         >
-          <Text variant="headlineSmall" style={{ marginBottom: spacing.lg, fontWeight: "900" }}>
+          <Text variant="headlineSmall" style={{ marginBottom: spacing.lg, fontWeight: "700" }}>
             Custom Date Range
           </Text>
 
@@ -90,27 +90,27 @@ export function CustomDateRangeSheet({
               onPress={onClose}
               style={{
                 flex: 1,
-                borderWidth: 3,
-                borderColor: colors.text,
+                borderWidth: 1,
+                borderColor: colors.border,
                 backgroundColor: colors.surface,
+                borderRadius: radius.md,
                 paddingVertical: spacing.md,
                 alignItems: "center",
               }}
             >
-              <Text style={{ fontWeight: "900" }}>Cancel</Text>
+              <Text style={{ fontWeight: "600", color: colors.text }}>Cancel</Text>
             </Pressable>
             <Pressable
               onPress={handleApply}
               style={{
                 flex: 1,
-                borderWidth: 3,
-                borderColor: colors.text,
                 backgroundColor: colors.primary,
+                borderRadius: radius.md,
                 paddingVertical: spacing.md,
                 alignItems: "center",
               }}
             >
-              <Text style={{ fontWeight: "900" }}>Apply</Text>
+              <Text style={{ fontWeight: "600", color: colors.onPrimary }}>Apply</Text>
             </Pressable>
           </View>
         </Pressable>

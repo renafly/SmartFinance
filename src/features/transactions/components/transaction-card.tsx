@@ -45,8 +45,8 @@ export function TransactionCard({ transaction, onPress }: Props) {
       onPress={onPress}
       style={{
         backgroundColor: colors.surface,
-        borderWidth: 3,
-        borderColor: colors.text,
+        borderWidth: 1,
+        borderColor: colors.border,
         marginBottom: 8,
       }}
     />

@@ -33,7 +33,7 @@ export default function HouseholdCreateCard({
     <Card>
       <View style={{ gap: spacing.md }}>
         <View style={{ gap: spacing.xs }}>
-          <Text style={{ fontWeight: "900", fontSize: 18, color: colors.text }}>{title}</Text>
+          <Text style={{ fontWeight: "700", fontSize: 18, color: colors.text }}>{title}</Text>
           <Text style={{ color: colors.textMuted }}>{subtitle}</Text>
         </View>
 
@@ -45,8 +45,8 @@ export default function HouseholdCreateCard({
             placeholder={session?.profile.full_name ? `${session.profile.full_name}'s Household` : "My Household"}
             placeholderTextColor={colors.textMuted}
             style={{
-              borderWidth: 3,
-              borderColor: colors.text,
+              borderWidth: 1,
+              borderColor: colors.border,
               backgroundColor: colors.surface,
               paddingHorizontal: spacing.md,
               paddingVertical: spacing.sm,

@@ -1,6 +1,6 @@
 import { Modal, Platform, Pressable, ScrollView, View } from "react-native";
 import { Text } from "react-native-paper";
-import { colors, spacing } from "@/shared/theme";
+import { colors, spacing, radius } from "@/shared/theme";
 
 type Option = { id: string; label: string };
 
@@ -48,8 +48,8 @@ export function MultiSelectSheet({
             width: "100%",
             maxWidth: isWeb ? 480 : undefined,
             backgroundColor: colors.surface,
-            borderWidth: 3,
-            borderColor: colors.text,
+            borderWidth: 1,
+            borderColor: colors.border,
             paddingTop: spacing.lg,
             paddingBottom: spacing.xl,
             maxHeight: "80%",
@@ -64,7 +64,7 @@ export function MultiSelectSheet({
               marginBottom: spacing.md,
             }}
           >
-            <Text variant="headlineSmall" style={{ fontWeight: "900" }}>
+            <Text variant="headlineSmall" style={{ fontWeight: "700" }}>
               {title}
             </Text>
             <Pressable onPress={onClear} hitSlop={8}>
@@ -99,7 +99,7 @@ export function MultiSelectSheet({
                         : colors.surface,
                   })}
                 >
-                  <Text style={{ fontWeight: "900", width: 20 }}>
+                  <Text style={{ fontWeight: "700", width: 20 }}>
                     {isSelected ? "☑" : "☐"}
                   </Text>
                   <Text style={{ flex: 1, fontWeight: isSelected ? "700" : "400" }}>
@@ -119,14 +119,13 @@ export function MultiSelectSheet({
             <Pressable
               onPress={onClose}
               style={{
-                borderWidth: 3,
-                borderColor: colors.text,
                 backgroundColor: colors.primary,
+                borderRadius: radius.md,
                 paddingVertical: spacing.md,
                 alignItems: "center",
               }}
             >
-              <Text style={{ fontWeight: "900" }}>Done</Text>
+              <Text style={{ fontWeight: "600", color: colors.onPrimary }}>Done</Text>
             </Pressable>
           </View>
         </Pressable>

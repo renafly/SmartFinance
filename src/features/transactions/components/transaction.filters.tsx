@@ -188,8 +188,8 @@ const styles = StyleSheet.create({
 
   segment: {
     flexDirection: "row",
-    borderWidth: 3,
-    borderColor: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: radius.md,
     overflow: "hidden",
     backgroundColor: colors.surface,
@@ -220,8 +220,8 @@ const styles = StyleSheet.create({
   },
 
   chip: {
-    borderWidth: 3,
-    borderColor: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: radius.md,
     backgroundColor: colors.surface,
     paddingVertical: spacing.sm,

@@ -53,8 +53,8 @@ export default function SavingsScreen() {
   }
 
   const inputStyle = {
-    borderWidth: 3,
-    borderColor: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -126,7 +126,7 @@ export default function SavingsScreen() {
                   {target !== null && (
                     <>
                       <Text style={{ color: colors.textMuted }}>{t("savings.target", { value: formatCurrency(target) })}</Text>
-                      <View style={{ height: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.text, borderRadius: 4, overflow: "hidden" }}>
+                      <View style={{ height: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 4, overflow: "hidden" }}>
                         <View style={{ width: `${progress ?? 0}%` as any, height: "100%", backgroundColor: colors.primary }} />
                       </View>
                       <Text style={{ color: colors.textMuted, fontSize: 12 }}>{t("savings.progress", { percent: String(progress ?? 0) })}</Text>

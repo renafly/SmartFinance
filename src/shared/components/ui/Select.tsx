@@ -109,7 +109,7 @@ export function Select({
               borderBottomColor: "#EAE6DA",
             })}
           >
-            <Text style={{ fontWeight: "900", width: 16 }}>
+            <Text style={{ fontWeight: "700", width: 16 }}>
               {active ? "●" : "○"}
             </Text>
             <Text style={{ flex: 1, fontWeight: active ? "700" : "400" }}>
@@ -130,8 +130,8 @@ export function Select({
           onPress={openMenu}
           disabled={disabled}
           style={{
-            borderWidth: 3,
-            borderColor: colors.text,
+            borderWidth: 1,
+            borderColor: colors.border,
             backgroundColor: disabled ? "#F2F2F2" : colors.surface,
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.md,
@@ -156,7 +156,7 @@ export function Select({
           >
             {selectedLabel}
           </Text>
-          <Text style={{ fontWeight: "900" }}>{open ? "▲" : "▼"}</Text>
+          <Text style={{ fontWeight: "700" }}>{open ? "▲" : "▼"}</Text>
         </Pressable>
       </View>
 
@@ -193,8 +193,8 @@ export function Select({
                   ? windowHeight - anchor.y + 4
                   : undefined,
                 backgroundColor: colors.surface,
-                borderWidth: 3,
-                borderColor: colors.text,
+                borderWidth: 1,
+                borderColor: colors.border,
                 maxHeight: DROPDOWN_MAX_HEIGHT,
                 overflow: "hidden",
               }}
@@ -208,7 +208,7 @@ export function Select({
               style={{
                 backgroundColor: colors.surface,
                 borderTopWidth: 3,
-                borderColor: colors.text,
+                borderColor: colors.border,
                 paddingBottom: spacing.xl,
                 paddingTop: spacing.md,
                 maxHeight: "70%",
@@ -220,7 +220,7 @@ export function Select({
                   style={{
                     paddingHorizontal: spacing.lg,
                     marginBottom: spacing.md,
-                    fontWeight: "900",
+                    fontWeight: "700",
                   }}
                 >
                   {label}

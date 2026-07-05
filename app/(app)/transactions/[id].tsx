@@ -141,15 +141,15 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: colors.surface,
-    borderWidth: 3,
-    borderColor: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: radius.md,
     padding: spacing.lg,
   },
 
   dangerZone: {
     marginTop: spacing.md,
-    borderWidth: 3,
+    borderWidth: 1,
     borderColor: colors.danger,
     borderRadius: radius.md,
     padding: spacing.lg,

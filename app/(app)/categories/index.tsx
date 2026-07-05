@@ -10,7 +10,7 @@ import Section from "@/shared/components/ui/Section";
 import EmptyState from "@/shared/components/ui/EmptyState";
 import { Select } from "@/shared/components/ui/Select";
 import { useI18n } from "@/shared/i18n";
-import { colors, spacing } from "@/shared/theme";
+import { colors, spacing, radius } from "@/shared/theme";
 
 type CategoryType = "income" | "expense" | "account";
 
@@ -152,8 +152,8 @@ export default function CategoriesScreen() {
               placeholder="e.g. Subscriptions"
               placeholderTextColor={colors.textMuted}
               style={{
-                borderWidth: 3,
-                borderColor: colors.text,
+                borderWidth: 1,
+                borderColor: colors.border,
                 backgroundColor: colors.surface,
                 paddingHorizontal: spacing.md,
                 paddingVertical: spacing.sm,
@@ -171,8 +171,8 @@ export default function CategoriesScreen() {
               placeholder="e.g. shopping-cart"
               placeholderTextColor={colors.textMuted}
               style={{
-                borderWidth: 3,
-                borderColor: colors.text,
+                borderWidth: 1,
+                borderColor: colors.border,
                 backgroundColor: colors.surface,
                 paddingHorizontal: spacing.md,
                 paddingVertical: spacing.sm,
@@ -191,8 +191,8 @@ export default function CategoriesScreen() {
               placeholderTextColor={colors.textMuted}
               autoCapitalize="characters"
               style={{
-                borderWidth: 3,
-                borderColor: colors.text,
+                borderWidth: 1,
+                borderColor: colors.border,
                 backgroundColor: colors.surface,
                 paddingHorizontal: spacing.md,
                 paddingVertical: spacing.sm,
@@ -206,15 +206,14 @@ export default function CategoriesScreen() {
             onPress={onCreate}
             disabled={!newName.trim() || !householdId || createMutation.isPending}
             style={{
-              borderWidth: 3,
-              borderColor: colors.text,
               backgroundColor: colors.primary,
+              borderRadius: radius.md,
               paddingVertical: spacing.md,
               alignItems: "center",
               opacity: !newName.trim() || !householdId || createMutation.isPending ? 0.6 : 1,
             }}
           >
-            <Text style={{ fontWeight: "900" }}>
+            <Text style={{ fontWeight: "600", color: colors.onPrimary }}>
               {createMutation.isPending ? t("categories.creating") : t("categories.create")}
             </Text>
           </Pressable>
@@ -240,8 +239,8 @@ export default function CategoriesScreen() {
               <View
                 key={category.id}
                 style={{
-                  borderWidth: 3,
-                  borderColor: colors.text,
+                  borderWidth: 1,
+                  borderColor: colors.border,
                   backgroundColor: colors.surface,
                   padding: spacing.md,
                   flexDirection: "row",
@@ -274,7 +273,7 @@ export default function CategoriesScreen() {
                       onPress={() => askRestore(category.id, category.name)}
                       style={{
                         borderWidth: 2,
-                        borderColor: colors.text,
+                        borderColor: colors.border,
                         paddingVertical: spacing.xs,
                         paddingHorizontal: spacing.md,
                         backgroundColor: colors.surface,
@@ -289,7 +288,7 @@ export default function CategoriesScreen() {
                       onPress={() => askArchive(category.id, category.name)}
                       style={{
                         borderWidth: 2,
-                        borderColor: colors.text,
+                        borderColor: colors.border,
                         paddingVertical: spacing.xs,
                         paddingHorizontal: spacing.md,
                         backgroundColor: colors.surface,
