@@ -1,4 +1,4 @@
-import { transactionsRepository } from "@/shared/lib/repositories/transactions.repository";
+import { transactionsRepository } from "@/repositories/transactions.repository";
 
 type CreateTransferInput = {
   householdId: string;

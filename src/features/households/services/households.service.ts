@@ -1,6 +1,6 @@
-import { repositories } from "@/shared/lib/repositories";
+import { repositories } from "@/repositories";
 import { supabase } from "@/shared/lib/supabase/client";
-import type { Database } from "@/shared/types/database.types";
+import type { Database } from "@/types/database.types";
 
 type HouseholdRole = Database["public"]["Enums"]["household_role"];
 
@@ -168,3 +168,4 @@ class HouseholdsService {
 }
 
 export const householdsService = new HouseholdsService();
+

@@ -1,16 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { householdsService } from "@/features/households/services/households.service";
-import { useSession } from "@/shared/session";
+import { useAuth } from "@/providers/AuthProvider";
 
 export function useMyHouseholds() {
-  const { data: session, isPending: sessionLoading } = useSession();
-  const userId = session?.profile.id;
+  const { profile, isLoading } = useAuth();
+  const userId = profile?.id;
 
   return useQuery({
     queryKey: ["my-households", userId],
     queryFn: () => householdsService.getMyHouseholds(userId!),
-    enabled: !!userId && !sessionLoading,
+    enabled: !!userId && !isLoading,
   });
 }
 

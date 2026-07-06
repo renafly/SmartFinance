@@ -1,4 +1,4 @@
-import { accountsRepository } from '@/shared/lib/repositories/accounts.repository'
+import { accountsRepository } from '@/repositories/accounts.repository'
 import type { CreateAccountDTO, UpdateAccountDTO } from '@/features/accounts/types'
 
 type CreateAccountInput = CreateAccountDTO

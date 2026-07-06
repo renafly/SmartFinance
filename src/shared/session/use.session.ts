@@ -1,14 +1,48 @@
-import { useQuery } from '@tanstack/react-query'
-import { useAuthContext } from '@/shared/hooks/use-auth-context'
-import { sessionService } from './session.service'
+import { useEffect, useState } from 'react';
+import { sessionService } from './session.service';
+import type { Claims, SessionState } from './session.types';
 
-export function useSession() {
-  const { profile } = useAuthContext()
+export function useSession(claims: Claims) {
+  const [state, setState] = useState<SessionState>({
+    profile: null,
+    householdId: null,
+    loading: true,
+  });
 
-  return useQuery({
-    queryKey: ['session', profile?.id],
-    queryFn: () => sessionService.load(profile!),
-    enabled: !!profile,
-    staleTime: 1000 * 60 * 10,
-  })
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchProfileAndHousehold = async () => {
+      setState((current) => ({ ...current, loading: true }));
+
+      try {
+        const nextState = await sessionService.loadProfileAndHousehold(claims);
+
+        if (isMounted) {
+          setState({
+            ...nextState,
+            loading: false,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching profile and household:', error);
+
+        if (isMounted) {
+          setState({
+            profile: null,
+            householdId: null,
+            loading: false,
+          });
+        }
+      }
+    };
+
+    fetchProfileAndHousehold();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [claims]);
+
+  return state;
 }

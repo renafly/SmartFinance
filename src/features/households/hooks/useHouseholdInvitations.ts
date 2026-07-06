@@ -1,19 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { householdsService } from "@/features/households/services/households.service";
-import { useSession } from "@/shared/session";
-import type { Database } from "@/shared/types/database.types";
+import { useAuth } from "@/providers/AuthProvider";
+import type { Database } from "@/types/database.types";
 
 type HouseholdRole = Database["public"]["Enums"]["household_role"];
 
 export function useHouseholdInvitations() {
-  const { data: session, isPending: sessionLoading } = useSession();
-  const householdId = session?.household.id;
+  const { householdId, isLoading } = useAuth();
 
   return useQuery({
     queryKey: ["household-invitations", householdId],
     queryFn: () => householdsService.getInvitations(householdId!),
-    enabled: !!householdId && !sessionLoading,
+    enabled: !!householdId && !isLoading,
   });
 }
 
@@ -51,12 +50,12 @@ export function useRevokeHouseholdInvitation() {
 }
 
 export function useMyHouseholdInvitations() {
-  const { data: session, isPending: sessionLoading } = useSession();
+  const { profile, isLoading } = useAuth();
 
   return useQuery({
-    queryKey: ["my-household-invitations", session?.profile.id],
+    queryKey: ["my-household-invitations", profile?.id],
     queryFn: () => householdsService.getMyInvitations(),
-    enabled: !!session?.profile.id && !sessionLoading,
+    enabled: !!profile?.id && !isLoading,
   });
 }
 
@@ -84,3 +83,4 @@ export function useDeclineHouseholdInvitation() {
     },
   });
 }
+

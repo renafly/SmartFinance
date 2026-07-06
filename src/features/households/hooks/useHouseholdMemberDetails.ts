@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { supabase } from "@/shared/lib/supabase/client";
-import { useSession } from "@/shared/session";
+import { useAuth } from "@/providers/AuthProvider";
 
 type HouseholdMemberDetails = {
   userId: string;
@@ -12,8 +12,7 @@ type HouseholdMemberDetails = {
 };
 
 export function useHouseholdMemberDetails() {
-  const { data: session, isPending: sessionLoading } = useSession();
-  const householdId = session?.household.id;
+  const { householdId, isLoading } = useAuth();
 
   return useQuery({
     queryKey: ["household-member-details", householdId],
@@ -40,6 +39,6 @@ export function useHouseholdMemberDetails() {
         };
       });
     },
-    enabled: !!householdId && !sessionLoading,
+    enabled: !!householdId && !isLoading,
   });
 }

@@ -1,16 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { recurringTransactionsService } from "../services/recurring-transactions.service";
-import { useSession } from "@/shared/session";
+import { useAuth } from "@/providers/AuthProvider";
 
 export function useRecurringTransactions() {
-  const { data: session, isPending: sessionLoading } = useSession();
-  const householdId = session?.household.id;
+  const { householdId, isLoading } = useAuth();
 
   return useQuery({
     queryKey: ["recurring-transactions", householdId],
     queryFn: () => recurringTransactionsService.getRecurringTransactions(householdId!),
-    enabled: !!householdId && !sessionLoading,
+    enabled: !!householdId && !isLoading,
   });
 }
 

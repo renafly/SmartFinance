@@ -1,130 +1,93 @@
-import { supabase } from '@/shared/lib/supabase/client'
-import { useEffect } from 'react'
-import { TouchableOpacity, Platform } from 'react-native'
+import { supabase } from '@/shared/lib/supabase/client';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
+import { useEffect } from 'react';
+import { Pressable, Text } from 'react-native';
+import { AUTH_CALLBACK_ROUTE } from '../constants';
 
-import Constants from 'expo-constants'
-import { Text } from 'react-native'
-import * as WebBrowser from 'expo-web-browser'
+WebBrowser.maybeCompleteAuthSession();
 
-WebBrowser.maybeCompleteAuthSession()
+function extractParamsFromUrl(url: string) {
+  const parsedUrl = new URL(url);
+  const hash = parsedUrl.hash.substring(1);
+  const params = new URLSearchParams(hash);
 
-export default function GoogleSignInButton() {
-  function extractParamsFromUrl(url: string) {
-    const parsedUrl = new URL(url)
-    const hash = parsedUrl.hash.substring(1) // Remove the leading '#'
-    const params = new URLSearchParams(hash)
+  return {
+    access_token: params.get("access_token"),
+    refresh_token: params.get("refresh_token"),
+  };
+}
 
-    return {
-      access_token: params.get('access_token'),
-      expires_in: parseInt(params.get('expires_in') || '0'),
-      refresh_token: params.get('refresh_token'),
-      token_type: params.get('token_type'),
-      provider_token: params.get('provider_token'),
-      code: params.get('code'),
-    }
-  }
-
+export function GoogleSignInButton() {
   async function onSignInButtonPress() {
-    console.debug('onSignInButtonPress - start')
-    const redirectTo = `${Constants.expoConfig?.scheme}://google-auth`;
-    console.log("Redirect URL:", redirectTo);
-    
-    const res = await supabase.auth.signInWithOAuth({
+    const redirectTo = Linking.createURL(AUTH_CALLBACK_ROUTE);
+    console.debug('[GoogleSignInButton] redirectTo:', redirectTo);
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${Constants.expoConfig?.scheme}://google-auth`,
+        redirectTo,
         queryParams: { prompt: 'consent' },
         skipBrowserRedirect: true,
       },
-    })
+    });
 
-    const googleOAuthUrl = res.data.url
+    if (error) {
+      console.error('[GoogleSignInButton] signInWithOAuth error:', error);
+      throw error;
+    }
+
+    const googleOAuthUrl = data.url;
+    console.debug('[GoogleSignInButton] oauth url:', googleOAuthUrl);
 
     if (!googleOAuthUrl) {
-      console.error('no oauth url found!')
-      return
+      throw new Error('No OAuth URL returned from Supabase.');
     }
 
     const result = await WebBrowser.openAuthSessionAsync(
       googleOAuthUrl,
-      `${Constants.expoConfig?.scheme}://google-auth`,
-      { showInRecents: true }
-    ).catch((err) => {
-      console.error('onSignInButtonPress - openAuthSessionAsync - error', { err })
-      console.log(err)
-    })
+      redirectTo,
+      {
+        showInRecents: true,
+      },
+    );
+    console.debug('[GoogleSignInButton] auth session result:', result);
 
-    console.debug('onSignInButtonPress - openAuthSessionAsync - result', { result })
-
-    if (result && result.type === 'success') {
-      console.debug('onSignInButtonPress - openAuthSessionAsync - success')
-      const params = extractParamsFromUrl(result.url)
-      console.debug('onSignInButtonPress - openAuthSessionAsync - success', { params })
+    if (result.type === 'success') {
+      const params = extractParamsFromUrl(result.url);
+      console.debug('[GoogleSignInButton] extracted params:', params);
 
       if (params.access_token && params.refresh_token) {
-        console.debug('onSignInButtonPress - setSession')
-        const { data, error } = await supabase.auth.setSession({
+        const { error: sessionError } = await supabase.auth.setSession({
           access_token: params.access_token,
           refresh_token: params.refresh_token,
-        })
-        console.debug('onSignInButtonPress - setSession - success', { data, error })
-        return
+        });
+        console.debug('[GoogleSignInButton] setSession result error:', sessionError);
+
+        if (sessionError) {
+          throw sessionError;
+        }
       } else {
-        console.error('onSignInButtonPress - setSession - failed')
-        // sign in/up failed
+        console.error('[GoogleSignInButton] missing access_token or refresh_token in callback url');
       }
     } else {
-      console.error('onSignInButtonPress - openAuthSessionAsync - failed')
+      console.error('[GoogleSignInButton] auth session did not complete successfully');
     }
   }
 
-  // to warm up the browser
   useEffect(() => {
-    WebBrowser.warmUpAsync()
+    WebBrowser.warmUpAsync();
 
     return () => {
-      WebBrowser.coolDownAsync()
-    }
-  }, [])
+      WebBrowser.coolDownAsync();
+    };
+  }, []);
 
   return (
-    <TouchableOpacity
-      onPress={onSignInButtonPress}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#ffffff',
-        borderWidth: 1,
-        borderColor: '#dbdbdb',
-        borderRadius: 4,
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        justifyContent: 'center',
-        elevation: 2,
-        ...Platform.select({
-          ios: {
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.1,
-            shadowRadius: 2,
-          },
-          web: {
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-          },
-        }),
-      }}
-      activeOpacity={0.8}
-    >
-      <Text
-        style={{
-          fontSize: 16,
-          color: '#757575',
-          fontFamily: 'Roboto-Regular', // Assuming Roboto is available; install via expo-google-fonts or similar if needed
-          fontWeight: '500',
-        }}
-      >
-        Sign in with Google
-      </Text>
-    </TouchableOpacity>
-  )
+    <Pressable onPress={() => void onSignInButtonPress()}>
+      <Text>Continue with Google</Text>
+    </Pressable>
+  );
 }
+
+export default GoogleSignInButton;

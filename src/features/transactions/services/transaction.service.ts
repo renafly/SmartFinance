@@ -1,4 +1,4 @@
-import { TransactionFilters, transactionsRepository } from "@/shared/lib/repositories/transactions.repository";
+import { TransactionFilters, transactionsRepository } from "@/repositories/transactions.repository";
 import type {
   CreateTransactionDTO,
   UpdateTransactionDTO,

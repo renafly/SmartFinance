@@ -1,12 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/shared/lib/supabase/client";
-import { useSession } from "@/shared/session";
+import { useAuth } from "@/providers/AuthProvider";
 
 type MemberProfile = { id: string; full_name: string | null };
 
 export function useHouseholdMembers() {
-  const { data: session } = useSession();
-  const householdId = session?.household.id;
+  const { householdId } = useAuth();
 
   return useQuery({
     queryKey: ["household-members", householdId],

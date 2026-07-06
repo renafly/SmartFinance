@@ -1,26 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { savingPotsService } from '../services/saving-pots.service'
-import { useSession } from '@/shared/session'
+import { useAuth } from '@/providers/AuthProvider'
 
 export function useSavingPots() {
-  const { data: session, isPending: sessionLoading } = useSession()
-  const householdId = session?.household.id
+  const { householdId, isLoading } = useAuth()
 
   return useQuery({
     queryKey: ['saving-pots', householdId],
     queryFn: () => savingPotsService.getSavingPots(householdId!),
-    enabled: !!householdId && !sessionLoading,
+    enabled: !!householdId && !isLoading,
   })
 }
 
 export function useSavingPotBalances() {
-  const { data: session, isPending: sessionLoading } = useSession()
-  const householdId = session?.household.id
+  const { householdId, isLoading } = useAuth()
 
   return useQuery({
     queryKey: ['saving-pot-balances', householdId],
     queryFn: () => savingPotsService.getBalances(householdId!),
-    enabled: !!householdId && !sessionLoading,
+    enabled: !!householdId && !isLoading,
   })
 }
 
