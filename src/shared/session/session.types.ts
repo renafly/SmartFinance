@@ -1,15 +1,13 @@
-import type { Database } from '@/shared/types/database.types'
+import type { Database } from '@/types/database.types';
 
-export type UserProfile = Database['public']['Tables']['profiles']['Row']
+export type Claims = Record<string, any> | undefined | null;
 
-export type Household = Database['public']['Tables']['households']['Row']
+export type UserProfile = Database['public']['Tables']['profiles']['Row'] | null;
 
-export type HouseholdMember = Database['public']['Tables']['household_members']['Row']
+export type HouseholdMember = Database['public']['Tables']['household_members']['Row'];
 
-export interface SessionState {
-  userId: string | null
-  profile: UserProfile | null
-  household: Household | null
-  householdMember: HouseholdMember | null
-  loading: boolean
-}
+export type SessionState = {
+  profile: UserProfile;
+  householdId: string | null;
+  loading: boolean;
+};

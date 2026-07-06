@@ -1,4 +1,4 @@
-import { repositories } from '@/shared/lib/repositories'
+import { repositories } from '@/repositories'
 
 class SavingPotsService {
   async getSavingPots(householdId: string) {
@@ -34,3 +34,4 @@ class SavingPotsService {
 }
 
 export const savingPotsService = new SavingPotsService()
+

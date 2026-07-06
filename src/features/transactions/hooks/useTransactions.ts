@@ -1,17 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { transactionsService } from "../services/transaction.service";
-import { useSession } from "@/shared/session";
-import type { TransactionFilters } from "@/shared/lib/repositories/transactions.repository";
+import { useAuth } from "@/providers/AuthProvider";
+import type { TransactionFilters } from "@/repositories/transactions.repository";
 
 export function useTransactions(filters: TransactionFilters = {}) {
-  const { data: session, isPending: sessionLoading } = useSession();
-  const householdId = session?.household.id;
+  const { householdId, isLoading } = useAuth();
 
   return useQuery({
     queryKey: ["transactions", householdId, filters],
     queryFn: () => transactionsService.getTransactions(householdId!, filters),
-    enabled: !!householdId && !sessionLoading,
+    enabled: !!householdId && !isLoading,
   });
 }
 

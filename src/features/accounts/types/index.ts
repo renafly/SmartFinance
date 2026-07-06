@@ -1,4 +1,4 @@
-import type { Database } from '@/shared/types/database.types'
+import type { Database } from '@/types/database.types'
 
 export type Account = Database['public']['Tables']['accounts']['Row']
 export type NewAccount =

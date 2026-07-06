@@ -1,5 +1,5 @@
-import { repositories } from "@/shared/lib/repositories";
-import type { CategoryType } from "@/shared/lib/repositories/categories.repository";
+import { repositories } from "@/repositories";
+import type { CategoryType } from "@/repositories/categories.repository";
 
 class CategoriesService {
   async getCategories(householdId: string, type?: CategoryType) {

@@ -1,39 +1,34 @@
-import { sessionRepository } from "./session.repository"
-import { UserProfile } from "./session.types"
+import { sessionRepository } from './session.repository';
+import type { Claims } from './session.types';
 
 export class SessionService {
-  async load(profile: UserProfile) {
-    const memberships = await sessionRepository.getAcceptedMemberships(profile.id)
-
-    if (memberships.error) throw memberships.error
-
-    const acceptedMemberships = memberships.data ?? []
-
-    const selectedMembership =
-      acceptedMemberships.find(
-        (membership) => membership.household_id === profile.default_household_id
-      ) ?? acceptedMemberships[0] ?? null
-
-    if (!selectedMembership) {
+  async loadProfileAndHousehold(claims: Claims) {
+    if (!claims?.sub) {
       return {
-        profile,
-        membership: null,
-        household: null,
-      }
+        profile: null,
+        householdId: null,
+      };
     }
 
-    const household = await sessionRepository.getHousehold(
-      selectedMembership.household_id
-    )
+    const { data: profileData, error: profileError } = await sessionRepository.getProfile(claims.sub);
+    if (profileError) throw profileError;
 
-    if (household.error) throw household.error
+    const { data: membershipData, error: membershipError } =
+      await sessionRepository.getAcceptedMemberships(claims.sub);
+
+    if (membershipError) throw membershipError;
+
+    const memberships = membershipData ?? [];
+    const defaultMembership = memberships.find(
+      (member) => member.household_id === profileData?.default_household_id
+    );
+    const selectedMembership = defaultMembership ?? memberships[0] ?? null;
 
     return {
-      profile,
-      membership: selectedMembership,
-      household: household.data,
-    }
+      profile: profileData ?? null,
+      householdId: selectedMembership?.household_id ?? null,
+    };
   }
 }
 
-export const sessionService = new SessionService()
+export const sessionService = new SessionService();

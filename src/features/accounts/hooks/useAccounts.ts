@@ -1,17 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { accountsService } from '../services/accounts.service'
-import { useSession } from '@/shared/session'
+import { useAuth } from '@/providers/AuthProvider'
 
 export function useAccounts() {
-  const { data: session, isPending: sessionLoading } = useSession()
-
-  const householdId = session?.household.id
+  const { householdId, isLoading } = useAuth()
 
   return useQuery({
     queryKey: ['accounts', householdId],
     queryFn: () => accountsService.getAccounts(householdId!),
-    enabled: !!householdId && !sessionLoading,
+    enabled: !!householdId && !isLoading,
   })
 }
 export function useAccount(id: string) {

@@ -1,4 +1,4 @@
-import { repositories } from "@/shared/lib/repositories";
+import { repositories } from "@/repositories";
 
 type Frequency = "daily" | "weekly" | "monthly" | "yearly";
 type TransactionType = "income" | "expense";
