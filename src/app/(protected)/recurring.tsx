@@ -1,12 +1,15 @@
-import { useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { DateTimePicker } from '@expo/ui/community/datetime-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { typography } from '@/theme/typography';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 
 import { Page, Card, Section, Field, Button, Pill, formatCurrency, formatDate } from '@/components/migrated-page';
+import { Badge, EmptyState, Table, TableCell, TableRow } from '@/components/data-surface';
 import { HouseholdMemberSelect } from '@/components/household-member-select';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAccounts } from '../../features/accounts/hooks';
@@ -48,6 +51,173 @@ function normalizeMonthList(values: Array<number | string> | null | undefined) {
     .map((month) => Number(month))
     .filter((month) => Number.isFinite(month) && month >= 1 && month <= 12))]
     .sort((a, b) => a - b);
+}
+
+function formatDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateInputValue(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const nextDate = new Date(year, month, day);
+
+  return Number.isNaN(nextDate.getTime()) ? null : nextDate;
+}
+
+function CategoryChoice({
+  label,
+  icon,
+  active,
+  onPress,
+}: {
+  label: string;
+  icon?: string | null;
+  active?: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing(1.5),
+          paddingHorizontal: spacing(3),
+          paddingVertical: spacing(2),
+          borderRadius: radius.full,
+          borderWidth: 1,
+          borderColor: active ? colors.primary : colors.border,
+          backgroundColor: active ? colors.primary : colors.surfaceMuted,
+        },
+        pressed && { opacity: 0.85 },
+      ] as any}
+    >
+      <Ionicons
+        name={(icon ?? 'pricetag-outline') as any}
+        size={14}
+        color={active ? colors.primaryForeground : colors.textSecondary}
+      />
+      <Text
+        style={{
+          color: active ? colors.primaryForeground : colors.textSecondary,
+          fontSize: typography.fontSize[12],
+          fontWeight: String(typography.fontWeight.semibold),
+        } as any}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function DatePickerField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (nextValue: string) => void;
+  placeholder: string;
+}) {
+  const { colors } = useTheme();
+  const { t } = useTranslation('common');
+  const [open, setOpen] = useState(false);
+  const [draftDate, setDraftDate] = useState(() => parseDateInputValue(value) ?? new Date());
+
+  useEffect(() => {
+    if (!open) {
+      setDraftDate(parseDateInputValue(value) ?? new Date());
+    }
+  }, [open, value]);
+
+  if (Platform.OS === 'web') {
+    return <Field label={label} value={value} onChangeText={onChange} placeholder={placeholder} />;
+  }
+
+  const displayValue = value.trim().length > 0 ? formatDateInputValue(parseDateInputValue(value) ?? new Date()) : placeholder;
+
+  return (
+    <View style={{ gap: spacing(2) }}>
+      <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>{label}</Text>
+      <Pressable
+        onPress={() => setOpen((current) => !current)}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: spacing(3.5),
+          paddingVertical: spacing(3),
+          borderRadius: radius.mdPlus,
+          backgroundColor: colors.surfaceMuted,
+          borderWidth: 1,
+          borderColor: colors.border,
+        }}
+      >
+        <Text style={{ color: value.trim().length > 0 ? colors.text : colors.textSecondary, fontWeight: String(typography.fontWeight.bold) } as any}>
+          {displayValue}
+        </Text>
+        <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.bold) } as any}>{open ? '▴' : '▾'}</Text>
+      </Pressable>
+
+      {open ? (
+        <View
+          style={{
+            gap: spacing(2),
+            padding: spacing(3),
+            borderRadius: radius.lg,
+            backgroundColor: colors.surfaceMuted,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <DateTimePicker
+            value={draftDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'inline' : 'default'}
+            presentation={Platform.OS === 'android' ? 'dialog' : 'inline'}
+            onValueChange={(_, date) => {
+              if (!date) return;
+
+              setDraftDate(date);
+
+              if (Platform.OS === 'android') {
+                onChange(formatDateInputValue(date));
+                setOpen(false);
+              }
+            }}
+            onDismiss={() => setOpen(false)}
+          />
+
+          {Platform.OS !== 'android' ? (
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: spacing(2) }}>
+              <Button label={t('cancel')} variant="secondary" onPress={() => setOpen(false)} />
+              <Button
+                label={t('done')}
+                onPress={() => {
+                  onChange(formatDateInputValue(draftDate));
+                  setOpen(false);
+                }}
+              />
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 export default function RecurringScreen() {
@@ -201,7 +371,12 @@ export default function RecurringScreen() {
         <Section title={t('recurring.createTitle')}>
           <Field label={t('recurring.titleLabel')} value={title} onChangeText={setTitle} />
           <Field label={t('recurring.amount')} value={amount} onChangeText={setAmount} keyboardType="numeric" />
-          <Field label={t('recurring.nextRun')} value={nextRun} onChangeText={setNextRun} />
+          <DatePickerField
+            label={t('recurring.nextRun')}
+            value={nextRun}
+            onChange={setNextRun}
+            placeholder={t('recurring.nextRunPlaceholder')}
+          />
           <HouseholdMemberSelect
             label={t('recurring.createdBy')}
             members={(membersQuery.data ?? []).filter((member) => member.status === 'accepted')}
@@ -210,13 +385,13 @@ export default function RecurringScreen() {
             hint={t('recurring.createdByPlaceholder')}
             onChange={setCreatedById}
           />
-          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('recurring.type')}</Text>
+          <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>{t('recurring.type')}</Text>
           <View style={{ flexDirection: 'row', gap: spacing(2) }}>
             {(['income', 'expense'] as const).map((item) => (
               <Pill key={item} label={t(`recurring.types.${item}`)} active={type === item} onPress={() => setType(item)} />
             ))}
           </View>
-          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('recurring.frequency')}</Text>
+          <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>{t('recurring.frequency')}</Text>
           <View style={{ flexDirection: 'row', gap: spacing(2), flexWrap: 'wrap' }}>
             {frequencies.map((item) => (
               <Pill key={item} label={t(`recurring.frequencies.${item}`)} active={frequency === item} onPress={() => setFrequency(item)} />
@@ -224,8 +399,8 @@ export default function RecurringScreen() {
           </View>
           {frequency === 'custom' ? (
             <View style={{ gap: spacing(2) }}>
-              <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('recurring.excludeMonths')}</Text>
-              <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] }}>{t('recurring.excludeMonthsHint')}</Text>
+              <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>{t('recurring.excludeMonths')}</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any}>{t('recurring.excludeMonthsHint')}</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
                 {months.map((month) => (
                   <Pill
@@ -238,17 +413,23 @@ export default function RecurringScreen() {
               </View>
             </View>
           ) : null}
-          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('recurring.account')}</Text>
+          <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>{t('recurring.account')}</Text>
           <View style={{ flexDirection: 'row', gap: spacing(2), flexWrap: 'wrap' }}>
             {(accountsQuery.data ?? []).map((account: any) => (
               <Pill key={account.id} label={account.name} active={accountId === account.id} onPress={() => setAccountId(account.id)} />
             ))}
           </View>
-          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('recurring.category')}</Text>
+          <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>{t('recurring.category')}</Text>
           <View style={{ flexDirection: 'row', gap: spacing(2), flexWrap: 'wrap' }}>
-            <Pill label={t('none')} active={!categoryId} onPress={() => setCategoryId(null)} />
+            <CategoryChoice label={t('none')} icon="close-circle-outline" active={!categoryId} onPress={() => setCategoryId(null)} />
             {(categoriesQuery.data ?? []).map((category: any) => (
-              <Pill key={category.id} label={category.name} active={categoryId === category.id} onPress={() => setCategoryId(category.id)} />
+              <CategoryChoice
+                key={category.id}
+                label={category.name}
+                icon={category.icon}
+                active={categoryId === category.id}
+                onPress={() => setCategoryId(category.id)}
+              />
             ))}
           </View>
           <Button label={createRecurring.isPending ? t('creating') : t('recurring.create')} onPress={() => void handleCreate()} disabled={!canCreateRecurring} />
@@ -256,38 +437,82 @@ export default function RecurringScreen() {
       </Card>
 
       <Section title={t('recurring.rulesTitle')} subtitle={t('recurring.rulesSubtitle', { count: (recurringQuery.data ?? []).length })}>
-        <View style={{ gap: spacing(2.5) }}>
-          {(recurringQuery.data ?? []).map((item: any) => (
-            <Card key={item.id}>
-              <View style={styles.ruleHeader}>
-                <View style={{ flex: 1, gap: spacing(1) }}>
-                  <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold }}>{item.title}</Text>
-              <Text style={{ color: colors.textSecondary }}>{t(`recurring.frequencies.${item.frequency}`)} · {t('recurring.nextRunLabel', { value: formatDate(item.next_run) })}</Text>
-                  {item.frequency === 'custom' ? (
-                    <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] }}>
-                      {t('recurring.excludeMonths')}: {formatExcludedMonths((item as any).excluded_months ?? [])}
+        {(recurringQuery.data ?? []).length ? (
+          <Table
+            columns={[
+              { label: t('recurring.titleLabel'), flex: 2 },
+              { label: t('recurring.frequency'), flex: 1 },
+              { label: t('recurring.account'), flex: 1 },
+              { label: t('recurring.createdBy'), flex: 1.2 },
+              { label: t('recurring.amount'), align: 'right' },
+            ]}
+          >
+            {(recurringQuery.data ?? []).map((item: any) => (
+              <TableRow key={item.id}>
+                <TableCell flex={2}>
+                  <View style={{ gap: spacing(1) }}>
+                    <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>{item.title}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5), flexWrap: 'wrap' }}>
+                      <Badge label={item.is_active ? t('active') : t('inactive')} tone={item.is_active ? 'success' : 'destructive'} />
+                      {item.category ? (
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: spacing(1),
+                            paddingHorizontal: spacing(2),
+                            paddingVertical: spacing(0.75),
+                            borderRadius: radius.full,
+                            backgroundColor: colors.surfaceMuted,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                          } as any}
+                        >
+                          <Ionicons name={(item.category.icon ?? 'pricetag-outline') as any} size={13} color={colors.primary} />
+                          <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.semibold) } as any}>
+                            {item.category.name}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                </TableCell>
+                <TableCell flex={1}>
+                  <View style={{ gap: spacing(1) }}>
+                    <Text style={{ color: colors.textSecondary } as any}>{t(`recurring.frequencies.${item.frequency}`)}</Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any}>
+                      {t('recurring.nextRunLabel', { value: formatDate(item.next_run) })}
                     </Text>
-                  ) : null}
-                </View>
-                <Pressable
-                  onPress={() => setMenuRecurring(item)}
-                  style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
-                >
-                  <Text style={styles.menuButtonText}>⋮</Text>
-                </Pressable>
-              </View>
-              <Text style={{ color: colors.textSecondary }}>
-                {t('recurring.createdBy')}: {
-                  item.created_by === profile?.id
-                    ? currentUserLabel
-                    : memberLabelMap.get(item.created_by) ?? t('settings.unnamedUser')
-                }
-              </Text>
-              <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold }}>{formatCurrency(item.amount)}</Text>
-              <Text style={{ color: item.is_active ? colors.success : colors.destructive, fontWeight: typography.fontWeight.semibold }}>{item.is_active ? t('active') : t('inactive')}</Text>
-            </Card>
-          ))}
-        </View>
+                    {item.frequency === 'custom' ? (
+                      <Badge label={formatExcludedMonths((item as any).excluded_months ?? [])} tone="neutral" />
+                    ) : null}
+                  </View>
+                </TableCell>
+                <TableCell flex={1}>
+                    <Text style={{ color: colors.textSecondary } as any}>{item.account?.name ?? t('recurring.account')}</Text>
+                </TableCell>
+                <TableCell flex={1.2}>
+                  <Text style={{ color: colors.textSecondary } as any}>
+                    {item.created_by === profile?.id ? currentUserLabel : memberLabelMap.get(item.created_by) ?? t('settings.unnamedUser')}
+                  </Text>
+                </TableCell>
+                <TableCell align="right">
+                  <View style={{ alignItems: 'flex-end', gap: spacing(1) }}>
+                    <Text style={{ color: colors.primary, fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(item.amount)}</Text>
+                    <Pressable
+                      onPress={() => setMenuRecurring(item)}
+                      style={({ pressed }) => [styles.menuButton, pressed && styles.pressed] as any}
+                    >
+                      <Text style={styles.menuButtonText}>⋮</Text>
+                    </Pressable>
+                  </View>
+                </TableCell>
+              </TableRow>
+            ))}
+          </Table>
+        ) : (
+          <EmptyState title={t('recurring.emptyTitle', { defaultValue: t('recurring.rulesTitle') })} icon="repeat-outline" />
+        )}
       </Section>
 
       <Modal visible={menuRecurring !== null} transparent animationType="fade" onRequestClose={() => setMenuRecurring(null)}>
@@ -299,7 +524,7 @@ export default function RecurringScreen() {
               onPress={() => {
                 if (menuRecurring) openEditRecurring(menuRecurring);
               }}
-              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed] as any}
             >
               <Text style={styles.menuItemText}>{t('transactions.editTitle')}</Text>
             </Pressable>
@@ -310,7 +535,7 @@ export default function RecurringScreen() {
                 }
                 setMenuRecurring(null);
               }}
-              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed] as any}
             >
               <Text style={styles.menuItemText}>{menuRecurring?.is_active ? t('deactivate') : t('activate')}</Text>
             </Pressable>
@@ -321,7 +546,7 @@ export default function RecurringScreen() {
                 }
                 setMenuRecurring(null);
               }}
-              style={({ pressed }) => [styles.menuItemDanger, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.menuItemDanger, pressed && styles.pressed] as any}
             >
               <Text style={styles.menuItemTextDanger}>{t('delete')}</Text>
             </Pressable>
@@ -359,10 +584,11 @@ export default function RecurringScreen() {
                   onChangeText={(value) => setEditRecurring((current) => (current ? { ...current, amount: value } : current))}
                   keyboardType="numeric"
                 />
-                <Field
+                <DatePickerField
                   label={t('recurring.nextRun')}
                   value={editRecurring.nextRun}
-                  onChangeText={(value) => setEditRecurring((current) => (current ? { ...current, nextRun: value } : current))}
+                  onChange={(value) => setEditRecurring((current) => (current ? { ...current, nextRun: value } : current))}
+                  placeholder={t('recurring.nextRunPlaceholder')}
                 />
                 <HouseholdMemberSelect
                   label={t('recurring.createdBy')}
@@ -372,7 +598,7 @@ export default function RecurringScreen() {
                   hint={t('recurring.createdByPlaceholder')}
                   onChange={(value) => setEditRecurring((current) => (current ? { ...current, createdById: value } : current))}
                 />
-                <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('recurring.frequency')}</Text>
+                <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>{t('recurring.frequency')}</Text>
                 <View style={{ flexDirection: 'row', gap: spacing(2), flexWrap: 'wrap' }}>
                   {frequencies.map((item) => (
                     <Pill
@@ -385,8 +611,8 @@ export default function RecurringScreen() {
                 </View>
                 {editRecurring.frequency === 'custom' ? (
                   <View style={{ gap: spacing(2) }}>
-                    <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('recurring.excludeMonths')}</Text>
-                    <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] }}>{t('recurring.excludeMonthsHint')}</Text>
+                    <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>{t('recurring.excludeMonths')}</Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any}>{t('recurring.excludeMonthsHint')}</Text>
                     <View style={{ flexDirection: 'row', gap: spacing(2), flexWrap: 'wrap' }}>
                       {months.map((month) => (
                         <Pill
@@ -399,7 +625,7 @@ export default function RecurringScreen() {
                     </View>
                   </View>
                 ) : null}
-                <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('recurring.account')}</Text>
+                <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>{t('recurring.account')}</Text>
                 <View style={{ flexDirection: 'row', gap: spacing(2), flexWrap: 'wrap' }}>
                   {(accountsQuery.data ?? []).map((account: any) => (
                     <Pill
@@ -410,17 +636,19 @@ export default function RecurringScreen() {
                     />
                   ))}
                 </View>
-                <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('recurring.category')}</Text>
+                <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>{t('recurring.category')}</Text>
                 <View style={{ flexDirection: 'row', gap: spacing(2), flexWrap: 'wrap' }}>
-                  <Pill
+                  <CategoryChoice
                     label={t('none')}
+                    icon="close-circle-outline"
                     active={!editRecurring.categoryId}
                     onPress={() => setEditRecurring((current) => (current ? { ...current, categoryId: null } : current))}
                   />
                   {(categoriesQuery.data ?? []).map((category: any) => (
-                    <Pill
+                    <CategoryChoice
                       key={category.id}
                       label={category.name}
+                      icon={category.icon}
                       active={editRecurring.categoryId === category.id}
                       onPress={() => setEditRecurring((current) => (current ? { ...current, categoryId: category.id } : current))}
                     />
@@ -460,7 +688,7 @@ function createStyles(colors: any) {
   menuButtonText: {
     color: colors.text,
     fontSize: typography.fontSize[22],
-    fontWeight: typography.fontWeight.extraBold,
+    fontWeight: typography.fontWeight.extraBold as any,
     lineHeight: typography.lineHeight[22],
   },
   modalBackdrop: {
@@ -488,7 +716,7 @@ function createStyles(colors: any) {
   modalTitle: {
     color: colors.text,
     fontSize: typography.fontSize[20],
-    fontWeight: typography.fontWeight.extraBold,
+    fontWeight: typography.fontWeight.extraBold as any,
   },
   modalSubtitle: {
     color: colors.textSecondary,
@@ -520,12 +748,12 @@ function createStyles(colors: any) {
   menuItemText: {
     color: colors.text,
     fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.bold,
+    fontWeight: typography.fontWeight.bold as any,
   },
   menuItemTextDanger: {
     color: colors.destructive,
     fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.bold,
+    fontWeight: typography.fontWeight.bold as any,
   },
   pressed: {
     opacity: 0.85,

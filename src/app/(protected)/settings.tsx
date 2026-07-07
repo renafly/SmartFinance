@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Platform, Pressable, Text, View } from 'react-native';
+import { Alert, Platform, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { typography } from '@/theme/typography';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -7,6 +7,7 @@ import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 
 import { Page, Card, Section, Field, Button } from '@/components/migrated-page';
+import { DropdownMenu, SelectionTrigger } from '@/components/selection-shell';
 import { useAuth } from '../../providers/AuthProvider';
 import { usePreferencesStore, type AppCurrency } from '@/stores/preferencesStore';
 import {
@@ -57,10 +58,10 @@ export default function SettingsScreen() {
   const updatePreferredCurrency = useUpdatePreferredCurrency();
   const [householdName, setHouseholdName] = useState('');
   const [draftNames, setDraftNames] = useState<Record<string, string>>({});
-  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
-  const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<'language' | 'currency' | 'theme' | null>(null);
 
   const households = householdsQuery.data ?? [];
+  const currentHousehold = households.find((item: any) => item.id === householdId) ?? null;
   const canCreateHousehold = !createHousehold.isPending && householdName.trim().length > 0;
   const selectedLanguageLabel =
     t(languageOptions.find((item) => item.value === language)?.labelKey ?? languageOptions[0].labelKey);
@@ -68,6 +69,40 @@ export default function SettingsScreen() {
     t(currencyOptions.find((item) => item.value === currency)?.labelKey ?? currencyOptions[0].labelKey);
   const selectedThemeLabel =
     t(themeOptions.find((item) => item.value === theme)?.labelKey ?? themeOptions[0].labelKey);
+
+  const languageMenuItems = languageOptions.map((item) => ({
+    key: item.value,
+    label: t(item.labelKey),
+    iconName: item.value === 'en' ? 'language-outline' : 'globe-outline',
+    onPress: () => {
+      setLanguage(item.value);
+      setActiveMenu(null);
+    },
+  })) as any[];
+
+  const currencyMenuItems = currencyOptions.map((item) => ({
+    key: item.value,
+    label: t(item.labelKey),
+    iconName: 'cash-outline' as const,
+    onPress: () => void handleSelectCurrency(item.value),
+  })) as any[];
+
+  const themeMenuItems = themeOptions.map((item) => ({
+    key: item.value,
+    label: t(item.labelKey),
+    iconName:
+      item.value === 'dark'
+        ? ('moon-outline' as const)
+        : item.value === 'light'
+          ? ('sunny-outline' as const)
+          : item.value === 'blue'
+            ? ('water-outline' as const)
+            : ('settings-outline' as const),
+    onPress: () => {
+      setTheme(item.value);
+      setActiveMenu(null);
+    },
+  })) as any[];
 
   async function handleCreateHousehold() {
     if (!householdName.trim()) return;
@@ -78,7 +113,7 @@ export default function SettingsScreen() {
 
   async function handleSelectCurrency(nextCurrency: AppCurrency) {
     setCurrency(nextCurrency);
-    setCurrencyMenuOpen(false);
+    setActiveMenu(null);
 
     if (!profile?.id || profile.preferred_currency === nextCurrency) return;
 
@@ -139,134 +174,49 @@ export default function SettingsScreen() {
     <Page title={t('settings.title')} subtitle={t('settings.householdManagement')}>
       <Card>
         <Section title={t('settings.profile')}>
-          <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold }}>{profile?.full_name ?? t('settings.unnamedUser')}</Text>
+          <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold as any }}>{profile?.full_name ?? t('settings.unnamedUser')}</Text>
           <Text style={{ color: colors.textSecondary }}>{profile?.email ?? t('settings.noEmail')}</Text>
-          <Text style={{ color: colors.textSecondary }}>{t('settings.currentHousehold', { value: householdId ?? t('settings.none') })}</Text>
+          <Text style={{ color: colors.textSecondary }}>
+            {currentHousehold?.name?.trim()
+              ? t('settings.currentHousehold', { value: currentHousehold.name.trim() })
+              : t('settings.currentHouseholdLabel')}
+          </Text>
         </Section>
       </Card>
 
       <Card>
         <Section title={t('settings.language')} subtitle={t('settings.languageSubtitle')}>
-          <Pressable
-            onPress={() => setLanguageMenuOpen((current) => !current)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingHorizontal: spacing(3.5),
-              paddingVertical: spacing(3),
-              borderRadius: radius.mdPlus,
-              backgroundColor: colors.surfaceMuted,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
-          >
-            <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold }}>{selectedLanguageLabel}</Text>
-            <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.bold }}>{languageMenuOpen ? '▴' : '▾'}</Text>
-          </Pressable>
-
-          {languageMenuOpen ? (
-            <View style={{ gap: spacing(2) }}>
-              {languageOptions.map((item) => {
-                const isActive = item.value === language;
-
-                return (
-                  <Pressable
-                    key={item.value}
-                    onPress={() => {
-                      setLanguage(item.value);
-                      setLanguageMenuOpen(false);
-                    }}
-                    style={{
-                      paddingHorizontal: spacing(3.5),
-                      paddingVertical: spacing(3),
-                      borderRadius: radius.mdPlus,
-                      backgroundColor: isActive ? colors.primary : colors.surfaceMuted,
-                      borderWidth: 1,
-                      borderColor: isActive ? colors.primary : colors.border,
-                    }}
-                  >
-                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold }}>{t(item.labelKey)}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : null}
+          <SelectionTrigger
+            label={t('settings.language')}
+            valueLabel={selectedLanguageLabel}
+            placeholder={t('settings.languageSubtitle')}
+            iconName="language-outline"
+            onPress={() => setActiveMenu('language')}
+          />
         </Section>
       </Card>
 
       <Card>
         <Section title={t('settings.currency')} subtitle={t('settings.currencySubtitle')}>
-          <Pressable
-            onPress={() => setCurrencyMenuOpen((current) => !current)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingHorizontal: spacing(3.5),
-              paddingVertical: spacing(3),
-              borderRadius: radius.mdPlus,
-              backgroundColor: colors.surfaceMuted,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
-          >
-            <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold }}>{selectedCurrencyLabel}</Text>
-            <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.bold }}>{currencyMenuOpen ? '▴' : '▾'}</Text>
-          </Pressable>
-
-          {currencyMenuOpen ? (
-            <View style={{ gap: spacing(2) }}>
-              {currencyOptions.map((item) => {
-                const isActive = item.value === currency;
-
-                return (
-                  <Pressable
-                    key={item.value}
-                    onPress={() => void handleSelectCurrency(item.value)}
-                    style={{
-                      paddingHorizontal: spacing(3.5),
-                      paddingVertical: spacing(3),
-                      borderRadius: radius.mdPlus,
-                      backgroundColor: isActive ? colors.primary : colors.surfaceMuted,
-                      borderWidth: 1,
-                      borderColor: isActive ? colors.primary : colors.border,
-                    }}
-                  >
-                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold }}>{t(item.labelKey)}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : null}
+          <SelectionTrigger
+            label={t('settings.currency')}
+            valueLabel={selectedCurrencyLabel}
+            placeholder={t('settings.currencySubtitle')}
+            iconName="cash-outline"
+            onPress={() => setActiveMenu('currency')}
+          />
         </Section>
       </Card>
 
       <Card>
         <Section title={t('settings.theme')} subtitle={t('settings.themeSubtitle')}>
-          <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold }}>{selectedThemeLabel}</Text>
-          <View style={{ gap: spacing(2) }}>
-            {themeOptions.map((item) => {
-              const isActive = item.value === theme;
-
-              return (
-                <Pressable
-                  key={item.value}
-                  onPress={() => setTheme(item.value)}
-                  style={{
-                    paddingHorizontal: spacing(3.5),
-                    paddingVertical: spacing(3),
-                    borderRadius: radius.mdPlus,
-                    backgroundColor: isActive ? colors.primary : colors.surfaceMuted,
-                    borderWidth: 1,
-                    borderColor: isActive ? colors.primary : colors.border,
-                  }}
-                >
-                  <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold }}>{t(item.labelKey)}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <SelectionTrigger
+            label={t('settings.theme')}
+            valueLabel={selectedThemeLabel}
+            placeholder={t('settings.themeSubtitle')}
+            iconName="color-palette-outline"
+            onPress={() => setActiveMenu('theme')}
+          />
         </Section>
       </Card>
 
@@ -297,9 +247,8 @@ export default function SettingsScreen() {
               <Card key={item.id}>
                 <View style={{ gap: spacing(2.5) }}>
                   <View style={{ gap: spacing(1) }}>
-                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold, fontSize: typography.fontSize[16] }}>{item.name}</Text>
-                    <Text style={{ color: colors.textSecondary }}>{item.id}</Text>
-                    <Text style={{ color: isOwner ? colors.success : colors.primary, fontWeight: typography.fontWeight.semibold }}>
+                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold as any, fontSize: typography.fontSize[16] }}>{item.name}</Text>
+                    <Text style={{ color: isOwner ? colors.success : colors.primary, fontWeight: typography.fontWeight.semibold as any }}>
                       {isOwner ? t('settings.owner') : t('settings.member')}
                       {isCurrent ? ` · ${t('settings.currentHouseholdLabel')}` : ''}
                     </Text>
@@ -340,7 +289,7 @@ export default function SettingsScreen() {
                       </View>
                     </>
                   ) : (
-                    <Text style={{ color: colors.textSecondary }}>
+                      <Text style={{ color: colors.textSecondary } as any}>
                       {t('settings.onlyOwnerHouseholdEdit')}
                     </Text>
                   )}
@@ -350,6 +299,30 @@ export default function SettingsScreen() {
           })}
         </View>
       </Section>
+
+      <DropdownMenu
+        visible={activeMenu === 'language'}
+        title={t('settings.language')}
+        closeLabel={t('cancel')}
+        onClose={() => setActiveMenu(null)}
+        items={languageMenuItems}
+      />
+
+      <DropdownMenu
+        visible={activeMenu === 'currency'}
+        title={t('settings.currency')}
+        closeLabel={t('cancel')}
+        onClose={() => setActiveMenu(null)}
+        items={currencyMenuItems}
+      />
+
+      <DropdownMenu
+        visible={activeMenu === 'theme'}
+        title={t('settings.theme')}
+        closeLabel={t('cancel')}
+        onClose={() => setActiveMenu(null)}
+        items={themeMenuItems}
+      />
 
     </Page>
   );

@@ -9,7 +9,9 @@ import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 
 import { Page, Card, Section, Field, Button, Pill, formatCurrency, formatDate } from '@/components/migrated-page';
+import { Badge, EmptyState, Table, TableCell, TableRow } from '@/components/data-surface';
 import { HouseholdMemberSelect } from '@/components/household-member-select';
+import { DropdownMenu } from '@/components/selection-shell';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAccounts } from '../../features/accounts/hooks';
 import { useTopLevelCategories } from '../../features/categories/hooks';
@@ -211,7 +213,7 @@ export default function TransactionsScreen() {
           <View style={{ gap: spacing(2) } as any}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2) }}>
               <Ionicons name="attach-outline" size={16} color={colors.textSecondary} />
-              <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold } as any}>
+              <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold as any } as any}>
                 {t('transactions.attachInvoice')}
               </Text>
             </View>
@@ -222,7 +224,7 @@ export default function TransactionsScreen() {
             />
             {attachment ? (
               <View style={{ gap: spacing(1) }}>
-                <Text style={{ color: colors.text, fontWeight: typography.fontWeight.semibold } as any}>
+                <Text style={{ color: colors.text, fontWeight: typography.fontWeight.semibold as any } as any}>
                   {t('transactions.attachmentSelected')}
                 </Text>
                 <Text style={{ color: colors.textSecondary } as any}>
@@ -244,7 +246,7 @@ export default function TransactionsScreen() {
             hint={t('transactions.createdByPlaceholder')}
             onChange={setCreatedById}
           />
-          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold } as any}>{t('transactions.accounts')}</Text>
+          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold as any } as any}>{t('transactions.accounts')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
             {accounts.map((account: any) => (
               <Pill key={account.id} label={account.name} active={accountId === account.id} onPress={() => setAccountId(account.id)} />
@@ -252,7 +254,7 @@ export default function TransactionsScreen() {
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
             <Ionicons name="pricetag-outline" size={16} color={colors.textSecondary} />
-            <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold } as any}>{t('transactions.categories')}</Text>
+            <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold as any } as any}>{t('transactions.categories')}</Text>
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
             <Pill label={t('none')} active={!categoryId} onPress={() => setCategoryId(null)} />
@@ -265,74 +267,93 @@ export default function TransactionsScreen() {
       </Card>
 
       <Section title={t('transactions.latestTitle')} subtitle={t('transactions.latestSubtitle', { count: transactions.length })}>
-        <View style={{ gap: spacing(2.5) } as any}>
-          {transactions.map((item: any) => (
-            <Card key={item.id}>
-              <View style={styles.transactionHeader}>
-                <View style={{ flex: 1, gap: spacing(1) } as any}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
-                    <Ionicons name={getTransactionTypeIcon(item.type)} size={18} color={item.type === 'expense' ? colors.destructive : colors.success} />
-                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold } as any}>{item.title}</Text>
+        {transactions.length ? (
+          <Table
+            columns={[
+              { label: t('transactions.titleLabel'), flex: 2 },
+              { label: t('transactions.account'), flex: 1.2 },
+              { label: t('transactions.categories'), flex: 1.2 },
+              { label: t('transactions.createdBy'), flex: 1.2 },
+              { label: t('transactions.amountLabel'), align: 'right' },
+            ]}
+          >
+            {transactions.map((item: any) => (
+              <TableRow key={item.id}>
+                <TableCell flex={2}>
+                  <View style={{ gap: spacing(1) }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                      <Ionicons name={getTransactionTypeIcon(item.type)} size={18} color={item.type === 'expense' ? colors.destructive : colors.success} />
+                      <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold as any } as any}>{item.title}</Text>
+                    </View>
+                    <Badge label={t(`transactions.types.${item.type}`)} tone={item.type === 'expense' ? 'destructive' : 'success'} />
                   </View>
-                  <Text style={{ color: colors.textSecondary } as any}>{item.account?.name ?? t('transactions.account')} · {item.category?.name ?? t('transactions.uncategorized')} · {formatDate(item.transaction_date)}</Text>
-                </View>
-                <Pressable
-                  onPress={() => setMenuTransaction(item)}
-                  style={({ pressed }) => [styles.menuButton, pressed && styles.pressed] as any}
-                >
-                  <Ionicons name="ellipsis-vertical" size={18} color={colors.text} />
-                </Pressable>
-              </View>
-              <Text style={{ color: colors.textSecondary } as any}>
-                {t('transactions.createdBy')}: {
-                  item.created_by_profile?.id === profile?.id
-                    ? currentUserLabel
-                    : memberLabelMap.get(item.created_by_profile?.id ?? item.created_by) ?? t('settings.unnamedUser')
-                }
-              </Text>
-              <Text style={{ color: item.type === 'expense' ? colors.destructive : colors.success, fontWeight: typography.fontWeight.extraBold } as any}>
-                {item.type === 'expense' ? '-' : '+'}{formatCurrency(item.amount)}
-              </Text>
-            </Card>
-          ))}
-        </View>
+                </TableCell>
+                <TableCell flex={1.2}>
+                  <Text style={{ color: colors.textSecondary } as any}>{item.account?.name ?? t('transactions.account')}</Text>
+                </TableCell>
+                <TableCell flex={1.2}>
+                  <Text style={{ color: colors.textSecondary } as any}>{item.category?.name ?? t('transactions.uncategorized')}</Text>
+                </TableCell>
+                <TableCell flex={1.2}>
+                  <Text style={{ color: colors.textSecondary } as any}>
+                    {
+                      item.created_by_profile?.id === profile?.id
+                        ? currentUserLabel
+                        : memberLabelMap.get(item.created_by_profile?.id ?? item.created_by) ?? t('settings.unnamedUser')
+                    }
+                  </Text>
+                </TableCell>
+                <TableCell align="right">
+                  <View style={{ alignItems: 'flex-end', gap: spacing(1) }}>
+                    <Text style={{ color: item.type === 'expense' ? colors.destructive : colors.success, fontWeight: typography.fontWeight.extraBold as any } as any}>
+                      {item.type === 'expense' ? '-' : '+'}{formatCurrency(item.amount)}
+                    </Text>
+                    <Pressable
+                      onPress={() => setMenuTransaction(item)}
+                      style={({ pressed }) => [styles.menuButton, pressed && styles.pressed] as any}
+                    >
+                      <Ionicons name="ellipsis-vertical" size={18} color={colors.text} />
+                    </Pressable>
+                  </View>
+                </TableCell>
+              </TableRow>
+            ))}
+          </Table>
+        ) : (
+          <EmptyState title={t('transactions.emptyTitle', { defaultValue: t('transactions.latestTitle') })} description={t('transactions.latestSubtitle', { count: 0 })} icon="receipt-outline" />
+        )}
       </Section>
 
-      <Modal visible={menuTransaction !== null} transparent animationType="fade" onRequestClose={() => setMenuTransaction(null)}>
-        <View style={styles.modalBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuTransaction(null)} />
-          <View style={styles.menuCard}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2) } as any}>
-                <Ionicons name={menuTransaction?.type === 'expense' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'} size={18} color={colors.primary} />
-                <Text style={styles.modalTitle}>{menuTransaction?.title ?? t('transactions.title')}</Text>
-              </View>
-            <Pressable
-              onPress={() => {
-                if (menuTransaction) {
-                  openEditTransaction(menuTransaction);
-                }
-              }}
-              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed] as any}
-            >
-              <Ionicons name="create-outline" size={16} color={colors.text} />
-              <Text style={styles.menuItemText}>{t('transactions.editTitle')}</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                if (menuTransaction) {
-                  void deleteTransaction.mutateAsync(menuTransaction.id);
-                }
-                setMenuTransaction(null);
-              }}
-              style={({ pressed }) => [styles.menuItemDanger, pressed && styles.pressed] as any}
-            >
-              <Ionicons name="trash-outline" size={16} color={colors.destructive} />
-              <Text style={styles.menuItemTextDanger}>{t('delete')}</Text>
-            </Pressable>
-            <Button label={t('cancel')} variant="secondary" onPress={() => setMenuTransaction(null)} />
-          </View>
-        </View>
-      </Modal>
+      <DropdownMenu
+        visible={menuTransaction !== null}
+        title={menuTransaction?.title ?? t('transactions.title')}
+        closeLabel={t('cancel')}
+        onClose={() => setMenuTransaction(null)}
+        items={[
+          {
+            key: 'edit',
+            label: t('transactions.editTitle'),
+            iconName: 'create-outline',
+            onPress: () => {
+              if (menuTransaction) {
+                openEditTransaction(menuTransaction);
+              }
+            },
+          },
+          {
+            key: 'delete',
+            label: t('delete'),
+            iconName: 'trash-outline',
+            danger: true,
+            onPress: () => {
+              if (menuTransaction) {
+                void deleteTransaction.mutateAsync(menuTransaction.id);
+              }
+              setMenuTransaction(null);
+            },
+          },
+        ]}
+      />
 
       <Modal visible={editTransaction !== null} transparent animationType="fade" onRequestClose={() => setEditTransaction(null)}>
         <View style={styles.modalBackdrop}>
@@ -385,7 +406,7 @@ export default function TransactionsScreen() {
                   hint={t('transactions.createdByPlaceholder')}
                   onChange={(value) => setEditTransaction((current) => (current ? { ...current, createdById: value } : current))}
                 />
-                <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold } as any}>{t('transactions.accounts')}</Text>
+                <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold as any } as any}>{t('transactions.accounts')}</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
                   {accounts.map((account: any) => (
                     <Pill
@@ -396,7 +417,7 @@ export default function TransactionsScreen() {
                     />
                   ))}
                 </View>
-                <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold } as any}>{t('transactions.categories')}</Text>
+                <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold as any } as any}>{t('transactions.categories')}</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
                   <Pill
                     label={t('none')}
@@ -446,7 +467,7 @@ function createStyles(colors: any) {
   menuButtonText: {
     color: colors.text,
     fontSize: typography.fontSize[22],
-    fontWeight: typography.fontWeight.extraBold,
+    fontWeight: String(typography.fontWeight.extraBold),
     lineHeight: typography.lineHeight[22],
   },
   modalBackdrop: {
@@ -474,7 +495,7 @@ function createStyles(colors: any) {
   modalTitle: {
     color: colors.text,
     fontSize: typography.fontSize[20],
-    fontWeight: typography.fontWeight.extraBold,
+    fontWeight: String(typography.fontWeight.extraBold),
   },
   modalSubtitle: {
     color: colors.textSecondary,
@@ -506,12 +527,12 @@ function createStyles(colors: any) {
   menuItemText: {
     color: colors.text,
     fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.bold,
+    fontWeight: String(typography.fontWeight.bold),
   },
   menuItemTextDanger: {
     color: colors.destructive,
     fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.bold,
+    fontWeight: String(typography.fontWeight.bold),
   },
   pressed: {
     opacity: 0.85,

@@ -12,7 +12,14 @@
     "recurring": "Recurring",
     "savings": "Savings",
     "investments": "Investments",
-    "subtitle": "Personal Finance"
+    "subtitle": "Personal Finance",
+    "brand": "SmartFinance",
+    "overview": "Overview",
+    "overviewDescription": "Start here and jump to the most-used surfaces.",
+    "moneyMovement": "Money movement",
+    "moneyMovementDescription": "Move funds and review recurring flows.",
+    "administration": "Administration",
+    "administrationDescription": "Manage how the household is structured."
   },
 
   "budget": {
@@ -397,15 +404,19 @@
     "searchIcons": "Search icons",
     "noIcon": "No icon",
     "createTitle": "Create category",
+    "createSubtitle": "Define a new category and choose its type, parent, and icon.",
+    "editTitle": "Edit category",
     "name": "Name",
     "parentId": "Parent category id",
     "optional": "Optional",
     "create": "Create Category",
     "creating": "Creating...",
     "listTitle": "Categories",
-    "listSubtitle": "Showing {{type}} categories.",
+    "listSubtitle": "Showing {{count}} categories.",
     "filterTitle": "Filter categories",
     "filterSubtitle": "Switch between income, expense, and account categories without changing the create form.",
+    "emptyFilteredTitle": "No categories match this filter",
+    "emptyFilteredSubtitle": "Try another type or create a category for this section.",
     "table": {
       "name": "Name",
       "type": "Type",
@@ -416,12 +427,16 @@
     "parent": "parent",
     "archived": "Archived",
     "active": "Active",
+    "edit": "Edit",
     "archive": "Archive",
     "restore": "Restore",
     "summary": {
       "total": "Total",
       "active": "Active",
       "archived": "Archived"
+    },
+    "filters": {
+      "all": "All types"
     },
     "types": {
       "expense": "Expense",
@@ -521,6 +536,7 @@
     "titleLabel": "Title",
     "amount": "Amount",
     "nextRun": "Next run",
+    "nextRunPlaceholder": "Select a date",
     "create": "Create recurring rule",
     "active": "Active",
     "inactive": "Inactive",

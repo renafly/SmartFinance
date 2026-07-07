@@ -19,7 +19,7 @@ export class RecurringTransactionsRepository extends BaseRepository<"recurring_t
   ): Promise<RepoResult<RecurringTransaction[]>> {
     let query = this.client
       .from("recurring_transactions")
-      .select("*")
+      .select("*, account:accounts(id, name), category:categories(id, name, icon)")
       .eq("household_id", householdId)
       .order("next_run", { ascending: true });
 
@@ -27,7 +27,7 @@ export class RecurringTransactionsRepository extends BaseRepository<"recurring_t
 
     const { data, error } = await query;
     if (error) return { data: null, error };
-    return { data: data ?? [], error: null };
+    return { data: (data ?? []) as any, error: null };
   }
 
   /** Active recurring transactions whose next_run is on or before the given date (defaults to now). */

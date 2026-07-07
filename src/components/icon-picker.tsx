@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
+import { SelectionShell, SelectionTrigger } from '@/components/selection-shell';
 
 type IconPickerProps = {
   label: string;
   value: string | null;
   onChange: (icon: string | null) => void;
+  suggestedIcons?: readonly string[];
   placeholder?: string;
   hint?: string;
   closeLabel?: string;
@@ -57,11 +59,13 @@ const DEFAULT_ICON_NAMES = [
 ] as const;
 
 const STARTER_ICON_NAMES = [...new Set([...DEFAULT_ICON_NAMES, ...ALL_ICON_NAMES])];
+const ICON_GRID_COLUMNS = 3;
 
 export function IconPicker({
   label,
   value,
   onChange,
+  suggestedIcons,
   placeholder = 'Pick an icon',
   hint,
   closeLabel = 'Close',
@@ -76,125 +80,109 @@ export function IconPicker({
   const selectedValue = value ?? '';
   const filteredIcons = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return STARTER_ICON_NAMES.slice(0, 180);
-    return ALL_ICON_NAMES.filter((icon) => icon.toLowerCase().includes(query)).slice(0, 180);
-  }, [search]);
+    if (!query) {
+      return suggestedIcons?.length
+        ? [...new Set([...suggestedIcons, ...DEFAULT_ICON_NAMES])].filter((iconName) => ALL_ICON_NAMES.includes(iconName))
+        : STARTER_ICON_NAMES;
+    }
+    return ALL_ICON_NAMES.filter((icon) => icon.toLowerCase().includes(query));
+  }, [search, suggestedIcons]);
+
+  function renderIconTile({ item: iconName }: { item: string }) {
+    const active = iconName === selectedValue;
+
+    return (
+      <Pressable
+        onPress={() => {
+          onChange(iconName);
+          setOpen(false);
+        }}
+        style={({ pressed }) => [
+          styles.iconTile,
+          { backgroundColor: active ? colors.primary : colors.surfaceMuted, borderColor: active ? colors.primary : colors.border },
+          pressed && styles.pressed,
+        ]}
+      >
+        <Ionicons
+          name={iconName as any}
+          size={20}
+          color={active ? colors.primaryForeground : colors.textSecondary}
+        />
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.iconName,
+            { color: active ? colors.primaryForeground : colors.textSecondary },
+          ]}
+        >
+          {iconName}
+        </Text>
+      </Pressable>
+    );
+  }
 
   return (
     <View style={styles.wrapper}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
-      <Pressable
+      <SelectionTrigger
+        label={label}
+        valueLabel={selectedValue || placeholder}
+        hint={hint}
+        placeholder={placeholder}
+        iconName={selectedValue ? (selectedValue as any) : 'image-outline'}
         disabled={disabled}
         onPress={() => setOpen(true)}
-        style={({ pressed }) => [
-          styles.selector,
-          { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
-          pressed && styles.pressed,
-          disabled && styles.disabled,
-        ]}
+      />
+
+      <SelectionShell
+        visible={open}
+        title={label}
+        subtitle={hint ?? placeholder}
+        closeLabel={closeLabel}
+        onClose={() => setOpen(false)}
       >
-        <View style={styles.selectorIcon}>
-          {selectedValue ? (
-            <Ionicons name={selectedValue as any} size={18} color={colors.primary} />
-          ) : (
-            <Ionicons name="image-outline" size={18} color={colors.textSecondary} />
-          )}
+        <View style={{ gap: spacing(2) }}>
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder={searchPlaceholder}
+            placeholderTextColor={colors.textSecondary}
+            style={[
+              styles.searchInput,
+              { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceMuted },
+            ]}
+          />
+          <Pressable
+            onPress={() => {
+              onChange(null);
+              setOpen(false);
+            }}
+            style={({ pressed }) => [
+              styles.noneButton,
+              { backgroundColor: !selectedValue ? colors.primary : colors.surfaceMuted, borderColor: !selectedValue ? colors.primary : colors.border },
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons name="close-circle-outline" size={18} color={!selectedValue ? colors.primaryForeground : colors.textSecondary} />
+            <Text style={[styles.noneLabel, { color: !selectedValue ? colors.primaryForeground : colors.text }]}>{noneLabel}</Text>
+          </Pressable>
         </View>
-        <View style={{ flex: 1, gap: spacing(1) }}>
-          <Text style={[styles.value, { color: colors.text }]}>{selectedValue || placeholder}</Text>
-          {hint ? <Text style={[styles.hint, { color: colors.textSecondary }]}>{hint}</Text> : null}
-        </View>
-        <Ionicons name="chevron-down-outline" size={16} color={colors.link} />
-      </Pressable>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
-          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalTitleRow}>
-                <Ionicons name="images-outline" size={18} color={colors.primary} />
-                <Text style={[styles.modalTitle, { color: colors.text }]}>{label}</Text>
-              </View>
-              <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{hint ?? placeholder}</Text>
-            </View>
-
-            <View style={{ gap: spacing(2) }}>
-              <TextInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder={searchPlaceholder}
-                placeholderTextColor={colors.textSecondary}
-                style={[
-                  styles.searchInput,
-                  { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceMuted },
-                ]}
-              />
-              <Pressable
-                onPress={() => {
-                  onChange(null);
-                  setOpen(false);
-                }}
-                style={({ pressed }) => [
-                  styles.noneButton,
-                  { backgroundColor: !selectedValue ? colors.primary : colors.surfaceMuted, borderColor: !selectedValue ? colors.primary : colors.border },
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Ionicons name="close-circle-outline" size={18} color={!selectedValue ? colors.primaryForeground : colors.textSecondary} />
-                <Text style={[styles.noneLabel, { color: !selectedValue ? colors.primaryForeground : colors.text }]}>{noneLabel}</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.grid}>
-              {filteredIcons.map((iconName) => {
-                const active = iconName === selectedValue;
-                return (
-                  <Pressable
-                    key={iconName}
-                    onPress={() => {
-                      onChange(iconName);
-                      setOpen(false);
-                    }}
-                    style={({ pressed }) => [
-                      styles.iconTile,
-                      { backgroundColor: active ? colors.primary : colors.surfaceMuted, borderColor: active ? colors.primary : colors.border },
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Ionicons
-                      name={iconName as any}
-                      size={20}
-                      color={active ? colors.primaryForeground : colors.textSecondary}
-                    />
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.iconName,
-                        { color: active ? colors.primaryForeground : colors.textSecondary },
-                      ]}
-                    >
-                      {iconName}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Pressable
-              onPress={() => setOpen(false)}
-              style={({ pressed }) => [
-                styles.closeButton,
-                { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
-                pressed && styles.pressed,
-              ]}
-            >
-              <Ionicons name="close-outline" size={16} color={colors.text} />
-              <Text style={[styles.closeButtonText, { color: colors.text }]}>{closeLabel}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+        <FlatList
+          key={ICON_GRID_COLUMNS}
+          data={filteredIcons}
+          keyExtractor={(item) => item}
+          renderItem={renderIconTile}
+          numColumns={ICON_GRID_COLUMNS}
+          initialNumToRender={36}
+          maxToRenderPerBatch={36}
+          windowSize={7}
+          removeClippedSubviews
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.gridContent}
+          columnWrapperStyle={styles.gridRow}
+          style={styles.grid}
+        />
+      </SelectionShell>
     </View>
   );
 }
@@ -202,60 +190,6 @@ export function IconPicker({
 const styles: any = StyleSheet.create({
   wrapper: {
     gap: spacing(2),
-  },
-  label: {
-    fontWeight: typography.fontWeight.semibold as any,
-  },
-  selector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing(3),
-    padding: spacing(3.5),
-    borderRadius: radius.lg,
-    borderWidth: 1,
-  },
-  selectorIcon: {
-    width: spacing(9),
-    height: spacing(9),
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  value: {
-    fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.bold as any,
-  },
-  hint: {
-    fontSize: typography.fontSize[12],
-    lineHeight: typography.lineHeight[17],
-  },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: spacing(5),
-  },
-  modalCard: {
-    gap: spacing(3.5),
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    padding: spacing(4.5),
-    maxHeight: '90%',
-  },
-  modalHeader: {
-    gap: spacing(1),
-  },
-  modalTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing(2),
-  },
-  modalTitle: {
-    fontSize: typography.fontSize[20],
-    fontWeight: typography.fontWeight.extraBold as any,
-  },
-  modalSubtitle: {
-    fontSize: typography.fontSize[13],
-    lineHeight: typography.lineHeight[18],
   },
   searchInput: {
     borderWidth: 1,
@@ -277,14 +211,19 @@ const styles: any = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold as any,
   },
   grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing(2),
     maxHeight: 340,
   },
+  gridContent: {
+    gap: spacing(2),
+    paddingBottom: spacing(1),
+  },
+  gridRow: {
+    gap: spacing(2),
+  },
   iconTile: {
-    width: '31%',
+    flex: 1,
     minWidth: 92,
+    maxWidth: '32%',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing(1),

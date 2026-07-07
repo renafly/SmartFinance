@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import { HouseholdMemberSelect } from "@/components/household-member-select";
+import { MultiSelectShell } from "@/components/selection-shell";
 import {
   Button,
   Card,
@@ -683,92 +684,69 @@ export default function SavingsScreen() {
         </View>
       </Modal>
 
-      <Modal
+      <MultiSelectShell
         visible={selectionMode !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={closePicker}
+        title={selectionModalTitle}
+        subtitle={t("savings.selectedAccountsHint")}
+        closeLabel={t("savings.closeAccounts")}
+        confirmLabel={updateSavingPotAccounts.isPending ? t("saving") : t("savings.saveAccounts")}
+        onClose={closePicker}
+        onConfirm={() => void savePickerSelection()}
+        confirmDisabled={updateSavingPotAccounts.isPending}
       >
-        <View style={styles.modalBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={closePicker} />
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{selectionModalTitle}</Text>
-            <Text style={styles.modalSubtitle}>
-              {t("savings.selectedAccountsHint")}
-            </Text>
+        {accounts.length === 0 ? (
+          <Text style={styles.modalEmpty}>
+            {t("savings.noAccountsAvailable")}
+          </Text>
+        ) : (
+          <ScrollView
+            style={styles.modalList}
+            contentContainerStyle={{ gap: spacing(3.5) }}
+          >
+            {groups.map((group) => (
+              <View key={group.key} style={styles.group}>
+                <Text style={styles.groupTitle}>{group.title}</Text>
+                <View style={{ gap: spacing(2.5) }}>
+                  {group.accounts.map((account) => {
+                    const selected = draftAccountIds.includes(account.id);
 
-            {accounts.length === 0 ? (
-              <Text style={styles.modalEmpty}>
-                {t("savings.noAccountsAvailable")}
-              </Text>
-            ) : (
-              <ScrollView
-                style={styles.modalList}
-                contentContainerStyle={{ gap: spacing(3.5) }}
-              >
-                {groups.map((group) => (
-                  <View key={group.key} style={styles.group}>
-                    <Text style={styles.groupTitle}>{group.title}</Text>
-                    <View style={{ gap: spacing(2.5) }}>
-                      {group.accounts.map((account) => {
-                        const selected = draftAccountIds.includes(account.id);
-
-                        return (
-                          <Pressable
-                            key={account.id}
-                            onPress={() => toggleDraftAccount(account.id)}
-                            style={({ pressed }) => [
-                              styles.accountRow,
-                              selected && styles.accountRowSelected,
-                              pressed && styles.pressed,
-                            ]}
-                          >
-                            <View style={{ flex: 1, gap: spacing(1) }}>
-                              <Text style={styles.accountName}>
-                                {account.name}
-                              </Text>
-                              <Text style={styles.accountMeta}>
-                                {formatCurrency(account.current_balance)}
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.checkbox,
-                                selected && styles.checkboxSelected,
-                              ]}
-                            >
-                              <Text style={styles.checkboxLabel}>
-                                {selected ? "✓" : ""}
-                              </Text>
-                            </View>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </View>
-                ))}
-              </ScrollView>
-            )}
-
-            <View style={styles.modalActions}>
-              <Button
-                label={t("savings.closeAccounts")}
-                variant="secondary"
-                onPress={closePicker}
-              />
-              <Button
-                label={
-                  updateSavingPotAccounts.isPending
-                    ? t("saving")
-                    : t("savings.saveAccounts")
-                }
-                onPress={() => void savePickerSelection()}
-                disabled={updateSavingPotAccounts.isPending}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
+                    return (
+                      <Pressable
+                        key={account.id}
+                        onPress={() => toggleDraftAccount(account.id)}
+                        style={({ pressed }) => [
+                          styles.accountRow,
+                          selected && styles.accountRowSelected,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <View style={{ flex: 1, gap: spacing(1) }}>
+                          <Text style={styles.accountName}>
+                            {account.name}
+                          </Text>
+                          <Text style={styles.accountMeta}>
+                            {formatCurrency(account.current_balance)}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.checkbox,
+                            selected && styles.checkboxSelected,
+                          ]}
+                        >
+                          <Text style={styles.checkboxLabel}>
+                            {selected ? "✓" : ""}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+      </MultiSelectShell>
     </Page>
   );
 }

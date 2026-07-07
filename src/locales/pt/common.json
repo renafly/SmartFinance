@@ -12,7 +12,14 @@
     "recurring": "Recorrentes",
     "savings": "Poupancas",
     "investments": "Investimentos",
-    "subtitle": "Financas Pessoais"
+    "subtitle": "Financas Pessoais",
+    "brand": "SmartFinance",
+    "overview": "Visao geral",
+    "overviewDescription": "Comece aqui e salte para as areas mais usadas.",
+    "moneyMovement": "Movimento de dinheiro",
+    "moneyMovementDescription": "Movimente fundos e reveja os fluxos recorrentes.",
+    "administration": "Administracao",
+    "administrationDescription": "Gira a estrutura do agregado."
   },
 
   "budget": {
@@ -397,15 +404,19 @@
     "searchIcons": "Procurar icones",
     "noIcon": "Sem icone",
     "createTitle": "Criar categoria",
+    "createSubtitle": "Defina uma nova categoria e escolha o tipo, pai e icone.",
+    "editTitle": "Editar categoria",
     "name": "Nome",
     "parentId": "Id da categoria pai",
     "optional": "Opcional",
     "create": "Criar Categoria",
     "creating": "A criar...",
     "listTitle": "Categorias",
-    "listSubtitle": "A mostrar categorias de {{type}}.",
+    "listSubtitle": "A mostrar {{count}} categorias.",
     "filterTitle": "Filtrar categorias",
     "filterSubtitle": "Muda entre categorias de receita, despesa e conta sem alterar o formulario de criacao.",
+    "emptyFilteredTitle": "Nenhuma categoria corresponde a este filtro",
+    "emptyFilteredSubtitle": "Experimente outro tipo ou crie uma categoria para esta seccao.",
     "table": {
       "name": "Nome",
       "type": "Tipo",
@@ -416,12 +427,16 @@
     "parent": "pai",
     "archived": "Arquivada",
     "active": "Ativa",
+    "edit": "Editar",
     "archive": "Arquivar",
     "restore": "Restaurar",
     "summary": {
       "total": "Total",
       "active": "Ativas",
       "archived": "Arquivadas"
+    },
+    "filters": {
+      "all": "Todos os tipos"
     },
     "types": {
       "expense": "Despesa",
@@ -518,6 +533,7 @@
     "titleLabel": "Titulo",
     "amount": "Valor",
     "nextRun": "Proxima execucao",
+    "nextRunPlaceholder": "Selecionar uma data",
     "create": "Criar regra recorrente",
     "active": "Ativa",
     "inactive": "Inativa",

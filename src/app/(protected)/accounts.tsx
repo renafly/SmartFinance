@@ -7,6 +7,7 @@ import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 
 import { Page, Card, Section, Field, Button, Pill, formatCurrency } from '@/components/migrated-page';
+import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from '@/components/data-surface';
 import { HouseholdMemberSelect } from '@/components/household-member-select';
 import { useAuth } from '../../providers/AuthProvider';
 import {
@@ -92,6 +93,19 @@ export default function AccountsScreen() {
         return 'shield-checkmark-outline';
       default:
         return 'layers-outline';
+    }
+  };
+  const getAccountTypeTone = (accountType: (typeof accountTypes)[number]) => {
+    switch (accountType) {
+      case 'savings':
+        return 'success';
+      case 'credit_card':
+        return 'warning';
+      case 'investment':
+      case 'ppr':
+        return 'primary';
+      default:
+        return 'neutral';
     }
   };
   const filteredAccounts = useMemo(() => {
@@ -182,6 +196,16 @@ export default function AccountsScreen() {
 
   return (
     <Page title={t('accounts.title')} subtitle={t('accounts.subtitle')} actions={<Button label={t('accounts.create')} onPress={openCreateDialog} />}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) }}>
+        <MetricCard
+          label={t('accounts.currentTitle')}
+          value={String(filteredAccounts.length)}
+          icon="wallet-outline"
+          hint={t('accounts.currentSubtitle', { count: filteredAccounts.length, archived: archivedCount })}
+        />
+        <MetricCard label={t('accounts.allTypes')} value={String(accounts.length)} icon="layers-outline" hint={t('accounts.filtersByType')} />
+      </View>
+
       <Section title={t('accounts.currentTitle')} subtitle={t('accounts.currentSubtitle', { count: filteredAccounts.length, archived: archivedCount })}>
         <View style={{ gap: spacing(3), marginBottom: spacing(3) }}>
           <View style={{ gap: spacing(2) }}>
@@ -226,61 +250,68 @@ export default function AccountsScreen() {
           ) : null}
         </View>
 
-        <View style={{ gap: spacing(3) }}>
-          {filteredAccounts.map((account: any) => {
-            const balance = account.current_balance ?? account.balance ?? 0;
-            const isArchived = Boolean(account.is_archived);
+        {filteredAccounts.length ? (
+          <Table
+            columns={[
+              { label: t('accounts.name'), flex: 2 },
+              { label: t('accounts.owner'), flex: 1.4 },
+              { label: t('accounts.typeLabel'), flex: 1 },
+              { label: t('accounts.currency'), flex: 0.8, align: 'center' },
+              { label: t('accounts.initialBalance'), align: 'right' },
+              { label: t('dashboard.total'), align: 'right' },
+            ]}
+          >
+            {filteredAccounts.map((account: any) => {
+              const balance = account.current_balance ?? account.balance ?? 0;
+              const isArchived = Boolean(account.is_archived);
 
-            return (
-              <Card key={account.id}>
-                <View style={styles.accountHeader}>
-                  <View style={styles.accountLeading}>
-                    <View style={styles.accountIconBadge}>
-                      <Ionicons name={getAccountTypeIcon(account.type)} size={18} color={colors.primary} />
+              return (
+                <TableRow key={account.id}>
+                  <TableCell flex={2}>
+                    <View style={{ gap: spacing(1) }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
+                        <Ionicons name={getAccountTypeIcon(account.type)} size={18} color={colors.primary} />
+                        <Text style={styles.accountName}>{account.name}</Text>
+                      </View>
+                      <Badge label={isArchived ? t('accounts.archived') : t('accounts.active')} tone={isArchived ? 'destructive' : 'success'} />
                     </View>
-                    <View style={{ flex: 1, gap: spacing(1.5) }}>
-                      <Text style={styles.accountName}>
-                        {account.name} - {getOwnerLabel(account.owner_profile_id)}
-                      </Text>
-                      <View style={styles.metaRow}>
-                        <Ionicons name="pricetag-outline" size={14} color={colors.textSecondary} />
-                        <Text style={styles.accountMeta}>
-                          {t(`accounts.types.${account.type}`, { defaultValue: account.type })} · {account.currency}
-                        </Text>
-                      </View>
-                      <View style={styles.metaRow}>
-                        <Ionicons name={account.owner_profile_id ? 'person-outline' : 'people-outline'} size={14} color={colors.textSecondary} />
-                        <Text style={styles.accountMeta}>
-                          {t('accounts.owner')}: {getOwnerLabel(account.owner_profile_id)}
-                        </Text>
-                      </View>
-                      <View style={styles.metaRow}>
-                        <Ionicons name="cash-outline" size={14} color={colors.primary} />
-                        <Text style={styles.accountTotal}>{formatCurrency(balance)}</Text>
-                      </View>
-                      <View style={styles.metaRow}>
-                        <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
-                        <Text style={styles.accountMeta}>
-                          {t('accounts.initialBalance')} {formatCurrency(account.initial_balance ?? 0)}
-                        </Text>
-                      </View>
+                  </TableCell>
+                  <TableCell flex={1.4}>
+                    <Text style={styles.accountMeta}>{getOwnerLabel(account.owner_profile_id)}</Text>
+                  </TableCell>
+                  <TableCell flex={1}>
+                    <Badge label={t(`accounts.types.${account.type}`, { defaultValue: account.type })} tone={getAccountTypeTone(account.type)} />
+                  </TableCell>
+                  <TableCell flex={0.8} align="center">
+                    <Text style={styles.accountMeta}>{account.currency}</Text>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text style={styles.accountMeta}>{formatCurrency(account.initial_balance ?? 0)}</Text>
+                  </TableCell>
+                  <TableCell align="right">
+                    <View style={{ alignItems: 'flex-end', gap: spacing(1) }}>
+                      <Text style={styles.accountTotal}>{formatCurrency(balance)}</Text>
+                      <Pressable
+                        onPress={() => setMenuAccount({ id: account.id, name: account.name })}
+                        style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
+                      >
+                        <Ionicons name="ellipsis-vertical" size={18} color={colors.text} />
+                      </Pressable>
                     </View>
-                  </View>
-                  <Pressable
-                    onPress={() => setMenuAccount({ id: account.id, name: account.name })}
-                    style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
-                  >
-                    <Ionicons name="ellipsis-vertical" size={18} color={colors.text} />
-                  </Pressable>
-                </View>
-
-                <Text style={{ color: isArchived ? colors.destructive : colors.success, fontWeight: String(typography.fontWeight.semibold) } as any}>
-                  {isArchived ? t('accounts.archived') : t('accounts.active')}
-                </Text>
-              </Card>
-            );
-          })}
-        </View>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </Table>
+        ) : (
+          <EmptyState
+            title={t('accounts.emptyTitle', { defaultValue: t('accounts.currentTitle') })}
+            description={t('accounts.emptySubtitle', { defaultValue: t('accounts.subtitle') })}
+            icon="wallet-outline"
+            actionLabel={t('accounts.create')}
+            onAction={openCreateDialog}
+          />
+        )}
       </Section>
 
       <Modal visible={createDialogOpen} transparent animationType="fade" onRequestClose={() => setCreateDialogOpen(false)}>

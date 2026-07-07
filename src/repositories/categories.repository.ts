@@ -6,6 +6,7 @@ import type { Database } from "@/types/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type Category = Database["public"]["Tables"]["categories"]["Row"];
+type CategoryUpdate = Database["public"]["Tables"]["categories"]["Update"];
 export type CategoryType = "income" | "expense" | "account";
 
 export class CategoriesRepository extends BaseRepository<"categories"> {
@@ -75,5 +76,12 @@ export class CategoriesRepository extends BaseRepository<"categories"> {
 
   async restore(id: string): Promise<RepoResult<Category>> {
     return this.update(id, { is_archived: false } as any);
+  }
+
+  async updateCategory(
+    id: string,
+    values: Pick<CategoryUpdate, "name" | "type" | "icon" | "parent_id">
+  ): Promise<RepoResult<Category>> {
+    return this.update(id, values);
   }
 }

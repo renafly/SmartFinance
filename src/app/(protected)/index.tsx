@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Page, Card, Section, formatCurrency, formatDate, Button } from '@/components/migrated-page';
+import { Page, Section, formatCurrency, formatDate, Button } from '@/components/migrated-page';
+import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from '@/components/data-surface';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
@@ -214,211 +215,234 @@ export default function DashboardScreen() {
       subtitle={t('dashboard.subtitle', { name: profile?.full_name ? `, ${profile.full_name}` : '' })}
       actions={<Button label={t('logout')} onPress={() => void logout()} variant="secondary" />}
     >
-      <Card>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) }}>
-          <View style={{ minWidth: 170, flex: 1, gap: spacing(1) }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-              <Ionicons name={getDashboardStatIcon('trackedFunds')} size={16} color={colors.textSecondary} />
-              <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.trackedFunds')}</Text>
-            </View>
-            <Text style={{ color: colors.text, fontSize: typography.fontSize[28], fontWeight: typography.fontWeight.extraBold }}>{formatCurrency(trackedTotal)}</Text>
-          </View>
-          <View style={{ minWidth: 170, flex: 1, gap: spacing(1) }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-              <Ionicons name={getDashboardStatIcon('investedTotal')} size={16} color={colors.textSecondary} />
-              <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.investedTotal')}</Text>
-            </View>
-            <Text style={{ color: colors.text, fontSize: typography.fontSize[28], fontWeight: typography.fontWeight.extraBold }}>{formatCurrency(investmentTotal)}</Text>
-          </View>
-          <View style={{ minWidth: 170, flex: 1, gap: spacing(1) }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-              <Ionicons name={getDashboardStatIcon('savingsAccountsTotal')} size={16} color={colors.textSecondary} />
-              <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.savingsAccountsTotal')}</Text>
-            </View>
-            <Text style={{ color: colors.text, fontSize: typography.fontSize[28], fontWeight: typography.fontWeight.extraBold }}>{formatCurrency(savingsAccountTotal)}</Text>
-          </View>
-          <View style={{ minWidth: 170, flex: 1, gap: spacing(1) }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-              <Ionicons name={getDashboardStatIcon('savingPotsTotal')} size={16} color={colors.textSecondary} />
-              <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.savingPotsTotal')}</Text>
-            </View>
-            <Text style={{ color: colors.text, fontSize: typography.fontSize[28], fontWeight: typography.fontWeight.extraBold }}>{formatCurrency(savingPotsTotal)}</Text>
-          </View>
-        </View>
-      </Card>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) }}>
+        <MetricCard label={t('dashboard.trackedFunds')} value={formatCurrency(trackedTotal)} icon={getDashboardStatIcon('trackedFunds')} />
+        <MetricCard label={t('dashboard.investedTotal')} value={formatCurrency(investmentTotal)} icon={getDashboardStatIcon('investedTotal')} />
+        <MetricCard label={t('dashboard.savingsAccountsTotal')} value={formatCurrency(savingsAccountTotal)} icon={getDashboardStatIcon('savingsAccountsTotal')} />
+        <MetricCard label={t('dashboard.savingPotsTotal')} value={formatCurrency(savingPotsTotal)} icon={getDashboardStatIcon('savingPotsTotal')} />
+      </View>
 
       <Section
         title={t('dashboard.byPersonTitle')}
         subtitle={t('dashboard.byPersonSubtitle')}
       >
-        <View style={{ gap: spacing(2.5) }}>
-          {memberBreakdown.length ? (
-            memberBreakdown.map((row) => (
-              <Card key={row.id}>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2), alignItems: 'center' }}>
-                  <View style={{ flex: 1, minWidth: 180, gap: spacing(1) }}>
+        {memberBreakdown.length ? (
+          <Table
+            columns={[
+              { label: t('dashboard.person'), flex: 2 },
+              { label: t('dashboard.invested'), align: 'right' },
+              { label: t('dashboard.savingsAccounts'), align: 'right' },
+              { label: t('dashboard.pots'), align: 'right' },
+              { label: t('dashboard.total'), align: 'right' },
+            ]}
+          >
+            {memberBreakdown.map((row) => (
+              <TableRow key={row.id}>
+                <TableCell flex={2}>
+                  <View style={{ gap: spacing(1) }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
                       <Ionicons name="person-circle-outline" size={18} color={colors.primary} />
-                      <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[15] }}>
+                      <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any, fontSize: typography.fontSize[15] }}>
                         {row.label}
                       </Text>
                     </View>
-                    <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] }}>
-                      {t('dashboard.person')}
-                    </Text>
+                    <Badge label={row.id === '__shared__' ? t('dashboard.shared') : t('dashboard.person')} tone={row.id === '__shared__' ? 'neutral' : 'primary'} />
                   </View>
-                  <View style={{ minWidth: 110 }}>
-                    <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[11] }}>{t('dashboard.invested')}</Text>
-                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold }}>{formatCurrency(row.invested)}</Text>
-                  </View>
-                  <View style={{ minWidth: 110 }}>
-                    <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[11] }}>{t('dashboard.savingsAccounts')}</Text>
-                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold }}>{formatCurrency(row.savings)}</Text>
-                  </View>
-                  <View style={{ minWidth: 110 }}>
-                    <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[11] }}>{t('dashboard.pots')}</Text>
-                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold }}>{formatCurrency(row.pots)}</Text>
-                  </View>
-                  <View style={{ minWidth: 120 }}>
-                    <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[11] }}>{t('dashboard.total')}</Text>
-                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold }}>{formatCurrency(row.total)}</Text>
-                  </View>
-                </View>
-              </Card>
-            ))
-          ) : (
-            <Text style={{ color: colors.textSecondary }}>{t('dashboard.noPeople')}</Text>
-          )}
-        </View>
+                </TableCell>
+                <TableCell align="right">{formatCurrency(row.invested)}</TableCell>
+                <TableCell align="right">{formatCurrency(row.savings)}</TableCell>
+                <TableCell align="right">{formatCurrency(row.pots)}</TableCell>
+                <TableCell align="right">
+                  <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(row.total)}</Text>
+                </TableCell>
+              </TableRow>
+            ))}
+          </Table>
+        ) : (
+          <EmptyState title={t('dashboard.noPeople')} description={t('dashboard.byPersonSubtitle')} icon="people-outline" />
+        )}
       </Section>
 
       <Section
         title={t('dashboard.investmentAccountsTitle')}
         subtitle={t('dashboard.investmentAccountsSubtitle', { count: totalInvestmentAccounts })}
       >
-        <View style={{ gap: spacing(2.5) }}>
-          {investmentAccounts.length ? (
-            investmentAccounts.map((account) => {
+        {investmentAccounts.length ? (
+          <Table
+            columns={[
+              { label: t('accounts.name'), flex: 2 },
+              { label: t('accounts.owner'), flex: 1.2 },
+              { label: t('accounts.typeLabel'), flex: 1 },
+              { label: t('dashboard.total'), align: 'right' },
+            ]}
+          >
+            {investmentAccounts.map((account) => {
               const owner = account.owner_profile_id ? memberMap.get(account.owner_profile_id) : undefined;
+
               return (
-                <Card key={account.id}>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2), alignItems: 'center' }}>
-                  <View style={{ flex: 1, minWidth: 180, gap: spacing(1) }}>
+                <TableRow key={account.id}>
+                  <TableCell flex={2}>
+                    <View style={{ gap: spacing(1) }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-                        <Ionicons name={account.type === 'ppr' ? 'shield-checkmark-outline' : account.type === 'investment' ? 'trending-up-outline' : 'wallet-outline'} size={18} color={colors.primary} />
-                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[15] }}>
+                        <Ionicons name={account.type === 'ppr' ? 'shield-checkmark-outline' : 'trending-up-outline'} size={18} color={colors.primary} />
+                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any, fontSize: typography.fontSize[15] }}>
                           {account.name}
                         </Text>
                       </View>
-                      <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] }}>
-                        {t(`accounts.types.${account.type}`)} · {getPersonLabel(owner, t('dashboard.shared'))}
-                      </Text>
+                      <Badge label={t(`accounts.types.${account.type}`)} tone="primary" />
                     </View>
-                    <Text style={{ color: colors.primary, fontSize: typography.fontSize[16], fontWeight: typography.fontWeight.extraBold }}>
-                      {formatCurrency(account.current_balance ?? account.balance ?? 0)}
-                    </Text>
-                  </View>
-                </Card>
+                  </TableCell>
+                  <TableCell flex={1.2}>
+                    <Text style={{ color: colors.textSecondary }}>{getPersonLabel(owner, t('dashboard.shared'))}</Text>
+                  </TableCell>
+                  <TableCell>
+                    <Badge label={t(`accounts.types.${account.type}`)} tone="neutral" />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(account.current_balance ?? account.balance ?? 0)}</Text>
+                  </TableCell>
+                </TableRow>
               );
-            })
-          ) : (
-            <Text style={{ color: colors.textSecondary }}>{t('dashboard.noInvestmentAccounts')}</Text>
-          )}
-        </View>
+            })}
+          </Table>
+        ) : (
+          <EmptyState title={t('dashboard.noInvestmentAccounts')} icon="trending-up-outline" />
+        )}
       </Section>
 
       <Section
         title={t('dashboard.savingsAccountsTitle')}
         subtitle={t('dashboard.savingsAccountsSubtitle', { count: totalSavingsAccounts })}
       >
-        <View style={{ gap: spacing(2.5) }}>
-          {savingsAccounts.length ? (
-            savingsAccounts.map((account) => {
+        {savingsAccounts.length ? (
+          <Table
+            columns={[
+              { label: t('accounts.name'), flex: 2 },
+              { label: t('accounts.owner'), flex: 1.2 },
+              { label: t('accounts.typeLabel'), flex: 1 },
+              { label: t('dashboard.total'), align: 'right' },
+            ]}
+          >
+            {savingsAccounts.map((account) => {
               const owner = account.owner_profile_id ? memberMap.get(account.owner_profile_id) : undefined;
+
               return (
-                <Card key={account.id}>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2), alignItems: 'center' }}>
-                  <View style={{ flex: 1, minWidth: 180, gap: spacing(1) }}>
+                <TableRow key={account.id}>
+                  <TableCell flex={2}>
+                    <View style={{ gap: spacing(1) }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
                         <Ionicons name="wallet-outline" size={18} color={colors.primary} />
-                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[15] }}>
+                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any, fontSize: typography.fontSize[15] }}>
                           {account.name}
                         </Text>
                       </View>
-                      <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] }}>
-                        {t(`accounts.types.${account.type}`)} · {getPersonLabel(owner, t('dashboard.shared'))}
-                      </Text>
+                      <Badge label={t(`accounts.types.${account.type}`)} tone="success" />
                     </View>
-                    <Text style={{ color: colors.primary, fontSize: typography.fontSize[16], fontWeight: typography.fontWeight.extraBold }}>
-                      {formatCurrency(account.current_balance ?? account.balance ?? 0)}
-                    </Text>
-                  </View>
-                </Card>
+                  </TableCell>
+                  <TableCell flex={1.2}>
+                    <Text style={{ color: colors.textSecondary }}>{getPersonLabel(owner, t('dashboard.shared'))}</Text>
+                  </TableCell>
+                  <TableCell>
+                    <Badge label={t(`accounts.types.${account.type}`)} tone="neutral" />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(account.current_balance ?? account.balance ?? 0)}</Text>
+                  </TableCell>
+                </TableRow>
               );
-            })
-          ) : (
-            <Text style={{ color: colors.textSecondary }}>{t('dashboard.noSavingsAccounts')}</Text>
-          )}
-        </View>
+            })}
+          </Table>
+        ) : (
+          <EmptyState title={t('dashboard.noSavingsAccounts')} icon="wallet-outline" />
+        )}
       </Section>
 
       <Section
         title={t('dashboard.savingPotsTitle')}
         subtitle={t('dashboard.savingPotsSubtitle', { count: totalPots })}
       >
-        <View style={{ gap: spacing(2.5) }}>
-          {savingPotBalances.length ? (
-            savingPotBalances.map((pot) => {
+        {savingPotBalances.length ? (
+          <Table
+            columns={[
+              { label: t('dashboard.person'), flex: 2 },
+              { label: t('dashboard.savingPotsTitle'), flex: 2 },
+              { label: t('dashboard.total'), align: 'right' },
+            ]}
+          >
+            {savingPotBalances.map((pot) => {
               const potDefinition = savingPots.find((item) => item.id === pot.id);
               const creator = potDefinition?.created_by ? memberMap.get(potDefinition.created_by) : undefined;
+
               return (
-                <Card key={pot.id}>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2), alignItems: 'center' }}>
-                  <View style={{ flex: 1, minWidth: 180, gap: spacing(1) }}>
+                <TableRow key={pot.id}>
+                  <TableCell flex={2}>
+                    <Text style={{ color: colors.textSecondary }}>{getPersonLabel(creator, t('dashboard.shared'))}</Text>
+                  </TableCell>
+                  <TableCell flex={2}>
+                    <View style={{ gap: spacing(1) }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
                         <Ionicons name="save-outline" size={18} color={colors.primary} />
-                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[15] }}>
+                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any, fontSize: typography.fontSize[15] }}>
                           {pot.name}
                         </Text>
                       </View>
-                      <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] }}>
-                        {getPersonLabel(creator, t('dashboard.shared'))}
-                      </Text>
+                      <Badge label={t('dashboard.savingPotsTitle')} tone="neutral" />
                     </View>
-                    <Text style={{ color: colors.primary, fontSize: typography.fontSize[16], fontWeight: typography.fontWeight.extraBold }}>
-                      {formatCurrency(pot.balance ?? 0)}
-                    </Text>
-                  </View>
-                </Card>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(pot.balance ?? 0)}</Text>
+                  </TableCell>
+                </TableRow>
               );
-            })
-          ) : (
-            <Text style={{ color: colors.textSecondary }}>{t('dashboard.noSavingPots')}</Text>
-          )}
-        </View>
+            })}
+          </Table>
+        ) : (
+          <EmptyState title={t('dashboard.noSavingPots')} icon="save-outline" />
+        )}
       </Section>
 
       <Section title={t('dashboard.recentTransactions')} subtitle={t('dashboard.recentTransactionsSubtitle')}>
-        <View style={{ gap: spacing(2.5) }}>
-          {transactions.length ? (
-            transactions.map((item: any) => (
-              <Card key={item.id}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-                  <Ionicons name={item.type === 'expense' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'} size={18} color={item.type === 'expense' ? colors.destructive : colors.success} />
-                  <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold }}>{item.title}</Text>
-                </View>
-                <Text style={{ color: colors.textSecondary }}>
-                  {item.account?.name ?? t('dashboard.account')} · {item.category?.name ?? t('dashboard.uncategorized')} · {formatDate(item.transaction_date)}
-                </Text>
-                <Text style={{ color: item.type === 'expense' ? colors.destructive : colors.success, fontWeight: typography.fontWeight.bold }}>
-                  {item.type === 'expense' ? '-' : '+'}{formatCurrency(item.amount)}
-                </Text>
-              </Card>
-            ))
-          ) : (
-            <Text style={{ color: colors.textSecondary }}>{t('dashboard.noTransactions')}</Text>
-          )}
-        </View>
+        {transactions.length ? (
+          <Table
+            columns={[
+              { label: t('dashboard.person'), flex: 1.2 },
+              { label: t('dashboard.account'), flex: 1.2 },
+              { label: t('dashboard.category'), flex: 1.2 },
+              { label: t('dashboard.total'), align: 'right' },
+            ]}
+          >
+            {transactions.map((item: any) => {
+              const amountTone = item.type === 'expense' ? 'destructive' : 'success';
+
+              return (
+                <TableRow key={item.id}>
+                  <TableCell flex={1.2}>
+                    <View style={{ gap: spacing(1) }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
+                        <Ionicons name={item.type === 'expense' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'} size={18} color={item.type === 'expense' ? colors.destructive : colors.success} />
+                      <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold as any }}>{item.title}</Text>
+                      </View>
+                      <Badge label={t(`transactions.types.${item.type}`)} tone={amountTone} />
+                    </View>
+                  </TableCell>
+                  <TableCell flex={1.2}>
+                    <Text style={{ color: colors.textSecondary }}>{item.account?.name ?? t('dashboard.account')}</Text>
+                  </TableCell>
+                  <TableCell flex={1.2}>
+                    <Text style={{ color: colors.textSecondary }}>{item.category?.name ?? t('dashboard.uncategorized')}</Text>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text style={{ color: item.type === 'expense' ? colors.destructive : colors.success, fontWeight: typography.fontWeight.bold as any }}>
+                      {item.type === 'expense' ? '-' : '+'}{formatCurrency(item.amount)}
+                    </Text>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </Table>
+        ) : (
+          <EmptyState title={t('dashboard.noTransactions')} icon="receipt-outline" />
+        )}
       </Section>
 
       <Button label={t('dashboard.viewAllAccounts')} onPress={() => router.push('/accounts' as any)} variant="secondary" />

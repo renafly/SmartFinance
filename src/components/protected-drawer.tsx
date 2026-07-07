@@ -74,8 +74,8 @@ function DrawerContent(_props: DrawerContentComponentProps) {
     items: Array<{ key: keyof typeof menuIconMap; label: string; href: string }>;
   }> = [
     {
-      title: t('drawer.overview', { defaultValue: 'Overview' }),
-      description: t('drawer.overviewDescription', { defaultValue: 'Start here and jump to the most-used surfaces.' }),
+      title: t('drawer.overview'),
+      description: t('drawer.overviewDescription'),
       items: [
         { key: 'dashboard', label: t('drawer.dashboard'), href: '/(protected)' },
         { key: 'accounts', label: t('drawer.accounts'), href: '/(protected)/accounts' },
@@ -83,8 +83,8 @@ function DrawerContent(_props: DrawerContentComponentProps) {
       ],
     },
     {
-      title: t('drawer.moneyMovement', { defaultValue: 'Money movement' }),
-      description: t('drawer.moneyMovementDescription', { defaultValue: 'Move funds and review recurring flows.' }),
+      title: t('drawer.moneyMovement'),
+      description: t('drawer.moneyMovementDescription'),
       items: [
         { key: 'transfers', label: t('drawer.transfers'), href: '/(protected)/transfers' },
         { key: 'monthlyBudget', label: t('drawer.monthlyBudget'), href: '/(protected)/budget' },
@@ -93,8 +93,8 @@ function DrawerContent(_props: DrawerContentComponentProps) {
       ],
     },
     {
-      title: t('drawer.administration', { defaultValue: 'Administration' }),
-      description: t('drawer.administrationDescription', { defaultValue: 'Manage how the household is structured.' }),
+      title: t('drawer.administration'),
+      description: t('drawer.administrationDescription'),
       items: [
         { key: 'categories', label: t('drawer.categories'), href: '/(protected)/categories' },
         { key: 'members', label: t('drawer.members'), href: '/(protected)/members' },
@@ -107,7 +107,7 @@ function DrawerContent(_props: DrawerContentComponentProps) {
     return (
       <View style={[styles.webShell, { backgroundColor: colors.background }]}>
         <View style={[styles.brand, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-          <Text style={[styles.brandTitle, { color: colors.foreground }]}>SmartFinance</Text>
+          <Text style={[styles.brandTitle, { color: colors.foreground }]}>{t('drawer.brand')}</Text>
           <Text style={[styles.brandSubtitle, { color: colors.foreground, opacity: 0.72 }]}>{t('drawer.subtitle')}</Text>
         </View>
 
@@ -153,9 +153,9 @@ function DrawerContent(_props: DrawerContentComponentProps) {
   }
 
   return (
-    <View style={[styles.drawerContent, { backgroundColor: colors.background }]}>
-      <View style={[styles.brand, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-        <Text style={[styles.brandTitle, { color: colors.foreground }]}>SmartFinance</Text>
+      <View style={[styles.drawerContent, { backgroundColor: colors.background }]}>
+        <View style={[styles.brand, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+        <Text style={[styles.brandTitle, { color: colors.foreground }]}>{t('drawer.brand')}</Text>
         <Text style={[styles.brandSubtitle, { color: colors.foreground, opacity: 0.72 }]}>{t('drawer.subtitle')}</Text>
       </View>
 
