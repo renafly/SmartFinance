@@ -194,6 +194,10 @@ export type Database = {
           id: string;
           name: string;
           owner_id: string;
+          income_mode: Database["public"]["Enums"]["household_income_mode"];
+          remaining_cash_strategy: Database["public"]["Enums"]["remaining_cash_strategy"];
+          fixed_remaining_cash_amount: number;
+          excess_cash_distribution_method: Database["public"]["Enums"]["excess_cash_distribution_method"];
           created_at: string;
           updated_at: string;
           deleted_at: string | null;
@@ -202,6 +206,10 @@ export type Database = {
           id?: string;
           name: string;
           owner_id: string;
+          income_mode?: Database["public"]["Enums"]["household_income_mode"];
+          remaining_cash_strategy?: Database["public"]["Enums"]["remaining_cash_strategy"];
+          fixed_remaining_cash_amount?: number;
+          excess_cash_distribution_method?: Database["public"]["Enums"]["excess_cash_distribution_method"];
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -210,9 +218,160 @@ export type Database = {
           id?: string;
           name?: string;
           owner_id?: string;
+          income_mode?: Database["public"]["Enums"]["household_income_mode"];
+          remaining_cash_strategy?: Database["public"]["Enums"]["remaining_cash_strategy"];
+          fixed_remaining_cash_amount?: number;
+          excess_cash_distribution_method?: Database["public"]["Enums"]["excess_cash_distribution_method"];
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
+        };
+        Relationships: [];
+      };
+      budget_configs: {
+        Row: {
+          id: string;
+          household_id: string;
+          name: string;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          name: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          household_id?: string;
+          name?: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      budget_rules: {
+        Row: {
+          id: string;
+          budget_config_id: string;
+          name: string;
+          section: Database["public"]["Enums"]["monthly_budget_section"];
+          source_account_id: string;
+          destination_account_id: string;
+          destination_pot_id: string | null;
+          owner_member_id: string | null;
+          amount: number;
+          frequency: Database["public"]["Enums"]["recurring_frequency"];
+          priority: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          budget_config_id: string;
+          name: string;
+          section: Database["public"]["Enums"]["monthly_budget_section"];
+          source_account_id: string;
+          destination_account_id: string;
+          destination_pot_id?: string | null;
+          owner_member_id?: string | null;
+          amount?: number;
+          frequency?: Database["public"]["Enums"]["recurring_frequency"];
+          priority?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          budget_config_id?: string;
+          name?: string;
+          section?: Database["public"]["Enums"]["monthly_budget_section"];
+          source_account_id?: string;
+          destination_account_id?: string;
+          destination_pot_id?: string | null;
+          owner_member_id?: string | null;
+          amount?: number;
+          frequency?: Database["public"]["Enums"]["recurring_frequency"];
+          priority?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      monthly_budget_runs: {
+        Row: {
+          id: string;
+          household_id: string;
+          budget_config_id: string;
+          month: string;
+          status: Database["public"]["Enums"]["monthly_budget_run_status"];
+          income_mode_snapshot: Database["public"]["Enums"]["household_income_mode"];
+          remaining_cash_strategy_snapshot: Database["public"]["Enums"]["remaining_cash_strategy"];
+          preview_snapshot: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          budget_config_id: string;
+          month: string;
+          status?: Database["public"]["Enums"]["monthly_budget_run_status"];
+          income_mode_snapshot?: Database["public"]["Enums"]["household_income_mode"];
+          remaining_cash_strategy_snapshot?: Database["public"]["Enums"]["remaining_cash_strategy"];
+          preview_snapshot?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          household_id?: string;
+          budget_config_id?: string;
+          month?: string;
+          status?: Database["public"]["Enums"]["monthly_budget_run_status"];
+          income_mode_snapshot?: Database["public"]["Enums"]["household_income_mode"];
+          remaining_cash_strategy_snapshot?: Database["public"]["Enums"]["remaining_cash_strategy"];
+          preview_snapshot?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      monthly_income_inputs: {
+        Row: {
+          id: string;
+          monthly_budget_run_id: string;
+          member_id: string;
+          cash_account_id: string;
+          amount: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          monthly_budget_run_id: string;
+          member_id: string;
+          cash_account_id: string;
+          amount?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          monthly_budget_run_id?: string;
+          member_id?: string;
+          cash_account_id?: string;
+          amount?: number;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -312,6 +471,7 @@ export type Database = {
           amount: number;
           type: Database["public"]["Enums"]["transaction_type"];
           frequency: Database["public"]["Enums"]["recurring_frequency"];
+          excluded_months: number[] | null;
           next_run: string;
           last_run: string | null;
           is_active: boolean;
@@ -330,6 +490,7 @@ export type Database = {
           amount: number;
           type: Database["public"]["Enums"]["transaction_type"];
           frequency: Database["public"]["Enums"]["recurring_frequency"];
+          excluded_months?: number[] | null;
           next_run: string;
           last_run?: string | null;
           is_active?: boolean;
@@ -348,6 +509,7 @@ export type Database = {
           amount?: number;
           type?: Database["public"]["Enums"]["transaction_type"];
           frequency?: Database["public"]["Enums"]["recurring_frequency"];
+          excluded_months?: number[] | null;
           next_run?: string;
           last_run?: string | null;
           is_active?: boolean;
@@ -419,6 +581,9 @@ export type Database = {
           category_id: string | null;
           pot_id: string | null;
           transfer_group_id: string | null;
+          monthly_budget_run_id: string | null;
+          generated_by_rule_id: string | null;
+          budget_section: Database["public"]["Enums"]["monthly_budget_section"] | null;
           title: string;
           notes: string | null;
           amount: number;
@@ -435,6 +600,9 @@ export type Database = {
           category_id?: string | null;
           pot_id?: string | null;
           transfer_group_id?: string | null;
+          monthly_budget_run_id?: string | null;
+          generated_by_rule_id?: string | null;
+          budget_section?: Database["public"]["Enums"]["monthly_budget_section"] | null;
           title: string;
           notes?: string | null;
           amount: number;
@@ -451,6 +619,9 @@ export type Database = {
           category_id?: string | null;
           pot_id?: string | null;
           transfer_group_id?: string | null;
+          monthly_budget_run_id?: string | null;
+          generated_by_rule_id?: string | null;
+          budget_section?: Database["public"]["Enums"]["monthly_budget_section"] | null;
           title?: string;
           notes?: string | null;
           amount?: number;
@@ -550,6 +721,9 @@ export type Database = {
           p_transaction_date: string;
           p_created_by: string;
           p_category_id?: string | null;
+          p_monthly_budget_run_id?: string | null;
+          p_generated_by_rule_id?: string | null;
+          p_budget_section?: Database["public"]["Enums"]["monthly_budget_section"] | null;
         };
         Returns: string;
       };
@@ -613,12 +787,17 @@ export type Database = {
       };
     };
     Enums: {
-      account_type: "cash" | "bank" | "credit_card" | "savings" | "investment";
+      account_type: "cash" | "bank" | "credit_card" | "savings" | "investment" | "ppr";
       category_type: "income" | "expense" | "account";
       currency_code: "EUR" | "USD" | "GBP";
+      excess_cash_distribution_method: "even_split";
       household_member_status: "pending" | "accepted";
+      household_income_mode: "shared" | "individual";
       household_role: "owner" | "admin" | "member";
-      recurring_frequency: "daily" | "weekly" | "monthly" | "yearly";
+      monthly_budget_run_status: "draft" | "confirmed" | "cancelled";
+      monthly_budget_section: "income" | "savings" | "pots" | "investments" | "ppr" | "remaining_cash";
+      remaining_cash_strategy: "keep" | "fixed";
+      recurring_frequency: "daily" | "weekly" | "monthly" | "yearly" | "custom";
       transaction_type: "income" | "expense";
     };
     CompositeTypes: {

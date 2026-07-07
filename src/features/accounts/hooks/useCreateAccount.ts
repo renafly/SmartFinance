@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { accountsService } from '../services/accounts.service'
+import { invalidateHouseholdData } from '@/lib/query-invalidation'
 
 export function useCreateAccount() {
   const queryClient = useQueryClient()
@@ -8,9 +9,7 @@ export function useCreateAccount() {
     mutationFn: accountsService.createAccount,
 
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['accounts'],
-      })
+      invalidateHouseholdData(queryClient)
     },
   })
 }

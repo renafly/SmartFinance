@@ -9,19 +9,8 @@ import { typography } from '@/theme/typography';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 
-const items = [
-  { label: 'Dashboard', href: '/(protected)' },
-  { label: 'Accounts', href: '/(protected)/accounts' },
-  { label: 'Transactions', href: '/(protected)/transactions' },
-  { label: 'Transfers', href: '/(protected)/transfers' },
-  { label: 'Savings', href: '/(protected)/savings' },
-  { label: 'Recurring', href: '/(protected)/recurring' },
-  { label: 'Categories', href: '/(protected)/categories' },
-  { label: 'Members', href: '/(protected)/members' },
-  { label: 'Settings', href: '/(protected)/settings' },
-];
-
 export function ProtectedDrawerLayout() {
+  const { t } = useTranslation('common');
   const { colors } = useTheme();
 
   return (
@@ -34,15 +23,16 @@ export function ProtectedDrawerLayout() {
       }}
       drawerContent={DrawerContent}
     >
-      <Drawer.Screen name="index" options={{ title: 'Dashboard' }} />
-      <Drawer.Screen name="accounts" options={{ title: 'Accounts' }} />
-      <Drawer.Screen name="transactions" options={{ title: 'Transactions' }} />
-      <Drawer.Screen name="transfers" options={{ title: 'Transfers' }} />
-      <Drawer.Screen name="savings" options={{ title: 'Savings' }} />
-      <Drawer.Screen name="recurring" options={{ title: 'Recurring' }} />
-      <Drawer.Screen name="categories" options={{ title: 'Categories' }} />
-      <Drawer.Screen name="members" options={{ title: 'Members' }} />
-      <Drawer.Screen name="settings" options={{ title: 'Settings' }} />
+      <Drawer.Screen name="index" options={{ title: t('drawer.dashboard') }} />
+      <Drawer.Screen name="accounts" options={{ title: t('drawer.accounts') }} />
+      <Drawer.Screen name="transactions" options={{ title: t('drawer.transactions') }} />
+      <Drawer.Screen name="transfers" options={{ title: t('drawer.transfers') }} />
+      <Drawer.Screen name="budget" options={{ title: t('drawer.monthlyBudget') }} />
+      <Drawer.Screen name="savings" options={{ title: t('drawer.savings') }} />
+      <Drawer.Screen name="recurring" options={{ title: t('drawer.recurring') }} />
+      <Drawer.Screen name="categories" options={{ title: t('drawer.categories') }} />
+      <Drawer.Screen name="members" options={{ title: t('drawer.members') }} />
+      <Drawer.Screen name="settings" options={{ title: t('drawer.settings') }} />
     </Drawer>
   );
 }
@@ -52,6 +42,18 @@ function DrawerContent(_props: DrawerContentComponentProps) {
   const pathname = usePathname();
   const { logout } = useAuth();
   const { colors } = useTheme();
+  const menuItems = [
+    { label: t('drawer.dashboard'), href: '/(protected)' },
+    { label: t('drawer.accounts'), href: '/(protected)/accounts' },
+    { label: t('drawer.transactions'), href: '/(protected)/transactions' },
+    { label: t('drawer.transfers'), href: '/(protected)/transfers' },
+    { label: t('drawer.monthlyBudget'), href: '/(protected)/budget' },
+    { label: t('drawer.savings'), href: '/(protected)/savings' },
+    { label: t('drawer.recurring'), href: '/(protected)/recurring' },
+    { label: t('drawer.categories'), href: '/(protected)/categories' },
+    { label: t('drawer.members'), href: '/(protected)/members' },
+    { label: t('drawer.settings'), href: '/(protected)/settings' },
+  ];
 
   const menuGroups = [
     {
@@ -68,6 +70,7 @@ function DrawerContent(_props: DrawerContentComponentProps) {
       description: t('drawer.moneyMovementDescription', { defaultValue: 'Move funds and review recurring flows.' }),
       items: [
         { label: t('drawer.transfers'), href: '/(protected)/transfers' },
+        { label: t('drawer.monthlyBudget'), href: '/(protected)/budget' },
         { label: t('drawer.savings'), href: '/(protected)/savings' },
         { label: t('drawer.recurring'), href: '/(protected)/recurring' },
       ],
@@ -137,7 +140,7 @@ function DrawerContent(_props: DrawerContentComponentProps) {
       </View>
 
       <View style={styles.navList}>
-        {items.map((item) => {
+        {menuItems.map((item) => {
           const active = pathname === item.href;
 
           return (

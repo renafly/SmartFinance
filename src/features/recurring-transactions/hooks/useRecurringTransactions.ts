@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { recurringTransactionsService } from "../services/recurring-transactions.service";
 import { useAuth } from "@/providers/AuthProvider";
+import { invalidateHouseholdData } from "@/lib/query-invalidation";
 
 export function useRecurringTransactions() {
   const { householdId, isLoading } = useAuth();
@@ -19,7 +20,7 @@ export function useCreateRecurringTransaction() {
   return useMutation({
     mutationFn: recurringTransactionsService.createRecurringTransaction,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recurring-transactions"] });
+      invalidateHouseholdData(queryClient);
     },
   });
 }
@@ -31,7 +32,7 @@ export function useToggleRecurringTransaction() {
     mutationFn: ({ id, active }: { id: string; active: boolean }) =>
       recurringTransactionsService.toggleRecurringTransaction(id, active),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recurring-transactions"] });
+      invalidateHouseholdData(queryClient);
     },
   });
 }
@@ -42,7 +43,7 @@ export function useDeleteRecurringTransaction() {
   return useMutation({
     mutationFn: recurringTransactionsService.deleteRecurringTransaction,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recurring-transactions"] });
+      invalidateHouseholdData(queryClient);
     },
   });
 }
@@ -53,9 +54,7 @@ export function useUpdateRecurringTransaction() {
   return useMutation({
     mutationFn: recurringTransactionsService.updateRecurringTransaction,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recurring-transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      invalidateHouseholdData(queryClient);
     },
   });
 }

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { householdsService } from "@/features/households/services/households.service";
 import { useAuth } from "@/providers/AuthProvider";
+import { invalidateHouseholdData } from "@/lib/query-invalidation";
 
 export function useTransferHouseholdOwnership() {
   const queryClient = useQueryClient();
@@ -17,9 +18,7 @@ export function useTransferHouseholdOwnership() {
     }) => householdsService.transferOwnership(householdId, newOwnerId),
 
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["my-households"] });
-      queryClient.invalidateQueries({ queryKey: ["household-members"] });
-      queryClient.invalidateQueries({ queryKey: ["household-member-details"] });
+      invalidateHouseholdData(queryClient);
       void refreshSession();
     },
   });
@@ -38,8 +37,7 @@ export function useRemoveHouseholdMember() {
     }) => householdsService.removeMember(householdId, userIdToRemove),
 
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["household-members"] });
-      queryClient.invalidateQueries({ queryKey: ["household-member-details"] });
+      invalidateHouseholdData(queryClient);
     },
   });
 }
@@ -53,10 +51,7 @@ export function useLeaveHousehold() {
       householdsService.leaveHousehold(householdId),
 
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["my-households"] });
-      queryClient.invalidateQueries({ queryKey: ["household-members"] });
-      queryClient.invalidateQueries({ queryKey: ["household-member-details"] });
-      queryClient.invalidateQueries({ queryKey: ["session"] });
+      invalidateHouseholdData(queryClient);
       void refreshSession();
     },
   });

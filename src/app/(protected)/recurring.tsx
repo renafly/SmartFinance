@@ -21,12 +21,34 @@ type RecurringEditDraft = {
   nextRun: string;
   type: 'income' | 'expense';
   frequency: (typeof frequencies)[number];
+  excludedMonths: number[];
   accountId: string;
   categoryId: string | null;
   createdById: string;
 };
 
-const frequencies = ['daily', 'weekly', 'monthly', 'yearly'] as const;
+const frequencies = ['daily', 'weekly', 'monthly', 'yearly', 'custom'] as const;
+const months = [
+  { value: 1, key: 'jan' },
+  { value: 2, key: 'feb' },
+  { value: 3, key: 'mar' },
+  { value: 4, key: 'apr' },
+  { value: 5, key: 'may' },
+  { value: 6, key: 'jun' },
+  { value: 7, key: 'jul' },
+  { value: 8, key: 'aug' },
+  { value: 9, key: 'sep' },
+  { value: 10, key: 'oct' },
+  { value: 11, key: 'nov' },
+  { value: 12, key: 'dec' },
+] as const;
+
+function normalizeMonthList(values: Array<number | string> | null | undefined) {
+  return [...new Set((values ?? [])
+    .map((month) => Number(month))
+    .filter((month) => Number.isFinite(month) && month >= 1 && month <= 12))]
+    .sort((a, b) => a - b);
+}
 
 export default function RecurringScreen() {
   const { colors } = useTheme();
@@ -49,6 +71,7 @@ export default function RecurringScreen() {
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [frequency, setFrequency] = useState<(typeof frequencies)[number]>('monthly');
+  const [excludedMonths, setExcludedMonths] = useState<number[]>([]);
   const [nextRun, setNextRun] = useState(new Date().toISOString().slice(0, 10));
   const [menuRecurring, setMenuRecurring] = useState<any | null>(null);
   const [editRecurring, setEditRecurring] = useState<RecurringEditDraft | null>(null);
@@ -83,12 +106,14 @@ export default function RecurringScreen() {
       amount: parsedAmount,
       type,
       frequency,
+      excluded_months: frequency === 'custom' ? normalizeMonthList(excludedMonths) : [],
       next_run: nextRun,
       created_by: createdById || profile.id,
     } as any);
 
     setTitle('');
     setAmount('');
+    setExcludedMonths([]);
   }
 
   function openEditRecurring(item: any) {
@@ -99,6 +124,7 @@ export default function RecurringScreen() {
       nextRun: item.next_run?.slice?.(0, 10) ?? new Date().toISOString().slice(0, 10),
       type: item.type ?? 'expense',
       frequency: item.frequency ?? 'monthly',
+      excludedMonths: normalizeMonthList(item.excluded_months as Array<number | string> | null | undefined),
       accountId: item.account_id ?? '',
       categoryId: item.category_id ?? null,
       createdById: item.created_by ?? profile?.id ?? '',
@@ -127,12 +153,46 @@ export default function RecurringScreen() {
       next_run: editRecurring.nextRun,
       type: editRecurring.type,
       frequency: editRecurring.frequency,
+      excluded_months: editRecurring.frequency === 'custom' ? normalizeMonthList(editRecurring.excludedMonths) : [],
       account_id: editRecurring.accountId,
       category_id: editRecurring.categoryId,
       created_by: editRecurring.createdById || profile?.id || editRecurring.createdById,
     } as any);
 
     setEditRecurring(null);
+  }
+
+  function toggleExcludedMonth(month: number) {
+    setExcludedMonths((current) =>
+      current.includes(month)
+        ? current.filter((value) => value !== month)
+        : [...current, month].sort((a, b) => a - b),
+    );
+  }
+
+  function toggleEditExcludedMonth(month: number) {
+    setEditRecurring((current) =>
+      current
+        ? {
+            ...current,
+            excludedMonths: current.excludedMonths.includes(month)
+              ? current.excludedMonths.filter((value) => value !== month)
+              : [...current.excludedMonths, month].sort((a, b) => a - b),
+          }
+        : current,
+    );
+  }
+
+  function formatExcludedMonths(monthsList: number[]) {
+    if (!monthsList.length) return t('recurring.customFrequencyAnyMonth');
+    return monthsList
+      .slice()
+      .sort((a, b) => a - b)
+      .map((month) => {
+        const monthItem = months.find((item) => item.value === month);
+        return monthItem ? t(`recurring.months.${monthItem.key}`) : String(month);
+      })
+      .join(', ');
   }
 
   return (
@@ -162,6 +222,22 @@ export default function RecurringScreen() {
               <Pill key={item} label={t(`recurring.frequencies.${item}`)} active={frequency === item} onPress={() => setFrequency(item)} />
             ))}
           </View>
+          {frequency === 'custom' ? (
+            <View style={{ gap: spacing(2) }}>
+              <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('recurring.excludeMonths')}</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] }}>{t('recurring.excludeMonthsHint')}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
+                {months.map((month) => (
+                  <Pill
+                    key={month.value}
+                    label={t(`recurring.months.${month.key}`)}
+                    active={excludedMonths.includes(month.value)}
+                    onPress={() => toggleExcludedMonth(month.value)}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
           <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('recurring.account')}</Text>
           <View style={{ flexDirection: 'row', gap: spacing(2), flexWrap: 'wrap' }}>
             {(accountsQuery.data ?? []).map((account: any) => (
@@ -186,7 +262,12 @@ export default function RecurringScreen() {
               <View style={styles.ruleHeader}>
                 <View style={{ flex: 1, gap: spacing(1) }}>
                   <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold }}>{item.title}</Text>
-                  <Text style={{ color: colors.textSecondary }}>{t(`recurring.frequencies.${item.frequency}`)} · {t('recurring.nextRunLabel', { value: formatDate(item.next_run) })}</Text>
+              <Text style={{ color: colors.textSecondary }}>{t(`recurring.frequencies.${item.frequency}`)} · {t('recurring.nextRunLabel', { value: formatDate(item.next_run) })}</Text>
+                  {item.frequency === 'custom' ? (
+                    <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] }}>
+                      {t('recurring.excludeMonths')}: {formatExcludedMonths((item as any).excluded_months ?? [])}
+                    </Text>
+                  ) : null}
                 </View>
                 <Pressable
                   onPress={() => setMenuRecurring(item)}
@@ -302,6 +383,22 @@ export default function RecurringScreen() {
                     />
                   ))}
                 </View>
+                {editRecurring.frequency === 'custom' ? (
+                  <View style={{ gap: spacing(2) }}>
+                    <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('recurring.excludeMonths')}</Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] }}>{t('recurring.excludeMonthsHint')}</Text>
+                    <View style={{ flexDirection: 'row', gap: spacing(2), flexWrap: 'wrap' }}>
+                      {months.map((month) => (
+                        <Pill
+                          key={month.value}
+                          label={t(`recurring.months.${month.key}`)}
+                          active={editRecurring.excludedMonths.includes(month.value)}
+                          onPress={() => toggleEditExcludedMonth(month.value)}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
                 <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('recurring.account')}</Text>
                 <View style={{ flexDirection: 'row', gap: spacing(2), flexWrap: 'wrap' }}>
                   {(accountsQuery.data ?? []).map((account: any) => (

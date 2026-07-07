@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
@@ -15,11 +16,11 @@ import {
   useDeleteAccount,
   useUpdateAccount,
 } from '../../features/accounts/hooks';
-import { useHouseholdMemberDetails } from '../../features/households/hooks';
+import { useHouseholdMemberDetails, useMyHouseholds } from '../../features/households/hooks';
 import { usePreferencesStore, type AppCurrency } from '@/stores/preferencesStore';
 import { typography } from '@/theme/typography';
 
-const accountTypes = ['bank', 'cash', 'savings', 'credit_card', 'investment'] as const;
+const accountTypes = ['bank', 'cash', 'savings', 'credit_card', 'investment', 'ppr'] as const;
 const currencyOptions: AppCurrency[] = ['EUR', 'USD', 'GBP'];
 
 type EditMode = {
@@ -29,12 +30,13 @@ type EditMode = {
 
 export default function AccountsScreen() {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(() => createStyles(colors), [colors]) as any;
   const { t } = useTranslation('common');
   const { householdId, profile } = useAuth();
-  const preferredCurrency = usePreferencesStore((state) => state.currency);
+  const preferredCurrency = usePreferencesStore((state) => state.currency) as AppCurrency;
   const accountsQuery = useAccountsWithBalances();
   const membersQuery = useHouseholdMemberDetails();
+  const householdsQuery = useMyHouseholds();
   const createAccount = useCreateAccount();
   const archiveAccount = useArchiveAccount();
   const deleteAccount = useDeleteAccount();
@@ -55,8 +57,10 @@ export default function AccountsScreen() {
   const [currency, setCurrency] = useState<AppCurrency>(preferredCurrency);
   const [initialBalance, setInitialBalance] = useState('0');
   const [ownerProfileId, setOwnerProfileId] = useState('');
+  const [ownerFilter, setOwnerFilter] = useState<'all' | 'shared' | string>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | (typeof accountTypes)[number]>('all');
 
-  const accounts = accountsQuery.data ?? [];
+  const accounts = (accountsQuery.data ?? []) as any[];
   const members = (membersQuery.data ?? []).filter((member) => member.status === 'accepted');
   const currentUserLabel = profile?.full_name?.trim() || profile?.email?.trim() || t('settings.you');
   const memberLabelMap = new Map(
@@ -65,7 +69,45 @@ export default function AccountsScreen() {
       member.fullName?.trim() || member.email || member.userId,
     ]),
   );
+  const householdName =
+    (householdsQuery.data ?? []).find((item: any) => item.id === householdId)?.name?.trim() ||
+    t('settings.currentHouseholdLabel');
+  const getOwnerLabel = (ownerProfileId?: string | null) =>
+    ownerProfileId === profile?.id
+      ? currentUserLabel
+      : (memberLabelMap.get(ownerProfileId ?? '') ?? t('dashboard.shared', { defaultValue: householdName }));
+  const getAccountTypeIcon = (accountType: (typeof accountTypes)[number]) => {
+    switch (accountType) {
+      case 'bank':
+        return 'business-outline';
+      case 'cash':
+        return 'cash-outline';
+      case 'savings':
+        return 'wallet-outline';
+      case 'credit_card':
+        return 'card-outline';
+      case 'investment':
+        return 'trending-up-outline';
+      case 'ppr':
+        return 'shield-checkmark-outline';
+      default:
+        return 'layers-outline';
+    }
+  };
+  const filteredAccounts = useMemo(() => {
+    return accounts.filter((account: any) => {
+      const matchesOwner =
+        ownerFilter === 'all'
+          ? true
+          : ownerFilter === 'shared'
+            ? !account.owner_profile_id
+            : account.owner_profile_id === ownerFilter;
+      const matchesType = typeFilter === 'all' ? true : account.type === typeFilter;
+      return matchesOwner && matchesType;
+    });
+  }, [accounts, ownerFilter, typeFilter]);
   const archivedCount = accounts.filter((item: any) => item.is_archived).length;
+  const activeFilterCount = Number(ownerFilter !== 'all') + Number(typeFilter !== 'all');
   const parsedInitialBalance = Number(initialBalance);
   const canCreateAccount =
     !createAccount.isPending &&
@@ -80,7 +122,7 @@ export default function AccountsScreen() {
       owner_profile_id: ownerProfileId || profile.id,
       name: name.trim(),
       type,
-      currency: currency.trim().toUpperCase() || 'EUR',
+      currency: currency,
       initial_balance: parsedInitialBalance,
     });
 
@@ -101,6 +143,11 @@ export default function AccountsScreen() {
     setCreateDialogOpen(true);
   }
 
+  function resetFilters() {
+    setOwnerFilter('all');
+    setTypeFilter('all');
+  }
+
   function openEditAccount(account: any) {
     setEditAccount({
       id: account.id,
@@ -108,7 +155,7 @@ export default function AccountsScreen() {
       type: account.type ?? 'bank',
       currency: (account.currency ?? preferredCurrency) as AppCurrency,
       initialBalance: String(account.initial_balance ?? 0),
-      ownerProfileId: account.owner_profile_id ?? profile?.id ?? '',
+      ownerProfileId: account.owner_profile_id ?? '',
     });
     setMenuAccount(null);
   }
@@ -135,39 +182,100 @@ export default function AccountsScreen() {
 
   return (
     <Page title={t('accounts.title')} subtitle={t('accounts.subtitle')} actions={<Button label={t('accounts.create')} onPress={openCreateDialog} />}>
-      <Section title={t('accounts.currentTitle')} subtitle={t('accounts.currentSubtitle', { count: accounts.length, archived: archivedCount })}>
+      <Section title={t('accounts.currentTitle')} subtitle={t('accounts.currentSubtitle', { count: filteredAccounts.length, archived: archivedCount })}>
+        <View style={{ gap: spacing(3), marginBottom: spacing(3) }}>
+          <View style={{ gap: spacing(2) }}>
+            <View style={styles.sectionHeaderRow}>
+              <Ionicons name="people-outline" size={18} color={colors.textSecondary} />
+              <Text style={styles.sectionLabel}>{t('accounts.filtersByUser')}</Text>
+            </View>
+            <View style={styles.pillWrap}>
+              <Pill label={t('accounts.allUsers')} active={ownerFilter === 'all'} onPress={() => setOwnerFilter('all')} />
+              <Pill label={t('dashboard.shared')} active={ownerFilter === 'shared'} onPress={() => setOwnerFilter('shared')} />
+              {members.map((member) => (
+                <Pill
+                  key={member.userId}
+                  label={memberLabelMap.get(member.userId) ?? member.userId}
+                  active={ownerFilter === member.userId}
+                  onPress={() => setOwnerFilter(member.userId)}
+                />
+              ))}
+            </View>
+          </View>
+
+          <View style={{ gap: spacing(2) }}>
+            <View style={styles.sectionHeaderRow}>
+              <Ionicons name="funnel-outline" size={18} color={colors.textSecondary} />
+              <Text style={styles.sectionLabel}>{t('accounts.filtersByType')}</Text>
+            </View>
+            <View style={styles.pillWrap}>
+              <Pill label={t('accounts.allTypes')} active={typeFilter === 'all'} onPress={() => setTypeFilter('all')} />
+              {accountTypes.map((item) => (
+                <Pill
+                  key={item}
+                  label={t(`accounts.types.${item}`)}
+                  active={typeFilter === item}
+                  onPress={() => setTypeFilter(item)}
+                />
+              ))}
+            </View>
+          </View>
+
+          {activeFilterCount > 0 ? (
+            <Button label={t('accounts.clearFilters')} variant="secondary" onPress={resetFilters} />
+          ) : null}
+        </View>
+
         <View style={{ gap: spacing(3) }}>
-          {accounts.map((account: any) => {
+          {filteredAccounts.map((account: any) => {
             const balance = account.current_balance ?? account.balance ?? 0;
+            const isArchived = Boolean(account.is_archived);
 
             return (
               <Card key={account.id}>
                 <View style={styles.accountHeader}>
-                  <View style={{ flex: 1, gap: spacing(1.5) }}>
-                    <Text style={styles.accountName}>{account.name}</Text>
-                    <Text style={styles.accountMeta}>
-                      {t(`accounts.types.${account.type}`, { defaultValue: account.type })} · {account.currency}
-                    </Text>
-                    <Text style={styles.accountMeta}>
-                      {t('accounts.owner')}: {account.owner_profile_id === profile?.id
-                        ? currentUserLabel
-                        : (memberLabelMap.get(account.owner_profile_id ?? '') ?? t('settings.unnamedUser'))}
-                    </Text>
-                    <Text style={styles.accountTotal}>{formatCurrency(balance)}</Text>
-                    <Text style={styles.accountMeta}>
-                      {t('accounts.initialBalance')} {formatCurrency(account.initial_balance ?? 0)}
-                    </Text>
+                  <View style={styles.accountLeading}>
+                    <View style={styles.accountIconBadge}>
+                      <Ionicons name={getAccountTypeIcon(account.type)} size={18} color={colors.primary} />
+                    </View>
+                    <View style={{ flex: 1, gap: spacing(1.5) }}>
+                      <Text style={styles.accountName}>
+                        {account.name} - {getOwnerLabel(account.owner_profile_id)}
+                      </Text>
+                      <View style={styles.metaRow}>
+                        <Ionicons name="pricetag-outline" size={14} color={colors.textSecondary} />
+                        <Text style={styles.accountMeta}>
+                          {t(`accounts.types.${account.type}`, { defaultValue: account.type })} · {account.currency}
+                        </Text>
+                      </View>
+                      <View style={styles.metaRow}>
+                        <Ionicons name={account.owner_profile_id ? 'person-outline' : 'people-outline'} size={14} color={colors.textSecondary} />
+                        <Text style={styles.accountMeta}>
+                          {t('accounts.owner')}: {getOwnerLabel(account.owner_profile_id)}
+                        </Text>
+                      </View>
+                      <View style={styles.metaRow}>
+                        <Ionicons name="cash-outline" size={14} color={colors.primary} />
+                        <Text style={styles.accountTotal}>{formatCurrency(balance)}</Text>
+                      </View>
+                      <View style={styles.metaRow}>
+                        <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
+                        <Text style={styles.accountMeta}>
+                          {t('accounts.initialBalance')} {formatCurrency(account.initial_balance ?? 0)}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
                   <Pressable
                     onPress={() => setMenuAccount({ id: account.id, name: account.name })}
                     style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
                   >
-                    <Text style={styles.menuButtonText}>⋮</Text>
+                    <Ionicons name="ellipsis-vertical" size={18} color={colors.text} />
                   </Pressable>
                 </View>
 
-                <Text style={{ color: account.is_archived ? colors.destructive : colors.success, fontWeight: typography.fontWeight.semibold }}>
-                  {account.is_archived ? t('accounts.archived') : t('accounts.active')}
+                <Text style={{ color: isArchived ? colors.destructive : colors.success, fontWeight: String(typography.fontWeight.semibold) } as any}>
+                  {isArchived ? t('accounts.archived') : t('accounts.active')}
                 </Text>
               </Card>
             );
@@ -180,7 +288,10 @@ export default function AccountsScreen() {
           <Pressable style={styles.backdropPressable} onPress={() => setCreateDialogOpen(false)} />
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t('accounts.createTitle')}</Text>
-            <Text style={styles.modalSubtitle}>{t('accounts.createSubtitle')}</Text>
+            <View style={styles.modalTitleRow}>
+              <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+              <Text style={styles.modalSubtitle}>{t('accounts.createSubtitle')}</Text>
+            </View>
             <Field label={t('accounts.name')} value={name} onChangeText={setName} placeholder={t('accounts.namePlaceholder')} />
             <Text style={styles.sectionLabel}>{t('accounts.typeLabel')}</Text>
             <View style={styles.pillWrap}>
@@ -197,10 +308,13 @@ export default function AccountsScreen() {
             <HouseholdMemberSelect
               label={t('accounts.owner')}
               members={members}
-              value={ownerProfileId || profile?.id || ''}
+              value={ownerProfileId}
               placeholder={t('accounts.ownerPlaceholder')}
               hint={t('accounts.ownerPlaceholder')}
               onChange={setOwnerProfileId}
+              showSharedOption
+              sharedLabel={t('dashboard.shared')}
+              sharedDescription={t('accounts.sharedOwnerDescription', { defaultValue: t('dashboard.shared') })}
             />
             <Field label={t('accounts.initialBalance')} value={initialBalance} onChangeText={setInitialBalance} placeholder="0" keyboardType="numeric" />
             <View style={styles.modalActions}>
@@ -215,7 +329,10 @@ export default function AccountsScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.backdropPressable} onPress={() => setMenuAccount(null)} />
           <View style={styles.menuCard}>
-            <Text style={styles.modalTitle}>{menuAccount?.name ?? t('accounts.title')}</Text>
+            <View style={styles.modalTitleRow}>
+              <Ionicons name="settings-outline" size={18} color={colors.primary} />
+              <Text style={styles.modalTitle}>{menuAccount?.name ?? t('accounts.title')}</Text>
+            </View>
             <Pressable
               onPress={() => {
                 if (!menuAccount) return;
@@ -224,6 +341,7 @@ export default function AccountsScreen() {
               }}
               style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
             >
+              <Ionicons name="create-outline" size={16} color={colors.text} />
               <Text style={styles.menuItemText}>{t('settings.editDetails')}</Text>
             </Pressable>
             <Pressable
@@ -236,6 +354,7 @@ export default function AccountsScreen() {
               }}
               style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
             >
+              <Ionicons name={accounts.find((item: any) => item.id === menuAccount?.id)?.is_archived ? 'refresh-outline' : 'archive-outline'} size={16} color={colors.text} />
               <Text style={styles.menuItemText}>
                 {accounts.find((item: any) => item.id === menuAccount?.id)?.is_archived
                   ? t('accounts.unarchive')
@@ -250,6 +369,7 @@ export default function AccountsScreen() {
               }}
               style={({ pressed }) => [styles.menuItemDanger, pressed && styles.pressed]}
             >
+              <Ionicons name="trash-outline" size={16} color={colors.destructive} />
               <Text style={styles.menuItemTextDanger}>{t('delete')}</Text>
             </Pressable>
             <Button label={t('cancel')} variant="secondary" onPress={() => setMenuAccount(null)} />
@@ -262,7 +382,10 @@ export default function AccountsScreen() {
           <Pressable style={styles.backdropPressable} onPress={() => setEditAccount(null)} />
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t('settings.editDetails')}</Text>
-            <Text style={styles.modalSubtitle}>{t('settings.selectedAccountsHint', { defaultValue: t('accounts.subtitle') })}</Text>
+            <View style={styles.modalTitleRow}>
+              <Ionicons name="pencil-outline" size={18} color={colors.primary} />
+              <Text style={styles.modalSubtitle}>{t('settings.selectedAccountsHint', { defaultValue: t('accounts.subtitle') })}</Text>
+            </View>
             {editAccount ? (
               <>
                 <Field
@@ -295,10 +418,13 @@ export default function AccountsScreen() {
                 <HouseholdMemberSelect
                   label={t('accounts.owner')}
                   members={members}
-                  value={editAccount.ownerProfileId || profile?.id || ''}
+                  value={editAccount.ownerProfileId}
                   placeholder={t('accounts.ownerPlaceholder')}
                   hint={t('accounts.ownerPlaceholder')}
                   onChange={(value) => setEditAccount((current) => (current ? { ...current, ownerProfileId: value } : current))}
+                  showSharedOption
+                  sharedLabel={t('dashboard.shared')}
+                  sharedDescription={t('accounts.sharedOwnerDescription', { defaultValue: t('dashboard.shared') })}
                 />
                 <Field
                   label={t('accounts.initialBalance')}
@@ -329,7 +455,7 @@ function createStyles(colors: any) {
   },
   accountName: {
     color: colors.text,
-    fontWeight: typography.fontWeight.bold as const,
+    fontWeight: String(typography.fontWeight.bold),
     fontSize: typography.fontSize[16],
   },
   accountMeta: {
@@ -337,7 +463,7 @@ function createStyles(colors: any) {
   },
   accountTotal: {
     color: colors.primary,
-    fontWeight: typography.fontWeight.extraBold as const,
+    fontWeight: String(typography.fontWeight.extraBold),
     fontSize: typography.fontSize[18],
   },
   menuButton: {
@@ -353,7 +479,7 @@ function createStyles(colors: any) {
   menuButtonText: {
     color: colors.text,
     fontSize: typography.fontSize[22],
-    fontWeight: typography.fontWeight.extraBold as const,
+    fontWeight: String(typography.fontWeight.extraBold),
     lineHeight: typography.lineHeight[22],
   },
   modalBackdrop: {
@@ -382,16 +508,47 @@ function createStyles(colors: any) {
   modalTitle: {
     color: colors.text,
     fontSize: typography.fontSize[20],
-    fontWeight: typography.fontWeight.extraBold as const,
+    fontWeight: String(typography.fontWeight.extraBold),
+  },
+  modalTitleRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing(2),
   },
   modalSubtitle: {
     color: colors.textSecondary,
     fontSize: typography.fontSize[13],
     lineHeight: typography.lineHeight[18],
   },
+  sectionHeaderRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing(1.5),
+  },
+  accountLeading: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: spacing(3),
+    flex: 1,
+  },
+  accountIconBadge: {
+    width: spacing(10.5),
+    height: spacing(10.5),
+    borderRadius: radius.lg,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  metaRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing(1.25),
+  },
   sectionLabel: {
     color: colors.textSecondary,
-    fontWeight: typography.fontWeight.semibold as const,
+    fontWeight: String(typography.fontWeight.semibold),
   },
   pillWrap: {
     flexDirection: 'row' as const,
@@ -405,6 +562,9 @@ function createStyles(colors: any) {
     justifyContent: 'flex-end' as const,
   },
   menuItem: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing(2),
     paddingVertical: spacing(3.5),
     paddingHorizontal: spacing(3.5),
     borderRadius: radius.lg,
@@ -413,6 +573,9 @@ function createStyles(colors: any) {
     backgroundColor: colors.surfaceMuted,
   },
   menuItemDanger: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing(2),
     paddingVertical: spacing(3.5),
     paddingHorizontal: spacing(3.5),
     borderRadius: radius.lg,
@@ -423,15 +586,15 @@ function createStyles(colors: any) {
   menuItemText: {
     color: colors.text,
     fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.bold as const,
+    fontWeight: String(typography.fontWeight.bold),
   },
   menuItemTextDanger: {
     color: colors.destructive,
     fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.bold as const,
+    fontWeight: String(typography.fontWeight.bold),
   },
   pressed: {
     opacity: 0.85,
   },
-  } as const);
+  } as any);
 }

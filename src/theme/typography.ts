@@ -5,12 +5,12 @@ export const typography = {
     semibold: 'System',
   },
   fontWeight: {
-    regular: '400',
-    medium: '500',
-    semibold: '600',
-    bold: '700',
-    extraBold: '800',
-    black: '900',
+    regular: 400,
+    medium: 500,
+    semibold: 600,
+    bold: 700,
+    extraBold: 800,
+    black: 900,
   },
   fontSize: {
     12: 12,

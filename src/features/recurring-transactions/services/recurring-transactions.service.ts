@@ -1,6 +1,6 @@
 import { repositories } from "@/repositories";
 
-type Frequency = "daily" | "weekly" | "monthly" | "yearly";
+type Frequency = "daily" | "weekly" | "monthly" | "yearly" | "custom";
 type TransactionType = "income" | "expense";
 
 class RecurringTransactionsService {
@@ -21,6 +21,7 @@ class RecurringTransactionsService {
     amount: number;
     type: TransactionType;
     frequency: Frequency;
+    excluded_months?: number[] | null;
     next_run: string;
     created_by: string;
   }) {
@@ -38,6 +39,7 @@ class RecurringTransactionsService {
     amount?: number;
     type?: TransactionType;
     frequency?: Frequency;
+    excluded_months?: number[] | null;
     next_run?: string;
     account_id?: string;
     category_id?: string | null;

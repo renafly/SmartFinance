@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import type { HouseholdMemberDetails } from '@/features/households/hooks/useHouseholdMemberDetails';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -15,6 +16,9 @@ type HouseholdMemberSelectProps = {
   onChange: (userId: string) => void;
   hint?: string;
   disabled?: boolean;
+  showSharedOption?: boolean;
+  sharedLabel?: string;
+  sharedDescription?: string;
 };
 
 function getMemberLabel(member: HouseholdMemberDetails) {
@@ -29,14 +33,21 @@ export function HouseholdMemberSelect({
   onChange,
   hint,
   disabled,
+  showSharedOption,
+  sharedLabel = 'Shared',
+  sharedDescription,
 }: HouseholdMemberSelectProps) {
   const [open, setOpen] = useState(false);
   const { colors } = useTheme();
 
   const selectedLabel = useMemo(() => {
+    if (showSharedOption && value === '') {
+      return sharedLabel;
+    }
+
     const member = members.find((item) => item.userId === value);
     return member ? getMemberLabel(member) : placeholder;
-  }, [members, placeholder, value]);
+  }, [members, placeholder, sharedLabel, showSharedOption, value]);
 
   return (
     <View style={styles.wrapper}>
@@ -51,6 +62,7 @@ export function HouseholdMemberSelect({
           disabled && styles.disabled,
         ]}
       >
+        <Ionicons name={showSharedOption && value === '' ? 'people-outline' : 'person-outline'} size={16} color={colors.textSecondary} />
         <View style={{ flex: 1, gap: spacing(1) }}>
           <Text style={[styles.value, { color: colors.text }]}>{selectedLabel}</Text>
           {hint ? <Text style={[styles.hint, { color: colors.textSecondary }]}>{hint}</Text> : null}
@@ -65,6 +77,35 @@ export function HouseholdMemberSelect({
             <Text style={[styles.modalTitle, { color: colors.text }]}>{label}</Text>
             <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{hint ?? placeholder}</Text>
             <View style={{ gap: spacing(2.5) }}>
+              {showSharedOption ? (
+                <Pressable
+                  onPress={() => {
+                    onChange('');
+                    setOpen(false);
+                  }}
+                  style={({ pressed }) => [
+                    styles.memberRow,
+                    { backgroundColor: value === '' ? colors.primary : colors.surfaceMuted, borderColor: value === '' ? colors.primary : colors.border },
+                    value === '' && styles.memberRowActive,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="people-outline"
+                    size={18}
+                    color={value === '' ? colors.primaryForeground : colors.textSecondary}
+                  />
+                  <View style={{ flex: 1, gap: spacing(1) }}>
+                    <Text style={[styles.memberName, { color: value === '' ? colors.primaryForeground : colors.text }]}>{sharedLabel}</Text>
+                    <Text style={[styles.memberMeta, { color: value === '' ? colors.primaryForeground : colors.textSecondary }]}>
+                      {sharedDescription ?? 'No specific owner · shared by the household'}
+                    </Text>
+                  </View>
+                  <View style={[styles.checkbox, { borderColor: value === '' ? colors.primaryForeground : colors.borderStrong, backgroundColor: value === '' ? colors.primaryForeground : colors.surfaceMuted }, value === '' && styles.checkboxActive]}>
+                    <Text style={[styles.checkboxLabel, { color: value === '' ? colors.primary : colors.textSecondary }]}>{value === '' ? '✓' : ''}</Text>
+                  </View>
+                </Pressable>
+              ) : null}
               {members.map((member) => {
                 const active = member.userId === value;
                 return (
@@ -81,6 +122,11 @@ export function HouseholdMemberSelect({
                       pressed && styles.pressed,
                     ]}
                   >
+                    <Ionicons
+                      name="person-outline"
+                      size={18}
+                      color={active ? colors.primaryForeground : colors.textSecondary}
+                    />
                     <View style={{ flex: 1, gap: spacing(1) }}>
                       <Text style={[styles.memberName, { color: active ? colors.primaryForeground : colors.text }]}>{getMemberLabel(member)}</Text>
                       <Text style={[styles.memberMeta, { color: active ? colors.primaryForeground : colors.textSecondary }]}>
@@ -98,6 +144,7 @@ export function HouseholdMemberSelect({
               onPress={() => setOpen(false)}
               style={({ pressed }) => [styles.closeButton, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }, pressed && styles.pressed]}
             >
+              <Ionicons name="close-outline" size={16} color={colors.text} />
               <Text style={[styles.closeButtonText, { color: colors.text }]}>Close</Text>
             </Pressable>
           </View>
@@ -107,12 +154,12 @@ export function HouseholdMemberSelect({
   );
 }
 
-const styles = StyleSheet.create({
+const styles: any = StyleSheet.create({
   wrapper: {
     gap: spacing(2),
   },
   label: {
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: String(typography.fontWeight.semibold),
   },
   selector: {
     flexDirection: 'row',
@@ -124,7 +171,7 @@ const styles = StyleSheet.create({
   },
   value: {
     fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.bold,
+    fontWeight: String(typography.fontWeight.bold),
   },
   hint: {
     fontSize: typography.fontSize[12],
@@ -165,7 +212,7 @@ const styles = StyleSheet.create({
   },
   memberName: {
     fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.bold,
+    fontWeight: String(typography.fontWeight.bold),
   },
   memberMeta: {
     fontSize: typography.fontSize[12],
@@ -183,7 +230,7 @@ const styles = StyleSheet.create({
   },
   checkboxLabel: {
     fontSize: typography.fontSize[12],
-    fontWeight: typography.fontWeight.extraBold,
+    fontWeight: String(typography.fontWeight.extraBold),
   },
   closeButton: {
     alignSelf: 'flex-end',
@@ -193,7 +240,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   closeButtonText: {
-    fontWeight: typography.fontWeight.bold,
+    fontWeight: String(typography.fontWeight.bold),
   },
   pressed: {
     opacity: 0.85,
@@ -201,4 +248,4 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.55,
   },
-});
+} as any);

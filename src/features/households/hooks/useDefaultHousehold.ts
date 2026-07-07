@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { householdsService } from "@/features/households/services/households.service";
 import { useAuth } from "@/providers/AuthProvider";
+import { invalidateHouseholdData } from "@/lib/query-invalidation";
 
 export function useMyHouseholds() {
   const { profile, isLoading } = useAuth();
@@ -23,11 +24,7 @@ export function useSetDefaultHousehold() {
       householdsService.setDefaultHousehold(householdId),
 
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["session"] });
-      queryClient.invalidateQueries({ queryKey: ["my-households"] });
-      queryClient.invalidateQueries({ queryKey: ["accounts"] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      invalidateHouseholdData(queryClient);
       void refreshSession();
     },
   });

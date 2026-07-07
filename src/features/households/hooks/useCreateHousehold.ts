@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { householdsService } from "@/features/households/services/households.service";
 import { useAuth } from "@/providers/AuthProvider";
+import { invalidateHouseholdData } from "@/lib/query-invalidation";
 
 export function useCreateHousehold() {
   const queryClient = useQueryClient();
@@ -10,13 +11,7 @@ export function useCreateHousehold() {
   return useMutation({
     mutationFn: (name: string) => householdsService.createHousehold(name),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["session"] });
-      queryClient.invalidateQueries({ queryKey: ["my-households"] });
-      queryClient.invalidateQueries({ queryKey: ["accounts"] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-      queryClient.invalidateQueries({ queryKey: ["budgets"] });
-      queryClient.invalidateQueries({ queryKey: ["recurring-transactions"] });
+      invalidateHouseholdData(queryClient);
       void refreshSession();
     },
   });

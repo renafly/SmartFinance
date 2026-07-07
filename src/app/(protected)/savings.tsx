@@ -1,16 +1,30 @@
-import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/theme/ThemeProvider';
-import { radius } from '@/theme/radius';
-import { spacing } from '@/theme/spacing';
+import { useTheme } from "@/theme/ThemeProvider";
+import { radius } from "@/theme/radius";
+import { spacing } from "@/theme/spacing";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import { Page, Card, Section, Field, Button, formatCurrency } from '@/components/migrated-page';
-import { HouseholdMemberSelect } from '@/components/household-member-select';
-import { useAuth } from '../../providers/AuthProvider';
-import { useAccountsWithBalances } from '../../features/accounts/hooks';
-import { useHouseholdMemberDetails } from '../../features/households/hooks';
-import { useRecurringTransactions } from '../../features/recurring-transactions/hooks';
+import { HouseholdMemberSelect } from "@/components/household-member-select";
+import {
+  Button,
+  Card,
+  Field,
+  formatCurrency,
+  Page,
+  Section,
+} from "@/components/migrated-page";
+import { typography } from "@/theme/typography";
+import { useAccountsWithBalances } from "../../features/accounts/hooks";
+import { useHouseholdMemberDetails } from "../../features/households/hooks";
+import { useRecurringTransactions } from "../../features/recurring-transactions/hooks";
 import {
   useCreateSavingPot,
   useDeleteSavingPot,
@@ -19,8 +33,8 @@ import {
   useSavingPots,
   useUpdateSavingPot,
   useUpdateSavingPotAccounts,
-} from '../../features/saving-pots/hooks';
-import { typography } from '@/theme/typography';
+} from "../../features/saving-pots/hooks";
+import { useAuth } from "../../providers/AuthProvider";
 
 type AccountOption = {
   id: string;
@@ -36,26 +50,37 @@ type AccountGroup = {
 };
 
 type SelectionMode =
-  | { kind: 'create' }
-  | { kind: 'edit'; potId: string; potName: string };
+  { kind: "create" } | { kind: "edit"; potId: string; potName: string };
 
 type RecurringRule = {
   account_id: string;
   amount: number;
-  type: 'income' | 'expense';
-  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  type: "income" | "expense";
+  frequency: "daily" | "weekly" | "monthly" | "yearly" | "custom";
+  excluded_months?: number[] | null;
   is_active: boolean;
 };
 
-function getMonthlyRecurringAmount(rule: RecurringRule) {
+function getMonthlyRecurringAmount(rule: RecurringRule, month = new Date()) {
+  const monthNumber = month.getMonth() + 1;
+  if (rule.frequency === "custom" && Array.isArray(rule.excluded_months)) {
+    const excluded = rule.excluded_months
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value));
+    if (excluded.includes(monthNumber)) {
+      return 0;
+    }
+  }
+
   const multiplier = {
     daily: 30,
     weekly: 52 / 12,
     monthly: 1,
     yearly: 1 / 12,
+    custom: 1,
   }[rule.frequency];
 
-  const signedAmount = rule.type === 'income' ? rule.amount : -rule.amount;
+  const signedAmount = rule.type === "income" ? rule.amount : -rule.amount;
   return signedAmount * multiplier;
 }
 
@@ -81,7 +106,7 @@ function buildAccountGroups(
   const groupMap = new Map<string, AccountGroup>();
 
   for (const account of accounts) {
-    const key = account.owner_profile_id ?? '__shared__';
+    const key = account.owner_profile_id ?? "__shared__";
     const title = account.owner_profile_id
       ? memberLabels.get(account.owner_profile_id) || unnamedLabel
       : sharedLabel;
@@ -120,7 +145,7 @@ function buildSelectionMap(rows: { pot_id: string; account_id: string }[]) {
 export default function SavingsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { t } = useTranslation('common');
+  const { t } = useTranslation("common");
   const { householdId, profile } = useAuth();
   const savingPotsQuery = useSavingPots();
   const balancesQuery = useSavingPotBalances();
@@ -133,17 +158,24 @@ export default function SavingsScreen() {
   const updateSavingPot = useUpdateSavingPot();
   const updateSavingPotAccounts = useUpdateSavingPotAccounts();
 
-  const [name, setName] = useState('');
-  const [targetAmount, setTargetAmount] = useState('');
-  const [createdById, setCreatedById] = useState('');
+  const [name, setName] = useState("");
+  const [targetAmount, setTargetAmount] = useState("");
+  const [createdById, setCreatedById] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [createSelectedAccountIds, setCreateSelectedAccountIds] = useState<string[]>([]);
-  const [selectionMode, setSelectionMode] = useState<SelectionMode | null>(null);
+  const [createSelectedAccountIds, setCreateSelectedAccountIds] = useState<
+    string[]
+  >([]);
+  const [selectionMode, setSelectionMode] = useState<SelectionMode | null>(
+    null,
+  );
   const [draftAccountIds, setDraftAccountIds] = useState<string[]>([]);
   const [draftPotValues, setDraftPotValues] = useState<
     Record<string, { name: string; targetAmount: string }>
   >({});
-  const [activePotMenu, setActivePotMenu] = useState<{ id: string; name: string } | null>(null);
+  const [activePotMenu, setActivePotMenu] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [editingPotId, setEditingPotId] = useState<string | null>(null);
 
   const parsedTargetAmount = targetAmount.trim() ? Number(targetAmount) : null;
@@ -156,20 +188,23 @@ export default function SavingsScreen() {
   const recurringRules = (recurringQuery.data ?? []) as RecurringRule[];
   const memberLabelMap = new Map(
     (membersQuery.data ?? [])
-      .filter((member) => member.status === 'accepted')
+      .filter((member) => member.status === "accepted")
       .map((member) => [
         member.userId,
         member.fullName?.trim() || member.email || member.userId,
       ]),
   );
-  const currentUserLabel = profile?.full_name?.trim() || profile?.email?.trim() || t('settings.you');
+  const currentUserLabel =
+    profile?.full_name?.trim() || profile?.email?.trim() || t("settings.you");
   const groups = buildAccountGroups(
     accounts,
     membersQuery.data ?? [],
-    t('savings.sharedAccounts'),
-    t('settings.unnamedUser'),
+    t("savings.sharedAccounts"),
+    t("settings.unnamedUser"),
   );
-  const balanceMap = new Map((balancesQuery.data ?? []).map((pot: any) => [pot.id, pot]));
+  const balanceMap = new Map(
+    (balancesQuery.data ?? []).map((pot: any) => [pot.id, pot]),
+  );
   const selectionMap = buildSelectionMap(assignmentsQuery.data ?? []);
 
   async function handleCreate() {
@@ -190,55 +225,60 @@ export default function SavingsScreen() {
       selected_account_ids: createSelectedAccountIds,
     } as any);
 
-    setName('');
-    setTargetAmount('');
+    setName("");
+    setTargetAmount("");
     setCreateSelectedAccountIds([]);
     setCreateDialogOpen(false);
   }
 
   function openCreateModal() {
-    setName('');
-    setTargetAmount('');
+    setName("");
+    setTargetAmount("");
     setCreateSelectedAccountIds([]);
-    setCreatedById(profile?.id ?? '');
+    setCreatedById(profile?.id ?? "");
     setCreateDialogOpen(true);
   }
 
   function openCreatePicker() {
     setDraftAccountIds(createSelectedAccountIds);
-    setSelectionMode({ kind: 'create' });
+    setSelectionMode({ kind: "create" });
   }
 
   function openEditPicker(potId: string, potName: string) {
     setDraftAccountIds(selectionMap.get(potId) ?? []);
-    setSelectionMode({ kind: 'edit', potId, potName });
+    setSelectionMode({ kind: "edit", potId, potName });
   }
 
   function updateDraftPotField(
     potId: string,
-    field: 'name' | 'targetAmount',
+    field: "name" | "targetAmount",
     value: string,
   ) {
     setDraftPotValues((current) => ({
       ...current,
       [potId]: {
-        name: current[potId]?.name ?? '',
-        targetAmount: current[potId]?.targetAmount ?? '',
+        name: current[potId]?.name ?? "",
+        targetAmount: current[potId]?.targetAmount ?? "",
         [field]: value,
       },
     }));
   }
 
-  function openEditDetails(potId: string, potName: string, potTargetAmount?: number | null) {
+  function openEditDetails(
+    potId: string,
+    potName: string,
+    potTargetAmount?: number | null,
+  ) {
     const current = draftPotValues[potId];
     setDraftPotValues((drafts) => ({
       ...drafts,
       [potId]: {
-        name: current?.name ?? potName ?? '',
+        name: current?.name ?? potName ?? "",
         targetAmount:
-          current?.targetAmount ?? (potTargetAmount !== null && potTargetAmount !== undefined
+          current?.targetAmount ??
+          (potTargetAmount !== null && potTargetAmount !== undefined
             ? String(potTargetAmount)
-          : ''),
+            : ""),
       },
     }));
     setEditingPotId(potId);
@@ -261,7 +301,7 @@ export default function SavingsScreen() {
   async function savePickerSelection() {
     if (!selectionMode) return;
 
-    if (selectionMode.kind === 'create') {
+    if (selectionMode.kind === "create") {
       setCreateSelectedAccountIds(draftAccountIds);
       closePicker();
       return;
@@ -279,7 +319,9 @@ export default function SavingsScreen() {
     const draft = draftPotValues[potId];
     if (!draft) return;
 
-    const nextTargetAmount = draft.targetAmount.trim() ? Number(draft.targetAmount) : null;
+    const nextTargetAmount = draft.targetAmount.trim()
+      ? Number(draft.targetAmount)
+      : null;
     if (draft.name.trim().length === 0) return;
     if (nextTargetAmount !== null && !Number.isFinite(nextTargetAmount)) return;
 
@@ -292,29 +334,38 @@ export default function SavingsScreen() {
   }
 
   const selectionModalTitle =
-    selectionMode?.kind === 'edit'
-      ? `${t('savings.editAccounts')}: ${selectionMode.potName}`
-      : t('savings.selectAccounts');
+    selectionMode?.kind === "edit"
+      ? `${t("savings.editAccounts")}: ${selectionMode.potName}`
+      : t("savings.selectAccounts");
 
   return (
     <Page
-      title={t('savings.title')}
-      subtitle={t('savings.subtitle')}
-      actions={<Button label={t('savings.addPot')} onPress={openCreateModal} />}
+      title={t("savings.title")}
+      subtitle={t("savings.subtitle")}
+      actions={<Button label={t("savings.addPot")} onPress={openCreateModal} />}
     >
-
-      <Section title={t('savings.currentTitle')} subtitle={t('savings.currentSubtitle')}>
+      <Section
+        title={t("savings.currentTitle")}
+        subtitle={t("savings.currentSubtitle")}
+      >
         <View style={{ gap: spacing(2.5) }}>
           {(savingPotsQuery.data ?? []).map((pot: any) => {
             const balance = balanceMap.get(pot.id);
             const selectedCount = Number(balance?.selected_account_count ?? 0);
             const selectedAccountIds = selectionMap.get(pot.id) ?? [];
-            const estimateAccountIds = selectedAccountIds.length > 0 ? selectedAccountIds : accounts.map((account) => account.id);
+            const estimateAccountIds =
+              selectedAccountIds.length > 0
+                ? selectedAccountIds
+                : accounts.map((account) => account.id);
             const accountIdSet = new Set(estimateAccountIds);
             const monthlyRecurringNet = recurringRules
-              .filter((rule) => rule.is_active && accountIdSet.has(rule.account_id))
+              .filter(
+                (rule) => rule.is_active && accountIdSet.has(rule.account_id),
+              )
               .reduce((sum, rule) => sum + getMonthlyRecurringAmount(rule), 0);
-            const targetValue = Number(balance?.target_amount ?? pot.target_amount ?? 0);
+            const targetValue = Number(
+              balance?.target_amount ?? pot.target_amount ?? 0,
+            );
             const currentValue = Number(balance?.balance ?? 0);
             const remainingValue = Math.max(0, targetValue - currentValue);
             const percent =
@@ -322,7 +373,9 @@ export default function SavingsScreen() {
                 ? Math.min(
                     100,
                     Math.round(
-                      (Number(balance.balance ?? 0) / Number(balance.target_amount)) * 100,
+                      (Number(balance.balance ?? 0) /
+                        Number(balance.target_amount)) *
+                        100,
                     ),
                   )
                 : null;
@@ -331,43 +384,56 @@ export default function SavingsScreen() {
               <Card key={pot.id}>
                 <View style={styles.potHeader}>
                   <View style={styles.potTitleRow}>
-                    <Text style={styles.potName}>{balance?.name ?? pot.name}</Text>
+                    <Text style={styles.potName}>
+                      {balance?.name ?? pot.name}
+                    </Text>
                     <Pressable
                       onPress={() =>
                         setActivePotMenu({ id: pot.id, name: pot.name })
                       }
-                      style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
+                      style={({ pressed }) => [
+                        styles.menuButton,
+                        pressed && styles.pressed,
+                      ]}
                     >
                       <Text style={styles.menuButtonText}>⋮</Text>
                     </Pressable>
                   </View>
                   <View style={{ gap: spacing(1) }}>
                     <Text style={styles.potMeta}>
-                      {t('savings.createdBy')}: {
-                        pot.created_by === profile?.id
-                          ? currentUserLabel
-                          : memberLabelMap.get(pot.created_by) ?? t('settings.unnamedUser')
-                      }
+                      {t("savings.createdBy")}:{" "}
+                      {pot.created_by === profile?.id
+                        ? currentUserLabel
+                        : (memberLabelMap.get(pot.created_by) ??
+                          t("settings.unnamedUser"))}
                     </Text>
                     <Text style={styles.potTarget}>
-                      {t('savings.targetAmount')}:{' '}
-                      {balance?.target_amount ? formatCurrency(balance.target_amount) : t('savings.noTarget')}
+                      {t("savings.targetAmount")}:{" "}
+                      {balance?.target_amount
+                        ? formatCurrency(balance.target_amount)
+                        : t("savings.noTarget")}
                     </Text>
                     <Text style={styles.potBalance}>
-                      {t('savings.balance')} {formatCurrency(balance?.balance ?? 0)}
+                      {t("savings.balance")}{" "}
+                      {formatCurrency(balance?.balance ?? 0)}
                     </Text>
                     <Text style={styles.potMeta}>
-                      {t('savings.saved')} {formatCurrency(balance?.saved ?? 0)} · {t('savings.spent')}{' '}
+                      {t("savings.saved")} {formatCurrency(balance?.saved ?? 0)}{" "}
+                      · {t("savings.spent")}{" "}
                       {formatCurrency(balance?.spent ?? 0)}
                     </Text>
                     <Text style={styles.potMeta}>
-                      {t('savings.accountsUsed')}:{' '}
+                      {t("savings.accountsUsed")}:{" "}
                       {selectedCount > 0
-                        ? t('savings.selectedAccountsSummary', { count: selectedCount })
-                        : t('savings.allAccountsUsed')}
+                        ? t("savings.selectedAccountsSummary", {
+                            count: selectedCount,
+                          })
+                        : t("savings.allAccountsUsed")}
                     </Text>
                     {percent !== null ? (
-                      <Text style={styles.potMeta}>{t('savings.progress', { percent })}</Text>
+                      <Text style={styles.potMeta}>
+                        {t("savings.progress", { percent })}
+                      </Text>
                     ) : null}
                   </View>
                   <View style={styles.progressTrack}>
@@ -380,17 +446,24 @@ export default function SavingsScreen() {
                   </View>
                   {remainingValue > 0 && monthlyRecurringNet > 0 ? (
                     <Text style={styles.potMeta}>
-                      {t('savings.estimatedFinish', {
+                      {t("savings.estimatedFinish", {
                         value: addMonths(
                           new Date(),
-                          Math.max(1, Math.ceil(remainingValue / monthlyRecurringNet)),
+                          Math.max(
+                            1,
+                            Math.ceil(remainingValue / monthlyRecurringNet),
+                          ),
                         ).toLocaleDateString(),
                       })}
                     </Text>
                   ) : (
-                    <Text style={styles.potMeta}>{t('savings.estimateUnavail')}</Text>
+                    <Text style={styles.potMeta}>
+                      {t("savings.estimateUnavail")}
+                    </Text>
                   )}
-                  <Text style={styles.potMeta}>{t('savings.estimateNote')}</Text>
+                  <Text style={styles.potMeta}>
+                    {t("savings.estimateNote")}
+                  </Text>
                 </View>
               </Card>
             );
@@ -398,31 +471,53 @@ export default function SavingsScreen() {
         </View>
       </Section>
 
-      <Modal visible={editingPotId !== null} transparent animationType="fade" onRequestClose={() => setEditingPotId(null)}>
+      <Modal
+        visible={editingPotId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditingPotId(null)}
+      >
         <View style={styles.modalBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditingPotId(null)} />
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setEditingPotId(null)}
+          />
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t('savings.editDetails')}</Text>
-            <Text style={styles.modalSubtitle}>{t('savings.selectedAccountsHint')}</Text>
+            <Text style={styles.modalTitle}>{t("savings.editDetails")}</Text>
+            <Text style={styles.modalSubtitle}>
+              {t("savings.selectedAccountsHint")}
+            </Text>
             {editingPotId ? (
               <>
                 <Field
-                  label={t('savings.name')}
-                  value={draftPotValues[editingPotId]?.name ?? ''}
-                  onChangeText={(value) => updateDraftPotField(editingPotId, 'name', value)}
-                  placeholder={t('savings.namePlaceholder')}
+                  label={t("savings.name")}
+                  value={draftPotValues[editingPotId]?.name ?? ""}
+                  onChangeText={(value) =>
+                    updateDraftPotField(editingPotId, "name", value)
+                  }
+                  placeholder={t("savings.namePlaceholder")}
                 />
                 <Field
-                  label={t('savings.targetAmount')}
-                  value={draftPotValues[editingPotId]?.targetAmount ?? ''}
-                  onChangeText={(value) => updateDraftPotField(editingPotId, 'targetAmount', value)}
+                  label={t("savings.targetAmount")}
+                  value={draftPotValues[editingPotId]?.targetAmount ?? ""}
+                  onChangeText={(value) =>
+                    updateDraftPotField(editingPotId, "targetAmount", value)
+                  }
                   keyboardType="numeric"
                   placeholder="1000"
                 />
                 <View style={styles.modalActions}>
-                  <Button label={t('savings.closeAccounts')} variant="secondary" onPress={() => setEditingPotId(null)} />
                   <Button
-                    label={updateSavingPot.isPending ? t('saving') : t('savings.savePot')}
+                    label={t("savings.closeAccounts")}
+                    variant="secondary"
+                    onPress={() => setEditingPotId(null)}
+                  />
+                  <Button
+                    label={
+                      updateSavingPot.isPending
+                        ? t("saving")
+                        : t("savings.savePot")
+                    }
                     onPress={() => void savePot(editingPotId)}
                     disabled={updateSavingPot.isPending}
                   />
@@ -433,46 +528,78 @@ export default function SavingsScreen() {
         </View>
       </Modal>
 
-      <Modal visible={createDialogOpen} transparent animationType="fade" onRequestClose={() => setCreateDialogOpen(false)}>
+      <Modal
+        visible={createDialogOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCreateDialogOpen(false)}
+      >
         <View style={styles.modalBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setCreateDialogOpen(false)} />
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setCreateDialogOpen(false)}
+          />
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t('savings.addPot')}</Text>
-            <Text style={styles.modalSubtitle}>{t('savings.selectedAccountsHint')}</Text>
+            <Text style={styles.modalTitle}>{t("savings.addPot")}</Text>
+            <Text style={styles.modalSubtitle}>
+              {t("savings.selectedAccountsHint")}
+            </Text>
             <Field
-              label={t('savings.name')}
+              label={t("savings.name")}
               value={name}
               onChangeText={setName}
-              placeholder={t('savings.namePlaceholder')}
+              placeholder={t("savings.namePlaceholder")}
             />
             <Field
-              label={t('savings.targetAmount')}
+              label={t("savings.targetAmount")}
               value={targetAmount}
               onChangeText={setTargetAmount}
               keyboardType="numeric"
               placeholder="1000"
             />
             <HouseholdMemberSelect
-              label={t('savings.createdBy')}
-              members={(membersQuery.data ?? []).filter((member) => member.status === 'accepted')}
-              value={createdById || profile?.id || ''}
-              placeholder={t('savings.createdByPlaceholder')}
-              hint={t('savings.createdByPlaceholder')}
+              label={t("savings.createdBy")}
+              members={(membersQuery.data ?? []).filter(
+                (member) => member.status === "accepted",
+              )}
+              value={createdById || profile?.id || ""}
+              placeholder={t("savings.createdByPlaceholder")}
+              hint={t("savings.createdByPlaceholder")}
               onChange={setCreatedById}
             />
-            <Pressable onPress={openCreatePicker} style={({ pressed }) => [styles.selector, pressed && styles.pressed]}>
-              <Text style={styles.selectorLabel}>{t('savings.selectAccounts')}</Text>
+            <Pressable
+              onPress={openCreatePicker}
+              style={({ pressed }) => [
+                styles.selector,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.selectorLabel}>
+                {t("savings.selectAccounts")}
+              </Text>
               <Text style={styles.selectorValue}>
                 {createSelectedAccountIds.length > 0
-                  ? t('savings.selectedAccountsSummary', { count: createSelectedAccountIds.length })
-                  : t('savings.allAccountsUsed')}
+                  ? t("savings.selectedAccountsSummary", {
+                      count: createSelectedAccountIds.length,
+                    })
+                  : t("savings.allAccountsUsed")}
               </Text>
-              <Text style={styles.selectorHint}>{t('savings.selectedAccountsHint')}</Text>
+              <Text style={styles.selectorHint}>
+                {t("savings.selectedAccountsHint")}
+              </Text>
             </Pressable>
             <View style={styles.modalActions}>
-              <Button label={t('savings.closeAccounts')} variant="secondary" onPress={() => setCreateDialogOpen(false)} />
               <Button
-                label={createSavingPot.isPending ? t('creating') : t('savings.create')}
+                label={t("savings.closeAccounts")}
+                variant="secondary"
+                onPress={() => setCreateDialogOpen(false)}
+              />
+              <Button
+                label={
+                  createSavingPot.isPending
+                    ? t("creating")
+                    : t("savings.create")
+                }
                 onPress={() => void handleCreate()}
                 disabled={!canCreateSavingPot}
               />
@@ -481,21 +608,40 @@ export default function SavingsScreen() {
         </View>
       </Modal>
 
-      <Modal visible={activePotMenu !== null} transparent animationType="fade" onRequestClose={() => setActivePotMenu(null)}>
+      <Modal
+        visible={activePotMenu !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActivePotMenu(null)}
+      >
         <View style={styles.modalBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setActivePotMenu(null)} />
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setActivePotMenu(null)}
+          />
           <View style={styles.menuCard}>
-            <Text style={styles.modalTitle}>{t('savings.actions')}</Text>
+            <Text style={styles.modalTitle}>{t("savings.actions")}</Text>
             <Pressable
               onPress={() => {
                 if (activePotMenu) {
-                  const pot = (savingPotsQuery.data ?? []).find((item: any) => item.id === activePotMenu.id);
-                  openEditDetails(activePotMenu.id, activePotMenu.name, pot?.target_amount ?? null);
+                  const pot = (savingPotsQuery.data ?? []).find(
+                    (item: any) => item.id === activePotMenu.id,
+                  );
+                  openEditDetails(
+                    activePotMenu.id,
+                    activePotMenu.name,
+                    pot?.target_amount ?? null,
+                  );
                 }
               }}
-              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.menuItem,
+                pressed && styles.pressed,
+              ]}
             >
-              <Text style={styles.menuItemText}>{t('savings.editDetails')}</Text>
+              <Text style={styles.menuItemText}>
+                {t("savings.editDetails")}
+              </Text>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -503,9 +649,14 @@ export default function SavingsScreen() {
                   openEditPicker(activePotMenu.id, activePotMenu.name);
                 }
               }}
-              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.menuItem,
+                pressed && styles.pressed,
+              ]}
             >
-              <Text style={styles.menuItemText}>{t('savings.editAccounts')}</Text>
+              <Text style={styles.menuItemText}>
+                {t("savings.editAccounts")}
+              </Text>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -514,26 +665,47 @@ export default function SavingsScreen() {
                 }
                 setActivePotMenu(null);
               }}
-              style={({ pressed }) => [styles.menuItemDanger, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.menuItemDanger,
+                pressed && styles.pressed,
+              ]}
             >
-              <Text style={styles.menuItemTextDanger}>{t('savings.removePot')}</Text>
+              <Text style={styles.menuItemTextDanger}>
+                {t("savings.removePot")}
+              </Text>
             </Pressable>
-            <Button label={t('savings.closeAccounts')} variant="secondary" onPress={() => setActivePotMenu(null)} />
+            <Button
+              label={t("savings.closeAccounts")}
+              variant="secondary"
+              onPress={() => setActivePotMenu(null)}
+            />
           </View>
         </View>
       </Modal>
 
-      <Modal visible={selectionMode !== null} transparent animationType="fade" onRequestClose={closePicker}>
+      <Modal
+        visible={selectionMode !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closePicker}
+      >
         <View style={styles.modalBackdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={closePicker} />
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{selectionModalTitle}</Text>
-            <Text style={styles.modalSubtitle}>{t('savings.selectedAccountsHint')}</Text>
+            <Text style={styles.modalSubtitle}>
+              {t("savings.selectedAccountsHint")}
+            </Text>
 
             {accounts.length === 0 ? (
-              <Text style={styles.modalEmpty}>{t('savings.noAccountsAvailable')}</Text>
+              <Text style={styles.modalEmpty}>
+                {t("savings.noAccountsAvailable")}
+              </Text>
             ) : (
-              <ScrollView style={styles.modalList} contentContainerStyle={{ gap: spacing(3.5) }}>
+              <ScrollView
+                style={styles.modalList}
+                contentContainerStyle={{ gap: spacing(3.5) }}
+              >
                 {groups.map((group) => (
                   <View key={group.key} style={styles.group}>
                     <Text style={styles.groupTitle}>{group.title}</Text>
@@ -552,13 +724,22 @@ export default function SavingsScreen() {
                             ]}
                           >
                             <View style={{ flex: 1, gap: spacing(1) }}>
-                              <Text style={styles.accountName}>{account.name}</Text>
+                              <Text style={styles.accountName}>
+                                {account.name}
+                              </Text>
                               <Text style={styles.accountMeta}>
                                 {formatCurrency(account.current_balance)}
                               </Text>
                             </View>
-                            <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
-                              <Text style={styles.checkboxLabel}>{selected ? '✓' : ''}</Text>
+                            <View
+                              style={[
+                                styles.checkbox,
+                                selected && styles.checkboxSelected,
+                              ]}
+                            >
+                              <Text style={styles.checkboxLabel}>
+                                {selected ? "✓" : ""}
+                              </Text>
                             </View>
                           </Pressable>
                         );
@@ -570,9 +751,17 @@ export default function SavingsScreen() {
             )}
 
             <View style={styles.modalActions}>
-              <Button label={t('savings.closeAccounts')} variant="secondary" onPress={closePicker} />
               <Button
-                label={updateSavingPotAccounts.isPending ? t('saving') : t('savings.saveAccounts')}
+                label={t("savings.closeAccounts")}
+                variant="secondary"
+                onPress={closePicker}
+              />
+              <Button
+                label={
+                  updateSavingPotAccounts.isPending
+                    ? t("saving")
+                    : t("savings.saveAccounts")
+                }
                 onPress={() => void savePickerSelection()}
                 disabled={updateSavingPotAccounts.isPending}
               />
@@ -586,217 +775,217 @@ export default function SavingsScreen() {
 
 function createStyles(colors: any) {
   return StyleSheet.create({
-  selector: {
-    gap: spacing(1.5),
-    padding: spacing(3.5),
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
-  },
-  selectorLabel: {
-    color: colors.primary,
-    fontSize: typography.fontSize[12],
-    fontWeight: typography.fontWeight.bold,
-    textTransform: 'uppercase',
-    letterSpacing: typography.letterSpacing[11],
-  },
-  selectorValue: {
-    color: colors.text,
-    fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.bold,
-  },
-  selectorHint: {
-    color: colors.textSecondary,
-    fontSize: typography.fontSize[12],
-    lineHeight: typography.lineHeight[17],
-  },
-  menuButton: {
-    alignSelf: 'flex-start',
-    width: spacing(10.5),
-    height: spacing(10.5),
-    borderRadius: radius.mdPlus,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuButtonText: {
-    color: colors.text,
-    fontSize: typography.fontSize[22],
-    fontWeight: typography.fontWeight.extraBold,
-    lineHeight: typography.lineHeight[22],
-  },
-  menuCard: {
-    width: '100%',
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    padding: spacing(4.5),
-    gap: spacing(3),
-  },
-  menuItem: {
-    paddingVertical: spacing(3.5),
-    paddingHorizontal: spacing(3.5),
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
-  },
-  menuItemDanger: {
-    paddingVertical: spacing(3.5),
-    paddingHorizontal: spacing(3.5),
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.destructiveBorder,
-    backgroundColor: colors.destructiveSoft,
-  },
-  menuItemText: {
-    color: colors.text,
-    fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.bold,
-  },
-  menuItemTextDanger: {
-    color: colors.destructive,
-    fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.bold,
-  },
-  potHeader: {
-    gap: spacing(2.5),
-  },
-  potTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing(3),
-  },
-  potName: {
-    color: colors.text,
-    fontSize: typography.fontSize[18],
-    fontWeight: typography.fontWeight.extraBold,
-    flex: 1,
-  },
-  potTarget: {
-    color: colors.surfaceSelected,
-    fontSize: typography.fontSize[13],
-    fontWeight: typography.fontWeight.bold,
-  },
-  potBalance: {
-    color: colors.primary,
-    fontSize: typography.fontSize[15],
-    fontWeight: typography.fontWeight.extraBold,
-  },
-  potMeta: {
-    color: colors.textSecondary,
-    fontSize: typography.fontSize[12],
-    lineHeight: typography.lineHeight[17],
-  },
-  progressTrack: {
-    marginTop: spacing(1.5),
-    height: spacing(2.5),
-    borderRadius: radius.full,
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: radius.full,
-    backgroundColor: colors.success,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(2, 6, 23, 0.82)',
-    justifyContent: 'center',
-    padding: spacing(5),
-  },
-  modalCard: {
-    maxHeight: '90%',
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    padding: spacing(4.5),
-    gap: spacing(3.5),
-  },
-  modalTitle: {
-    color: colors.text,
-    fontSize: typography.fontSize[20],
-    fontWeight: typography.fontWeight.extraBold,
-  },
-  modalSubtitle: {
-    color: colors.textSecondary,
-    fontSize: typography.fontSize[13],
-    lineHeight: typography.lineHeight[18],
-  },
-  modalEmpty: {
-    color: colors.textSecondary,
-    paddingVertical: spacing(3),
-  },
-  modalList: {
-    maxHeight: 420,
-  },
-  group: {
-    gap: spacing(2.5),
-  },
-  groupTitle: {
-    color: colors.primary,
-    fontSize: typography.fontSize[12],
-    fontWeight: typography.fontWeight.extraBold,
-    textTransform: 'uppercase',
-    letterSpacing: typography.letterSpacing[10],
-  },
-  accountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing(3),
-    padding: spacing(3.5),
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
-  },
-  accountRowSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.surfaceSelected,
-  },
-  accountName: {
-    color: colors.text,
-    fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.bold,
-  },
-  accountMeta: {
-    color: colors.textSecondary,
-    fontSize: typography.fontSize[12],
-  },
-  checkbox: {
-    width: spacing(7),
-    height: spacing(7),
-    borderRadius: radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surface,
-  },
-  checkboxSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
-  },
-  checkboxLabel: {
-    color: colors.text,
-    fontWeight: '900',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: spacing(2.5),
-    justifyContent: 'flex-end',
-  },
-  pressed: {
-    opacity: 0.85,
-  },
+    selector: {
+      gap: spacing(1.5),
+      padding: spacing(3.5),
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+    },
+    selectorLabel: {
+      color: colors.primary,
+      fontSize: typography.fontSize[12],
+      fontWeight: typography.fontWeight.bold,
+      textTransform: "uppercase",
+      letterSpacing: typography.letterSpacing[11],
+    },
+    selectorValue: {
+      color: colors.text,
+      fontSize: typography.fontSize[14],
+      fontWeight: typography.fontWeight.bold,
+    },
+    selectorHint: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+      lineHeight: typography.lineHeight[17],
+    },
+    menuButton: {
+      alignSelf: "flex-start",
+      width: spacing(10.5),
+      height: spacing(10.5),
+      borderRadius: radius.mdPlus,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    menuButtonText: {
+      color: colors.text,
+      fontSize: typography.fontSize[22],
+      fontWeight: typography.fontWeight.extraBold,
+      lineHeight: typography.lineHeight[22],
+    },
+    menuCard: {
+      width: "100%",
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      padding: spacing(4.5),
+      gap: spacing(3),
+    },
+    menuItem: {
+      paddingVertical: spacing(3.5),
+      paddingHorizontal: spacing(3.5),
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+    },
+    menuItemDanger: {
+      paddingVertical: spacing(3.5),
+      paddingHorizontal: spacing(3.5),
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.destructiveBorder,
+      backgroundColor: colors.destructiveSoft,
+    },
+    menuItemText: {
+      color: colors.text,
+      fontSize: typography.fontSize[14],
+      fontWeight: typography.fontWeight.bold,
+    },
+    menuItemTextDanger: {
+      color: colors.destructive,
+      fontSize: typography.fontSize[14],
+      fontWeight: typography.fontWeight.bold,
+    },
+    potHeader: {
+      gap: spacing(2.5),
+    },
+    potTitleRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: spacing(3),
+    },
+    potName: {
+      color: colors.text,
+      fontSize: typography.fontSize[18],
+      fontWeight: typography.fontWeight.extraBold,
+      flex: 1,
+    },
+    potTarget: {
+      color: colors.surfaceSelected,
+      fontSize: typography.fontSize[13],
+      fontWeight: typography.fontWeight.bold,
+    },
+    potBalance: {
+      color: colors.primary,
+      fontSize: typography.fontSize[15],
+      fontWeight: typography.fontWeight.extraBold,
+    },
+    potMeta: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+      lineHeight: typography.lineHeight[17],
+    },
+    progressTrack: {
+      marginTop: spacing(1.5),
+      height: spacing(2.5),
+      borderRadius: radius.full,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: "hidden",
+    },
+    progressFill: {
+      height: "100%",
+      borderRadius: radius.full,
+      backgroundColor: colors.success,
+    },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: "rgba(2, 6, 23, 0.82)",
+      justifyContent: "center",
+      padding: spacing(5),
+    },
+    modalCard: {
+      maxHeight: "90%",
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      padding: spacing(4.5),
+      gap: spacing(3.5),
+    },
+    modalTitle: {
+      color: colors.text,
+      fontSize: typography.fontSize[20],
+      fontWeight: typography.fontWeight.extraBold,
+    },
+    modalSubtitle: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[13],
+      lineHeight: typography.lineHeight[18],
+    },
+    modalEmpty: {
+      color: colors.textSecondary,
+      paddingVertical: spacing(3),
+    },
+    modalList: {
+      maxHeight: 420,
+    },
+    group: {
+      gap: spacing(2.5),
+    },
+    groupTitle: {
+      color: colors.primary,
+      fontSize: typography.fontSize[12],
+      fontWeight: typography.fontWeight.extraBold,
+      textTransform: "uppercase",
+      letterSpacing: typography.letterSpacing[10],
+    },
+    accountRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing(3),
+      padding: spacing(3.5),
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+    },
+    accountRowSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.surfaceSelected,
+    },
+    accountName: {
+      color: colors.text,
+      fontSize: typography.fontSize[14],
+      fontWeight: typography.fontWeight.bold,
+    },
+    accountMeta: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+    },
+    checkbox: {
+      width: spacing(7),
+      height: spacing(7),
+      borderRadius: radius.full,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: colors.borderStrong,
+      backgroundColor: colors.surface,
+    },
+    checkboxSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary,
+    },
+    checkboxLabel: {
+      color: colors.text,
+      fontWeight: "900",
+    },
+    modalActions: {
+      flexDirection: "row",
+      gap: spacing(2.5),
+      justifyContent: "flex-end",
+    },
+    pressed: {
+      opacity: 0.85,
+    },
   });
 }

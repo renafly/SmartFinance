@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import * as DocumentPicker from 'expo-document-picker';
 import { typography } from '@/theme/typography';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius } from '@/theme/radius';
@@ -29,6 +30,13 @@ type TransactionEditDraft = {
   createdById: string;
 };
 
+type AttachmentDraft = {
+  file: Blob | ArrayBuffer | File;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+};
+
 export default function TransactionsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -47,6 +55,7 @@ export default function TransactionsScreen() {
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
+  const [attachment, setAttachment] = useState<AttachmentDraft | null>(null);
   const [filtersType, setFiltersType] = useState<'all' | 'income' | 'expense'>('all');
   const [menuTransaction, setMenuTransaction] = useState<any | null>(null);
   const [editTransaction, setEditTransaction] = useState<TransactionEditDraft | null>(null);
@@ -80,6 +89,27 @@ export default function TransactionsScreen() {
     parsedAmount > 0 &&
     /^\d{4}-\d{2}-\d{2}$/.test(date);
 
+  async function handlePickAttachment() {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['image/*', 'application/pdf'],
+      copyToCacheDirectory: true,
+      multiple: false,
+      base64: false,
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+
+    const asset = result.assets[0];
+    const file = asset.file ?? await (await fetch(asset.uri)).blob();
+
+    setAttachment({
+      file,
+      fileName: asset.name ?? `invoice-${Date.now()}`,
+      fileSize: asset.size ?? ('size' in file ? file.size : 0),
+      mimeType: asset.mimeType ?? 'application/octet-stream',
+    });
+  }
+
   async function handleCreate() {
     if (!householdId || !profile?.id || !effectiveAccountId || !title.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0) return;
     await createTransaction.mutateAsync({
@@ -92,12 +122,14 @@ export default function TransactionsScreen() {
       amount: parsedAmount,
       notes: notes || null,
       transaction_date: date,
+      attachment,
     } as any);
 
     setTitle('');
     setAmount('');
     setNotes('');
     setCategoryId(null);
+    setAttachment(null);
   }
 
   function openEditTransaction(item: any) {
@@ -169,6 +201,28 @@ export default function TransactionsScreen() {
           <Field label={t('transactions.amountLabel')} value={amount} onChangeText={setAmount} placeholder="0.00" keyboardType="numeric" />
           <Field label={t('transactions.dateLabel')} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" />
           <Field label={t('transactions.notesLabel')} value={notes} onChangeText={setNotes} placeholder={t('transactions.notesPlaceholder')} />
+          <View style={{ gap: spacing(2) } as any}>
+            <Button
+              label={attachment ? t('transactions.changeAttachment') : t('transactions.attachInvoice')}
+              onPress={() => void handlePickAttachment()}
+              variant="secondary"
+            />
+            {attachment ? (
+              <View style={{ gap: spacing(1) }}>
+                <Text style={{ color: colors.text, fontWeight: typography.fontWeight.semibold } as any}>
+                  {t('transactions.attachmentSelected')}
+                </Text>
+                <Text style={{ color: colors.textSecondary } as any}>
+                  {attachment.fileName} · {(attachment.fileSize / 1024).toFixed(1)} KB
+                </Text>
+                <Button
+                  label={t('transactions.removeAttachment')}
+                  onPress={() => setAttachment(null)}
+                  variant="secondary"
+                />
+              </View>
+            ) : null}
+          </View>
           <HouseholdMemberSelect
             label={t('transactions.createdBy')}
             members={(membersQuery.data ?? []).filter((member) => member.status === 'accepted')}
@@ -177,14 +231,14 @@ export default function TransactionsScreen() {
             hint={t('transactions.createdByPlaceholder')}
             onChange={setCreatedById}
           />
-          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('transactions.accounts')}</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
+          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold } as any}>{t('transactions.accounts')}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
             {accounts.map((account: any) => (
               <Pill key={account.id} label={account.name} active={accountId === account.id} onPress={() => setAccountId(account.id)} />
             ))}
           </View>
-          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('transactions.categories')}</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
+          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold } as any}>{t('transactions.categories')}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
             <Pill label={t('none')} active={!categoryId} onPress={() => setCategoryId(null)} />
             {categories.map((category: any) => (
               <Pill key={category.id} label={category.name} active={categoryId === category.id} onPress={() => setCategoryId(category.id)} />
@@ -195,29 +249,29 @@ export default function TransactionsScreen() {
       </Card>
 
       <Section title={t('transactions.latestTitle')} subtitle={t('transactions.latestSubtitle', { count: transactions.length })}>
-        <View style={{ gap: spacing(2.5) }}>
+        <View style={{ gap: spacing(2.5) } as any}>
           {transactions.map((item: any) => (
             <Card key={item.id}>
               <View style={styles.transactionHeader}>
-                <View style={{ flex: 1, gap: spacing(1) }}>
-                  <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold }}>{item.title}</Text>
-                  <Text style={{ color: colors.textSecondary }}>{item.account?.name ?? t('transactions.account')} · {item.category?.name ?? t('transactions.uncategorized')} · {formatDate(item.transaction_date)}</Text>
+                <View style={{ flex: 1, gap: spacing(1) } as any}>
+                  <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold } as any}>{item.title}</Text>
+                  <Text style={{ color: colors.textSecondary } as any}>{item.account?.name ?? t('transactions.account')} · {item.category?.name ?? t('transactions.uncategorized')} · {formatDate(item.transaction_date)}</Text>
                 </View>
                 <Pressable
                   onPress={() => setMenuTransaction(item)}
-                  style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
+                  style={({ pressed }) => [styles.menuButton, pressed && styles.pressed] as any}
                 >
                   <Text style={styles.menuButtonText}>⋮</Text>
                 </Pressable>
               </View>
-              <Text style={{ color: colors.textSecondary }}>
+              <Text style={{ color: colors.textSecondary } as any}>
                 {t('transactions.createdBy')}: {
                   item.created_by_profile?.id === profile?.id
                     ? currentUserLabel
                     : memberLabelMap.get(item.created_by_profile?.id ?? item.created_by) ?? t('settings.unnamedUser')
                 }
               </Text>
-              <Text style={{ color: item.type === 'expense' ? colors.destructive : colors.success, fontWeight: typography.fontWeight.extraBold }}>
+              <Text style={{ color: item.type === 'expense' ? colors.destructive : colors.success, fontWeight: typography.fontWeight.extraBold } as any}>
                 {item.type === 'expense' ? '-' : '+'}{formatCurrency(item.amount)}
               </Text>
             </Card>
@@ -229,14 +283,14 @@ export default function TransactionsScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuTransaction(null)} />
           <View style={styles.menuCard}>
-            <Text style={styles.modalTitle}>{menuTransaction?.title ?? t('transactions.title')}</Text>
+              <Text style={styles.modalTitle}>{menuTransaction?.title ?? t('transactions.title')}</Text>
             <Pressable
               onPress={() => {
                 if (menuTransaction) {
                   openEditTransaction(menuTransaction);
                 }
               }}
-              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed] as any}
             >
               <Text style={styles.menuItemText}>{t('transactions.editTitle')}</Text>
             </Pressable>
@@ -247,7 +301,7 @@ export default function TransactionsScreen() {
                 }
                 setMenuTransaction(null);
               }}
-              style={({ pressed }) => [styles.menuItemDanger, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.menuItemDanger, pressed && styles.pressed] as any}
             >
               <Text style={styles.menuItemTextDanger}>{t('delete')}</Text>
             </Pressable>
@@ -264,7 +318,7 @@ export default function TransactionsScreen() {
             <Text style={styles.modalSubtitle}>{t('settings.editDetails')}</Text>
             {editTransaction ? (
               <>
-                <View style={{ flexDirection: 'row', gap: spacing(2) }}>
+                <View style={{ flexDirection: 'row', gap: spacing(2) } as any}>
                   {(['income', 'expense'] as const).map((item) => (
                     <Pill
                       key={item}
@@ -304,8 +358,8 @@ export default function TransactionsScreen() {
                   hint={t('transactions.createdByPlaceholder')}
                   onChange={(value) => setEditTransaction((current) => (current ? { ...current, createdById: value } : current))}
                 />
-                <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('transactions.accounts')}</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
+                <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold } as any}>{t('transactions.accounts')}</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
                   {accounts.map((account: any) => (
                     <Pill
                       key={account.id}
@@ -315,8 +369,8 @@ export default function TransactionsScreen() {
                     />
                   ))}
                 </View>
-                <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('transactions.categories')}</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
+                <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold } as any}>{t('transactions.categories')}</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
                   <Pill
                     label={t('none')}
                     active={!editTransaction.categoryId}
@@ -435,5 +489,5 @@ function createStyles(colors: any) {
   pressed: {
     opacity: 0.85,
   },
-  } as const);
+  } as any);
 }

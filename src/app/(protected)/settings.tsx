@@ -42,7 +42,7 @@ const themeOptions: { value: ThemeMode; labelKey: string }[] = [
 export default function SettingsScreen() {
   const { colors } = useTheme();
   const { t } = useTranslation('common');
-  const { profile, householdId, logout } = useAuth();
+  const { profile, householdId } = useAuth();
   const language = usePreferencesStore((state) => state.language);
   const setLanguage = usePreferencesStore((state) => state.setLanguage);
   const currency = usePreferencesStore((state) => state.currency);
@@ -351,7 +351,6 @@ export default function SettingsScreen() {
         </View>
       </Section>
 
-      <Button label={t('logout')} onPress={() => void logout()} variant="danger" />
     </Page>
   );
 }

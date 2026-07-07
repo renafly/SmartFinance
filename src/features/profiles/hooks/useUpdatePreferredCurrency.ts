@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { profilesService } from '../services/profiles.service';
 import { useAuth } from '@/providers/AuthProvider';
 import type { AppCurrency } from '@/stores/preferencesStore';
+import { invalidateHouseholdData } from '@/lib/query-invalidation';
 
 export function useUpdatePreferredCurrency() {
   const queryClient = useQueryClient();
@@ -12,7 +13,7 @@ export function useUpdatePreferredCurrency() {
     mutationFn: ({ profileId, currency }: { profileId: string; currency: AppCurrency }) =>
       profilesService.updatePreferredCurrency(profileId, currency),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['session'] });
+      invalidateHouseholdData(queryClient);
       void refreshSession();
     },
   });
