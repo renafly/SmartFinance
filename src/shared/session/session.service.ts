@@ -18,7 +18,13 @@ export class SessionService {
 
     if (membershipError) throw membershipError;
 
-    const memberships = membershipData ?? [];
+    const memberships = (membershipData ?? []).filter((member) => {
+      const household = Array.isArray(member.household)
+        ? member.household[0]
+        : member.household;
+
+      return household?.deleted_at == null;
+    });
     const defaultMembership = memberships.find(
       (member) => member.household_id === profileData?.default_household_id
     );

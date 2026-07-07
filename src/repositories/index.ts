@@ -6,6 +6,7 @@ import { AccountsRepository } from "./accounts.repository";
 import { AttachmentsRepository } from "./attachments.repository";
 import { CategoriesRepository } from "./categories.repository";
 import { HouseholdsRepository } from "./households.repository";
+import { MonthlyBudgetRepository } from "./monthly-budget.repository";
 import { ProfilesRepository } from "./profiles.repository";
 import { RecurringTransactionsRepository } from "./recurring.transactions.repository";
 import { SavingPotsRepository } from "./saving-pots.repository";
@@ -16,6 +17,7 @@ export * from "./attachments.repository";
 export * from "./base.repository";
 export * from "./categories.repository";
 export * from "./households.repository";
+export * from "./monthly-budget.repository";
 export * from "./profiles.repository";
 export * from "./recurring.transactions.repository";
 export * from "./saving-pots.repository";
@@ -29,6 +31,7 @@ export function createRepositories(
     attachments: new AttachmentsRepository(client),
     categories: new CategoriesRepository(client),
     households: new HouseholdsRepository(client),
+    monthlyBudget: new MonthlyBudgetRepository(client),
     profiles: new ProfilesRepository(client),
     recurringTransactions: new RecurringTransactionsRepository(client),
     savingPots: new SavingPotsRepository(client),

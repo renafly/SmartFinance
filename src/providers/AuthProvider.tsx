@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
 import { supabase } from '../shared/lib/supabase/client';
 import { useSession, type Claims, type UserProfile } from '../shared/session';
+import { usePreferencesStore, type AppCurrency } from '@/stores/preferencesStore';
 
 type AuthContextValue = {
   session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session'];
@@ -8,10 +9,12 @@ type AuthContextValue = {
   claims: Claims;
   profile: UserProfile;
   householdId: string | null;
+  currency: AppCurrency;
   isLoading: boolean;
   isLoggedIn: boolean;
   signInWithIdToken: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshSession: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -20,29 +23,36 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<AuthContextValue['session']>(null);
   const [restoring, setRestoring] = useState(true);
   const [claims, setClaims] = useState<Claims>();
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  async function syncAuthState(isActive = true) {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      console.error('Error restoring Supabase session:', sessionError);
+    }
+
+    if (isActive) {
+      setSession(sessionData.session);
+    }
+
+    const { data, error } = await supabase.auth.getClaims();
+    if (error) {
+      console.error('Error fetching claims:', error);
+    }
+
+    if (isActive) {
+      setClaims(data?.claims ?? null);
+    }
+  }
 
   useEffect(() => {
     let isMounted = true;
 
     const fetchClaims = async () => {
       setRestoring(true);
-
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) {
-        console.error('Error restoring Supabase session:', sessionError);
-      }
+      await syncAuthState(isMounted);
 
       if (isMounted) {
-        setSession(sessionData.session);
-      }
-
-      const { data, error } = await supabase.auth.getClaims();
-      if (error) {
-        console.error('Error fetching claims:', error);
-      }
-
-      if (isMounted) {
-        setClaims(data?.claims ?? null);
         setRestoring(false);
       }
     };
@@ -59,6 +69,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const { data } = await supabase.auth.getClaims();
       if (isMounted) {
         setClaims(data?.claims ?? null);
+        setRefreshKey((current) => current + 1);
       }
     });
 
@@ -68,7 +79,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
-  const { profile, householdId, loading } = useSession(claims);
+  const { profile, householdId, loading } = useSession(claims, refreshKey);
+  const setCurrency = usePreferencesStore((state) => state.setCurrency);
+  const currency = usePreferencesStore((state) => state.currency);
+
+  useEffect(() => {
+    const preferredCurrency = profile?.preferred_currency as AppCurrency | undefined;
+
+    if (preferredCurrency === 'EUR' || preferredCurrency === 'USD' || preferredCurrency === 'GBP') {
+      setCurrency(preferredCurrency);
+    }
+  }, [profile?.preferred_currency, setCurrency]);
+
+  async function refreshSession() {
+    await syncAuthState();
+    setRefreshKey((current) => current + 1);
+  }
 
   async function signInWithIdToken(idToken: string) {
     setRestoring(true);
@@ -117,10 +143,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
         claims,
         profile,
         householdId,
+        currency,
         isLoading: restoring || loading,
         isLoggedIn: claims !== undefined,
         signInWithIdToken,
         logout,
+        refreshSession,
       }}
     >
       {children}

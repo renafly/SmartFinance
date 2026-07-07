@@ -12,6 +12,16 @@ export function useAccounts() {
     enabled: !!householdId && !isLoading,
   })
 }
+
+export function useAccountsWithBalances() {
+  const { householdId, isLoading } = useAuth()
+
+  return useQuery({
+    queryKey: ['accounts-with-balances', householdId],
+    queryFn: () => accountsService.getAccountsWithBalances(householdId!),
+    enabled: !!householdId && !isLoading,
+  })
+}
 export function useAccount(id: string) {
   return useQuery({
     queryKey: ["accounts", id],

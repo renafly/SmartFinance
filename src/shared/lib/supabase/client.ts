@@ -2,6 +2,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
 import "react-native-url-polyfill/auto";
 
+const memoryStorage = {
+  async getItem(_key: string) {
+    return null;
+  },
+  async setItem(_key: string, _value: string) {
+    return undefined;
+  },
+  async removeItem(_key: string) {
+    return undefined;
+  },
+};
+
 // Reads from process.env - see .env / .env.example (item 45). These are
 // EXPO_PUBLIC_ prefixed so Expo inlines them into the client bundle;
 // never put the service-role key here.
@@ -17,9 +29,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: AsyncStorage,
+    storage: typeof window !== "undefined" ? AsyncStorage : memoryStorage,
     autoRefreshToken: true,
-    persistSession: false, // We handle session persistence manually in src/shared/lib/supabase/session.ts
+    persistSession: true,
     detectSessionInUrl: true,
   },
 });

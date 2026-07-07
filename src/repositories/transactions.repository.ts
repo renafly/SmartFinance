@@ -54,6 +54,9 @@ export interface CreateTransferInput {
   notes?: string;
   transactionDate?: string;
   createdBy: string;
+  monthlyBudgetRunId?: string | null;
+  generatedByRuleId?: string | null;
+  budgetSection?: Database["public"]["Enums"]["monthly_budget_section"] | null;
 }
 
 export class TransactionsRepository extends BaseRepository<"transactions"> {
@@ -124,6 +127,9 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
       p_transaction_date: input.transactionDate ?? new Date().toISOString(),
       p_created_by: input.createdBy,
       p_category_id: input.categoryId ?? null,
+      p_monthly_budget_run_id: input.monthlyBudgetRunId ?? null,
+      p_generated_by_rule_id: input.generatedByRuleId ?? null,
+      p_budget_section: input.budgetSection ?? null,
     });
 
     if (error) return { data: null, error };

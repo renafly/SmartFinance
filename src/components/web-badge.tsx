@@ -6,6 +6,7 @@ import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { Spacing } from '@/constants/theme';
+import { spacing } from '@/theme/spacing';
 
 export function WebBadge() {
   const scheme = useColorScheme();
@@ -29,7 +30,7 @@ export function WebBadge() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: Spacing.five,
+    padding: spacing(Spacing.five / 4),
     alignItems: 'center',
     gap: Spacing.two,
   },
@@ -37,7 +38,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   badgeImage: {
-    width: 123,
+    width: spacing(30.75),
     aspectRatio: 123 / 24,
   },
 });

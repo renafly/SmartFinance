@@ -11,6 +11,10 @@ type HouseholdInvitation =
   Database["public"]["Tables"]["household_invitations"]["Row"];
 type HouseholdRole = Database["public"]["Enums"]["household_role"];
 
+export type HouseholdListItem = Household & {
+  role: HouseholdRole;
+};
+
 export type MyHouseholdInvitation = {
   id: string;
   household_id: string;
@@ -48,20 +52,38 @@ export class HouseholdsRepository extends BaseRepository<"households"> {
   }
 
   /** All households the given user belongs to (owner or member), via household_members. */
-  async listForUser(userId: string): Promise<RepoResult<Household[]>> {
+  async listForUser(userId: string): Promise<RepoResult<HouseholdListItem[]>> {
     const { data, error } = await this.client
       .from("household_members")
-      .select("household:households(*)")
+      .select("role, household:households(*)")
       .eq("user_id", userId)
       .eq("status", "accepted");
 
     if (error) return { data: null, error };
     const households = (data ?? [])
-      .map(
-        (row) => (row as unknown as { household: Household | null }).household,
-      )
-      .filter((h): h is Household => h !== null);
+      .map((row) => {
+        const typedRow = row as unknown as {
+          role: HouseholdRole;
+          household: Household | null;
+        };
+        const household = typedRow.household;
+
+        if (!household || household.deleted_at) return null;
+
+        return {
+          ...household,
+          role: typedRow.role,
+        };
+      })
+      .filter((h): h is HouseholdListItem => h !== null);
     return { data: households, error: null };
+  }
+
+  async renameHousehold(
+    householdId: string,
+    name: string,
+  ): Promise<RepoResult<Household>> {
+    return this.update(householdId, { name: name.trim() });
   }
 
   /** Members of a household, joined with profile info. */

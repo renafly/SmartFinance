@@ -20,10 +20,45 @@ class SavingPotsService {
     color?: string | null
     icon?: string | null
     created_by: string
+    selected_account_ids?: string[]
   }) {
-    const { data, error } = await repositories.savingPots.create(input as any)
+    const { selected_account_ids: selectedAccountIds = [], ...potInput } = input
+    const { data, error } = await repositories.savingPots.create(potInput as any)
+    if (error) throw error
+
+    if (data && selectedAccountIds.length > 0) {
+      const selectionResult = await repositories.savingPots.setAccountAssignments(
+        data.id,
+        selectedAccountIds,
+      )
+
+      if (selectionResult.error) throw selectionResult.error
+    }
+
+    return data
+  }
+
+  async getAccountAssignments() {
+    const { data, error } = await repositories.savingPots.listAccountAssignments()
+    if (error) throw error
+    return data ?? []
+  }
+
+  async setAccountAssignments(potId: string, accountIds: string[]) {
+    const { data, error } = await repositories.savingPots.setAccountAssignments(potId, accountIds)
     if (error) throw error
     return data
+  }
+
+  async updateSavingPot(input: {
+    id: string
+    name?: string
+    target_amount?: number | null
+  }) {
+    const { id, ...data } = input
+    const { data: updated, error } = await repositories.savingPots.update(id, data as any)
+    if (error) throw error
+    return updated
   }
 
   async deleteSavingPot(id: string) {

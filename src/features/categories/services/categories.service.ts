@@ -61,6 +61,28 @@ class CategoriesService {
     return data;
   }
 
+  async updateCategory(input: {
+    id: string;
+    name: string;
+    type: CategoryType;
+    icon?: string | null;
+    parent_id?: string | null;
+  }) {
+    const { data, error } = await repositories.categories.updateCategory(
+      input.id,
+      {
+        name: input.name,
+        type: input.type,
+        icon: input.icon ?? null,
+        parent_id: input.parent_id ?? null,
+      }
+    );
+
+    if (error) throw error;
+
+    return data;
+  }
+
   async archiveCategory(id: string) {
     const { data, error } = await repositories.categories.archive(id);
 

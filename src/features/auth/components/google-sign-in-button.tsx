@@ -2,6 +2,7 @@ import { supabase } from '@/shared/lib/supabase/client';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, Text } from 'react-native';
 import { AUTH_CALLBACK_ROUTE } from '../constants';
 
@@ -19,6 +20,8 @@ function extractParamsFromUrl(url: string) {
 }
 
 export function GoogleSignInButton() {
+  const { t } = useTranslation('common');
+
   async function onSignInButtonPress() {
     const redirectTo = Linking.createURL(AUTH_CALLBACK_ROUTE);
     console.debug('[GoogleSignInButton] redirectTo:', redirectTo);
@@ -85,7 +88,7 @@ export function GoogleSignInButton() {
 
   return (
     <Pressable onPress={() => void onSignInButtonPress()}>
-      <Text>Continue with Google</Text>
+      <Text>{t('auth.continueWithGoogle')}</Text>
     </Pressable>
   );
 }

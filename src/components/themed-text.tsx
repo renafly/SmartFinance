@@ -2,6 +2,7 @@ import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
 import { Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { typography } from '@/theme/typography';
 
 export type ThemedTextProps = TextProps & {
   type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
@@ -21,7 +22,7 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         type === 'smallBold' && styles.smallBold,
         type === 'subtitle' && styles.subtitle,
         type === 'link' && styles.link,
-        type === 'linkPrimary' && styles.linkPrimary,
+        type === 'linkPrimary' && [styles.linkPrimary, { color: theme.link }],
         type === 'code' && styles.code,
         style,
       ]}
@@ -32,42 +33,41 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 
 const styles = StyleSheet.create({
   small: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 500,
+    fontSize: typography.fontSize[14],
+    lineHeight: typography.lineHeight[20],
+    fontWeight: typography.fontWeight.medium,
   },
   smallBold: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 700,
+    fontSize: typography.fontSize[14],
+    lineHeight: typography.lineHeight[20],
+    fontWeight: typography.fontWeight.bold,
   },
   default: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: 500,
+    fontSize: typography.fontSize[16],
+    lineHeight: typography.lineHeight[24],
+    fontWeight: typography.fontWeight.medium,
   },
   title: {
-    fontSize: 48,
-    fontWeight: 600,
-    lineHeight: 52,
+    fontSize: typography.fontSize[48],
+    fontWeight: typography.fontWeight.semibold,
+    lineHeight: typography.lineHeight[52],
   },
   subtitle: {
-    fontSize: 32,
-    lineHeight: 44,
-    fontWeight: 600,
+    fontSize: typography.fontSize[32],
+    lineHeight: typography.lineHeight[44],
+    fontWeight: typography.fontWeight.semibold,
   },
   link: {
-    lineHeight: 30,
-    fontSize: 14,
+    lineHeight: typography.lineHeight[30],
+    fontSize: typography.fontSize[14],
   },
   linkPrimary: {
-    lineHeight: 30,
-    fontSize: 14,
-    color: '#3c87f7',
+    lineHeight: typography.lineHeight[30],
+    fontSize: typography.fontSize[14],
   },
   code: {
     fontFamily: Fonts.mono,
-    fontWeight: Platform.select({ android: 700 }) ?? 500,
-    fontSize: 12,
+    fontWeight: Platform.select({ android: typography.fontWeight.bold }) ?? typography.fontWeight.medium,
+    fontSize: typography.fontSize[12],
   },
 });

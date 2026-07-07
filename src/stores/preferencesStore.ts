@@ -1,13 +1,28 @@
 import { create } from 'zustand';
+import i18next from 'i18next';
+import { getStoredLanguage, setStoredLanguage, type AppLanguage } from '@/shared/i18n/languages';
+
+export type AppCurrency = 'EUR' | 'USD' | 'GBP';
 
 type PreferencesState = {
-  language: string;
-  setLanguage: (language: string) => void;
+  language: AppLanguage;
+  currency: AppCurrency;
+  setLanguage: (language: AppLanguage) => void;
+  setCurrency: (currency: AppCurrency) => void;
 };
 
-// Default seeded from the wizard's Languages answer - first selected
-// language becomes the initial preference.
+const fallbackLanguage: AppLanguage = getStoredLanguage() ?? 'en';
+
 export const usePreferencesStore = create<PreferencesState>((set) => ({
-  language: 'en',
-  setLanguage: (language) => set({ language }),
+  language: fallbackLanguage,
+  currency: 'EUR',
+  setLanguage: (language) => {
+    setStoredLanguage(language);
+    // eslint-disable-next-line import/no-named-as-default-member
+    void i18next.changeLanguage(language);
+    set({ language });
+  },
+  setCurrency: (currency) => {
+    set({ currency });
+  },
 }));

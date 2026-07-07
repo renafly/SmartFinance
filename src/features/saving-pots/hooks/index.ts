@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { savingPotsService } from '../services/saving-pots.service'
 import { useAuth } from '@/providers/AuthProvider'
+import { invalidateHouseholdData } from '@/lib/query-invalidation'
 
 export function useSavingPots() {
   const { householdId, isLoading } = useAuth()
@@ -22,14 +23,46 @@ export function useSavingPotBalances() {
   })
 }
 
+export function useSavingPotAccountAssignments() {
+  const { householdId, isLoading } = useAuth()
+
+  return useQuery({
+    queryKey: ['saving-pot-accounts', householdId],
+    queryFn: () => savingPotsService.getAccountAssignments(),
+    enabled: !!householdId && !isLoading,
+  })
+}
+
 export function useCreateSavingPot() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: savingPotsService.createSavingPot,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['saving-pots'] })
-      queryClient.invalidateQueries({ queryKey: ['saving-pot-balances'] })
+      invalidateHouseholdData(queryClient)
+    },
+  })
+}
+
+export function useUpdateSavingPotAccounts() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ potId, accountIds }: { potId: string; accountIds: string[] }) =>
+      savingPotsService.setAccountAssignments(potId, accountIds),
+    onSuccess: () => {
+      invalidateHouseholdData(queryClient)
+    },
+  })
+}
+
+export function useUpdateSavingPot() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: savingPotsService.updateSavingPot,
+    onSuccess: () => {
+      invalidateHouseholdData(queryClient)
     },
   })
 }
@@ -40,9 +73,7 @@ export function useDeleteSavingPot() {
   return useMutation({
     mutationFn: savingPotsService.deleteSavingPot,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['saving-pots'] })
-      queryClient.invalidateQueries({ queryKey: ['saving-pot-balances'] })
-      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      invalidateHouseholdData(queryClient)
     },
   })
 }

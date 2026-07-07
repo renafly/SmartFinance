@@ -10,6 +10,15 @@ type CreateInvitationInput = {
   role: HouseholdRole;
 };
 
+type InvitationDetails = {
+  household_id: string;
+  household_name: string;
+  owner_name: string;
+  owner_email: string | null;
+  role: HouseholdRole;
+  expires_at: string | null;
+};
+
 class HouseholdsService {
   async createHousehold(name: string) {
     const householdName = name.trim();
@@ -32,6 +41,22 @@ class HouseholdsService {
     return data ?? [];
   }
 
+  async updateHouseholdName(householdId: string, name: string) {
+    const householdName = name.trim();
+
+    if (!householdName) {
+      throw new Error("Household name is required.");
+    }
+
+    const { data, error } = await repositories.households.renameHousehold(
+      householdId,
+      householdName,
+    );
+
+    if (error) throw error;
+    return data;
+  }
+
   async setDefaultHousehold(householdId: string) {
     const { data, error } = await supabase.rpc("set_default_household", {
       p_household_id: householdId,
@@ -39,6 +64,56 @@ class HouseholdsService {
 
     if (error) throw error;
     return data;
+  }
+
+  async deleteHousehold(householdId: string) {
+    const { data, error } = await supabase.rpc("delete_household", {
+      p_household_id: householdId,
+    });
+
+    if (error) throw error;
+
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | { success?: boolean; message?: string; deleted_hard?: boolean }
+      | undefined;
+
+    if (!row || typeof row.success !== "boolean" || !row.message) {
+      throw new Error("Invalid RPC response for household deletion.");
+    }
+
+    return {
+      success: row.success,
+      message: row.message,
+      deletedHard: Boolean(row.deleted_hard),
+    };
+  }
+
+  async getInvitationDetails(token: string): Promise<InvitationDetails | null> {
+    const { data: authData } = await supabase.auth.getUser();
+
+    if (!authData.user) {
+      return null;
+    }
+
+    try {
+      const invitations = await this.getMyInvitations();
+      const match = invitations.find((item) => item.token === token);
+
+      if (!match) {
+        return null;
+      }
+
+      return {
+        household_id: match.household_id,
+        household_name: match.household_name,
+        owner_name: "The household owner",
+        owner_email: null,
+        role: match.role,
+        expires_at: match.expires_at,
+      };
+    } catch {
+      return null;
+    }
   }
 
   async getInvitations(householdId: string) {
@@ -70,7 +145,24 @@ class HouseholdsService {
 
     if (error) throw error;
 
-    const nativeInviteLink = `smartfinance://invite/${token}`;
+    const { data: householdData } = await supabase
+      .from("households")
+      .select("name, owner:profiles!households_owner_id_fkey(full_name, email)")
+      .eq("id", input.householdId)
+      .single();
+
+    const householdRow = householdData as
+      | {
+          name?: string | null;
+          owner?: { full_name?: string | null; email?: string | null } | null;
+        }
+      | null;
+
+    const inviteHouseholdName = householdRow?.name?.trim() || null;
+    const inviteOwnerName =
+      householdRow?.owner?.full_name?.trim() ||
+      householdRow?.owner?.email?.trim() ||
+      null;
 
     const configuredWebBase = process.env.EXPO_PUBLIC_INVITE_WEB_URL?.replace(/\/$/, "");
     const runtimeWebBase =
@@ -79,8 +171,15 @@ class HouseholdsService {
         : undefined;
 
     const inviteWebBaseUrl = configuredWebBase ?? runtimeWebBase;
+    const inviteParams = new URLSearchParams();
+
+    if (inviteHouseholdName) inviteParams.set("householdName", inviteHouseholdName);
+    if (inviteOwnerName) inviteParams.set("ownerName", inviteOwnerName);
+
+    const inviteQuery = inviteParams.toString();
+    const nativeInviteLink = `smartfinance://invite/${token}${inviteQuery ? `?${inviteQuery}` : ""}`;
     const webInviteLink = inviteWebBaseUrl
-      ? `${inviteWebBaseUrl}/invite/${token}`
+      ? `${inviteWebBaseUrl}/invite/${token}${inviteQuery ? `?${inviteQuery}` : ""}`
       : null;
 
     // Prefer a web URL in browsers so localhost testing works from email click-through.

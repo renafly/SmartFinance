@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { sessionService } from './session.service';
 import type { Claims, SessionState } from './session.types';
 
-export function useSession(claims: Claims) {
+export function useSession(claims: Claims, refreshKey = 0) {
   const [state, setState] = useState<SessionState>({
     profile: null,
     householdId: null,
@@ -42,7 +42,7 @@ export function useSession(claims: Claims) {
     return () => {
       isMounted = false;
     };
-  }, [claims]);
+  }, [claims, refreshKey]);
 
   return state;
 }

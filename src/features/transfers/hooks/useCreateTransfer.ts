@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { transferService } from "../services/transfer.service";
+import { invalidateHouseholdData } from "@/lib/query-invalidation";
 
 export function useCreateTransfer() {
   const queryClient = useQueryClient();
@@ -8,8 +9,7 @@ export function useCreateTransfer() {
   return useMutation({
     mutationFn: transferService.createTransfer,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      invalidateHouseholdData(queryClient);
     },
   });
 }

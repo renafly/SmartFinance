@@ -24,9 +24,16 @@ export type SavingPotBalance = {
   target_amount: number | null;
   color: string | null;
   icon: string | null;
+  selected_account_count: number | null;
   saved: number;
   spent: number;
   balance: number;
+};
+
+export type SavingPotAccountAssignment = {
+  pot_id: string;
+  account_id: string;
+  created_at: string;
 };
 
 export class SavingPotsRepository extends BaseRepository<"saving_pots"> {
@@ -57,5 +64,25 @@ export class SavingPotsRepository extends BaseRepository<"saving_pots"> {
 
     if (error) return { data: null, error };
     return { data: (data ?? []) as unknown as SavingPotBalance[], error: null };
+  }
+
+  async listAccountAssignments(): Promise<RepoResult<SavingPotAccountAssignment[]>> {
+    const { data, error } = await this.client
+      .from("saving_pot_accounts")
+      .select("*")
+      .order("created_at", { ascending: true });
+
+    if (error) return { data: null, error };
+    return { data: (data ?? []) as unknown as SavingPotAccountAssignment[], error: null };
+  }
+
+  async setAccountAssignments(potId: string, accountIds: string[]): Promise<RepoResult<null>> {
+    const { error } = await this.client.rpc("set_saving_pot_accounts", {
+      p_pot_id: potId,
+      p_account_ids: accountIds,
+    });
+
+    if (error) return { data: null, error };
+    return { data: null, error: null };
   }
 }

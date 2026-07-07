@@ -1,3 +1,4 @@
+import { repositories } from "@/repositories";
 import { TransactionFilters, transactionsRepository } from "@/repositories/transactions.repository";
 import type {
   CreateTransactionDTO,
@@ -5,6 +6,14 @@ import type {
 } from "@/features/transactions/types/types";
 
 type CreateTransactionInput = CreateTransactionDTO
+  & {
+    attachment?: {
+      file: Blob | ArrayBuffer | File;
+      fileName: string;
+      fileSize: number;
+      mimeType: string;
+    } | null;
+  };
 
 type UpdateTransactionInput = {
   id: string;
@@ -30,10 +39,33 @@ class TransactionsService {
   }
 
   async createTransaction(data: CreateTransactionInput) {
+    const { attachment, ...transactionData } = data;
+
     const { data: transaction, error } =
-      await transactionsRepository.create(data);
+      await transactionsRepository.create(transactionData as CreateTransactionDTO);
 
     if (error) throw error;
+
+    if (attachment) {
+      const safeFileName = attachment.fileName.replace(/[^a-zA-Z0-9._-]+/g, "_");
+      const storagePath = `${transaction.household_id}/transactions/${transaction.id}/${Date.now()}-${safeFileName}`;
+
+      const attachmentResult = await repositories.attachments.uploadAndCreate({
+        bucket: "attachments",
+        storagePath,
+        file: attachment.file,
+        transactionId: transaction.id,
+        uploadedBy: transaction.created_by,
+        fileName: attachment.fileName,
+        fileSize: attachment.fileSize,
+        mimeType: attachment.mimeType,
+      });
+
+      if (attachmentResult.error) {
+        await transactionsRepository.delete(transaction.id);
+        throw attachmentResult.error;
+      }
+    }
 
     return transaction;
   }

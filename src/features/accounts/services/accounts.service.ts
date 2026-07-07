@@ -30,11 +30,22 @@ export class AccountsService {
   }
 
   async getAccountsWithBalances(householdId: string) {
-    const result = await accountsRepository.listWithBalances(householdId)
+    const [balancesResult, accountsResult] = await Promise.all([
+      accountsRepository.listWithBalances(householdId),
+      accountsRepository.listForHousehold(householdId, true),
+    ])
 
-    if (result.error) throw result.error
+    if (balancesResult.error) throw balancesResult.error
+    if (accountsResult.error) throw accountsResult.error
 
-    return result.data
+    const ownerMap = new Map(
+      (accountsResult.data ?? []).map((account) => [account.id, account.owner_profile_id ?? null]),
+    )
+
+    return (balancesResult.data ?? []).map((account) => ({
+      ...account,
+      owner_profile_id: ownerMap.get(account.id) ?? null,
+    }))
   }
 
   async createAccount(data: CreateAccountInput) {
