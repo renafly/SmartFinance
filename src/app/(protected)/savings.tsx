@@ -40,6 +40,7 @@ import { useAuth } from "../../providers/AuthProvider";
 type AccountOption = {
   id: string;
   name: string;
+  type: string;
   owner_profile_id: string | null;
   current_balance: number;
 };
@@ -723,6 +724,9 @@ export default function SavingsScreen() {
                         <View style={{ flex: 1, gap: spacing(1) }}>
                           <Text style={styles.accountName}>
                             {account.name}
+                          </Text>
+                          <Text style={styles.accountMeta}>
+                            {t(`accounts.types.${account.type}`)}
                           </Text>
                           <Text style={styles.accountMeta}>
                             {formatCurrency(account.current_balance)}
