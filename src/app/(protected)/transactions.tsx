@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as DocumentPicker from 'expo-document-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { typography } from '@/theme/typography';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius } from '@/theme/radius';
@@ -17,6 +18,10 @@ import { useTransactions } from '../../features/transactions/hooks/useTransactio
 import { useCreateTransaction } from '../../features/transactions/hooks/useCreateTransaction';
 import { useDeleteTransaction } from '../../features/transactions/hooks/useDeleteTransaction';
 import { useUpdateTransaction } from '../../features/transactions/hooks/useUpdateTransaction';
+
+function getTransactionTypeIcon(type: 'income' | 'expense') {
+  return type === 'expense' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline';
+}
 
 type TransactionEditDraft = {
   id: string;
@@ -182,7 +187,8 @@ export default function TransactionsScreen() {
     <Page title={t('transactions.title')} subtitle={t('transactions.subtitle')}>
       <Card>
         <Section title={t('transactions.filtersTitle')} subtitle={t('transactions.filtersSubtitle')}>
-          <View style={{ flexDirection: 'row', gap: spacing(2), flexWrap: 'wrap' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2), flexWrap: 'wrap' }}>
+            <Ionicons name="funnel-outline" size={16} color={colors.textSecondary} />
             {(['all', 'income', 'expense'] as const).map((item) => (
               <Pill key={item} label={t(`transactions.filters.${item}`)} active={filtersType === item} onPress={() => setFiltersType(item)} />
             ))}
@@ -192,7 +198,8 @@ export default function TransactionsScreen() {
 
       <Card>
         <Section title={t('transactions.createTitle')} subtitle={t('transactions.createSubtitle')}>
-          <View style={{ flexDirection: 'row', gap: spacing(2) }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2) }}>
+            <Ionicons name="create-outline" size={16} color={colors.textSecondary} />
             {(['income', 'expense'] as const).map((item) => (
               <Pill key={item} label={t(`transactions.types.${item}`)} active={type === item} onPress={() => setType(item)} />
             ))}
@@ -202,6 +209,12 @@ export default function TransactionsScreen() {
           <Field label={t('transactions.dateLabel')} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" />
           <Field label={t('transactions.notesLabel')} value={notes} onChangeText={setNotes} placeholder={t('transactions.notesPlaceholder')} />
           <View style={{ gap: spacing(2) } as any}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2) }}>
+              <Ionicons name="attach-outline" size={16} color={colors.textSecondary} />
+              <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold } as any}>
+                {t('transactions.attachInvoice')}
+              </Text>
+            </View>
             <Button
               label={attachment ? t('transactions.changeAttachment') : t('transactions.attachInvoice')}
               onPress={() => void handlePickAttachment()}
@@ -237,7 +250,10 @@ export default function TransactionsScreen() {
               <Pill key={account.id} label={account.name} active={accountId === account.id} onPress={() => setAccountId(account.id)} />
             ))}
           </View>
-          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold } as any}>{t('transactions.categories')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+            <Ionicons name="pricetag-outline" size={16} color={colors.textSecondary} />
+            <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold } as any}>{t('transactions.categories')}</Text>
+          </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
             <Pill label={t('none')} active={!categoryId} onPress={() => setCategoryId(null)} />
             {categories.map((category: any) => (
@@ -254,14 +270,17 @@ export default function TransactionsScreen() {
             <Card key={item.id}>
               <View style={styles.transactionHeader}>
                 <View style={{ flex: 1, gap: spacing(1) } as any}>
-                  <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold } as any}>{item.title}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                    <Ionicons name={getTransactionTypeIcon(item.type)} size={18} color={item.type === 'expense' ? colors.destructive : colors.success} />
+                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold } as any}>{item.title}</Text>
+                  </View>
                   <Text style={{ color: colors.textSecondary } as any}>{item.account?.name ?? t('transactions.account')} · {item.category?.name ?? t('transactions.uncategorized')} · {formatDate(item.transaction_date)}</Text>
                 </View>
                 <Pressable
                   onPress={() => setMenuTransaction(item)}
                   style={({ pressed }) => [styles.menuButton, pressed && styles.pressed] as any}
                 >
-                  <Text style={styles.menuButtonText}>⋮</Text>
+                  <Ionicons name="ellipsis-vertical" size={18} color={colors.text} />
                 </Pressable>
               </View>
               <Text style={{ color: colors.textSecondary } as any}>
@@ -283,7 +302,10 @@ export default function TransactionsScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuTransaction(null)} />
           <View style={styles.menuCard}>
-              <Text style={styles.modalTitle}>{menuTransaction?.title ?? t('transactions.title')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2) } as any}>
+                <Ionicons name={menuTransaction?.type === 'expense' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'} size={18} color={colors.primary} />
+                <Text style={styles.modalTitle}>{menuTransaction?.title ?? t('transactions.title')}</Text>
+              </View>
             <Pressable
               onPress={() => {
                 if (menuTransaction) {
@@ -292,6 +314,7 @@ export default function TransactionsScreen() {
               }}
               style={({ pressed }) => [styles.menuItem, pressed && styles.pressed] as any}
             >
+              <Ionicons name="create-outline" size={16} color={colors.text} />
               <Text style={styles.menuItemText}>{t('transactions.editTitle')}</Text>
             </Pressable>
             <Pressable
@@ -303,6 +326,7 @@ export default function TransactionsScreen() {
               }}
               style={({ pressed }) => [styles.menuItemDanger, pressed && styles.pressed] as any}
             >
+              <Ionicons name="trash-outline" size={16} color={colors.destructive} />
               <Text style={styles.menuItemTextDanger}>{t('delete')}</Text>
             </Pressable>
             <Button label={t('cancel')} variant="secondary" onPress={() => setMenuTransaction(null)} />
@@ -314,7 +338,10 @@ export default function TransactionsScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditTransaction(null)} />
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t('transactions.editTitle')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2) } as any}>
+              <Ionicons name="pencil-outline" size={18} color={colors.primary} />
+              <Text style={styles.modalTitle}>{t('transactions.editTitle')}</Text>
+            </View>
             <Text style={styles.modalSubtitle}>{t('settings.editDetails')}</Text>
             {editTransaction ? (
               <>

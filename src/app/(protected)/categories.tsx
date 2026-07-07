@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Text, useWindowDimensions, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Page, Card, Section, Field, Button, Pill } from '@/components/migrated-page';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
+import { IconPicker } from '@/components/icon-picker';
 
 import { useAuth } from '../../providers/AuthProvider';
 import { useCategories, useCreateCategory, useArchiveCategory, useRestoreCategory, useDeleteCategory } from '../../features/categories/hooks';
@@ -17,6 +19,7 @@ type CategoryLike = {
   id: string;
   name: string;
   type: (typeof types)[number];
+  icon: string | null;
   parent_id: string | null;
   is_archived: boolean;
 };
@@ -43,6 +46,7 @@ export default function CategoriesScreen() {
   const [filterType, setFilterType] = useState<(typeof types)[number]>('expense');
   const [name, setName] = useState('');
   const [parentId, setParentId] = useState('');
+  const [icon, setIcon] = useState('pricetag-outline');
   const createCategory = useCreateCategory();
   const archiveCategory = useArchiveCategory();
   const restoreCategory = useRestoreCategory();
@@ -61,14 +65,17 @@ export default function CategoriesScreen() {
       {
         label: t('categories.summary.total'),
         value: String(categories.length),
+        icon: 'layers-outline',
       },
       {
         label: t('categories.summary.active'),
         value: String(activeCategories.length),
+        icon: 'checkmark-circle-outline',
       },
       {
         label: t('categories.summary.archived'),
         value: String(archivedCategories.length),
+        icon: 'archive-outline',
       },
     ],
     [activeCategories.length, archivedCategories.length, categories.length, t],
@@ -81,11 +88,13 @@ export default function CategoriesScreen() {
       household_id: householdId,
       name: name.trim(),
       type: createType,
+      icon,
       parent_id: parentId || null,
     } as any);
 
     setName('');
     setParentId('');
+    setIcon('pricetag-outline');
   }
 
   return (
@@ -107,9 +116,12 @@ export default function CategoriesScreen() {
                   borderColor: colors.border,
                 } as any}
               >
-                <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: typography.letterSpacing[10], fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[12] } as any}>
-                  {item.label}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                  <Ionicons name={item.icon as any} size={16} color={colors.textSecondary} />
+                  <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: typography.letterSpacing[10], fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[12] } as any}>
+                    {item.label}
+                  </Text>
+                </View>
                 <Text style={{ color: colors.text, fontSize: typography.fontSize[28], fontWeight: typography.fontWeight.extraBold } as any}>
                   {item.value}
                 </Text>
@@ -155,6 +167,16 @@ export default function CategoriesScreen() {
                 onChangeText={setParentId}
                 placeholder={t('categories.optional')}
               />
+              <IconPicker
+                label={t('categories.icon')}
+                value={icon}
+                onChange={(value) => setIcon(value ?? 'pricetag-outline')}
+                placeholder={t('categories.noIcon')}
+                hint={t('categories.iconHint')}
+                closeLabel={t('cancel')}
+                searchPlaceholder={t('categories.searchIcons')}
+                noneLabel={t('categories.noIcon')}
+              />
               <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12], lineHeight: typography.lineHeight[17] } as any}>
                 {t('categories.parentHint')}
               </Text>
@@ -164,9 +186,12 @@ export default function CategoriesScreen() {
                   {t('categories.selectedType')}
                 </Text>
                 <View style={{ padding: spacing(3), borderRadius: radius.lg, backgroundColor: colors.muted, borderWidth: 1, borderColor: colors.border } as any}>
-                  <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold } as any}>
-                    {t(`categories.types.${createType}`)}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                    <Ionicons name={icon as any} size={18} color={colors.primary} />
+                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold } as any}>
+                      {t(`categories.types.${createType}`)}
+                    </Text>
+                  </View>
                 </View>
               </View>
 
@@ -250,9 +275,14 @@ export default function CategoriesScreen() {
                     } as any}
                   >
                     <View style={{ flex: showTableHeader ? 2 : undefined, width: showTableHeader ? undefined : '100%', gap: spacing(1) } as any}>
-                      <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[15] } as any}>
-                        {category.name}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                        <View style={{ width: spacing(8), height: spacing(8), borderRadius: radius.lg, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' } as any}>
+                          <Ionicons name={(category.icon ?? 'pricetag-outline') as any} size={18} color={colors.primary} />
+                        </View>
+                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[15] } as any}>
+                          {category.name}
+                        </Text>
+                      </View>
                       {!showTableHeader && category.parent_id ? (
                         <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any}>
                           {t('categories.parentId')}: {category.parent_id}

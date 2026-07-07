@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Page, Card, Section, formatCurrency, formatDate, Button } from '@/components/migrated-page';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -47,6 +48,21 @@ function getPersonLabel(member: MemberDetails | undefined, fallback: string) {
 
 function sumBalances<T>(items: T[], getValue: (item: T) => number) {
   return items.reduce((sum, item) => sum + getValue(item), 0);
+}
+
+function getDashboardStatIcon(label: string) {
+  switch (label) {
+    case 'trackedFunds':
+      return 'layers-outline';
+    case 'investedTotal':
+      return 'trending-up-outline';
+    case 'savingsAccountsTotal':
+      return 'wallet-outline';
+    case 'savingPotsTotal':
+      return 'save-outline';
+    default:
+      return 'ellipse-outline';
+  }
 }
 
 export default function DashboardScreen() {
@@ -200,20 +216,32 @@ export default function DashboardScreen() {
     >
       <Card>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) }}>
-          <View style={{ minWidth: 170, flex: 1 }}>
-            <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.trackedFunds')}</Text>
+          <View style={{ minWidth: 170, flex: 1, gap: spacing(1) }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
+              <Ionicons name={getDashboardStatIcon('trackedFunds')} size={16} color={colors.textSecondary} />
+              <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.trackedFunds')}</Text>
+            </View>
             <Text style={{ color: colors.text, fontSize: typography.fontSize[28], fontWeight: typography.fontWeight.extraBold }}>{formatCurrency(trackedTotal)}</Text>
           </View>
-          <View style={{ minWidth: 170, flex: 1 }}>
-            <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.investedTotal')}</Text>
+          <View style={{ minWidth: 170, flex: 1, gap: spacing(1) }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
+              <Ionicons name={getDashboardStatIcon('investedTotal')} size={16} color={colors.textSecondary} />
+              <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.investedTotal')}</Text>
+            </View>
             <Text style={{ color: colors.text, fontSize: typography.fontSize[28], fontWeight: typography.fontWeight.extraBold }}>{formatCurrency(investmentTotal)}</Text>
           </View>
-          <View style={{ minWidth: 170, flex: 1 }}>
-            <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.savingsAccountsTotal')}</Text>
+          <View style={{ minWidth: 170, flex: 1, gap: spacing(1) }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
+              <Ionicons name={getDashboardStatIcon('savingsAccountsTotal')} size={16} color={colors.textSecondary} />
+              <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.savingsAccountsTotal')}</Text>
+            </View>
             <Text style={{ color: colors.text, fontSize: typography.fontSize[28], fontWeight: typography.fontWeight.extraBold }}>{formatCurrency(savingsAccountTotal)}</Text>
           </View>
-          <View style={{ minWidth: 170, flex: 1 }}>
-            <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.savingPotsTotal')}</Text>
+          <View style={{ minWidth: 170, flex: 1, gap: spacing(1) }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
+              <Ionicons name={getDashboardStatIcon('savingPotsTotal')} size={16} color={colors.textSecondary} />
+              <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.savingPotsTotal')}</Text>
+            </View>
             <Text style={{ color: colors.text, fontSize: typography.fontSize[28], fontWeight: typography.fontWeight.extraBold }}>{formatCurrency(savingPotsTotal)}</Text>
           </View>
         </View>
@@ -229,9 +257,12 @@ export default function DashboardScreen() {
               <Card key={row.id}>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2), alignItems: 'center' }}>
                   <View style={{ flex: 1, minWidth: 180, gap: spacing(1) }}>
-                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[15] }}>
-                      {row.label}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
+                      <Ionicons name="person-circle-outline" size={18} color={colors.primary} />
+                      <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[15] }}>
+                        {row.label}
+                      </Text>
+                    </View>
                     <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] }}>
                       {t('dashboard.person')}
                     </Text>
@@ -272,10 +303,13 @@ export default function DashboardScreen() {
               return (
                 <Card key={account.id}>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2), alignItems: 'center' }}>
-                    <View style={{ flex: 1, minWidth: 180, gap: spacing(1) }}>
-                      <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[15] }}>
-                        {account.name}
-                      </Text>
+                  <View style={{ flex: 1, minWidth: 180, gap: spacing(1) }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
+                        <Ionicons name={account.type === 'ppr' ? 'shield-checkmark-outline' : account.type === 'investment' ? 'trending-up-outline' : 'wallet-outline'} size={18} color={colors.primary} />
+                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[15] }}>
+                          {account.name}
+                        </Text>
+                      </View>
                       <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] }}>
                         {t(`accounts.types.${account.type}`)} · {getPersonLabel(owner, t('dashboard.shared'))}
                       </Text>
@@ -304,10 +338,13 @@ export default function DashboardScreen() {
               return (
                 <Card key={account.id}>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2), alignItems: 'center' }}>
-                    <View style={{ flex: 1, minWidth: 180, gap: spacing(1) }}>
-                      <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[15] }}>
-                        {account.name}
-                      </Text>
+                  <View style={{ flex: 1, minWidth: 180, gap: spacing(1) }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
+                        <Ionicons name="wallet-outline" size={18} color={colors.primary} />
+                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[15] }}>
+                          {account.name}
+                        </Text>
+                      </View>
                       <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] }}>
                         {t(`accounts.types.${account.type}`)} · {getPersonLabel(owner, t('dashboard.shared'))}
                       </Text>
@@ -337,10 +374,13 @@ export default function DashboardScreen() {
               return (
                 <Card key={pot.id}>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2), alignItems: 'center' }}>
-                    <View style={{ flex: 1, minWidth: 180, gap: spacing(1) }}>
-                      <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[15] }}>
-                        {pot.name}
-                      </Text>
+                  <View style={{ flex: 1, minWidth: 180, gap: spacing(1) }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
+                        <Ionicons name="save-outline" size={18} color={colors.primary} />
+                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold, fontSize: typography.fontSize[15] }}>
+                          {pot.name}
+                        </Text>
+                      </View>
                       <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] }}>
                         {getPersonLabel(creator, t('dashboard.shared'))}
                       </Text>
@@ -363,7 +403,10 @@ export default function DashboardScreen() {
           {transactions.length ? (
             transactions.map((item: any) => (
               <Card key={item.id}>
-                <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold }}>{item.title}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
+                  <Ionicons name={item.type === 'expense' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'} size={18} color={item.type === 'expense' ? colors.destructive : colors.success} />
+                  <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold }}>{item.title}</Text>
+                </View>
                 <Text style={{ color: colors.textSecondary }}>
                   {item.account?.name ?? t('dashboard.account')} · {item.category?.name ?? t('dashboard.uncategorized')} · {formatDate(item.transaction_date)}
                 </Text>

@@ -3,24 +3,37 @@ import { Drawer } from 'expo-router/drawer';
 import { router, usePathname } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 
+const menuIconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
+  dashboard: 'home-outline',
+  accounts: 'wallet-outline',
+  transactions: 'receipt-outline',
+  transfers: 'swap-horizontal-outline',
+  monthlyBudget: 'calculator-outline',
+  savings: 'save-outline',
+  recurring: 'repeat-outline',
+  categories: 'pricetag-outline',
+  members: 'people-outline',
+  settings: 'settings-outline',
+};
+
 export function ProtectedDrawerLayout() {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
 
   return (
-    <Drawer
+      <Drawer
       screenOptions={{
         headerShown: false,
         drawerStyle: [styles.drawer, { backgroundColor: colors.background, borderColor: colors.border }],
-        sceneContainerStyle: { backgroundColor: colors.background },
         drawerType: Platform.OS === 'web' ? 'permanent' : 'front',
-      }}
+      } as any}
       drawerContent={DrawerContent}
     >
       <Drawer.Screen name="index" options={{ title: t('drawer.dashboard') }} />
@@ -42,46 +55,50 @@ function DrawerContent(_props: DrawerContentComponentProps) {
   const pathname = usePathname();
   const { logout } = useAuth();
   const { colors } = useTheme();
-  const menuItems = [
-    { label: t('drawer.dashboard'), href: '/(protected)' },
-    { label: t('drawer.accounts'), href: '/(protected)/accounts' },
-    { label: t('drawer.transactions'), href: '/(protected)/transactions' },
-    { label: t('drawer.transfers'), href: '/(protected)/transfers' },
-    { label: t('drawer.monthlyBudget'), href: '/(protected)/budget' },
-    { label: t('drawer.savings'), href: '/(protected)/savings' },
-    { label: t('drawer.recurring'), href: '/(protected)/recurring' },
-    { label: t('drawer.categories'), href: '/(protected)/categories' },
-    { label: t('drawer.members'), href: '/(protected)/members' },
-    { label: t('drawer.settings'), href: '/(protected)/settings' },
+  const menuItems: Array<{ key: keyof typeof menuIconMap; label: string; href: string }> = [
+    { key: 'dashboard', label: t('drawer.dashboard'), href: '/(protected)' },
+    { key: 'accounts', label: t('drawer.accounts'), href: '/(protected)/accounts' },
+    { key: 'transactions', label: t('drawer.transactions'), href: '/(protected)/transactions' },
+    { key: 'transfers', label: t('drawer.transfers'), href: '/(protected)/transfers' },
+    { key: 'monthlyBudget', label: t('drawer.monthlyBudget'), href: '/(protected)/budget' },
+    { key: 'savings', label: t('drawer.savings'), href: '/(protected)/savings' },
+    { key: 'recurring', label: t('drawer.recurring'), href: '/(protected)/recurring' },
+    { key: 'categories', label: t('drawer.categories'), href: '/(protected)/categories' },
+    { key: 'members', label: t('drawer.members'), href: '/(protected)/members' },
+    { key: 'settings', label: t('drawer.settings'), href: '/(protected)/settings' },
   ];
 
-  const menuGroups = [
+  const menuGroups: Array<{
+    title: string;
+    description: string;
+    items: Array<{ key: keyof typeof menuIconMap; label: string; href: string }>;
+  }> = [
     {
       title: t('drawer.overview', { defaultValue: 'Overview' }),
       description: t('drawer.overviewDescription', { defaultValue: 'Start here and jump to the most-used surfaces.' }),
       items: [
-        { label: t('drawer.dashboard'), href: '/(protected)' },
-        { label: t('drawer.accounts'), href: '/(protected)/accounts' },
-        { label: t('drawer.transactions'), href: '/(protected)/transactions' },
+        { key: 'dashboard', label: t('drawer.dashboard'), href: '/(protected)' },
+        { key: 'accounts', label: t('drawer.accounts'), href: '/(protected)/accounts' },
+        { key: 'transactions', label: t('drawer.transactions'), href: '/(protected)/transactions' },
       ],
     },
     {
       title: t('drawer.moneyMovement', { defaultValue: 'Money movement' }),
       description: t('drawer.moneyMovementDescription', { defaultValue: 'Move funds and review recurring flows.' }),
       items: [
-        { label: t('drawer.transfers'), href: '/(protected)/transfers' },
-        { label: t('drawer.monthlyBudget'), href: '/(protected)/budget' },
-        { label: t('drawer.savings'), href: '/(protected)/savings' },
-        { label: t('drawer.recurring'), href: '/(protected)/recurring' },
+        { key: 'transfers', label: t('drawer.transfers'), href: '/(protected)/transfers' },
+        { key: 'monthlyBudget', label: t('drawer.monthlyBudget'), href: '/(protected)/budget' },
+        { key: 'savings', label: t('drawer.savings'), href: '/(protected)/savings' },
+        { key: 'recurring', label: t('drawer.recurring'), href: '/(protected)/recurring' },
       ],
     },
     {
       title: t('drawer.administration', { defaultValue: 'Administration' }),
       description: t('drawer.administrationDescription', { defaultValue: 'Manage how the household is structured.' }),
       items: [
-        { label: t('drawer.categories'), href: '/(protected)/categories' },
-        { label: t('drawer.members'), href: '/(protected)/members' },
-        { label: t('drawer.settings'), href: '/(protected)/settings' },
+        { key: 'categories', label: t('drawer.categories'), href: '/(protected)/categories' },
+        { key: 'members', label: t('drawer.members'), href: '/(protected)/members' },
+        { key: 'settings', label: t('drawer.settings'), href: '/(protected)/settings' },
       ],
     },
   ];
@@ -103,6 +120,7 @@ function DrawerContent(_props: DrawerContentComponentProps) {
               <View style={styles.navList}>
                 {group.items.map((item) => {
                   const active = pathname === item.href;
+                  const iconName = menuIconMap[item.key] ?? 'ellipse-outline';
 
                   return (
                     <Pressable
@@ -114,6 +132,7 @@ function DrawerContent(_props: DrawerContentComponentProps) {
                         pressed && styles.pressed,
                       ]}
                     >
+                      <Ionicons name={iconName} size={18} color={active ? colors.background : colors.foreground} />
                       <Text style={[styles.navLabel, { color: active ? colors.background : colors.foreground }]}>{item.label}</Text>
                     </Pressable>
                   );
@@ -125,6 +144,7 @@ function DrawerContent(_props: DrawerContentComponentProps) {
 
         <View style={styles.footer}>
           <Pressable onPress={() => void logout()} style={({ pressed }) => [styles.logoutButton, { backgroundColor: colors.destructive, borderColor: colors.destructive }, pressed && styles.pressed]}>
+            <Ionicons name="log-out-outline" size={18} color={colors.background} />
             <Text style={[styles.logoutLabel, { color: colors.background }]}>{t('logout')}</Text>
           </Pressable>
         </View>
@@ -142,6 +162,7 @@ function DrawerContent(_props: DrawerContentComponentProps) {
       <View style={styles.navList}>
         {menuItems.map((item) => {
           const active = pathname === item.href;
+          const iconName = menuIconMap[item.key] ?? 'ellipse-outline';
 
           return (
             <Pressable
@@ -153,6 +174,7 @@ function DrawerContent(_props: DrawerContentComponentProps) {
                 pressed && styles.pressed,
               ]}
             >
+              <Ionicons name={iconName} size={18} color={active ? colors.background : colors.foreground} />
               <Text style={[styles.navLabel, { color: active ? colors.background : colors.foreground }]}>{item.label}</Text>
             </Pressable>
           );
@@ -161,6 +183,7 @@ function DrawerContent(_props: DrawerContentComponentProps) {
 
       <View style={styles.footer}>
         <Pressable onPress={() => void logout()} style={({ pressed }) => [styles.logoutButton, { backgroundColor: colors.destructive, borderColor: colors.destructive }, pressed && styles.pressed]}>
+          <Ionicons name="log-out-outline" size={18} color={colors.background} />
           <Text style={[styles.logoutLabel, { color: colors.background }]}>{t('logout')}</Text>
         </Pressable>
       </View>
@@ -168,7 +191,7 @@ function DrawerContent(_props: DrawerContentComponentProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles: any = StyleSheet.create({
   drawer: {
     width: spacing(70),
   },
@@ -194,7 +217,7 @@ const styles = StyleSheet.create({
   },
   brandTitle: {
     fontSize: typography.fontSize[24],
-    fontWeight: typography.fontWeight.extraBold,
+    fontWeight: typography.fontWeight.extraBold as any,
   },
   brandSubtitle: {
     fontSize: typography.fontSize[13],
@@ -214,7 +237,7 @@ const styles = StyleSheet.create({
   },
   groupHeading: {
     fontSize: typography.fontSize[12],
-    fontWeight: typography.fontWeight.extraBold,
+    fontWeight: typography.fontWeight.extraBold as any,
     letterSpacing: typography.letterSpacing[10],
     textTransform: 'uppercase',
   },
@@ -227,9 +250,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing(3.5),
     borderRadius: radius.lg,
     borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing(2),
   },
   navLabel: {
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semibold as any,
     fontSize: typography.fontSize[15],
   },
   logoutButton: {
@@ -237,9 +263,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing(3.5),
     borderRadius: radius.lg,
     borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing(2),
   },
   logoutLabel: {
-    fontWeight: typography.fontWeight.bold,
+    fontWeight: typography.fontWeight.bold as any,
     fontSize: typography.fontSize[15],
   },
   pressed: {
