@@ -1,20 +1,26 @@
 import { StyleSheet, Text, View } from "react-native";
+import { useTranslation } from 'react-i18next';
 import GoogleSignInButton from "./google-sign-in-button";
+import { useTheme } from '@/theme/ThemeProvider';
+import { typography } from '@/theme/typography';
+import { radius } from '@/theme/radius';
+import { spacing } from '@/theme/spacing';
 
 export function GoogleLoginScreen() {
+  const { t } = useTranslation('common');
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={styles.hero}>
-        <Text style={styles.kicker}>SmartFinance</Text>
-        <Text style={styles.title}>Sign in with Google</Text>
-        <Text style={styles.subtitle}>
-          When you are not logged in, this is the only entry point.
-        </Text>
+        <Text style={[styles.kicker, { color: colors.primary }]}>{t('auth.brand')}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t('auth.loginTitle')}</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('auth.loginSubtitle')}</Text>
       </View>
 
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <GoogleSignInButton />
-        <Text style={styles.caption}>Google signs you in through Supabase so the app can load your session.</Text>
+        <Text style={[styles.caption, { color: colors.textSecondary }]}>{t('auth.loginDescription')}</Text>
       </View>
     </View>
   );
@@ -23,43 +29,36 @@ export function GoogleLoginScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    padding: 24,
+    padding: spacing(6),
     justifyContent: "center",
-    backgroundColor: "#07111F",
-    gap: 20,
+    gap: spacing(5),
   },
   hero: {
-    gap: 8,
+    gap: spacing(2),
   },
   kicker: {
-    color: "#7DD3FC",
     textTransform: "uppercase",
-    letterSpacing: 1.6,
-    fontSize: 12,
-    fontWeight: "700",
+    letterSpacing: typography.letterSpacing[16],
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.bold,
   },
   title: {
-    color: "#F8FAFC",
-    fontSize: 34,
-    lineHeight: 38,
-    fontWeight: "800",
+    fontSize: typography.fontSize[34],
+    lineHeight: typography.lineHeight[38],
+    fontWeight: typography.fontWeight.extraBold,
   },
   subtitle: {
-    color: "#CBD5E1",
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: typography.fontSize[15],
+    lineHeight: typography.lineHeight[22],
   },
   card: {
-    backgroundColor: "#0F172A",
-    borderRadius: 24,
-    padding: 20,
-    gap: 14,
+    borderRadius: radius.xl,
+    padding: spacing(5),
+    gap: spacing(3.5),
     borderWidth: 1,
-    borderColor: "#1E293B",
   },
   caption: {
-    color: "#94A3B8",
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: typography.fontSize[13],
+    lineHeight: typography.lineHeight[18],
   },
 });

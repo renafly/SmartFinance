@@ -61,6 +61,7 @@ export function useMyHouseholdInvitations() {
 
 export function useAcceptHouseholdInvitation() {
   const queryClient = useQueryClient();
+  const { refreshSession } = useAuth();
 
   return useMutation({
     mutationFn: (token: string) => householdsService.acceptMyInvitation(token),
@@ -68,6 +69,7 @@ export function useAcceptHouseholdInvitation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-household-invitations"] });
       queryClient.invalidateQueries({ queryKey: ["session"] });
+      void refreshSession();
     },
   });
 }

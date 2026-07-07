@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
+import { useTheme } from '@/theme/ThemeProvider';
+import { typography } from '@/theme/typography';
+import { spacing } from '@/theme/spacing';
 
 import { Page, Card, Section, Field, Button, Pill, formatCurrency } from '@/components/migrated-page';
 import { useAuth } from '../../providers/AuthProvider';
@@ -7,6 +10,7 @@ import { useAccounts } from '../../features/accounts/hooks';
 import { useCreateTransfer } from '../../features/transfers/hooks';
 
 export default function TransfersScreen() {
+  const { colors } = useTheme();
   const { householdId, profile } = useAuth();
   const accountsQuery = useAccounts();
   const createTransfer = useCreateTransfer();
@@ -57,14 +61,14 @@ export default function TransfersScreen() {
           <Field label="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" />
           <Field label="Date" value={date} onChangeText={setDate} />
           <Field label="Notes" value={notes} onChangeText={setNotes} />
-          <Text style={{ color: '#CBD5E1', fontWeight: '600' }}>From</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>From</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
             {accounts.map((account: any) => (
               <Pill key={account.id} label={`${account.name} (${formatCurrency(account.current_balance ?? account.balance ?? 0)})`} active={fromAccountId === account.id} onPress={() => setFromAccountId(account.id)} />
             ))}
           </View>
-          <Text style={{ color: '#CBD5E1', fontWeight: '600' }}>To</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>To</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
             {accounts.map((account: any) => (
               <Pill key={account.id} label={account.name} active={toAccountId === account.id} onPress={() => setToAccountId(account.id)} />
             ))}
@@ -75,7 +79,7 @@ export default function TransfersScreen() {
 
       <Section title="How it works" subtitle="Transfers create two linked transaction rows through the transfer RPC.">
         <Card>
-          <Text style={{ color: '#CBD5E1' }}>The source account is debited as an expense and the destination account is credited as income, keeping balances consistent.</Text>
+          <Text style={{ color: colors.textSecondary }}>The source account is debited as an expense and the destination account is credited as income, keeping balances consistent.</Text>
         </Card>
       </Section>
     </Page>

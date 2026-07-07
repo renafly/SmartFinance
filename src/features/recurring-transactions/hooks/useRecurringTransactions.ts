@@ -46,3 +46,16 @@ export function useDeleteRecurringTransaction() {
     },
   });
 }
+
+export function useUpdateRecurringTransaction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: recurringTransactionsService.updateRecurringTransaction,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recurring-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    },
+  });
+}

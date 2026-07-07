@@ -1,5 +1,9 @@
 import { router } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
+import { typography } from '@/theme/typography';
+import { useTheme } from '@/theme/ThemeProvider';
+import { radius } from '@/theme/radius';
+import { spacing } from '@/theme/spacing';
 
 const samples = [
   { title: 'Primary Button', body: 'A simple call to action for the default design system.' },
@@ -9,49 +13,52 @@ const samples = [
 ];
 
 export default function StorybookPreviewScreen() {
+  const { colors } = useTheme();
   return (
-    <ScrollView contentContainerStyle={{ padding: 24, gap: 16 }}>
-      <View style={{ gap: 8 }}>
-        <Text style={{ fontSize: 28, fontWeight: '700' }}>UI Preview</Text>
-        <Text style={{ color: '#6B7280' }}>
-          Quick visual entry point for checking the generated interface.
-        </Text>
-      </View>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ flexGrow: 1, padding: spacing(6), gap: spacing(4) }}>
+      <View style={{ flex: 1, gap: spacing(4) }}>
+        <View style={{ gap: spacing(2) }}>
+          <Text style={{ fontSize: typography.fontSize[28], fontWeight: typography.fontWeight.bold }}>UI Preview</Text>
+          <Text style={{ color: colors.textSecondary }}>
+            Quick visual entry point for checking the generated interface.
+          </Text>
+        </View>
 
-      {samples.map((sample) => (
+        {samples.map((sample) => (
+          <View
+            key={sample.title}
+            style={{
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: radius.base,
+              padding: spacing(4),
+              backgroundColor: colors.background,
+              gap: spacing(2),
+            }}
+          >
+            <Text style={{ fontSize: typography.fontSize[18], fontWeight: typography.fontWeight.semibold }}>{sample.title}</Text>
+            <Text style={{ color: colors.textSecondary }}>{sample.body}</Text>
+          </View>
+        ))}
+
         <View
-          key={sample.title}
           style={{
             borderWidth: 1,
-            borderColor: '#E5E7EB',
-            borderRadius: 12,
-            padding: 16,
-            backgroundColor: '#FFFFFF',
-            gap: 8,
+            borderColor: colors.border,
+            borderRadius: radius.base,
+            padding: spacing(4),
+            backgroundColor: colors.surface,
+            gap: spacing(3),
           }}
         >
-          <Text style={{ fontSize: 18, fontWeight: '600' }}>{sample.title}</Text>
-          <Text style={{ color: '#4B5563' }}>{sample.body}</Text>
+          <Text style={{ fontSize: typography.fontSize[18], fontWeight: typography.fontWeight.semibold }}>Actions</Text>
+          <Text
+            onPress={() => router.push('/(auth)/login')}
+            style={{ fontWeight: typography.fontWeight.semibold, color: colors.primary }}
+          >
+            Go to login
+          </Text>
         </View>
-      ))}
-
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: '#E5E7EB',
-          borderRadius: 12,
-          padding: 16,
-          backgroundColor: '#F9FAFB',
-          gap: 12,
-        }}
-      >
-        <Text style={{ fontSize: 18, fontWeight: '600' }}>Actions</Text>
-        <Text
-          onPress={() => router.push('/(auth)/login')}
-          style={{ fontWeight: '600', color: '#2563EB' }}
-        >
-          Go to login
-        </Text>
       </View>
     </ScrollView>
   );

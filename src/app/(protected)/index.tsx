@@ -1,8 +1,12 @@
+import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Text, View } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+import { typography } from '@/theme/typography';
+import { useTheme } from '@/theme/ThemeProvider';
+import { spacing } from '@/theme/spacing';
 
-import { Page, Card, Section, Pill, formatCurrency, formatDate, Button } from '@/components/migrated-page';
+import { Page, Card, Section, formatCurrency, formatDate, Button } from '@/components/migrated-page';
 import { useAuth } from '../../providers/AuthProvider';
 import { accountsService } from '../../features/accounts/services/accounts.service';
 import { categoriesService } from '../../features/categories/services/categories.service';
@@ -11,7 +15,9 @@ import { recurringTransactionsService } from '../../features/recurring-transacti
 import { savingPotsService } from '../../features/saving-pots/services/saving-pots.service';
 
 export default function DashboardScreen() {
+  const { t } = useTranslation('common');
   const { profile, householdId, logout } = useAuth();
+  const { colors } = useTheme();
 
   const accountsQuery = useQuery({
     queryKey: ['dashboard', 'accounts', householdId],
@@ -55,93 +61,76 @@ export default function DashboardScreen() {
 
   return (
     <Page
-      title="Dashboard"
-      subtitle={`Welcome back${profile?.full_name ? `, ${profile.full_name}` : ''}. Your household is ready.`}
-      actions={<Button label="Logout" onPress={() => void logout()} variant="secondary" />}
+      title={t('dashboard.title')}
+      subtitle={t('dashboard.subtitle', { name: profile?.full_name ? `, ${profile.full_name}` : '' })}
+      actions={<Button label={t('logout')} onPress={() => void logout()} variant="secondary" />}
     >
       <Card>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) }}>
           <View style={{ minWidth: 160, flex: 1 }}>
-            <Text style={{ color: '#94A3B8', textTransform: 'uppercase', fontSize: 12 }}>Total balance</Text>
-            <Text style={{ color: '#F8FAFC', fontSize: 28, fontWeight: '800' }}>{formatCurrency(totalBalance)}</Text>
+            <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.totalBalance')}</Text>
+            <Text style={{ color: colors.text, fontSize: typography.fontSize[28], fontWeight: typography.fontWeight.extraBold }}>{formatCurrency(totalBalance)}</Text>
           </View>
           <View style={{ minWidth: 120 }}>
-            <Text style={{ color: '#94A3B8', textTransform: 'uppercase', fontSize: 12 }}>Accounts</Text>
-            <Text style={{ color: '#F8FAFC', fontSize: 24, fontWeight: '800' }}>{accounts.length}</Text>
+            <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.accounts')}</Text>
+            <Text style={{ color: colors.text, fontSize: typography.fontSize[24], fontWeight: typography.fontWeight.extraBold }}>{accounts.length}</Text>
           </View>
           <View style={{ minWidth: 120 }}>
-            <Text style={{ color: '#94A3B8', textTransform: 'uppercase', fontSize: 12 }}>Categories</Text>
-            <Text style={{ color: '#F8FAFC', fontSize: 24, fontWeight: '800' }}>{categories.length}</Text>
+            <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.categories')}</Text>
+            <Text style={{ color: colors.text, fontSize: typography.fontSize[24], fontWeight: typography.fontWeight.extraBold }}>{categories.length}</Text>
           </View>
         </View>
       </Card>
 
-      <Section title="Quick navigation" subtitle="Jump to the household areas that were in the old app.">
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          {[
-            ['Accounts', '/accounts'],
-            ['Transactions', '/transactions'],
-            ['Transfers', '/transfers'],
-            ['Savings', '/savings'],
-            ['Recurring', '/recurring'],
-            ['Categories', '/categories'],
-            ['Members', '/members'],
-            ['Settings', '/settings'],
-          ].map(([label, href]) => (
-            <Pill key={href} label={label} onPress={() => router.push(href as any)} />
-          ))}
-        </View>
-      </Section>
-
-      <Section title="Recent transactions" subtitle="The latest household activity from Supabase.">
-        <View style={{ gap: 10 }}>
+      <Section title={t('dashboard.recentTransactions')} subtitle={t('dashboard.recentTransactionsSubtitle')}>
+        <View style={{ gap: spacing(2.5) }}>
           {transactions.length ? (
             transactions.map((item: any) => (
               <Card key={item.id}>
-                <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{item.title}</Text>
-                <Text style={{ color: '#94A3B8' }}>
-                  {item.account?.name ?? 'Account'} · {item.category?.name ?? 'Uncategorized'} · {formatDate(item.transaction_date)}
+                <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold }}>{item.title}</Text>
+                <Text style={{ color: colors.textSecondary }}>
+                  {item.account?.name ?? t('dashboard.account')} · {item.category?.name ?? t('dashboard.uncategorized')} · {formatDate(item.transaction_date)}
                 </Text>
-                <Text style={{ color: item.type === 'expense' ? '#FCA5A5' : '#86EFAC', fontWeight: '700' }}>
+                <Text style={{ color: item.type === 'expense' ? colors.destructive : colors.success, fontWeight: typography.fontWeight.bold }}>
                   {item.type === 'expense' ? '-' : '+'}{formatCurrency(item.amount)}
                 </Text>
               </Card>
             ))
           ) : (
-            <Text style={{ color: '#94A3B8' }}>No transactions yet.</Text>
+            <Text style={{ color: colors.textSecondary }}>{t('dashboard.noTransactions')}</Text>
           )}
         </View>
       </Section>
 
-      <Section title="Accounts">
-        <View style={{ gap: 10 }}>
+      <Section title={t('dashboard.accounts')}>
+        <View style={{ gap: spacing(2.5) }}>
           {accounts.map((account: any) => (
             <Card key={account.id}>
-              <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{account.name}</Text>
-              <Text style={{ color: '#94A3B8' }}>{account.type} · {account.currency}</Text>
-              <Text style={{ color: '#7DD3FC', fontWeight: '800' }}>{formatCurrency(account.current_balance ?? account.balance ?? 0)}</Text>
+              <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold }}>{account.name}</Text>
+              <Text style={{ color: colors.textSecondary }}>{t(`accounts.types.${account.type}`)} · {account.currency}</Text>
+              <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold }}>{formatCurrency(account.current_balance ?? account.balance ?? 0)}</Text>
             </Card>
           ))}
-          <Button label="View all accounts" onPress={() => router.push('/accounts' as any)} variant="secondary" />
+          <Button label={t('dashboard.viewAllAccounts')} onPress={() => router.push('/accounts' as any)} variant="secondary" />
         </View>
       </Section>
 
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) }}>
         <Card>
-          <Text style={{ color: '#94A3B8', textTransform: 'uppercase', fontSize: 12 }}>Income tx</Text>
-          <Text style={{ color: '#F8FAFC', fontSize: 24, fontWeight: '800' }}>{income}</Text>
+          <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.incomeTx')}</Text>
+          <Text style={{ color: colors.text, fontSize: typography.fontSize[24], fontWeight: typography.fontWeight.extraBold }}>{income}</Text>
         </Card>
         <Card>
-          <Text style={{ color: '#94A3B8', textTransform: 'uppercase', fontSize: 12 }}>Expense tx</Text>
-          <Text style={{ color: '#F8FAFC', fontSize: 24, fontWeight: '800' }}>{expenses}</Text>
+          <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.expenseTx')}</Text>
+          <Text style={{ color: colors.text, fontSize: typography.fontSize[24], fontWeight: typography.fontWeight.extraBold }}>{expenses}</Text>
         </Card>
         <Card>
-          <Text style={{ color: '#94A3B8', textTransform: 'uppercase', fontSize: 12 }}>Recurring</Text>
-          <Text style={{ color: '#F8FAFC', fontSize: 24, fontWeight: '800' }}>{recurring.length}</Text>
+          <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.recurring')}</Text>
+          <Text style={{ color: colors.text, fontSize: typography.fontSize[24], fontWeight: typography.fontWeight.extraBold }}>{recurring.length}</Text>
         </Card>
         <Card>
-          <Text style={{ color: '#94A3B8', textTransform: 'uppercase', fontSize: 12 }}>Saving pots</Text>
-          <Text style={{ color: '#F8FAFC', fontSize: 24, fontWeight: '800' }}>{savingPots.length}</Text>
+          <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12] }}>{t('dashboard.savingPots')}</Text>
+          <Text style={{ color: colors.text, fontSize: typography.fontSize[24], fontWeight: typography.fontWeight.extraBold }}>{savingPots.length}</Text>
         </Card>
       </View>
     </Page>

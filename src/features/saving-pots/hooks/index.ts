@@ -22,6 +22,16 @@ export function useSavingPotBalances() {
   })
 }
 
+export function useSavingPotAccountAssignments() {
+  const { householdId, isLoading } = useAuth()
+
+  return useQuery({
+    queryKey: ['saving-pot-accounts', householdId],
+    queryFn: () => savingPotsService.getAccountAssignments(),
+    enabled: !!householdId && !isLoading,
+  })
+}
+
 export function useCreateSavingPot() {
   const queryClient = useQueryClient()
 
@@ -30,6 +40,34 @@ export function useCreateSavingPot() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['saving-pots'] })
       queryClient.invalidateQueries({ queryKey: ['saving-pot-balances'] })
+      queryClient.invalidateQueries({ queryKey: ['saving-pot-accounts'] })
+    },
+  })
+}
+
+export function useUpdateSavingPotAccounts() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ potId, accountIds }: { potId: string; accountIds: string[] }) =>
+      savingPotsService.setAccountAssignments(potId, accountIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['saving-pots'] })
+      queryClient.invalidateQueries({ queryKey: ['saving-pot-balances'] })
+      queryClient.invalidateQueries({ queryKey: ['saving-pot-accounts'] })
+    },
+  })
+}
+
+export function useUpdateSavingPot() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: savingPotsService.updateSavingPot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['saving-pots'] })
+      queryClient.invalidateQueries({ queryKey: ['saving-pot-balances'] })
+      queryClient.invalidateQueries({ queryKey: ['saving-pot-accounts'] })
     },
   })
 }
@@ -42,6 +80,7 @@ export function useDeleteSavingPot() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['saving-pots'] })
       queryClient.invalidateQueries({ queryKey: ['saving-pot-balances'] })
+      queryClient.invalidateQueries({ queryKey: ['saving-pot-accounts'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
     },
   })

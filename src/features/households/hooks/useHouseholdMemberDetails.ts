@@ -11,6 +11,8 @@ type HouseholdMemberDetails = {
   email: string | null;
 };
 
+export type { HouseholdMemberDetails };
+
 export function useHouseholdMemberDetails() {
   const { householdId, isLoading } = useAuth();
 

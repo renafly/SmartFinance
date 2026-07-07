@@ -9,6 +9,12 @@ import {
   type TextInputProps,
 } from 'react-native';
 
+import { usePreferencesStore } from '@/stores/preferencesStore';
+import { useTheme } from '@/theme/ThemeProvider';
+import { typography } from '@/theme/typography';
+import { radius } from '@/theme/radius';
+import { spacing } from '@/theme/spacing';
+
 type PageProps = {
   title: string;
   subtitle?: string;
@@ -17,18 +23,22 @@ type PageProps = {
 };
 
 export function Page({ title, subtitle, children, actions }: PageProps) {
-  return (
-    <ScrollView contentContainerStyle={styles.page}>
-      <View style={styles.header}>
-        <View style={{ flex: 1, gap: 8 }}>
-          <Text style={styles.kicker}>SmartFinance</Text>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-        </View>
-        {actions ? <View style={styles.headerActions}>{actions}</View> : null}
-      </View>
+  const { colors } = useTheme();
 
-      {children}
+  return (
+    <ScrollView style={[styles.scrollView, { backgroundColor: colors.background }]} contentContainerStyle={[styles.page, { backgroundColor: colors.background }]}>
+      <View style={styles.pageInner}>
+        <View style={[styles.header, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={{ flex: 1, gap: spacing(2) }}>
+            <Text style={[styles.kicker, { color: colors.primary }]}>SmartFinance</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+            {subtitle ? <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
+          </View>
+          {actions ? <View style={styles.headerActions}>{actions}</View> : null}
+        </View>
+
+        <View style={styles.pageBody}>{children}</View>
+      </View>
     </ScrollView>
   );
 }
@@ -38,7 +48,8 @@ type CardProps = {
 };
 
 export function Card({ children }: CardProps) {
-  return <View style={styles.card}>{children}</View>;
+  const { colors } = useTheme();
+  return <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>{children}</View>;
 }
 
 type SectionProps = {
@@ -49,12 +60,13 @@ type SectionProps = {
 };
 
 export function Section({ title, subtitle, children, action }: SectionProps) {
+  const { colors } = useTheme();
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.sectionTitle}>{title}</Text>
-          {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
+          {subtitle ? <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
         </View>
         {action ? <View>{action}</View> : null}
       </View>
@@ -70,14 +82,15 @@ type PillProps = {
 };
 
 export function Pill({ label, active, onPress }: PillProps) {
-  const content = <Text style={[styles.pillText, active && styles.pillTextActive]}>{label}</Text>;
+  const { colors } = useTheme();
+  const content = <Text style={[styles.pillText, { color: active ? colors.primaryForeground : colors.textSecondary }]}>{label}</Text>;
 
   if (!onPress) {
-    return <View style={[styles.pill, active && styles.pillActive]}>{content}</View>;
+    return <View style={[styles.pill, { backgroundColor: active ? colors.primary : colors.surfaceMuted, borderColor: active ? colors.primary : colors.border }]}>{content}</View>;
   }
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.pill, active && styles.pillActive, pressed && styles.pressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.pill, { backgroundColor: active ? colors.primary : colors.surfaceMuted, borderColor: active ? colors.primary : colors.border }, pressed && styles.pressed]}>
       {content}
     </Pressable>
   );
@@ -91,26 +104,20 @@ type ButtonProps = {
 };
 
 export function Button({ label, onPress, variant = 'primary', disabled }: ButtonProps) {
+  const { colors } = useTheme();
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => [
-        styles.button,
-        variant === 'primary' && styles.primaryButton,
-        variant === 'secondary' && styles.secondaryButton,
-        variant === 'danger' && styles.dangerButton,
-        pressed && !disabled && styles.pressed,
-        disabled && styles.disabled,
-      ]}
-    >
-      <Text
-        style={[
-          styles.buttonText,
-          variant === 'secondary' && styles.secondaryButtonText,
-          variant === 'danger' && styles.dangerButtonText,
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        style={({ pressed }) => [
+          styles.button,
+          { backgroundColor: variant === 'primary' ? colors.primary : variant === 'secondary' ? colors.surfaceMuted : colors.destructive },
+          { borderColor: variant === 'primary' ? colors.primary : variant === 'secondary' ? colors.border : colors.destructive },
+          pressed && !disabled && styles.pressed,
+          disabled && styles.disabled,
         ]}
       >
+      <Text style={[styles.buttonText, { color: variant === 'primary' ? colors.primaryForeground : variant === 'secondary' ? colors.text : colors.destructiveForeground }]}>
         {label}
       </Text>
     </Pressable>
@@ -122,17 +129,19 @@ type FieldProps = TextInputProps & {
 };
 
 export function Field({ label, style, ...props }: FieldProps) {
+  const { colors } = useTheme();
   return (
     <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput {...props} style={[styles.input, style]} placeholderTextColor="#94A3B8" />
+      <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <TextInput {...props} style={[styles.input, { backgroundColor: colors.surfaceMuted, borderColor: colors.border, color: colors.text }, style]} placeholderTextColor={colors.textSecondary} />
     </View>
   );
 }
 
 export function formatCurrency(value: number | string | null | undefined) {
   const num = typeof value === 'number' ? value : Number(value ?? 0);
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number.isFinite(num) ? num : 0);
+  const currency = usePreferencesStore.getState().currency;
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(Number.isFinite(num) ? num : 0);
 }
 
 export function formatDate(value?: string | null) {
@@ -142,140 +151,110 @@ export function formatDate(value?: string | null) {
 }
 
 const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
   page: {
-    padding: 20,
-    gap: 20,
-    backgroundColor: '#07111F',
+    flexGrow: 1,
+    padding: spacing(5),
+    gap: spacing(5),
+  },
+  pageInner: {
+    flex: 1,
+    gap: spacing(5),
   },
   header: {
-    backgroundColor: '#0F172A',
     borderWidth: 1,
-    borderColor: '#1E293B',
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: radius.xl,
+    padding: spacing(5),
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing(3),
     alignItems: 'flex-start',
   },
   headerActions: {
-    gap: 8,
+    gap: spacing(2),
+  },
+  pageBody: {
+    flex: 1,
+    gap: spacing(5),
   },
   kicker: {
-    color: '#7DD3FC',
     textTransform: 'uppercase',
-    letterSpacing: 1.6,
-    fontSize: 12,
-    fontWeight: '700',
+    letterSpacing: typography.letterSpacing[16],
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.bold,
   },
   title: {
-    color: '#F8FAFC',
-    fontSize: 34,
-    lineHeight: 38,
-    fontWeight: '800',
+    fontSize: typography.fontSize[34],
+    lineHeight: typography.lineHeight[38],
+    fontWeight: typography.fontWeight.extraBold,
   },
   subtitle: {
-    color: '#CBD5E1',
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: typography.fontSize[14],
+    lineHeight: typography.lineHeight[20],
   },
   card: {
-    backgroundColor: '#0F172A',
-    borderRadius: 20,
-    padding: 16,
-    gap: 12,
+    borderRadius: radius.lg,
+    padding: spacing(4),
+    gap: spacing(3),
     borderWidth: 1,
-    borderColor: '#1E293B',
   },
   section: {
-    gap: 12,
+    gap: spacing(3),
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: spacing(3),
   },
   sectionTitle: {
-    color: '#F8FAFC',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: typography.fontSize[18],
+    fontWeight: typography.fontWeight.bold,
   },
   sectionSubtitle: {
-    color: '#94A3B8',
-    marginTop: 4,
-    fontSize: 13,
-    lineHeight: 18,
+    marginTop: spacing(1),
+    fontSize: typography.fontSize[13],
+    lineHeight: typography.lineHeight[18],
   },
   pill: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: '#111C31',
+    paddingHorizontal: spacing(3),
+    paddingVertical: spacing(2),
+    borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: '#243245',
-  },
-  pillActive: {
-    backgroundColor: '#1D4ED8',
-    borderColor: '#2563EB',
   },
   pillText: {
-    color: '#CBD5E1',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  pillTextActive: {
-    color: '#F8FAFC',
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.semibold,
   },
   pressed: {
     opacity: 0.85,
   },
   button: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 14,
+    paddingHorizontal: spacing(3),
+    paddingVertical: spacing(2.5),
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  primaryButton: {
-    backgroundColor: '#7DD3FC',
-  },
-  secondaryButton: {
-    backgroundColor: '#111C31',
     borderWidth: 1,
-    borderColor: '#243245',
-  },
-  dangerButton: {
-    backgroundColor: '#3A1218',
-    borderWidth: 1,
-    borderColor: '#7F1D1D',
   },
   buttonText: {
-    color: '#0B1220',
-    fontWeight: '700',
-  },
-  secondaryButtonText: {
-    color: '#E2E8F0',
-  },
-  dangerButtonText: {
-    color: '#FCA5A5',
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.bold,
   },
   disabled: {
     opacity: 0.5,
   },
   field: {
-    gap: 6,
+    gap: spacing(1.5),
   },
   fieldLabel: {
-    color: '#CBD5E1',
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.semibold,
   },
   input: {
-    backgroundColor: '#111C31',
     borderWidth: 1,
-    borderColor: '#243245',
-    borderRadius: 14,
-    color: '#F8FAFC',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing(3.5),
+    paddingVertical: spacing(3),
   },
 });

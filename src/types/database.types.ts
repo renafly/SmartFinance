@@ -196,6 +196,7 @@ export type Database = {
           owner_id: string;
           created_at: string;
           updated_at: string;
+          deleted_at: string | null;
         };
         Insert: {
           id?: string;
@@ -203,6 +204,7 @@ export type Database = {
           owner_id: string;
           created_at?: string;
           updated_at?: string;
+          deleted_at?: string | null;
         };
         Update: {
           id?: string;
@@ -210,6 +212,7 @@ export type Database = {
           owner_id?: string;
           created_at?: string;
           updated_at?: string;
+          deleted_at?: string | null;
         };
         Relationships: [];
       };
@@ -390,6 +393,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      saving_pot_accounts: {
+        Row: {
+          pot_id: string;
+          account_id: string;
+          created_at: string;
+        };
+        Insert: {
+          pot_id: string;
+          account_id: string;
+          created_at?: string;
+        };
+        Update: {
+          pot_id?: string;
+          account_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       transactions: {
         Row: {
           id: string;
@@ -488,6 +509,7 @@ export type Database = {
           target_amount: number | null;
           color: string | null;
           icon: string | null;
+          selected_account_count: number | null;
           saved: number | null;
           spent: number | null;
           balance: number | null;
@@ -577,6 +599,10 @@ export type Database = {
       set_default_household: {
         Args: { p_household_id: string };
         Returns: string;
+      };
+      set_saving_pot_accounts: {
+        Args: { p_pot_id: string; p_account_ids: string[] };
+        Returns: void;
       };
       transfer_household_ownership: {
         Args: { p_household_id: string; p_new_owner_id: string };

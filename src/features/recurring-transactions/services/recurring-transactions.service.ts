@@ -31,6 +31,26 @@ class RecurringTransactionsService {
     return data;
   }
 
+  async updateRecurringTransaction(input: {
+    id: string;
+    title?: string;
+    notes?: string | null;
+    amount?: number;
+    type?: TransactionType;
+    frequency?: Frequency;
+    next_run?: string;
+    account_id?: string;
+    category_id?: string | null;
+    created_by?: string;
+  }) {
+    const { id, ...data } = input;
+    const { data: updated, error } = await repositories.recurringTransactions.update(id, data as any);
+
+    if (error) throw error;
+
+    return updated;
+  }
+
   async toggleRecurringTransaction(id: string, active: boolean) {
     const { data, error } = active
       ? await repositories.recurringTransactions.activate(id)

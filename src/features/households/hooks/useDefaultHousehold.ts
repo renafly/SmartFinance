@@ -16,6 +16,7 @@ export function useMyHouseholds() {
 
 export function useSetDefaultHousehold() {
   const queryClient = useQueryClient();
+  const { refreshSession } = useAuth();
 
   return useMutation({
     mutationFn: (householdId: string) =>
@@ -27,6 +28,11 @@ export function useSetDefaultHousehold() {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["categories"] });
+      void refreshSession();
     },
   });
+}
+
+export function useDefaultHousehold() {
+  return useSetDefaultHousehold();
 }

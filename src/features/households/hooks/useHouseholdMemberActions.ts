@@ -1,9 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { householdsService } from "@/features/households/services/households.service";
+import { useAuth } from "@/providers/AuthProvider";
 
 export function useTransferHouseholdOwnership() {
   const queryClient = useQueryClient();
+  const { refreshSession } = useAuth();
 
   return useMutation({
     mutationFn: ({
@@ -18,6 +20,7 @@ export function useTransferHouseholdOwnership() {
       queryClient.invalidateQueries({ queryKey: ["my-households"] });
       queryClient.invalidateQueries({ queryKey: ["household-members"] });
       queryClient.invalidateQueries({ queryKey: ["household-member-details"] });
+      void refreshSession();
     },
   });
 }
@@ -43,6 +46,7 @@ export function useRemoveHouseholdMember() {
 
 export function useLeaveHousehold() {
   const queryClient = useQueryClient();
+  const { refreshSession } = useAuth();
 
   return useMutation({
     mutationFn: (householdId: string) =>
@@ -53,6 +57,7 @@ export function useLeaveHousehold() {
       queryClient.invalidateQueries({ queryKey: ["household-members"] });
       queryClient.invalidateQueries({ queryKey: ["household-member-details"] });
       queryClient.invalidateQueries({ queryKey: ["session"] });
+      void refreshSession();
     },
   });
 }
