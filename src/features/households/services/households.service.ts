@@ -13,7 +13,7 @@ type CreateInvitationInput = {
 type InvitationDetails = {
   household_id: string;
   household_name: string;
-  owner_name: string;
+  owner_name: string | null;
   owner_email: string | null;
   role: HouseholdRole;
   expires_at: string | null;
@@ -89,31 +89,10 @@ class HouseholdsService {
   }
 
   async getInvitationDetails(token: string): Promise<InvitationDetails | null> {
-    const { data: authData } = await supabase.auth.getUser();
+    const { data, error } = await repositories.households.getInvitationDetails(token);
 
-    if (!authData.user) {
-      return null;
-    }
-
-    try {
-      const invitations = await this.getMyInvitations();
-      const match = invitations.find((item) => item.token === token);
-
-      if (!match) {
-        return null;
-      }
-
-      return {
-        household_id: match.household_id,
-        household_name: match.household_name,
-        owner_name: "The household owner",
-        owner_email: null,
-        role: match.role,
-        expires_at: match.expires_at,
-      };
-    } catch {
-      return null;
-    }
+    if (error) throw error;
+    return data;
   }
 
   async getInvitations(householdId: string) {
@@ -145,25 +124,6 @@ class HouseholdsService {
 
     if (error) throw error;
 
-    const { data: householdData } = await supabase
-      .from("households")
-      .select("name, owner:profiles!households_owner_id_fkey(full_name, email)")
-      .eq("id", input.householdId)
-      .single();
-
-    const householdRow = householdData as
-      | {
-          name?: string | null;
-          owner?: { full_name?: string | null; email?: string | null } | null;
-        }
-      | null;
-
-    const inviteHouseholdName = householdRow?.name?.trim() || null;
-    const inviteOwnerName =
-      householdRow?.owner?.full_name?.trim() ||
-      householdRow?.owner?.email?.trim() ||
-      null;
-
     const configuredWebBase = process.env.EXPO_PUBLIC_INVITE_WEB_URL?.replace(/\/$/, "");
     const runtimeWebBase =
       typeof window !== "undefined" && window.location?.origin
@@ -171,15 +131,9 @@ class HouseholdsService {
         : undefined;
 
     const inviteWebBaseUrl = configuredWebBase ?? runtimeWebBase;
-    const inviteParams = new URLSearchParams();
-
-    if (inviteHouseholdName) inviteParams.set("householdName", inviteHouseholdName);
-    if (inviteOwnerName) inviteParams.set("ownerName", inviteOwnerName);
-
-    const inviteQuery = inviteParams.toString();
-    const nativeInviteLink = `smartfinance://invite/${token}${inviteQuery ? `?${inviteQuery}` : ""}`;
+    const nativeInviteLink = `smartfinance://invite/${token}`;
     const webInviteLink = inviteWebBaseUrl
-      ? `${inviteWebBaseUrl}/invite/${token}${inviteQuery ? `?${inviteQuery}` : ""}`
+      ? `${inviteWebBaseUrl}/invite/${token}`
       : null;
 
     // Prefer a web URL in browsers so localhost testing works from email click-through.

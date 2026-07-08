@@ -1,16 +1,18 @@
 import { useMemo } from 'react';
 import { router } from 'expo-router';
-import { Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Circle } from 'react-native-svg';
 
 import { Page, Section, formatCurrency, formatDate, Button } from '@/components/migrated-page';
-import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from '@/components/data-surface';
+import { Badge, EmptyState, Table, TableCell, TableRow } from '@/components/data-surface';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
 import { useResponsiveMetrics } from '@/theme/responsive';
+import { radius } from '@/theme/radius';
 
 import { useAuth } from '../../providers/AuthProvider';
 import { useHouseholdMemberDetails } from '../../features/households/hooks/useHouseholdMemberDetails';
@@ -52,19 +54,162 @@ function sumBalances<T>(items: T[], getValue: (item: T) => number) {
   return items.reduce((sum, item) => sum + getValue(item), 0);
 }
 
-function getDashboardStatIcon(label: string) {
-  switch (label) {
-    case 'trackedFunds':
-      return 'layers-outline';
-    case 'investedTotal':
-      return 'trending-up-outline';
-    case 'savingsAccountsTotal':
-      return 'wallet-outline';
-    case 'savingPotsTotal':
-      return 'save-outline';
-    default:
-      return 'ellipse-outline';
-  }
+type AllocationKey = 'invested' | 'savings' | 'pots';
+
+type AllocationSegment = {
+  key: AllocationKey;
+  label: string;
+  value: number;
+  color: string;
+  icon: keyof typeof Ionicons.glyphMap;
+};
+
+function getPercent(value: number, total: number) {
+  if (total <= 0) return 0;
+
+  return Math.round((value / total) * 100);
+}
+
+function AllocationDonut({ segments, total }: { segments: AllocationSegment[]; total: number }) {
+  const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
+  const size = responsive.isPhone ? spacing(34) : spacing(40);
+  const strokeWidth = spacing(3.25);
+  const radiusValue = size / 2 - strokeWidth / 2;
+  const circumference = 2 * Math.PI * radiusValue;
+  const visibleSegments = total > 0
+    ? segments.filter((segment) => Number.isFinite(segment.value) && segment.value > 0)
+    : [];
+  let offset = 0;
+
+  return (
+    <View style={styles.donutWrap}>
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radiusValue}
+          stroke={colors.border}
+          strokeWidth={strokeWidth}
+          fill="transparent"
+        />
+        {visibleSegments.map((segment) => {
+          const share = segment.value / total;
+          const dashLength = Math.max(circumference * share, 0);
+          const gapLength = Math.max(circumference - dashLength, 0);
+          const dashOffset = -offset;
+          offset += dashLength;
+
+          return (
+            <Circle
+              key={segment.key}
+              cx={size / 2}
+              cy={size / 2}
+              r={radiusValue}
+              stroke={segment.color}
+              strokeWidth={strokeWidth}
+              strokeDasharray={[dashLength, gapLength]}
+              strokeDashoffset={dashOffset}
+              strokeLinecap={visibleSegments.length > 1 ? 'round' : 'butt'}
+              fill="transparent"
+            />
+          );
+        })}
+      </Svg>
+      <View style={styles.donutCenter}>
+        <Text style={[styles.donutCenterLabel, { color: colors.textSecondary }]}>{getPercent(segments[0]?.value ?? 0, total)}%</Text>
+        <Text style={[styles.donutCenterText, { color: colors.text }]}>{segments[0]?.label}</Text>
+      </View>
+    </View>
+  );
+}
+
+function AllocationLegend({ segments, total }: { segments: AllocationSegment[]; total: number }) {
+  const { colors } = useTheme();
+
+  return (
+    <View style={styles.legendList}>
+      {segments.map((segment) => (
+        <View key={segment.key} style={[styles.legendItem, { borderColor: colors.border, backgroundColor: colors.surfaceMuted }]}>
+          <View style={[styles.legendIcon, { backgroundColor: segment.color }]}>
+            <Ionicons name={segment.icon} size={16} color={colors.primaryForeground} />
+          </View>
+          <View style={styles.legendCopy}>
+            <Text style={[styles.legendLabel, { color: colors.text }]}>{segment.label}</Text>
+            <Text style={[styles.legendValue, { color: colors.textSecondary }]}>
+              {formatCurrency(segment.value)} - {getPercent(segment.value, total)}%
+            </Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function PersonBreakdownBar({
+  row,
+  segments,
+}: {
+  row: { id: string; label: string; invested: number; savings: number; pots: number; total: number };
+  segments: AllocationSegment[];
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <View style={[styles.personBarCard, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
+      <View style={styles.personBarHeader}>
+        <View style={styles.personBarTitle}>
+          <Ionicons name={row.id === '__shared__' ? 'people-outline' : 'person-circle-outline'} size={18} color={colors.primary} />
+          <Text style={[styles.personBarName, { color: colors.text }]}>{row.label}</Text>
+        </View>
+        <Text style={[styles.personBarTotal, { color: colors.primary }]}>{formatCurrency(row.total)}</Text>
+      </View>
+      <View style={[styles.stackedBarTrack, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        {segments.map((segment) => {
+          const value = row[segment.key];
+          if (value <= 0 || row.total <= 0) return null;
+
+          return (
+            <View
+              key={segment.key}
+              style={[
+                styles.stackedBarSegment,
+                {
+                  backgroundColor: segment.color,
+                  flexGrow: value,
+                },
+              ]}
+            />
+          );
+        })}
+      </View>
+      <View style={styles.personBarLegend}>
+        {segments.map((segment) => (
+          <Text key={segment.key} style={[styles.personBarLegendText, { color: colors.textSecondary }]}>
+            {segment.label}: {formatCurrency(row[segment.key])}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function GoalMeter({ balance, target }: { balance: number; target?: number | null }) {
+  const { colors } = useTheme();
+  const progress = target && target > 0 ? Math.min(balance / target, 1) : 0;
+  const progressPercent = Math.round(progress * 100);
+
+  return (
+    <View style={styles.goalMeter}>
+      <View style={[styles.goalTrack, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.goalFill, { backgroundColor: colors.success, flexGrow: progress }]} />
+        <View style={{ flexGrow: 1 - progress }} />
+      </View>
+      <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>
+        {target && target > 0 ? `${progressPercent}% - ${formatCurrency(balance)} / ${formatCurrency(target)}` : formatCurrency(balance)}
+      </Text>
+    </View>
+  );
 }
 
 export default function DashboardScreen() {
@@ -137,7 +282,27 @@ export default function DashboardScreen() {
     [savingPotBalances],
   );
 
-  const trackedTotal = investmentTotal + savingsAccountTotal + savingPotsTotal;
+  const netWorthTotal = investmentTotal + savingsAccountTotal;
+
+  const allocationSegments = useMemo<AllocationSegment[]>(
+    () => [
+      {
+        key: 'invested',
+        label: t('dashboard.invested'),
+        value: investmentTotal,
+        color: colors.primary,
+        icon: 'trending-up-outline',
+      },
+      {
+        key: 'savings',
+        label: t('dashboard.savingsAccounts'),
+        value: savingsAccountTotal,
+        color: colors.success,
+        icon: 'wallet-outline',
+      },
+    ],
+    [colors.primary, colors.success, investmentTotal, savingsAccountTotal, t],
+  );
 
   const memberBreakdown = useMemo(() => {
     const rows = new Map<
@@ -203,14 +368,32 @@ export default function DashboardScreen() {
 
     return orderedRows.map((row) => ({
       ...row,
-      total: row.invested + row.savings + row.pots,
+      total: row.invested + row.savings,
     }));
   }, [investmentAccounts, memberMap, members, savingPotBalances, savingPots, savingsAccounts, t]);
+
+  const memberBreakdownTotals = useMemo(
+    () =>
+      memberBreakdown.reduce(
+        (totals, row) => ({
+          invested: totals.invested + row.invested,
+          savings: totals.savings + row.savings,
+          pots: totals.pots + row.pots,
+          total: totals.total + row.total,
+        }),
+        {
+          invested: 0,
+          savings: 0,
+          pots: 0,
+          total: 0,
+        },
+      ),
+    [memberBreakdown],
+  );
 
   const totalInvestmentAccounts = investmentAccounts.length;
   const totalSavingsAccounts = savingsAccounts.length;
   const totalPots = savingPots.length;
-  const trackerCardBasis = responsive.isPhone ? '100%' : responsive.isTablet ? '47%' : '22%';
 
   return (
     <Page
@@ -218,18 +401,49 @@ export default function DashboardScreen() {
       subtitle={t('dashboard.subtitle', { name: profile?.full_name ? `, ${profile.full_name}` : '' })}
       actions={<Button label={t('logout')} onPress={() => void logout()} variant="secondary" />}
     >
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) }}>
-        <View style={{ flexBasis: trackerCardBasis, flexGrow: 1, minWidth: 0 } as any}>
-          <MetricCard label={t('dashboard.trackedFunds')} value={formatCurrency(trackedTotal)} icon={getDashboardStatIcon('trackedFunds')} />
+      <View
+        style={[
+          styles.heroCard,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            flexDirection: responsive.isPhone ? 'column' : 'row',
+            padding: responsive.isPhone ? spacing(4) : spacing(5),
+          },
+        ]}
+      >
+        <View style={styles.heroCopy}>
+          <Badge label={t('dashboard.netWorthScope')} tone="primary" />
+          <Text
+            style={[
+              styles.heroLabel,
+              {
+                color: colors.textSecondary,
+                fontSize: responsive.isPhone ? typography.fontSize[12] : typography.fontSize[13],
+              },
+            ]}
+          >
+            {t('dashboard.netWorthTotal')}
+          </Text>
+          <Text
+            style={[
+              styles.heroValue,
+              {
+                color: colors.text,
+                fontSize: responsive.isPhone ? typography.fontSize[34] : typography.fontSize[48],
+                lineHeight: responsive.isPhone ? typography.lineHeight[40] : typography.lineHeight[52],
+              },
+            ]}
+          >
+            {formatCurrency(netWorthTotal)}
+          </Text>
+          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+            {t('dashboard.allocationSubtitle')}
+          </Text>
         </View>
-        <View style={{ flexBasis: trackerCardBasis, flexGrow: 1, minWidth: 0 } as any}>
-          <MetricCard label={t('dashboard.investedTotal')} value={formatCurrency(investmentTotal)} icon={getDashboardStatIcon('investedTotal')} />
-        </View>
-        <View style={{ flexBasis: trackerCardBasis, flexGrow: 1, minWidth: 0 } as any}>
-          <MetricCard label={t('dashboard.savingsAccountsTotal')} value={formatCurrency(savingsAccountTotal)} icon={getDashboardStatIcon('savingsAccountsTotal')} />
-        </View>
-        <View style={{ flexBasis: trackerCardBasis, flexGrow: 1, minWidth: 0 } as any}>
-          <MetricCard label={t('dashboard.savingPotsTotal')} value={formatCurrency(savingPotsTotal)} icon={getDashboardStatIcon('savingPotsTotal')} />
+        <View style={[styles.allocationPanel, { flexDirection: responsive.isPhone ? 'column' : 'row' }]}>
+          <AllocationDonut segments={allocationSegments} total={netWorthTotal} />
+          <AllocationLegend segments={allocationSegments} total={netWorthTotal} />
         </View>
       </View>
 
@@ -238,37 +452,69 @@ export default function DashboardScreen() {
         subtitle={t('dashboard.byPersonSubtitle')}
       >
         {memberBreakdown.length ? (
-          <Table
-            columns={[
-              { label: t('dashboard.person'), flex: 2 },
-              { label: t('dashboard.invested'), align: 'right' },
-              { label: t('dashboard.savingsAccounts'), align: 'right' },
-              { label: t('dashboard.pots'), align: 'right' },
-              { label: t('dashboard.total'), align: 'right' },
-            ]}
-          >
+          <View style={styles.personBreakdown}>
             {memberBreakdown.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell flex={2}>
-                  <View style={{ gap: spacing(1) }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-                      <Ionicons name="person-circle-outline" size={18} color={colors.primary} />
-                      <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any, fontSize: typography.fontSize[15] }}>
-                        {row.label}
-                      </Text>
-                    </View>
-                    <Badge label={row.id === '__shared__' ? t('dashboard.shared') : t('dashboard.person')} tone={row.id === '__shared__' ? 'neutral' : 'primary'} />
-                  </View>
-                </TableCell>
-                <TableCell align="right">{formatCurrency(row.invested)}</TableCell>
-                <TableCell align="right">{formatCurrency(row.savings)}</TableCell>
-                <TableCell align="right">{formatCurrency(row.pots)}</TableCell>
-                <TableCell align="right">
-                  <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(row.total)}</Text>
-                </TableCell>
-              </TableRow>
+              <PersonBreakdownBar key={row.id} row={row} segments={allocationSegments} />
             ))}
-          </Table>
+            <Table
+              columns={[
+                { label: t('dashboard.person'), flex: 2 },
+                { label: t('dashboard.invested'), align: 'right' },
+                { label: t('dashboard.savingsAccounts'), align: 'right' },
+                { label: t('dashboard.pots'), align: 'right' },
+                { label: t('dashboard.accountTotal'), align: 'right' },
+              ]}
+            >
+              {memberBreakdown.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell flex={2}>
+                    <View style={{ gap: spacing(1) }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
+                        <Ionicons name="person-circle-outline" size={18} color={colors.primary} />
+                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any, fontSize: typography.fontSize[15] }}>
+                          {row.label}
+                        </Text>
+                      </View>
+                      <Badge label={row.id === '__shared__' ? t('dashboard.shared') : t('dashboard.person')} tone={row.id === '__shared__' ? 'neutral' : 'primary'} />
+                    </View>
+                  </TableCell>
+                  <TableCell align="right">{formatCurrency(row.invested)}</TableCell>
+                  <TableCell align="right">{formatCurrency(row.savings)}</TableCell>
+                  <TableCell align="right">{formatCurrency(row.pots)}</TableCell>
+                  <TableCell align="right">
+                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(row.total)}</Text>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {memberBreakdown.length > 1 ? (
+                <TableRow>
+                  <TableCell flex={2}>
+                    <View style={{ gap: spacing(1) }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
+                        <Ionicons name="calculator-outline" size={18} color={colors.primary} />
+                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any, fontSize: typography.fontSize[15] }}>
+                          {t('dashboard.verticalTotal')}
+                        </Text>
+                      </View>
+                      <Badge label={t('dashboard.total')} tone="primary" />
+                    </View>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(memberBreakdownTotals.invested)}</Text>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(memberBreakdownTotals.savings)}</Text>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(memberBreakdownTotals.pots)}</Text>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(memberBreakdownTotals.total)}</Text>
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </Table>
+          </View>
         ) : (
           <EmptyState title={t('dashboard.noPeople')} description={t('dashboard.byPersonSubtitle')} icon="people-outline" />
         )}
@@ -397,7 +643,7 @@ export default function DashboardScreen() {
                           {pot.name}
                         </Text>
                       </View>
-                      <Badge label={t('dashboard.savingPotsTitle')} tone="neutral" />
+                      <GoalMeter balance={Number(pot.balance ?? 0)} target={potDefinition?.target_amount} />
                     </View>
                   </TableCell>
                   <TableCell align="right">
@@ -460,3 +706,150 @@ export default function DashboardScreen() {
     </Page>
   );
 }
+
+const styles = StyleSheet.create({
+  heroCard: {
+    borderWidth: 1,
+    borderRadius: radius.xl,
+    gap: spacing(5),
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  heroCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: spacing(2),
+    alignItems: 'flex-start',
+  },
+  heroLabel: {
+    textTransform: 'uppercase',
+    letterSpacing: typography.letterSpacing[11],
+    fontWeight: typography.fontWeight.extraBold as any,
+  },
+  heroValue: {
+    fontWeight: typography.fontWeight.extraBold as any,
+  },
+  heroSubtitle: {
+    fontSize: typography.fontSize[14],
+    lineHeight: typography.lineHeight[20],
+  },
+  allocationPanel: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing(4),
+    minWidth: 0,
+  },
+  donutWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  donutCenter: {
+    position: 'absolute',
+    alignItems: 'center',
+    gap: spacing(0.5),
+  },
+  donutCenterLabel: {
+    fontSize: typography.fontSize[28],
+    lineHeight: typography.lineHeight[32],
+    fontWeight: typography.fontWeight.extraBold as any,
+  },
+  donutCenterText: {
+    fontSize: typography.fontSize[12],
+    lineHeight: typography.lineHeight[16],
+    fontWeight: typography.fontWeight.bold as any,
+  },
+  legendList: {
+    gap: spacing(2),
+    minWidth: spacing(48),
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing(2),
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing(2),
+  },
+  legendIcon: {
+    width: spacing(8),
+    height: spacing(8),
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legendCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: spacing(0.5),
+  },
+  legendLabel: {
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.extraBold as any,
+  },
+  legendValue: {
+    fontSize: typography.fontSize[12],
+    lineHeight: typography.lineHeight[16],
+  },
+  personBreakdown: {
+    gap: spacing(3),
+  },
+  personBarCard: {
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing(3),
+    gap: spacing(2),
+  },
+  personBarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing(2),
+  },
+  personBarTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing(1.5),
+    minWidth: 0,
+  },
+  personBarName: {
+    fontSize: typography.fontSize[15],
+    fontWeight: typography.fontWeight.extraBold as any,
+  },
+  personBarTotal: {
+    fontSize: typography.fontSize[15],
+    fontWeight: typography.fontWeight.extraBold as any,
+  },
+  stackedBarTrack: {
+    minHeight: spacing(3),
+    borderRadius: radius.full,
+    borderWidth: 1,
+    overflow: 'hidden',
+    flexDirection: 'row',
+  },
+  stackedBarSegment: {},
+  personBarLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing(2),
+  },
+  personBarLegendText: {
+    fontSize: typography.fontSize[12],
+    lineHeight: typography.lineHeight[16],
+  },
+  goalMeter: {
+    gap: spacing(1),
+  },
+  goalTrack: {
+    minHeight: spacing(2.5),
+    borderRadius: radius.full,
+    borderWidth: 1,
+    overflow: 'hidden',
+    flexDirection: 'row',
+  },
+  goalFill: {},
+  goalLabel: {
+    fontSize: typography.fontSize[12],
+    lineHeight: typography.lineHeight[16],
+  },
+});

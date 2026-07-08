@@ -1,5 +1,11 @@
 {
   "buildCommand": "npx expo export --platform web",
   "outputDirectory": "dist",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/invite/:token",
+      "destination": "/invite/[token]"
+    }
+  ]
 }

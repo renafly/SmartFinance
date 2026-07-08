@@ -26,6 +26,15 @@ export type MyHouseholdInvitation = {
   created_at: string | null;
 };
 
+export type HouseholdInvitationDetails = {
+  household_id: string;
+  household_name: string;
+  owner_name: string | null;
+  owner_email: string | null;
+  role: HouseholdRole;
+  expires_at: string | null;
+};
+
 export class HouseholdsRepository extends BaseRepository<"households"> {
   constructor(client: SupabaseClient<Database>) {
     super(client, "households");
@@ -193,6 +202,32 @@ export class HouseholdsRepository extends BaseRepository<"households"> {
     if (error) return { data: null, error };
     return {
       data: (data ?? []) as unknown as MyHouseholdInvitation[],
+      error: null,
+    };
+  }
+
+  async getInvitationDetails(
+    token: string,
+  ): Promise<RepoResult<HouseholdInvitationDetails | null>> {
+    const { data, error } = await (
+      this.client as unknown as {
+        rpc: (
+          fn: string,
+          args?: Record<string, unknown>,
+        ) => Promise<{ data: unknown; error: any }>;
+      }
+    ).rpc("get_household_invitation_details", {
+      p_token: token,
+    });
+
+    if (error) return { data: null, error };
+
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | HouseholdInvitationDetails
+      | undefined;
+
+    return {
+      data: row ?? null,
       error: null,
     };
   }

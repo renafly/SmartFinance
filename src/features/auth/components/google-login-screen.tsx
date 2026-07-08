@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
+import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import GoogleSignInButton from "./google-sign-in-button";
 import { useTheme } from '@/theme/ThemeProvider';
@@ -9,6 +10,7 @@ import { spacing } from '@/theme/spacing';
 export function GoogleLoginScreen() {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
+  const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -19,7 +21,7 @@ export function GoogleLoginScreen() {
       </View>
 
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <GoogleSignInButton />
+        <GoogleSignInButton redirectTo={redirectTo} />
         <Text style={[styles.caption, { color: colors.textSecondary }]}>{t('auth.loginDescription')}</Text>
       </View>
     </View>
