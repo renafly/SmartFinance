@@ -9,6 +9,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
+import { useResponsiveMetrics } from '@/theme/responsive';
 
 const menuIconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
   dashboard: 'home-outline',
@@ -26,13 +27,30 @@ const menuIconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
 export function ProtectedDrawerLayout() {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
+  const usePermanentDrawer = Platform.OS === 'web' && responsive.isDesktop;
 
   return (
       <Drawer
       screenOptions={{
-        headerShown: false,
-        drawerStyle: [styles.drawer, { backgroundColor: colors.background, borderColor: colors.border }],
-        drawerType: Platform.OS === 'web' ? 'permanent' : 'front',
+        headerShown: !usePermanentDrawer,
+        headerStyle: { backgroundColor: colors.surface },
+        headerTintColor: colors.text,
+        headerTitleStyle: {
+          color: colors.text,
+          fontSize: typography.fontSize[16],
+          fontWeight: typography.fontWeight.extraBold,
+        },
+        drawerStyle: [
+          styles.drawer,
+          {
+            width: responsive.isPhone ? Math.min(responsive.width * 0.88, 320) : spacing(70),
+            backgroundColor: colors.background,
+            borderColor: colors.border,
+          },
+        ],
+        drawerType: usePermanentDrawer ? 'permanent' : 'front',
+        overlayColor: colors.overlay,
       } as any}
       drawerContent={DrawerContent}
     >
@@ -50,11 +68,19 @@ export function ProtectedDrawerLayout() {
   );
 }
 
-function DrawerContent(_props: DrawerContentComponentProps) {
+function DrawerContent(props: DrawerContentComponentProps) {
   const { t } = useTranslation('common');
   const pathname = usePathname();
   const { logout } = useAuth();
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
+  const closeDrawerAfterNavigate = Platform.OS !== 'web' || !responsive.isDesktop;
+  const navigateTo = (href: string) => {
+    router.push(href as any);
+    if (closeDrawerAfterNavigate) {
+      props.navigation.closeDrawer();
+    }
+  };
   const menuItems: Array<{ key: keyof typeof menuIconMap; label: string; href: string }> = [
     { key: 'dashboard', label: t('drawer.dashboard'), href: '/(protected)' },
     { key: 'accounts', label: t('drawer.accounts'), href: '/(protected)/accounts' },
@@ -105,8 +131,28 @@ function DrawerContent(_props: DrawerContentComponentProps) {
 
   if (Platform.OS === 'web') {
     return (
-      <View style={[styles.webShell, { backgroundColor: colors.background }]}>
-        <View style={[styles.brand, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.webShell,
+          {
+            backgroundColor: colors.background,
+            paddingHorizontal: responsive.isPhone ? spacing(3) : spacing(4.5),
+            paddingTop: responsive.isPhone ? spacing(3) : spacing(4.5),
+            paddingBottom: responsive.isPhone ? spacing(3) : spacing(4.5),
+            gap: responsive.isPhone ? spacing(3) : spacing(4),
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.brand,
+            {
+              backgroundColor: colors.muted,
+              borderColor: colors.border,
+              padding: responsive.isPhone ? spacing(3) : spacing(4),
+            },
+          ]}
+        >
           <Text style={[styles.brandTitle, { color: colors.foreground }]}>{t('drawer.brand')}</Text>
           <Text style={[styles.brandSubtitle, { color: colors.foreground, opacity: 0.72 }]}>{t('drawer.subtitle')}</Text>
         </View>
@@ -125,10 +171,15 @@ function DrawerContent(_props: DrawerContentComponentProps) {
                   return (
                     <Pressable
                       key={item.href}
-                      onPress={() => router.push(item.href as any)}
+                      onPress={() => navigateTo(item.href)}
                       style={({ pressed }) => [
                         styles.navItem,
-                        { backgroundColor: active ? colors.primary : colors.muted, borderColor: active ? colors.primary : colors.border },
+                        {
+                          backgroundColor: active ? colors.primary : colors.muted,
+                          borderColor: active ? colors.primary : colors.border,
+                          paddingHorizontal: responsive.isPhone ? spacing(3) : spacing(3.5),
+                          paddingVertical: responsive.isPhone ? spacing(3) : spacing(3.5),
+                        },
                         pressed && styles.pressed,
                       ]}
                     >
@@ -167,7 +218,7 @@ function DrawerContent(_props: DrawerContentComponentProps) {
           return (
             <Pressable
               key={item.href}
-              onPress={() => router.push(item.href as any)}
+              onPress={() => navigateTo(item.href)}
               style={({ pressed }) => [
                 styles.navItem,
                 { backgroundColor: active ? colors.primary : colors.muted, borderColor: active ? colors.primary : colors.border },
@@ -193,14 +244,9 @@ function DrawerContent(_props: DrawerContentComponentProps) {
 
 const styles: any = StyleSheet.create({
   drawer: {
-    width: spacing(70),
   },
   webShell: {
     flex: 1,
-    paddingHorizontal: spacing(4.5),
-    paddingTop: spacing(4.5),
-    paddingBottom: spacing(4.5),
-    gap: spacing(4),
   },
   scene: {
   },
@@ -210,7 +256,6 @@ const styles: any = StyleSheet.create({
     gap: spacing(5),
   },
   brand: {
-    padding: spacing(4),
     borderRadius: radius.lg,
     borderWidth: 1,
     gap: spacing(1.5),
@@ -246,8 +291,6 @@ const styles: any = StyleSheet.create({
     lineHeight: typography.lineHeight[16],
   },
   navItem: {
-    paddingHorizontal: spacing(3.5),
-    paddingVertical: spacing(3.5),
     borderRadius: radius.lg,
     borderWidth: 1,
     flexDirection: 'row',

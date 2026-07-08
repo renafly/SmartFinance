@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/migrated-page';
 import { radius } from '@/theme/radius';
+import { useResponsiveMetrics } from '@/theme/responsive';
 import { spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -43,14 +44,36 @@ type MetricCardProps = {
 
 export function MetricCard({ label, value, icon, hint }: MetricCardProps) {
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
 
   return (
-    <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border }] as any}>
+    <View
+      style={[
+        styles.metricCard,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+          minWidth: responsive.isPhone ? 0 : 170,
+          padding: responsive.isPhone ? spacing(3) : spacing(3.5),
+        },
+      ] as any}
+    >
       <View style={styles.metricHeader as any}>
         {icon ? <Ionicons name={icon} size={16} color={colors.textSecondary} /> : null}
         <Text style={[styles.metricLabel, { color: colors.textSecondary }] as any}>{label}</Text>
       </View>
-      <Text style={[styles.metricValue, { color: colors.text }] as any}>{value}</Text>
+      <Text
+        style={[
+          styles.metricValue,
+          {
+            color: colors.text,
+            fontSize: responsive.isPhone ? typography.fontSize[22] : typography.fontSize[28],
+            lineHeight: responsive.isPhone ? typography.lineHeight[28] : typography.lineHeight[32],
+          },
+        ] as any}
+      >
+        {value}
+      </Text>
       {hint ? <Text style={[styles.metricHint, { color: colors.textSecondary }] as any}>{hint}</Text> : null}
     </View>
   );
@@ -72,9 +95,19 @@ export function EmptyState({
   onAction,
 }: EmptyStateProps) {
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
 
   return (
-    <View style={[styles.emptyState, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }] as any}>
+    <View
+      style={[
+        styles.emptyState,
+        {
+          backgroundColor: colors.surfaceMuted,
+          borderColor: colors.border,
+          padding: responsive.isPhone ? spacing(3) : spacing(4),
+        },
+      ] as any}
+    >
       <View style={[styles.emptyIcon, { backgroundColor: colors.surface, borderColor: colors.border }] as any}>
         <Ionicons name={icon} size={22} color={colors.primary} />
       </View>
@@ -97,8 +130,25 @@ type TableRowProps = {
 
 export function TableRow({ children }: TableRowProps) {
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
 
-  return <View style={[styles.tableRow, { borderBottomColor: colors.border }] as any}>{children}</View>;
+  return (
+    <View
+      style={[
+        styles.tableRow,
+        {
+          borderBottomColor: colors.border,
+          flexDirection: responsive.isPhone ? 'column' : 'row',
+          alignItems: responsive.isPhone ? 'stretch' : 'center',
+          gap: responsive.tableCellGap,
+          paddingHorizontal: responsive.isPhone ? spacing(2.5) : spacing(3),
+          paddingVertical: responsive.isPhone ? spacing(2.25) : spacing(2.5),
+        },
+      ] as any}
+    >
+      {children}
+    </View>
+  );
 }
 
 type TableProps = {
@@ -108,26 +158,29 @@ type TableProps = {
 
 export function Table({ columns, children }: TableProps) {
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
 
   return (
     <View style={[styles.table, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }] as any}>
-      <View style={[styles.tableHeader, { backgroundColor: colors.surface, borderColor: colors.border }] as any}>
-        {columns.map((column) => (
-          <Text
-            key={column.label}
-            style={[
-              styles.tableHeaderLabel,
-              {
-                flex: column.flex ?? 1,
-                textAlign: column.align ?? 'left',
-                color: colors.textSecondary,
-              },
-            ] as any}
-          >
-            {column.label}
-          </Text>
-        ))}
-      </View>
+      {!responsive.isPhone ? (
+        <View style={[styles.tableHeader, { backgroundColor: colors.surface, borderColor: colors.border }] as any}>
+          {columns.map((column) => (
+            <Text
+              key={column.label}
+              style={[
+                styles.tableHeaderLabel,
+                {
+                  flex: column.flex ?? 1,
+                  textAlign: column.align ?? 'left',
+                  color: colors.textSecondary,
+                },
+              ] as any}
+            >
+              {column.label}
+            </Text>
+          ))}
+        </View>
+      ) : null}
       <View>{children}</View>
     </View>
   );
@@ -142,13 +195,21 @@ type TableCellProps = {
 
 export function TableCell({ children, flex = 1, align = 'left', muted }: TableCellProps) {
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
 
   return (
     <View
       style={{
-        flex,
+        flex: responsive.isPhone ? undefined : flex,
+        width: responsive.isPhone ? '100%' : undefined,
         minWidth: 0,
-        alignItems: align === 'right' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
+        alignItems: responsive.isPhone
+          ? 'flex-start'
+          : align === 'right'
+            ? 'flex-end'
+            : align === 'center'
+              ? 'center'
+              : 'flex-start',
       } as any}
     >
       {typeof children === 'string' ? (
@@ -183,9 +244,7 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     flex: 1,
-    minWidth: 170,
     gap: spacing(1),
-    padding: spacing(3.5),
     borderWidth: 1,
     borderRadius: radius.lg,
   },
@@ -213,7 +272,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing(2),
-    padding: spacing(4),
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -254,11 +312,6 @@ const styles = StyleSheet.create({
     letterSpacing: typography.letterSpacing[10],
   },
   tableRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing(2),
-    paddingHorizontal: spacing(3),
-    paddingVertical: spacing(2.5),
     borderBottomWidth: 1,
   },
 });
