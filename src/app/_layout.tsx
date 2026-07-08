@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { VercelSpeedInsights } from '@/components/vercel-speed-insights';
 import { RootProvider } from '../providers/RootProvider';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -10,6 +11,7 @@ export default function RootLayout() {
   return (
     <RootProvider>
       <RootStack />
+      <VercelSpeedInsights />
     </RootProvider>
   );
 }
