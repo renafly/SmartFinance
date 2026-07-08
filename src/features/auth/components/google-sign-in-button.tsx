@@ -1,10 +1,12 @@
 import { supabase } from '@/shared/lib/supabase/client';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
+import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text } from 'react-native';
 import { AUTH_CALLBACK_ROUTE } from '../constants';
+import { consumePendingRedirectTo, storePendingRedirectTo } from '../redirects';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -19,17 +21,23 @@ function extractParamsFromUrl(url: string) {
   };
 }
 
-export function GoogleSignInButton() {
+type GoogleSignInButtonProps = {
+  redirectTo?: string | string[];
+};
+
+export function GoogleSignInButton({ redirectTo }: GoogleSignInButtonProps) {
   const { t } = useTranslation('common');
+  const router = useRouter();
 
   async function onSignInButtonPress() {
-    const redirectTo = Linking.createURL(AUTH_CALLBACK_ROUTE);
-    console.debug('[GoogleSignInButton] redirectTo:', redirectTo);
+    storePendingRedirectTo(redirectTo);
+    const callbackUrl = Linking.createURL(AUTH_CALLBACK_ROUTE);
+    console.debug('[GoogleSignInButton] redirectTo:', callbackUrl);
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo,
+        redirectTo: callbackUrl,
         queryParams: { prompt: 'consent' },
         skipBrowserRedirect: true,
       },
@@ -49,7 +57,7 @@ export function GoogleSignInButton() {
 
     const result = await WebBrowser.openAuthSessionAsync(
       googleOAuthUrl,
-      redirectTo,
+      callbackUrl,
       {
         showInRecents: true,
       },
@@ -70,6 +78,8 @@ export function GoogleSignInButton() {
         if (sessionError) {
           throw sessionError;
         }
+
+        router.replace(consumePendingRedirectTo() as any);
       } else {
         console.error('[GoogleSignInButton] missing access_token or refresh_token in callback url');
       }

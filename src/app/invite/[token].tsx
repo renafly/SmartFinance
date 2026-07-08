@@ -17,22 +17,13 @@ function getToken(value: string | string[] | undefined) {
   return value ?? '';
 }
 
-function getParam(value: string | string[] | undefined) {
-  if (Array.isArray(value)) return value[0] ?? '';
-  return value ?? '';
-}
-
 export default function InviteScreen() {
   const { colors } = useTheme();
   const { t } = useTranslation('common');
   const params = useLocalSearchParams<{
     token?: string | string[];
-    householdName?: string | string[];
-    ownerName?: string | string[];
   }>();
   const token = useMemo(() => getToken(params.token), [params.token]);
-  const householdNameFromLink = useMemo(() => getParam(params.householdName), [params.householdName]);
-  const ownerNameFromLink = useMemo(() => getParam(params.ownerName), [params.ownerName]);
   const { session, restoring, logout } = useAuth();
   const acceptInvitation = useAcceptHouseholdInvitation();
   const [accepted, setAccepted] = useState(false);
@@ -45,10 +36,19 @@ export default function InviteScreen() {
     enabled: Boolean(session?.user.id) && !restoring,
   });
 
+  const invitationDetailsQuery = useQuery({
+    queryKey: ['household-invitation-details', token],
+    queryFn: () => householdsService.getInvitationDetails(token),
+    enabled: Boolean(token),
+  });
+
   const invitation = invitationsQuery.data?.find((item) => item.token === token) ?? null;
-  const householdName = invitation?.household_name || householdNameFromLink || t('invite.thisHousehold');
-  const ownerName = ownerNameFromLink || (session ? t('invite.householdOwner') : t('invite.someone'));
-  const hasFriendlyDetails = Boolean(invitation?.household_name || householdNameFromLink || ownerNameFromLink);
+  const invitationDetails = invitationDetailsQuery.data ?? null;
+  const householdName = invitationDetails?.household_name || invitation?.household_name || t('invite.thisHousehold');
+  const ownerName = invitationDetails?.owner_name || t('invite.someone');
+  const role = invitationDetails?.role || invitation?.role;
+  const expiresAt = invitationDetails?.expires_at || invitation?.expires_at;
+  const hasFriendlyDetails = Boolean(invitationDetails?.household_name || invitation?.household_name);
   const sessionKey = session?.user.id ?? 'anonymous';
 
   const acceptCurrentInvite = useCallback(async () => {
@@ -102,14 +102,14 @@ export default function InviteScreen() {
               ? t('invite.friendlyBody', { ownerName, householdName })
               : t('invite.signInBody')}
           </Text>
-          {invitation?.role ? (
+          {role ? (
             <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.bold }}>
-              {t('invite.joinAs', { role: invitation.role })}
+              {t('invite.joinAs', { role })}
             </Text>
           ) : null}
-          {invitation?.expires_at ? (
+          {expiresAt ? (
             <Text style={{ color: colors.textSecondary }}>
-              {t('invite.expires', { date: new Date(invitation.expires_at).toLocaleDateString() })}
+              {t('invite.expires', { date: new Date(expiresAt).toLocaleDateString() })}
             </Text>
           ) : null}
           {!hasFriendlyDetails ? (
