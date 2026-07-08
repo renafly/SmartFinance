@@ -4,6 +4,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/migrated-page';
 import { radius } from '@/theme/radius';
+import { useResponsiveMetrics } from '@/theme/responsive';
 import { spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -28,6 +29,7 @@ export function SelectionTrigger({
   onPress,
 }: SelectionTriggerProps) {
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
   const isEmpty = valueLabel === placeholder;
 
   return (
@@ -38,7 +40,12 @@ export function SelectionTrigger({
         onPress={onPress}
         style={({ pressed }) => [
           styles.trigger,
-          { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+          {
+            backgroundColor: colors.surfaceMuted,
+            borderColor: colors.border,
+            padding: responsive.isPhone ? spacing(3) : spacing(3.5),
+            gap: responsive.isPhone ? spacing(2) : spacing(3),
+          },
           pressed && styles.pressed,
           disabled && styles.disabled,
         ]}
@@ -76,12 +83,33 @@ export function SelectionShell({
   children,
 }: SelectionShellProps) {
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}>
+      <View
+        style={[
+          styles.modalBackdrop,
+          {
+            backgroundColor: colors.overlay,
+            padding: responsive.modalPadding,
+            justifyContent: responsive.isPhone ? 'flex-end' : 'center',
+          },
+        ]}
+      >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.modalCard,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              padding: responsive.isPhone ? spacing(3.5) : spacing(4.5),
+              borderRadius: responsive.isPhone ? radius.lg : radius.xl,
+              maxHeight: responsive.isPhone ? '86%' : '90%',
+            },
+          ]}
+        >
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
             {subtitle ? <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
@@ -122,6 +150,7 @@ export function SelectionOptionRow({
   danger,
 }: OptionRowProps) {
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
 
   return (
     <Pressable
@@ -131,6 +160,8 @@ export function SelectionOptionRow({
         {
           backgroundColor: active ? colors.primary : colors.surfaceMuted,
           borderColor: danger ? colors.destructiveBorder : active ? colors.primary : colors.border,
+          padding: responsive.isPhone ? spacing(3) : spacing(3.5),
+          gap: responsive.isPhone ? spacing(2) : spacing(3),
         },
         pressed && styles.pressed,
       ]}
@@ -176,6 +207,7 @@ type DropdownMenuProps = {
 
 export function DropdownMenu({ visible, title, closeLabel, onClose, items }: DropdownMenuProps) {
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
 
   return (
     <SelectionShell visible={visible} title={title} closeLabel={closeLabel} onClose={onClose}>
@@ -189,6 +221,8 @@ export function DropdownMenu({ visible, title, closeLabel, onClose, items }: Dro
               {
                 backgroundColor: item.danger ? colors.destructiveSoft : colors.surfaceMuted,
                 borderColor: item.danger ? colors.destructiveBorder : colors.border,
+                padding: responsive.isPhone ? spacing(3) : spacing(3.5),
+                gap: responsive.isPhone ? spacing(2) : spacing(3),
               },
               pressed && styles.pressed,
             ]}
@@ -234,11 +268,19 @@ export function MultiSelectShell({
   confirmDisabled,
   children,
 }: MultiSelectShellProps) {
+  const responsive = useResponsiveMetrics();
+
   return (
     <SelectionShell visible={visible} title={title} subtitle={subtitle} closeLabel={closeLabel} onClose={onClose}>
       <View style={{ gap: spacing(3) }}>
         {children}
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: spacing(2) }}>
+        <View
+          style={{
+            flexDirection: responsive.isPhone ? 'column-reverse' : 'row',
+            justifyContent: 'flex-end',
+            gap: spacing(2),
+          }}
+        >
           <Button label={closeLabel} variant="secondary" onPress={onClose} />
           <Button label={confirmLabel} onPress={onConfirm} disabled={confirmDisabled} />
         </View>
@@ -258,8 +300,6 @@ const styles = StyleSheet.create({
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing(3),
-    padding: spacing(3.5),
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -280,15 +320,10 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    justifyContent: 'center',
-    padding: spacing(5),
   },
   modalCard: {
     gap: spacing(3.5),
-    borderRadius: radius.xl,
     borderWidth: 1,
-    padding: spacing(4.5),
-    maxHeight: '90%',
   },
   modalHeader: {
     gap: spacing(1),
@@ -304,8 +339,6 @@ const styles = StyleSheet.create({
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing(3),
-    padding: spacing(3.5),
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -324,8 +357,6 @@ const styles = StyleSheet.create({
   dropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing(3),
-    padding: spacing(3.5),
     borderRadius: radius.lg,
     borderWidth: 1,
   },

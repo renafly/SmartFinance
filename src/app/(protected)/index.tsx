@@ -10,6 +10,7 @@ import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from '@/com
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
+import { useResponsiveMetrics } from '@/theme/responsive';
 
 import { useAuth } from '../../providers/AuthProvider';
 import { useHouseholdMemberDetails } from '../../features/households/hooks/useHouseholdMemberDetails';
@@ -70,6 +71,7 @@ export default function DashboardScreen() {
   const { t } = useTranslation('common');
   const { profile, householdId, logout } = useAuth();
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
   const membersQuery = useHouseholdMemberDetails();
 
   const accountsQuery = useQuery({
@@ -208,6 +210,7 @@ export default function DashboardScreen() {
   const totalInvestmentAccounts = investmentAccounts.length;
   const totalSavingsAccounts = savingsAccounts.length;
   const totalPots = savingPots.length;
+  const trackerCardBasis = responsive.isPhone ? '100%' : responsive.isTablet ? '47%' : '22%';
 
   return (
     <Page
@@ -216,10 +219,18 @@ export default function DashboardScreen() {
       actions={<Button label={t('logout')} onPress={() => void logout()} variant="secondary" />}
     >
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) }}>
-        <MetricCard label={t('dashboard.trackedFunds')} value={formatCurrency(trackedTotal)} icon={getDashboardStatIcon('trackedFunds')} />
-        <MetricCard label={t('dashboard.investedTotal')} value={formatCurrency(investmentTotal)} icon={getDashboardStatIcon('investedTotal')} />
-        <MetricCard label={t('dashboard.savingsAccountsTotal')} value={formatCurrency(savingsAccountTotal)} icon={getDashboardStatIcon('savingsAccountsTotal')} />
-        <MetricCard label={t('dashboard.savingPotsTotal')} value={formatCurrency(savingPotsTotal)} icon={getDashboardStatIcon('savingPotsTotal')} />
+        <View style={{ flexBasis: trackerCardBasis, flexGrow: 1, minWidth: 0 } as any}>
+          <MetricCard label={t('dashboard.trackedFunds')} value={formatCurrency(trackedTotal)} icon={getDashboardStatIcon('trackedFunds')} />
+        </View>
+        <View style={{ flexBasis: trackerCardBasis, flexGrow: 1, minWidth: 0 } as any}>
+          <MetricCard label={t('dashboard.investedTotal')} value={formatCurrency(investmentTotal)} icon={getDashboardStatIcon('investedTotal')} />
+        </View>
+        <View style={{ flexBasis: trackerCardBasis, flexGrow: 1, minWidth: 0 } as any}>
+          <MetricCard label={t('dashboard.savingsAccountsTotal')} value={formatCurrency(savingsAccountTotal)} icon={getDashboardStatIcon('savingsAccountsTotal')} />
+        </View>
+        <View style={{ flexBasis: trackerCardBasis, flexGrow: 1, minWidth: 0 } as any}>
+          <MetricCard label={t('dashboard.savingPotsTotal')} value={formatCurrency(savingPotsTotal)} icon={getDashboardStatIcon('savingPotsTotal')} />
+        </View>
       </View>
 
       <Section

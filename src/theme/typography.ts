@@ -63,4 +63,4 @@ export const typography = {
     11: 1.1,
     16: 1.6,
   },
-};
+} as const;

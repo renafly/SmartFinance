@@ -14,6 +14,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
+import { useResponsiveMetrics } from '@/theme/responsive';
 
 type PageProps = {
   title: string;
@@ -24,20 +25,70 @@ type PageProps = {
 
 export function Page({ title, subtitle, children, actions }: PageProps) {
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
 
   return (
-    <ScrollView style={[styles.scrollView, { backgroundColor: colors.background }]} contentContainerStyle={[styles.page, { backgroundColor: colors.background }]}>
-      <View style={styles.pageInner}>
-        <View style={[styles.header, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <ScrollView
+      style={[styles.scrollView, { backgroundColor: colors.background }]}
+      contentContainerStyle={[
+        styles.page,
+        {
+          backgroundColor: colors.background,
+          padding: responsive.pagePadding,
+          gap: responsive.pageGap,
+        },
+      ]}
+    >
+      <View style={[styles.pageInner, { gap: responsive.pageGap }]}>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              padding: responsive.headerPadding,
+              gap: responsive.headerGap,
+              flexDirection: responsive.isPhone ? 'column' : 'row',
+            },
+          ]}
+        >
           <View style={{ flex: 1, gap: spacing(2) }}>
             <Text style={[styles.kicker, { color: colors.primary }]}>SmartFinance</Text>
-            <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-            {subtitle ? <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
+            <Text
+              style={[
+                styles.title,
+                {
+                  color: colors.text,
+                  fontSize: responsive.titleFontSize,
+                  lineHeight: responsive.titleLineHeight,
+                },
+              ]}
+            >
+              {title}
+            </Text>
+            {subtitle ? (
+              <Text
+                style={[
+                  styles.subtitle,
+                  {
+                    color: colors.textSecondary,
+                    fontSize: responsive.bodyFontSize,
+                    lineHeight: responsive.bodyLineHeight,
+                  },
+                ]}
+              >
+                {subtitle}
+              </Text>
+            ) : null}
           </View>
-          {actions ? <View style={styles.headerActions}>{actions}</View> : null}
+          {actions ? (
+            <View style={[styles.headerActions, responsive.isPhone && styles.headerActionsCompact]}>
+              {actions}
+            </View>
+          ) : null}
         </View>
 
-        <View style={styles.pageBody}>{children}</View>
+        <View style={[styles.pageBody, { gap: responsive.pageGap }]}>{children}</View>
       </View>
     </ScrollView>
   );
@@ -49,7 +100,23 @@ type CardProps = {
 
 export function Card({ children }: CardProps) {
   const { colors } = useTheme();
-  return <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>{children}</View>;
+  const responsive = useResponsiveMetrics();
+
+  return (
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+          padding: responsive.cardPadding,
+          gap: responsive.cardGap,
+        },
+      ]}
+    >
+      {children}
+    </View>
+  );
 }
 
 type SectionProps = {
@@ -61,12 +128,37 @@ type SectionProps = {
 
 export function Section({ title, subtitle, children, action }: SectionProps) {
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
+
   return (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
+    <View style={[styles.section, { gap: responsive.cardGap }]}>
+      <View style={[styles.sectionHeader, responsive.isPhone && styles.sectionHeaderCompact]}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
-          {subtitle ? <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                color: colors.text,
+                fontSize: responsive.sectionTitleFontSize,
+              },
+            ]}
+          >
+            {title}
+          </Text>
+          {subtitle ? (
+            <Text
+              style={[
+                styles.sectionSubtitle,
+                {
+                  color: colors.textSecondary,
+                  fontSize: responsive.bodyFontSize,
+                  lineHeight: responsive.bodyLineHeight,
+                },
+              ]}
+            >
+              {subtitle}
+            </Text>
+          ) : null}
         </View>
         {action ? <View>{action}</View> : null}
       </View>
@@ -83,14 +175,19 @@ type PillProps = {
 
 export function Pill({ label, active, onPress }: PillProps) {
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
   const content = <Text style={[styles.pillText, { color: active ? colors.primaryForeground : colors.textSecondary }]}>{label}</Text>;
+  const responsiveStyle = {
+    paddingHorizontal: responsive.isPhone ? spacing(2.25) : spacing(3),
+    paddingVertical: responsive.isPhone ? spacing(1.5) : spacing(2),
+  };
 
   if (!onPress) {
-    return <View style={[styles.pill, { backgroundColor: active ? colors.primary : colors.surfaceMuted, borderColor: active ? colors.primary : colors.border }]}>{content}</View>;
+    return <View style={[styles.pill, responsiveStyle, { backgroundColor: active ? colors.primary : colors.surfaceMuted, borderColor: active ? colors.primary : colors.border }]}>{content}</View>;
   }
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.pill, { backgroundColor: active ? colors.primary : colors.surfaceMuted, borderColor: active ? colors.primary : colors.border }, pressed && styles.pressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.pill, responsiveStyle, { backgroundColor: active ? colors.primary : colors.surfaceMuted, borderColor: active ? colors.primary : colors.border }, pressed && styles.pressed]}>
       {content}
     </Pressable>
   );
@@ -105,12 +202,19 @@ type ButtonProps = {
 
 export function Button({ label, onPress, variant = 'primary', disabled }: ButtonProps) {
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
+
   return (
       <Pressable
         onPress={onPress}
         disabled={disabled}
         style={({ pressed }) => [
           styles.button,
+          {
+            paddingHorizontal: responsive.buttonPaddingHorizontal,
+            paddingVertical: responsive.buttonPaddingVertical,
+            minHeight: responsive.isPhone ? 40 : 0,
+          },
           { backgroundColor: variant === 'primary' ? colors.primary : variant === 'secondary' ? colors.surfaceMuted : colors.destructive },
           { borderColor: variant === 'primary' ? colors.primary : variant === 'secondary' ? colors.border : colors.destructive },
           pressed && !disabled && styles.pressed,
@@ -130,10 +234,28 @@ type FieldProps = TextInputProps & {
 
 export function Field({ label, style, ...props }: FieldProps) {
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
+
   return (
     <View style={styles.field}>
       <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <TextInput {...props} style={[styles.input, { backgroundColor: colors.surfaceMuted, borderColor: colors.border, color: colors.text }, style]} placeholderTextColor={colors.textSecondary} />
+      <TextInput
+        {...props}
+        style={[
+          styles.input,
+          {
+            backgroundColor: colors.surfaceMuted,
+            borderColor: colors.border,
+            color: colors.text,
+            paddingHorizontal: responsive.fieldPaddingHorizontal,
+            paddingVertical: responsive.fieldPaddingVertical,
+            fontSize: responsive.bodyFontSize,
+            lineHeight: responsive.bodyLineHeight,
+          },
+          style,
+        ]}
+        placeholderTextColor={colors.textSecondary}
+      />
     </View>
   );
 }
@@ -156,27 +278,24 @@ const styles = StyleSheet.create({
   },
   page: {
     flexGrow: 1,
-    padding: spacing(5),
-    gap: spacing(5),
   },
   pageInner: {
     flex: 1,
-    gap: spacing(5),
   },
   header: {
     borderWidth: 1,
     borderRadius: radius.xl,
-    padding: spacing(5),
-    flexDirection: 'row',
-    gap: spacing(3),
     alignItems: 'flex-start',
   },
   headerActions: {
     gap: spacing(2),
   },
+  headerActionsCompact: {
+    width: '100%',
+    alignItems: 'stretch',
+  },
   pageBody: {
     flex: 1,
-    gap: spacing(5),
   },
   kicker: {
     textTransform: 'uppercase',
@@ -195,17 +314,17 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: radius.lg,
-    padding: spacing(4),
-    gap: spacing(3),
     borderWidth: 1,
   },
   section: {
-    gap: spacing(3),
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing(3),
+  },
+  sectionHeaderCompact: {
+    flexDirection: 'column',
   },
   sectionTitle: {
     fontSize: typography.fontSize[18],
@@ -217,8 +336,6 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight[18],
   },
   pill: {
-    paddingHorizontal: spacing(3),
-    paddingVertical: spacing(2),
     borderRadius: radius.full,
     borderWidth: 1,
   },
@@ -230,8 +347,6 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   button: {
-    paddingHorizontal: spacing(3),
-    paddingVertical: spacing(2.5),
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -254,7 +369,5 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingHorizontal: spacing(3.5),
-    paddingVertical: spacing(3),
   },
 });
