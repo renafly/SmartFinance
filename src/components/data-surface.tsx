@@ -1,5 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { type ReactNode } from 'react';
+import {
+  Children,
+  cloneElement,
+  createContext,
+  isValidElement,
+  useContext,
+  type ReactNode,
+} from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/migrated-page';
@@ -124,6 +131,8 @@ type TableColumn = {
   align?: 'left' | 'right' | 'center';
 };
 
+const TableColumnsContext = createContext<TableColumn[]>([]);
+
 type TableRowProps = {
   children: ReactNode;
 };
@@ -131,6 +140,18 @@ type TableRowProps = {
 export function TableRow({ children }: TableRowProps) {
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
+  const columns = useContext(TableColumnsContext);
+  const rowChildren = responsive.isPhone
+    ? Children.map(children, (child, index) => {
+        if (!isValidElement(child)) return child;
+
+        return cloneElement(child as any, {
+          mobileLabel: columns[index]?.label,
+          mobileColumnIndex: index,
+          mobileColumnCount: columns.length,
+        });
+      })
+    : children;
 
   return (
     <View
@@ -143,10 +164,15 @@ export function TableRow({ children }: TableRowProps) {
           gap: responsive.tableCellGap,
           paddingHorizontal: responsive.isPhone ? spacing(2.5) : spacing(3),
           paddingVertical: responsive.isPhone ? spacing(2.25) : spacing(2.5),
+          backgroundColor: responsive.isPhone ? colors.surface : undefined,
+          borderColor: responsive.isPhone ? colors.border : undefined,
+          borderWidth: responsive.isPhone ? 1 : undefined,
+          borderRadius: responsive.isPhone ? radius.lg : undefined,
+          marginBottom: responsive.isPhone ? spacing(2) : 0,
         },
       ] as any}
     >
-      {children}
+      {rowChildren}
     </View>
   );
 }
@@ -161,28 +187,38 @@ export function Table({ columns, children }: TableProps) {
   const responsive = useResponsiveMetrics();
 
   return (
-    <View style={[styles.table, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }] as any}>
-      {!responsive.isPhone ? (
-        <View style={[styles.tableHeader, { backgroundColor: colors.surface, borderColor: colors.border }] as any}>
-          {columns.map((column) => (
-            <Text
-              key={column.label}
-              style={[
-                styles.tableHeaderLabel,
-                {
-                  flex: column.flex ?? 1,
-                  textAlign: column.align ?? 'left',
-                  color: colors.textSecondary,
-                },
-              ] as any}
-            >
-              {column.label}
-            </Text>
-          ))}
-        </View>
-      ) : null}
-      <View>{children}</View>
-    </View>
+    <TableColumnsContext.Provider value={columns}>
+      <View
+        style={[
+          styles.table,
+          {
+            backgroundColor: responsive.isPhone ? 'transparent' : colors.surfaceMuted,
+            borderColor: responsive.isPhone ? 'transparent' : colors.border,
+          },
+        ] as any}
+      >
+        {!responsive.isPhone ? (
+          <View style={[styles.tableHeader, { backgroundColor: colors.surface, borderColor: colors.border }] as any}>
+            {columns.map((column) => (
+              <Text
+                key={column.label}
+                style={[
+                  styles.tableHeaderLabel,
+                  {
+                    flex: column.flex ?? 1,
+                    textAlign: column.align ?? 'left',
+                    color: colors.textSecondary,
+                  },
+                ] as any}
+              >
+                {column.label}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+        <View style={styles.tableBody}>{children}</View>
+      </View>
+    </TableColumnsContext.Provider>
   );
 }
 
@@ -191,39 +227,83 @@ type TableCellProps = {
   flex?: number;
   align?: 'left' | 'right' | 'center';
   muted?: boolean;
+  mobileLabel?: string;
+  mobileColumnIndex?: number;
+  mobileColumnCount?: number;
+  mobilePinned?: boolean;
 };
 
-export function TableCell({ children, flex = 1, align = 'left', muted }: TableCellProps) {
+export function TableCell({
+  children,
+  flex = 1,
+  align = 'left',
+  muted,
+  mobileLabel,
+  mobileColumnIndex,
+  mobileColumnCount,
+  mobilePinned,
+}: TableCellProps) {
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
+  const isMobileTopRightCell =
+    responsive.isPhone &&
+    mobilePinned === true &&
+    align === 'right';
+  const isMobileFirstCell = responsive.isPhone && mobileColumnIndex === 0;
+  const isMobileLabeledRow = responsive.isPhone && !isMobileTopRightCell && !isMobileFirstCell;
+  const content = typeof children === 'string' ? (
+    <Text
+      style={{
+        color: muted ? colors.textSecondary : colors.text,
+        fontSize: typography.fontSize[13],
+        lineHeight: typography.lineHeight[18],
+      } as any}
+    >
+      {children}
+    </Text>
+  ) : (
+    children
+  );
 
   return (
     <View
       style={{
         flex: responsive.isPhone ? undefined : flex,
-        width: responsive.isPhone ? '100%' : undefined,
+        width: responsive.isPhone && !isMobileTopRightCell ? '100%' : undefined,
+        alignSelf: responsive.isPhone ? 'stretch' : undefined,
         minWidth: 0,
-        alignItems: responsive.isPhone
-          ? 'flex-start'
-          : align === 'right'
-            ? 'flex-end'
-            : align === 'center'
-              ? 'center'
-              : 'flex-start',
+        flexDirection: isMobileLabeledRow ? 'row' : 'column',
+        justifyContent: isMobileLabeledRow ? 'space-between' : 'flex-start',
+        alignItems: isMobileTopRightCell
+          ? 'flex-end'
+          : isMobileLabeledRow
+            ? 'center'
+            : responsive.isPhone
+              ? 'stretch'
+              : align === 'right'
+                ? 'flex-end'
+                : align === 'center'
+                  ? 'center'
+                  : 'flex-start',
+        gap: responsive.isPhone ? spacing(1) : 0,
+        ...(isMobileTopRightCell
+          ? {
+              position: 'absolute',
+              top: spacing(2.25),
+              right: spacing(2.5),
+              maxWidth: spacing(18),
+              zIndex: 2,
+            }
+          : null),
       } as any}
     >
-      {typeof children === 'string' ? (
-        <Text
-          style={{
-            color: muted ? colors.textSecondary : colors.text,
-            fontSize: typography.fontSize[13],
-            lineHeight: typography.lineHeight[18],
-          } as any}
-        >
-          {children}
-        </Text>
+      {responsive.isPhone && mobileLabel && !isMobileTopRightCell ? (
+        <Text style={[styles.mobileCellLabel, { color: colors.textSecondary }]}>{mobileLabel}</Text>
+      ) : null}
+      {isMobileLabeledRow ? (
+        <View style={styles.mobileCellValue}>{content}</View>
       ) : (
-        children
+        content
       )}
     </View>
   );
@@ -231,6 +311,7 @@ export function TableCell({ children, flex = 1, align = 'left', muted }: TableCe
 
 const styles = StyleSheet.create({
   badge: {
+    alignSelf: 'flex-start',
     paddingHorizontal: spacing(2),
     paddingVertical: spacing(0.75),
     borderRadius: radius.full,
@@ -244,6 +325,7 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     flex: 1,
+    alignSelf: 'stretch',
     gap: spacing(1),
     borderWidth: 1,
     borderRadius: radius.lg,
@@ -269,6 +351,8 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight[16],
   },
   emptyState: {
+    width: '100%',
+    alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing(2),
@@ -295,11 +379,14 @@ const styles = StyleSheet.create({
     maxWidth: 420,
   },
   table: {
+    width: '100%',
+    alignSelf: 'stretch',
     borderWidth: 1,
     borderRadius: radius.lg,
     overflow: 'hidden',
   },
   tableHeader: {
+    width: '100%',
     flexDirection: 'row',
     borderBottomWidth: 1,
     paddingHorizontal: spacing(3),
@@ -312,6 +399,24 @@ const styles = StyleSheet.create({
     letterSpacing: typography.letterSpacing[10],
   },
   tableRow: {
+    width: '100%',
+    alignSelf: 'stretch',
     borderBottomWidth: 1,
+  },
+  tableBody: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  mobileCellLabel: {
+    flexShrink: 0,
+    fontSize: typography.fontSize[12],
+    lineHeight: typography.lineHeight[16],
+    fontWeight: typography.fontWeight.extraBold as any,
+    letterSpacing: typography.letterSpacing[10],
+    textTransform: 'uppercase',
+  },
+  mobileCellValue: {
+    flexShrink: 1,
+    alignItems: 'flex-end',
   },
 });

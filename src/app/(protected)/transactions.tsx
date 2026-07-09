@@ -275,6 +275,7 @@ export default function TransactionsScreen() {
               { label: t('transactions.categories'), flex: 1.2 },
               { label: t('transactions.createdBy'), flex: 1.2 },
               { label: t('transactions.amountLabel'), align: 'right' },
+              { label: '', flex: 0.35, align: 'right' },
             ]}
           >
             {transactions.map((item: any) => (
@@ -304,17 +305,17 @@ export default function TransactionsScreen() {
                   </Text>
                 </TableCell>
                 <TableCell align="right">
-                  <View style={{ alignItems: 'flex-end', gap: spacing(1) }}>
-                    <Text style={{ color: item.type === 'expense' ? colors.destructive : colors.success, fontWeight: typography.fontWeight.extraBold as any } as any}>
-                      {item.type === 'expense' ? '-' : '+'}{formatCurrency(item.amount)}
-                    </Text>
-                    <Pressable
-                      onPress={() => setMenuTransaction(item)}
-                      style={({ pressed }) => [styles.menuButton, pressed && styles.pressed] as any}
-                    >
-                      <Ionicons name="ellipsis-vertical" size={18} color={colors.text} />
-                    </Pressable>
-                  </View>
+                  <Text style={{ color: item.type === 'expense' ? colors.destructive : colors.success, fontWeight: typography.fontWeight.extraBold as any } as any}>
+                    {item.type === 'expense' ? '-' : '+'}{formatCurrency(item.amount)}
+                  </Text>
+                </TableCell>
+                <TableCell flex={0.35} align="right" mobilePinned>
+                  <Pressable
+                    onPress={() => setMenuTransaction(item)}
+                    style={({ pressed }) => [styles.menuButton, pressed && styles.pressed] as any}
+                  >
+                    <Ionicons name="ellipsis-vertical" size={18} color={colors.text} />
+                  </Pressable>
                 </TableCell>
               </TableRow>
             ))}
@@ -477,6 +478,9 @@ function createStyles(colors: any) {
     backgroundColor: 'rgba(2, 6, 23, 0.82)',
   },
   modalCard: {
+    width: '100%',
+    maxWidth: spacing(160),
+    alignSelf: 'center',
     gap: spacing(3.5),
     padding: spacing(4.5),
     borderWidth: 1,
@@ -485,6 +489,9 @@ function createStyles(colors: any) {
     backgroundColor: colors.surface,
   },
   menuCard: {
+    width: '100%',
+    maxWidth: spacing(96),
+    alignSelf: 'center',
     gap: spacing(3),
     padding: spacing(4.5),
     borderWidth: 1,

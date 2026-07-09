@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["jest", "react"]
+  },
+  "include": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "test/**/*.ts",
+    "test/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "supabase/functions",
+    "supabase/migrations/functions"
+  ]
+}

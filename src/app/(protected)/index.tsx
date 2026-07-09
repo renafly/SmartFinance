@@ -298,7 +298,7 @@ export default function DashboardScreen() {
         label: t('dashboard.savingsAccounts'),
         value: savingsAccountTotal,
         color: colors.success,
-        icon: 'wallet-outline',
+        icon: 'file-tray-full-outline',
       },
     ],
     [colors.primary, colors.success, investmentTotal, savingsAccountTotal, t],
@@ -588,7 +588,7 @@ export default function DashboardScreen() {
                   <TableCell flex={2}>
                     <View style={{ gap: spacing(1) }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-                        <Ionicons name="wallet-outline" size={18} color={colors.primary} />
+                        <Ionicons name="file-tray-full-outline" size={18} color={colors.primary} />
                         <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any, fontSize: typography.fontSize[15] }}>
                           {account.name}
                         </Text>
@@ -610,7 +610,7 @@ export default function DashboardScreen() {
             })}
           </Table>
         ) : (
-          <EmptyState title={t('dashboard.noSavingsAccounts')} icon="wallet-outline" />
+          <EmptyState title={t('dashboard.noSavingsAccounts')} icon="file-tray-full-outline" />
         )}
       </Section>
 
@@ -709,6 +709,8 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   heroCard: {
+    width: '100%',
+    alignSelf: 'stretch',
     borderWidth: 1,
     borderRadius: radius.xl,
     gap: spacing(5),
@@ -792,9 +794,13 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight[16],
   },
   personBreakdown: {
+    width: '100%',
+    alignSelf: 'stretch',
     gap: spacing(3),
   },
   personBarCard: {
+    width: '100%',
+    alignSelf: 'stretch',
     borderWidth: 1,
     borderRadius: radius.lg,
     padding: spacing(3),

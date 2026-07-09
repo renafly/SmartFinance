@@ -84,7 +84,7 @@ export default function AccountsScreen() {
       case 'cash':
         return 'cash-outline';
       case 'savings':
-        return 'wallet-outline';
+        return 'file-tray-full-outline';
       case 'credit_card':
         return 'card-outline';
       case 'investment':
@@ -259,6 +259,7 @@ export default function AccountsScreen() {
               { label: t('accounts.currency'), flex: 0.8, align: 'center' },
               { label: t('accounts.initialBalance'), align: 'right' },
               { label: t('dashboard.total'), align: 'right' },
+              { label: '', flex: 0.35, align: 'right' },
             ]}
           >
             {filteredAccounts.map((account: any) => {
@@ -289,15 +290,15 @@ export default function AccountsScreen() {
                     <Text style={styles.accountMeta}>{formatCurrency(account.initial_balance ?? 0)}</Text>
                   </TableCell>
                   <TableCell align="right">
-                    <View style={{ alignItems: 'flex-end', gap: spacing(1) }}>
-                      <Text style={styles.accountTotal}>{formatCurrency(balance)}</Text>
-                      <Pressable
-                        onPress={() => setMenuAccount({ id: account.id, name: account.name })}
-                        style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
-                      >
-                        <Ionicons name="ellipsis-vertical" size={18} color={colors.text} />
-                      </Pressable>
-                    </View>
+                    <Text style={styles.accountTotal}>{formatCurrency(balance)}</Text>
+                  </TableCell>
+                  <TableCell flex={0.35} align="right" mobilePinned>
+                    <Pressable
+                      onPress={() => setMenuAccount({ id: account.id, name: account.name })}
+                      style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
+                    >
+                      <Ionicons name="ellipsis-vertical" size={18} color={colors.text} />
+                    </Pressable>
                   </TableCell>
                 </TableRow>
               );
@@ -521,6 +522,9 @@ function createStyles(colors: any) {
   },
   backdropPressable: StyleSheet.absoluteFill,
   modalCard: {
+    width: '100%',
+    maxWidth: spacing(160),
+    alignSelf: 'center' as const,
     gap: spacing(3.5),
     padding: spacing(4.5),
     borderWidth: 1,
@@ -529,6 +533,9 @@ function createStyles(colors: any) {
     backgroundColor: colors.surface,
   },
   menuCard: {
+    width: '100%',
+    maxWidth: spacing(96),
+    alignSelf: 'center' as const,
     gap: spacing(3),
     padding: spacing(4.5),
     borderWidth: 1,

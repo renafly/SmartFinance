@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Pressable,
   ScrollView,
@@ -25,10 +26,12 @@ type PageProps = {
 
 export function Page({ title, subtitle, children, actions }: PageProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation('common');
   const responsive = useResponsiveMetrics();
 
   return (
     <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
       style={[styles.scrollView, { backgroundColor: colors.background }]}
       contentContainerStyle={[
         styles.page,
@@ -53,7 +56,7 @@ export function Page({ title, subtitle, children, actions }: PageProps) {
           ]}
         >
           <View style={{ flex: 1, gap: spacing(2) }}>
-            <Text style={[styles.kicker, { color: colors.primary }]}>SmartFinance</Text>
+            <Text style={[styles.kicker, { color: colors.primary }]}>{t('drawer.brand')}</Text>
             <Text
               style={[
                 styles.title,
@@ -278,11 +281,15 @@ const styles = StyleSheet.create({
   },
   page: {
     flexGrow: 1,
+    width: '100%',
   },
   pageInner: {
     flex: 1,
+    width: '100%',
+    alignSelf: 'stretch',
   },
   header: {
+    width: '100%',
     borderWidth: 1,
     borderRadius: radius.xl,
     alignItems: 'flex-start',
@@ -296,6 +303,8 @@ const styles = StyleSheet.create({
   },
   pageBody: {
     flex: 1,
+    width: '100%',
+    alignSelf: 'stretch',
   },
   kicker: {
     textTransform: 'uppercase',
@@ -313,10 +322,14 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight[20],
   },
   card: {
+    width: '100%',
+    alignSelf: 'stretch',
     borderRadius: radius.lg,
     borderWidth: 1,
   },
   section: {
+    width: '100%',
+    alignSelf: 'stretch',
   },
   sectionHeader: {
     flexDirection: 'row',

@@ -445,6 +445,7 @@ export default function RecurringScreen() {
               { label: t('recurring.account'), flex: 1 },
               { label: t('recurring.createdBy'), flex: 1.2 },
               { label: t('recurring.amount'), align: 'right' },
+              { label: '', flex: 0.35, align: 'right' },
             ]}
           >
             {(recurringQuery.data ?? []).map((item: any) => (
@@ -497,15 +498,15 @@ export default function RecurringScreen() {
                   </Text>
                 </TableCell>
                 <TableCell align="right">
-                  <View style={{ alignItems: 'flex-end', gap: spacing(1) }}>
-                    <Text style={{ color: colors.primary, fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(item.amount)}</Text>
-                    <Pressable
-                      onPress={() => setMenuRecurring(item)}
-                      style={({ pressed }) => [styles.menuButton, pressed && styles.pressed] as any}
-                    >
-                      <Text style={styles.menuButtonText}>⋮</Text>
-                    </Pressable>
-                  </View>
+                  <Text style={{ color: colors.primary, fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(item.amount)}</Text>
+                </TableCell>
+                <TableCell flex={0.35} align="right" mobilePinned>
+                  <Pressable
+                    onPress={() => setMenuRecurring(item)}
+                    style={({ pressed }) => [styles.menuButton, pressed && styles.pressed] as any}
+                  >
+                    <Text style={styles.menuButtonText}>...</Text>
+                  </Pressable>
                 </TableCell>
               </TableRow>
             ))}
@@ -698,6 +699,9 @@ function createStyles(colors: any) {
     backgroundColor: 'rgba(2, 6, 23, 0.82)',
   },
   modalCard: {
+    width: '100%',
+    maxWidth: spacing(160),
+    alignSelf: 'center',
     gap: spacing(3.5),
     padding: spacing(4.5),
     borderWidth: 1,
@@ -706,6 +710,9 @@ function createStyles(colors: any) {
     backgroundColor: colors.surface,
   },
   menuCard: {
+    width: '100%',
+    maxWidth: spacing(96),
+    alignSelf: 'center',
     gap: spacing(3),
     padding: spacing(4.5),
     borderWidth: 1,

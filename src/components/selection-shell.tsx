@@ -107,6 +107,9 @@ export function SelectionShell({
               padding: responsive.isPhone ? spacing(3.5) : spacing(4.5),
               borderRadius: responsive.isPhone ? radius.lg : radius.xl,
               maxHeight: responsive.isPhone ? '86%' : '90%',
+              width: '100%',
+              maxWidth: responsive.isPhone ? undefined : spacing(160),
+              alignSelf: 'center',
             },
           ]}
         >

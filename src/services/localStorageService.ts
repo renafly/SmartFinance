@@ -1,9 +1,9 @@
-import { MMKV } from 'react-native-mmkv';
+import { createMMKV } from 'react-native-mmkv';
 
 // Single shared instance. If per-user encrypted storage is needed later,
 // construct a second MMKV instance with an `id`/`encryptionKey` rather
 // than repurposing this default one.
-export const storage = new MMKV();
+export const storage = createMMKV();
 
 export const StorageService = {
   getString(key: string): string | undefined {
@@ -25,7 +25,7 @@ export const StorageService = {
     storage.set(key, JSON.stringify(value));
   },
   delete(key: string): void {
-    storage.delete(key);
+    storage.remove(key);
   },
   clearAll(): void {
     storage.clearAll();
