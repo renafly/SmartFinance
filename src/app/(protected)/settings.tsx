@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Alert, Platform, Text, View } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { useTranslation } from 'react-i18next';
 import { typography } from '@/theme/typography';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -7,7 +8,7 @@ import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 
 import { Page, Card, Section, Field, Button } from '@/components/migrated-page';
-import { DropdownMenu, SelectionTrigger } from '@/components/selection-shell';
+import { DropdownMenu, SelectionShell, SelectionTrigger } from '@/components/selection-shell';
 import { useAuth } from '../../providers/AuthProvider';
 import { usePreferencesStore, type AppCurrency } from '@/stores/preferencesStore';
 import {
@@ -21,6 +22,14 @@ import type { AppLanguage } from '@/shared/i18n/languages';
 import { useUpdatePreferredCurrency } from '@/features/profiles/hooks';
 import type { ThemeMode } from '@/stores/themeStore';
 import { useThemeStore } from '@/stores/themeStore';
+import {
+  householdBackupService,
+  type HouseholdBackupFile,
+} from '@/features/household-backup/services/household-backup.service';
+import {
+  useExportHouseholdBackup,
+  useImportHouseholdBackup,
+} from '@/features/household-backup/hooks';
 
 const languageOptions: { value: AppLanguage; labelKey: string }[] = [
   { value: 'en', labelKey: 'settings.languageEnglish' },
@@ -56,9 +65,12 @@ export default function SettingsScreen() {
   const updateHousehold = useUpdateHousehold();
   const deleteHousehold = useDeleteHousehold();
   const updatePreferredCurrency = useUpdatePreferredCurrency();
+  const exportHouseholdBackup = useExportHouseholdBackup();
+  const importHouseholdBackup = useImportHouseholdBackup();
   const [householdName, setHouseholdName] = useState('');
   const [draftNames, setDraftNames] = useState<Record<string, string>>({});
   const [activeMenu, setActiveMenu] = useState<'language' | 'currency' | 'theme' | null>(null);
+  const [pendingBackup, setPendingBackup] = useState<HouseholdBackupFile | null>(null);
 
   const households = householdsQuery.data ?? [];
   const currentHousehold = households.find((item: any) => item.id === householdId) ?? null;
@@ -121,6 +133,81 @@ export default function SettingsScreen() {
       profileId: profile.id,
       currency: nextCurrency,
     });
+  }
+
+  function downloadBackupFile(backup: HouseholdBackupFile) {
+    if (Platform.OS !== 'web' || typeof window === 'undefined' || typeof document === 'undefined') {
+      Alert.alert(t('settings.backupExportUnavailableTitle'), t('settings.backupExportUnavailableMessage'));
+      return;
+    }
+
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+      type: 'application/json',
+    });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = householdBackupService.getExportFileName(backup);
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+  }
+
+  async function handleExportBackup() {
+    if (!householdId) return;
+
+    try {
+      const backup = await exportHouseholdBackup.mutateAsync(householdId);
+      downloadBackupFile(backup);
+    } catch (error) {
+      Alert.alert(t('settings.backupErrorTitle'), error instanceof Error ? error.message : t('settings.backupUnknownError'));
+    }
+  }
+
+  async function readBackupAsset(asset: DocumentPicker.DocumentPickerAsset) {
+    if (asset.file && typeof asset.file.text === 'function') {
+      return asset.file.text();
+    }
+
+    const response = await fetch(asset.uri);
+    return response.text();
+  }
+
+  async function handlePickBackup() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/json', 'text/json', 'text/plain'],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const text = await readBackupAsset(result.assets[0]);
+      const backup = householdBackupService.parseBackup(JSON.parse(text));
+      setPendingBackup(backup);
+    } catch (error) {
+      Alert.alert(t('settings.backupInvalidTitle'), error instanceof Error ? error.message : t('settings.backupInvalidMessage'));
+    }
+  }
+
+  async function handleConfirmImport() {
+    if (!pendingBackup) return;
+
+    try {
+      const summary = await importHouseholdBackup.mutateAsync(pendingBackup);
+      setPendingBackup(null);
+      Alert.alert(
+        t('settings.backupImportCompleteTitle'),
+        t('settings.backupImportCompleteMessage', {
+          householdName: summary.householdName,
+          transactions: summary.transactions,
+        }),
+      );
+    } catch (error) {
+      Alert.alert(t('settings.backupErrorTitle'), error instanceof Error ? error.message : t('settings.backupUnknownError'));
+    }
   }
 
   async function handleSaveHousehold(item: { id: string; name: string }) {
@@ -217,6 +304,29 @@ export default function SettingsScreen() {
             iconName="color-palette-outline"
             onPress={() => setActiveMenu('theme')}
           />
+        </Section>
+      </Card>
+
+      <Card>
+        <Section title={t('settings.backupTitle')} subtitle={t('settings.backupSubtitle')}>
+          <View style={{ gap: spacing(3) }}>
+            <Text style={{ color: colors.textSecondary, lineHeight: typography.lineHeight[18] } as any}>
+              {t('settings.backupDescription')}
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2.5) }}>
+              <Button
+                label={exportHouseholdBackup.isPending ? t('settings.backupExporting') : t('settings.backupExport')}
+                onPress={() => void handleExportBackup()}
+                disabled={!householdId || exportHouseholdBackup.isPending}
+              />
+              <Button
+                label={t('settings.backupImport')}
+                onPress={() => void handlePickBackup()}
+                variant="secondary"
+                disabled={importHouseholdBackup.isPending}
+              />
+            </View>
+          </View>
         </Section>
       </Card>
 
@@ -323,6 +433,48 @@ export default function SettingsScreen() {
         onClose={() => setActiveMenu(null)}
         items={themeMenuItems}
       />
+
+      <SelectionShell
+        visible={pendingBackup !== null}
+        title={t('settings.backupConfirmTitle')}
+        subtitle={pendingBackup ? t('settings.backupConfirmSubtitle', { householdName: pendingBackup.household.name }) : undefined}
+        closeLabel={t('cancel')}
+        onClose={() => setPendingBackup(null)}
+      >
+        {pendingBackup ? (
+          <View style={{ gap: spacing(3) }}>
+            {Object.entries(householdBackupService.getBackupCounts(pendingBackup)).map(([key, value]) => (
+              <View
+                key={key}
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  gap: spacing(3),
+                  borderBottomWidth: 1,
+                  borderColor: colors.border,
+                  paddingBottom: spacing(2),
+                }}
+              >
+                <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold as any }}>
+                  {t(`settings.backupCounts.${key}`)}
+                </Text>
+                <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold as any }}>{value}</Text>
+              </View>
+            ))}
+            <Text style={{ color: colors.textSecondary, lineHeight: typography.lineHeight[18] } as any}>
+              {t('settings.backupConfirmNote')}
+            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', flexWrap: 'wrap', gap: spacing(2.5) }}>
+              <Button label={t('cancel')} variant="secondary" onPress={() => setPendingBackup(null)} />
+              <Button
+                label={importHouseholdBackup.isPending ? t('settings.backupImporting') : t('settings.backupConfirmImport')}
+                onPress={() => void handleConfirmImport()}
+                disabled={importHouseholdBackup.isPending}
+              />
+            </View>
+          </View>
+        ) : null}
+      </SelectionShell>
 
     </Page>
   );

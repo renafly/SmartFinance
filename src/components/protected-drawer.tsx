@@ -1,7 +1,7 @@
 import type { DrawerContentComponentProps } from 'expo-router/drawer';
 import { Drawer } from 'expo-router/drawer';
 import { router, usePathname } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/providers/AuthProvider';
@@ -17,7 +17,7 @@ const menuIconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
   transactions: 'receipt-outline',
   transfers: 'swap-horizontal-outline',
   monthlyBudget: 'calculator-outline',
-  savings: 'save-outline',
+  savings: 'file-tray-full-outline',
   recurring: 'repeat-outline',
   categories: 'pricetag-outline',
   members: 'people-outline',
@@ -131,17 +131,24 @@ function DrawerContent(props: DrawerContentComponentProps) {
 
   if (Platform.OS === 'web') {
     return (
-      <View
+      <ScrollView
         style={[
           styles.webShell,
           {
             backgroundColor: colors.background,
+          },
+        ]}
+        contentContainerStyle={[
+          styles.drawerScrollContent,
+          {
             paddingHorizontal: responsive.isPhone ? spacing(3) : spacing(4.5),
             paddingTop: responsive.isPhone ? spacing(3) : spacing(4.5),
             paddingBottom: responsive.isPhone ? spacing(3) : spacing(4.5),
             gap: responsive.isPhone ? spacing(3) : spacing(4),
           },
         ]}
+        showsVerticalScrollIndicator
+        keyboardShouldPersistTaps="handled"
       >
         <View
           style={[
@@ -199,12 +206,17 @@ function DrawerContent(props: DrawerContentComponentProps) {
             <Text style={[styles.logoutLabel, { color: colors.background }]}>{t('logout')}</Text>
           </Pressable>
         </View>
-      </View>
+      </ScrollView>
     );
   }
 
   return (
-      <View style={[styles.drawerContent, { backgroundColor: colors.background }]}>
+    <ScrollView
+      style={[styles.drawerContent, { backgroundColor: colors.background }]}
+      contentContainerStyle={[styles.drawerScrollContent, styles.nativeDrawerScrollContent]}
+      showsVerticalScrollIndicator
+      keyboardShouldPersistTaps="handled"
+    >
         <View style={[styles.brand, { backgroundColor: colors.muted, borderColor: colors.border }]}>
         <Text style={[styles.brandTitle, { color: colors.foreground }]}>{t('drawer.brand')}</Text>
         <Text style={[styles.brandSubtitle, { color: colors.foreground, opacity: 0.72 }]}>{t('drawer.subtitle')}</Text>
@@ -238,7 +250,7 @@ function DrawerContent(props: DrawerContentComponentProps) {
           <Text style={[styles.logoutLabel, { color: colors.background }]}>{t('logout')}</Text>
         </Pressable>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -248,11 +260,18 @@ const styles: any = StyleSheet.create({
   webShell: {
     flex: 1,
   },
+  drawerScrollContent: {
+    flexGrow: 1,
+  },
   scene: {
   },
   drawerContent: {
+    flex: 1,
+  },
+  nativeDrawerScrollContent: {
     paddingHorizontal: spacing(4),
     paddingTop: spacing(6),
+    paddingBottom: spacing(4),
     gap: spacing(5),
   },
   brand: {

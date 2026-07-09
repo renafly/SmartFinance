@@ -445,6 +445,7 @@ export default function RecurringScreen() {
               { label: t('recurring.account'), flex: 1 },
               { label: t('recurring.createdBy'), flex: 1.2 },
               { label: t('recurring.amount'), align: 'right' },
+              { label: '', flex: 0.35, align: 'right' },
             ]}
           >
             {(recurringQuery.data ?? []).map((item: any) => (
@@ -497,15 +498,15 @@ export default function RecurringScreen() {
                   </Text>
                 </TableCell>
                 <TableCell align="right">
-                  <View style={{ alignItems: 'flex-end', gap: spacing(1) }}>
-                    <Text style={{ color: colors.primary, fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(item.amount)}</Text>
-                    <Pressable
-                      onPress={() => setMenuRecurring(item)}
-                      style={({ pressed }) => [styles.menuButton, pressed && styles.pressed] as any}
-                    >
-                      <Text style={styles.menuButtonText}>⋮</Text>
-                    </Pressable>
-                  </View>
+                  <Text style={{ color: colors.primary, fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(item.amount)}</Text>
+                </TableCell>
+                <TableCell flex={0.35} align="right" mobilePinned>
+                  <Pressable
+                    onPress={() => setMenuRecurring(item)}
+                    style={({ pressed }) => [styles.menuButton, pressed && styles.pressed] as any}
+                  >
+                    <Text style={styles.menuButtonText}>...</Text>
+                  </Pressable>
                 </TableCell>
               </TableRow>
             ))}

@@ -278,11 +278,15 @@ const styles = StyleSheet.create({
   },
   page: {
     flexGrow: 1,
+    width: '100%',
   },
   pageInner: {
     flex: 1,
+    width: '100%',
+    alignSelf: 'stretch',
   },
   header: {
+    width: '100%',
     borderWidth: 1,
     borderRadius: radius.xl,
     alignItems: 'flex-start',
@@ -296,6 +300,8 @@ const styles = StyleSheet.create({
   },
   pageBody: {
     flex: 1,
+    width: '100%',
+    alignSelf: 'stretch',
   },
   kicker: {
     textTransform: 'uppercase',
@@ -313,10 +319,14 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight[20],
   },
   card: {
+    width: '100%',
+    alignSelf: 'stretch',
     borderRadius: radius.lg,
     borderWidth: 1,
   },
   section: {
+    width: '100%',
+    alignSelf: 'stretch',
   },
   sectionHeader: {
     flexDirection: 'row',
