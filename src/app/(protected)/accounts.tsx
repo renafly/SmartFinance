@@ -522,6 +522,9 @@ function createStyles(colors: any) {
   },
   backdropPressable: StyleSheet.absoluteFill,
   modalCard: {
+    width: '100%',
+    maxWidth: spacing(160),
+    alignSelf: 'center' as const,
     gap: spacing(3.5),
     padding: spacing(4.5),
     borderWidth: 1,
@@ -530,6 +533,9 @@ function createStyles(colors: any) {
     backgroundColor: colors.surface,
   },
   menuCard: {
+    width: '100%',
+    maxWidth: spacing(96),
+    alignSelf: 'center' as const,
     gap: spacing(3),
     padding: spacing(4.5),
     borderWidth: 1,

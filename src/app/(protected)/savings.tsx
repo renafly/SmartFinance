@@ -801,6 +801,8 @@ function createStyles(colors: any) {
     },
     menuCard: {
       width: "100%",
+      maxWidth: spacing(96),
+      alignSelf: "center",
       borderRadius: radius.xl,
       borderWidth: 1,
       borderColor: colors.border,
@@ -885,6 +887,9 @@ function createStyles(colors: any) {
       padding: spacing(5),
     },
     modalCard: {
+      width: "100%",
+      maxWidth: spacing(160),
+      alignSelf: "center",
       maxHeight: "90%",
       borderRadius: radius.xl,
       borderWidth: 1,
@@ -908,7 +913,7 @@ function createStyles(colors: any) {
       paddingVertical: spacing(3),
     },
     modalList: {
-      maxHeight: 420,
+      maxHeight: spacing(105),
     },
     group: {
       gap: spacing(2.5),
