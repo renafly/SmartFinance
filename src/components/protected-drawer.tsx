@@ -21,6 +21,7 @@ const menuIconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
   recurring: 'repeat-outline',
   categories: 'pricetag-outline',
   members: 'people-outline',
+  diagnostics: 'pulse-outline',
   settings: 'settings-outline',
 };
 
@@ -63,6 +64,7 @@ export function ProtectedDrawerLayout() {
       <Drawer.Screen name="recurring" options={{ title: t('drawer.recurring') }} />
       <Drawer.Screen name="categories" options={{ title: t('drawer.categories') }} />
       <Drawer.Screen name="members" options={{ title: t('drawer.members') }} />
+      <Drawer.Screen name="diagnostics" options={{ title: t('drawer.diagnostics') }} />
       <Drawer.Screen name="settings" options={{ title: t('drawer.settings') }} />
     </Drawer>
   );
@@ -91,6 +93,7 @@ function DrawerContent(props: DrawerContentComponentProps) {
     { key: 'recurring', label: t('drawer.recurring'), href: '/(protected)/recurring' },
     { key: 'categories', label: t('drawer.categories'), href: '/(protected)/categories' },
     { key: 'members', label: t('drawer.members'), href: '/(protected)/members' },
+    { key: 'diagnostics', label: t('drawer.diagnostics'), href: '/(protected)/diagnostics' },
     { key: 'settings', label: t('drawer.settings'), href: '/(protected)/settings' },
   ];
 
@@ -124,6 +127,7 @@ function DrawerContent(props: DrawerContentComponentProps) {
       items: [
         { key: 'categories', label: t('drawer.categories'), href: '/(protected)/categories' },
         { key: 'members', label: t('drawer.members'), href: '/(protected)/members' },
+        { key: 'diagnostics', label: t('drawer.diagnostics'), href: '/(protected)/diagnostics' },
         { key: 'settings', label: t('drawer.settings'), href: '/(protected)/settings' },
       ],
     },

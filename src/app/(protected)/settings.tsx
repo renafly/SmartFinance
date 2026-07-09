@@ -195,6 +195,11 @@ export default function SettingsScreen() {
   async function handleConfirmImport() {
     if (!pendingBackup) return;
 
+    if (!profile?.id) {
+      Alert.alert(t('settings.backupErrorTitle'), t('settings.backupSignInRequired'));
+      return;
+    }
+
     try {
       const summary = await importHouseholdBackup.mutateAsync(pendingBackup);
       setPendingBackup(null);
@@ -320,7 +325,7 @@ export default function SettingsScreen() {
                 disabled={!householdId || exportHouseholdBackup.isPending}
               />
               <Button
-                label={t('settings.backupImport')}
+                label={importHouseholdBackup.isPending ? t('settings.backupImporting') : t('settings.backupImport')}
                 onPress={() => void handlePickBackup()}
                 variant="secondary"
                 disabled={importHouseholdBackup.isPending}

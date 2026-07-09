@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
@@ -10,6 +11,7 @@ import { useAccounts } from '../../features/accounts/hooks';
 import { useCreateTransfer } from '../../features/transfers/hooks';
 
 export default function TransfersScreen() {
+  const { t } = useTranslation('common');
   const { colors } = useTheme();
   const { householdId, profile } = useAuth();
   const accountsQuery = useAccounts();
@@ -19,7 +21,7 @@ export default function TransfersScreen() {
   const [fromAccountId, setFromAccountId] = useState('');
   const [toAccountId, setToAccountId] = useState('');
   const [amount, setAmount] = useState('');
-  const [title, setTitle] = useState('Transfer');
+  const [title, setTitle] = useState(() => t('transfers.defaultTitle'));
   const [notes, setNotes] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const parsedAmount = Number(amount);
@@ -54,32 +56,32 @@ export default function TransfersScreen() {
   }
 
   return (
-    <Page title="Transfers" subtitle="Move money between accounts using the transfer RPC.">
+    <Page title={t('transfers.title')} subtitle={t('transfers.subtitle')}>
       <Card>
-        <Section title="Create transfer">
-          <Field label="Title" value={title} onChangeText={setTitle} />
-          <Field label="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" />
-          <Field label="Date" value={date} onChangeText={setDate} />
-          <Field label="Notes" value={notes} onChangeText={setNotes} />
-          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>From</Text>
+        <Section title={t('transfers.createTitle')}>
+          <Field label={t('transfers.formTitle')} value={title} onChangeText={setTitle} />
+          <Field label={t('transfers.formAmount')} value={amount} onChangeText={setAmount} keyboardType="numeric" />
+          <Field label={t('transfers.formDate')} value={date} onChangeText={setDate} />
+          <Field label={t('transfers.formNotes')} value={notes} onChangeText={setNotes} />
+          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('transfers.fromAccount')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
             {accounts.map((account: any) => (
               <Pill key={account.id} label={`${account.name} (${formatCurrency(account.current_balance ?? account.balance ?? 0)})`} active={fromAccountId === account.id} onPress={() => setFromAccountId(account.id)} />
             ))}
           </View>
-          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>To</Text>
+          <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }}>{t('transfers.toAccount')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
             {accounts.map((account: any) => (
               <Pill key={account.id} label={account.name} active={toAccountId === account.id} onPress={() => setToAccountId(account.id)} />
             ))}
           </View>
-          <Button label={createTransfer.isPending ? 'Transferring...' : 'Create transfer'} onPress={() => void handleCreate()} disabled={!canCreateTransfer} />
+          <Button label={createTransfer.isPending ? t('transfers.formCreating') : t('transfers.formCreate')} onPress={() => void handleCreate()} disabled={!canCreateTransfer} />
         </Section>
       </Card>
 
-      <Section title="How it works" subtitle="Transfers create two linked transaction rows through the transfer RPC.">
+      <Section title={t('transfers.howItWorksTitle')} subtitle={t('transfers.howItWorksSubtitle')}>
         <Card>
-          <Text style={{ color: colors.textSecondary }}>The source account is debited as an expense and the destination account is credited as income, keeping balances consistent.</Text>
+          <Text style={{ color: colors.textSecondary }}>{t('transfers.howItWorksBody')}</Text>
         </Card>
       </Section>
     </Page>

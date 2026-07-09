@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Pressable,
   ScrollView,
@@ -25,10 +26,12 @@ type PageProps = {
 
 export function Page({ title, subtitle, children, actions }: PageProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation('common');
   const responsive = useResponsiveMetrics();
 
   return (
     <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
       style={[styles.scrollView, { backgroundColor: colors.background }]}
       contentContainerStyle={[
         styles.page,
@@ -53,7 +56,7 @@ export function Page({ title, subtitle, children, actions }: PageProps) {
           ]}
         >
           <View style={{ flex: 1, gap: spacing(2) }}>
-            <Text style={[styles.kicker, { color: colors.primary }]}>SmartFinance</Text>
+            <Text style={[styles.kicker, { color: colors.primary }]}>{t('drawer.brand')}</Text>
             <Text
               style={[
                 styles.title,

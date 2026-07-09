@@ -7,6 +7,7 @@
     "monthlyBudget": "Orcamento Mensal",
     "categories": "Categorias",
     "members": "Membros",
+    "diagnostics": "Diagnostico",
     "settings": "Definicoes",
     "budgets": "Orcamentos",
     "recurring": "Recorrentes",
@@ -21,6 +22,66 @@
     "administration": "Administracao",
     "administrationDescription": "Gira a estrutura do agregado."
   },
+
+  "tabs": {
+    "home": "Inicio",
+    "explore": "Explorar",
+    "docs": "Docs"
+  },
+
+  "diagnostics": {
+    "title": "Diagnostico de release",
+    "subtitle": "Verifique a configuracao de producao antes de publicar ou partilhar links.",
+    "configurationTitle": "Prontidao de producao",
+    "configurationSubtitle": "Estes checks cobrem Supabase, origens OAuth, storage e a funcao de convites.",
+    "supabaseUrl": "URL do Supabase",
+    "supabaseUrlDescription": "Obrigatorio para auth, base de dados, storage e Edge Functions.",
+    "supabaseKey": "Chave publica do Supabase",
+    "supabaseKeyDescription": "Chave segura para cliente usada no bundle Expo.",
+    "inviteWebUrl": "URL web dos convites",
+    "inviteWebUrlDescription": "URL base usada ao criar links de convite.",
+    "oauthOrigin": "Origem OAuth",
+    "oauthOriginDescription": "Adicione esta origem no Google OAuth para login web e testes em preview.",
+    "storageBucket": "Bucket de storage",
+    "storageBucketDescription": "Verifica se o bucket {{bucket}} e acessivel pela sessao atual.",
+    "inviteFunction": "Funcao de email de convite",
+    "inviteFunctionDescription": "Verifica se {{functionName}} responde a um pedido preflight seguro.",
+    "runChecks": "Executar checks",
+    "checking": "A verificar...",
+    "configured": "Configurado",
+    "notChecked": "Ainda nao verificado",
+    "notAvailable": "Indisponivel",
+    "nativeRuntime": "Runtime nativo",
+    "reachable": "Acessivel",
+    "missingSupabaseUrl": "URL do Supabase em falta",
+    "httpStatus": "HTTP {{status}}",
+    "unknownError": "Erro desconhecido",
+    "status": {
+      "ready": "Pronto",
+      "warning": "Aviso",
+      "error": "Erro",
+      "checking": "A verificar"
+    }
+  },
+
+  "ok": "OK",
+  "cancel": "Cancelar",
+  "delete": "Eliminar",
+  "clear": "Limpar",
+  "done": "Concluir",
+  "none": "Nenhum",
+  "creating": "A criar...",
+  "saving": "A guardar...",
+  "deleting": "A eliminar...",
+  "setting": "A definir...",
+  "continue": "Continuar",
+  "logout": "Terminar sessao",
+  "rename": "Renomear",
+  "remove": "Remover",
+  "sending": "A enviar...",
+  "weekly": "Semanal",
+  "monthly": "Mensal",
+  "yearly": "Anual",
 
   "budget": {
     "title": "Orcamento Mensal",
@@ -221,6 +282,7 @@
     "backupInvalidMessage": "Escolha um ficheiro JSON valido de backup do SmartFinance.",
     "backupErrorTitle": "Erro no backup",
     "backupUnknownError": "Algo correu mal ao processar o backup.",
+    "backupSignInRequired": "Tem de iniciar sessao para importar um backup do agregado.",
     "backupImportCompleteTitle": "Agregado importado",
     "backupImportCompleteMessage": "{{householdName}} e agora o agregado atual. Foram importadas {{transactions}} transacao(oes).",
     "backupCounts": {
@@ -611,6 +673,8 @@
   "transfers": {
     "title": "Transferencias",
     "subtitle": "Mover dinheiro entre contas",
+    "createTitle": "Criar transferencia",
+    "defaultTitle": "Transferencia",
     "fromAccount": "Conta de origem",
     "toAccount": "Conta de destino",
     "formTitle": "Titulo",
@@ -620,7 +684,10 @@
     "formCategoryNone": "Sem categoria",
     "formNotes": "Notas",
     "formCreate": "Criar Transferencia",
-    "formCreating": "A criar..."
+    "formCreating": "A criar...",
+    "howItWorksTitle": "Como funciona",
+    "howItWorksSubtitle": "As transferencias criam duas linhas de transacao ligadas atraves da RPC de transferencias.",
+    "howItWorksBody": "A conta de origem e debitada como despesa e a conta de destino e creditada como receita, mantendo os saldos consistentes."
   },
 
   "members": {

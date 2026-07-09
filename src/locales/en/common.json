@@ -7,6 +7,7 @@
     "monthlyBudget": "Monthly Budget",
     "categories": "Categories",
     "members": "Members",
+    "diagnostics": "Diagnostics",
     "settings": "Settings",
     "budgets": "Budgets",
     "recurring": "Recurring",
@@ -21,6 +22,66 @@
     "administration": "Administration",
     "administrationDescription": "Manage how the household is structured."
   },
+
+  "tabs": {
+    "home": "Home",
+    "explore": "Explore",
+    "docs": "Docs"
+  },
+
+  "diagnostics": {
+    "title": "Release diagnostics",
+    "subtitle": "Check the production wiring before deploying or sharing links.",
+    "configurationTitle": "Production readiness",
+    "configurationSubtitle": "These checks cover Supabase env, OAuth origins, storage, and invite email reachability.",
+    "supabaseUrl": "Supabase URL",
+    "supabaseUrlDescription": "Required for auth, database, storage, and Edge Functions.",
+    "supabaseKey": "Supabase publishable key",
+    "supabaseKeyDescription": "Client-safe key used by the Expo bundle.",
+    "inviteWebUrl": "Invite web URL",
+    "inviteWebUrlDescription": "Base URL used when creating invitation links.",
+    "oauthOrigin": "OAuth origin",
+    "oauthOriginDescription": "Add this origin in Google OAuth for web login and preview testing.",
+    "storageBucket": "Storage bucket",
+    "storageBucketDescription": "Checks whether the {{bucket}} bucket can be reached by the current session.",
+    "inviteFunction": "Invite email function",
+    "inviteFunctionDescription": "Checks whether {{functionName}} responds to a safe preflight request.",
+    "runChecks": "Run live checks",
+    "checking": "Checking...",
+    "configured": "Configured",
+    "notChecked": "Not checked yet",
+    "notAvailable": "Not available",
+    "nativeRuntime": "Native runtime",
+    "reachable": "Reachable",
+    "missingSupabaseUrl": "Missing Supabase URL",
+    "httpStatus": "HTTP {{status}}",
+    "unknownError": "Unknown error",
+    "status": {
+      "ready": "Ready",
+      "warning": "Warning",
+      "error": "Error",
+      "checking": "Checking"
+    }
+  },
+
+  "ok": "OK",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "clear": "Clear",
+  "done": "Done",
+  "none": "None",
+  "creating": "Creating...",
+  "saving": "Saving...",
+  "deleting": "Deleting...",
+  "setting": "Setting...",
+  "continue": "Continue",
+  "logout": "Logout",
+  "rename": "Rename",
+  "remove": "Remove",
+  "sending": "Sending...",
+  "weekly": "Weekly",
+  "monthly": "Monthly",
+  "yearly": "Yearly",
 
   "budget": {
     "title": "Monthly Budget",
@@ -221,6 +282,7 @@
     "backupInvalidMessage": "Choose a valid SmartFinance household backup JSON file.",
     "backupErrorTitle": "Backup error",
     "backupUnknownError": "Something went wrong while processing the backup.",
+    "backupSignInRequired": "You must be signed in to import a household backup.",
     "backupImportCompleteTitle": "Household imported",
     "backupImportCompleteMessage": "{{householdName}} is now your current household. Imported {{transactions}} transaction(s).",
     "backupCounts": {
@@ -614,6 +676,8 @@
   "transfers": {
     "title": "Transfers",
     "subtitle": "Move money between accounts",
+    "createTitle": "Create transfer",
+    "defaultTitle": "Transfer",
     "fromAccount": "From account",
     "toAccount": "To account",
     "formCategory": "Transfer Category",
@@ -623,7 +687,10 @@
     "formDate": "Date",
     "formNotes": "Notes",
     "formCreate": "Create Transfer",
-    "formCreating": "Creating..."
+    "formCreating": "Creating...",
+    "howItWorksTitle": "How it works",
+    "howItWorksSubtitle": "Transfers create two linked transaction rows through the transfer RPC.",
+    "howItWorksBody": "The source account is debited as an expense and the destination account is credited as income, keeping balances consistent."
   },
 
   "members": {
