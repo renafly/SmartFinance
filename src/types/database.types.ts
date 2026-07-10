@@ -87,6 +87,12 @@ export type Database = {
         };
         Relationships: [];
       };
+      app_notifications: {
+        Row: { id: string; household_id: string | null; recipient_id: string; type: string; title: string; body: string; data: Json; source_key: string | null; read_at: string | null; created_at: string };
+        Insert: { id?: string; household_id?: string | null; recipient_id: string; type: string; title: string; body: string; data?: Json; source_key?: string | null; read_at?: string | null; created_at?: string };
+        Update: { id?: string; household_id?: string | null; recipient_id?: string; type?: string; title?: string; body?: string; data?: Json; source_key?: string | null; read_at?: string | null; created_at?: string };
+        Relationships: [];
+      };
       categories: {
         Row: {
           id: string;
@@ -459,6 +465,12 @@ export type Database = {
         };
         Relationships: [];
       };
+      push_devices: {
+        Row: { id: string; user_id: string; expo_push_token: string; platform: "android" | "ios"; updated_at: string; created_at: string };
+        Insert: { id?: string; user_id: string; expo_push_token: string; platform: "android" | "ios"; updated_at?: string; created_at?: string };
+        Update: { id?: string; user_id?: string; expo_push_token?: string; platform?: "android" | "ios"; updated_at?: string; created_at?: string };
+        Relationships: [];
+      };
       recurring_transactions: {
         Row: {
           id: string;
@@ -466,6 +478,9 @@ export type Database = {
           account_id: string;
           category_id: string | null;
           pot_id: string | null;
+          rule_kind: Database["public"]["Enums"]["recurring_rule_kind"];
+          destination_account_id: string | null;
+          destination_pot_id: string | null;
           title: string;
           notes: string | null;
           amount: number;
@@ -485,6 +500,9 @@ export type Database = {
           account_id: string;
           category_id?: string | null;
           pot_id?: string | null;
+          rule_kind?: Database["public"]["Enums"]["recurring_rule_kind"];
+          destination_account_id?: string | null;
+          destination_pot_id?: string | null;
           title: string;
           notes?: string | null;
           amount: number;
@@ -504,6 +522,9 @@ export type Database = {
           account_id?: string;
           category_id?: string | null;
           pot_id?: string | null;
+          rule_kind?: Database["public"]["Enums"]["recurring_rule_kind"];
+          destination_account_id?: string | null;
+          destination_pot_id?: string | null;
           title?: string;
           notes?: string | null;
           amount?: number;
@@ -514,6 +535,57 @@ export type Database = {
           last_run?: string | null;
           is_active?: boolean;
           created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      recurring_run_executions: {
+        Row: {
+          id: string;
+          household_id: string;
+          recurring_transaction_id: string;
+          scheduled_for: string;
+          status: Database["public"]["Enums"]["recurring_execution_status"];
+          skip_reason: string | null;
+          error_message: string | null;
+          transaction_ids: string[];
+          started_at: string;
+          finished_at: string | null;
+          attempted_at: string | null;
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          recurring_transaction_id: string;
+          scheduled_for: string;
+          status?: Database["public"]["Enums"]["recurring_execution_status"];
+          skip_reason?: string | null;
+          error_message?: string | null;
+          transaction_ids?: string[];
+          started_at?: string;
+          finished_at?: string | null;
+          attempted_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          household_id?: string;
+          recurring_transaction_id?: string;
+          scheduled_for?: string;
+          status?: Database["public"]["Enums"]["recurring_execution_status"];
+          skip_reason?: string | null;
+          error_message?: string | null;
+          transaction_ids?: string[];
+          started_at?: string;
+          finished_at?: string | null;
+          attempted_at?: string | null;
+          completed_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -583,6 +655,7 @@ export type Database = {
           transfer_group_id: string | null;
           monthly_budget_run_id: string | null;
           generated_by_rule_id: string | null;
+          recurring_execution_id: string | null;
           budget_section: Database["public"]["Enums"]["monthly_budget_section"] | null;
           title: string;
           notes: string | null;
@@ -602,6 +675,7 @@ export type Database = {
           transfer_group_id?: string | null;
           monthly_budget_run_id?: string | null;
           generated_by_rule_id?: string | null;
+          recurring_execution_id?: string | null;
           budget_section?: Database["public"]["Enums"]["monthly_budget_section"] | null;
           title: string;
           notes?: string | null;
@@ -621,6 +695,7 @@ export type Database = {
           transfer_group_id?: string | null;
           monthly_budget_run_id?: string | null;
           generated_by_rule_id?: string | null;
+          recurring_execution_id?: string | null;
           budget_section?: Database["public"]["Enums"]["monthly_budget_section"] | null;
           title?: string;
           notes?: string | null;
@@ -798,6 +873,8 @@ export type Database = {
       monthly_budget_section: "income" | "savings" | "pots" | "investments" | "ppr" | "remaining_cash";
       remaining_cash_strategy: "keep" | "fixed";
       recurring_frequency: "daily" | "weekly" | "monthly" | "yearly" | "custom";
+      recurring_execution_status: "pending" | "completed" | "skipped" | "failed";
+      recurring_rule_kind: "transaction" | "transfer";
       transaction_type: "income" | "expense";
     };
     CompositeTypes: {

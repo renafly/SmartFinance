@@ -19,6 +19,7 @@ type HouseholdMember = TableRow<"household_members">;
 type MonthlyBudgetRun = TableRow<"monthly_budget_runs">;
 type MonthlyIncomeInput = TableRow<"monthly_income_inputs">;
 type RecurringTransaction = TableRow<"recurring_transactions">;
+type RecurringRunExecution = TableRow<"recurring_run_executions">;
 type SavingPot = TableRow<"saving_pots">;
 type SavingPotAccount = TableRow<"saving_pot_accounts">;
 type Transaction = TableRow<"transactions">;
@@ -39,6 +40,7 @@ type BackupKey =
   | "member"
   | "pot"
   | "recurring"
+  | "recurring_execution"
   | "transaction"
   | "transfer_group";
 
@@ -156,6 +158,9 @@ type CleanRecurringTransaction = {
   accountKey: string;
   categoryKey: string | null;
   potKey: string | null;
+  ruleKind: Database["public"]["Enums"]["recurring_rule_kind"];
+  destinationAccountKey: string | null;
+  destinationPotKey: string | null;
   createdByMemberKey: string | null;
   title: string;
   notes: string | null;
@@ -170,6 +175,19 @@ type CleanRecurringTransaction = {
   updatedAt: string;
 };
 
+type CleanRecurringRunExecution = {
+  key: string;
+  recurringTransactionKey: string;
+  scheduledFor: string;
+  status: Database["public"]["Enums"]["recurring_execution_status"];
+  skipReason: string | null;
+  errorMessage: string | null;
+  attemptedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type CleanTransaction = {
   key: string;
   accountKey: string;
@@ -178,6 +196,7 @@ type CleanTransaction = {
   transferGroupKey: string | null;
   monthlyBudgetRunKey: string | null;
   generatedByRuleKey: string | null;
+  recurringExecutionKey: string | null;
   createdByMemberKey: string | null;
   budgetSection: Database["public"]["Enums"]["monthly_budget_section"] | null;
   title: string;
@@ -217,6 +236,7 @@ export type HouseholdBackupFile = {
   savingPotAccounts: CleanSavingPotAccount[];
   transactions: CleanTransaction[];
   recurringTransactions: CleanRecurringTransaction[];
+  recurringRunExecutions: CleanRecurringRunExecution[];
   monthlyBudget: CleanMonthlyBudget;
   attachments: CleanAttachment[];
 };
@@ -230,6 +250,7 @@ export type HouseholdBackupImportSummary = {
   savingPots: number;
   savingPotAccounts: number;
   recurringTransactions: number;
+  recurringRunExecutions: number;
   budgetConfigs: number;
   budgetRules: number;
   budgetRuns: number;
@@ -251,6 +272,7 @@ const backupSchema = z.object({
   savingPotAccounts: z.array(rowSchema),
   transactions: z.array(rowSchema),
   recurringTransactions: z.array(rowSchema),
+  recurringRunExecutions: z.array(rowSchema).default([]),
   monthlyBudget: z.object({
     configs: z.array(rowSchema),
     rules: z.array(rowSchema),
@@ -417,6 +439,7 @@ function buildCleanBackup(input: {
   savingPotAccounts: SavingPotAccount[];
   transactions: Transaction[];
   recurringTransactions: RecurringTransaction[];
+  recurringRunExecutions: RecurringRunExecution[];
   budgetConfigs: BudgetConfig[];
   budgetRules: BudgetRule[];
   budgetRuns: MonthlyBudgetRun[];
@@ -431,6 +454,7 @@ function buildCleanBackup(input: {
   const ruleKeyMap = buildKeyMap(input.budgetRules, "budget_rule");
   const runKeyMap = buildKeyMap(input.budgetRuns, "budget_run");
   const recurringKeyMap = buildKeyMap(input.recurringTransactions, "recurring");
+  const recurringExecutionKeyMap = buildKeyMap(input.recurringRunExecutions, "recurring_execution");
   const transactionKeyMap = buildKeyMap(input.transactions, "transaction");
   const transferGroupKeyMap = buildTransferGroupKeyMap(input.transactions);
 
@@ -443,6 +467,7 @@ function buildCleanBackup(input: {
     ...ruleKeyMap,
     ...runKeyMap,
     ...recurringKeyMap,
+    ...recurringExecutionKeyMap,
     ...transactionKeyMap,
     ...transferGroupKeyMap,
   ]);
@@ -519,6 +544,7 @@ function buildCleanBackup(input: {
       transferGroupKey: keyFor(transferGroupKeyMap, transaction.transfer_group_id),
       monthlyBudgetRunKey: keyFor(runKeyMap, transaction.monthly_budget_run_id),
       generatedByRuleKey: keyFor(ruleKeyMap, transaction.generated_by_rule_id),
+      recurringExecutionKey: keyFor(recurringExecutionKeyMap, transaction.recurring_execution_id),
       createdByMemberKey: keyFor(memberKeyMap, transaction.created_by),
       budgetSection: transaction.budget_section,
       title: transaction.title,
@@ -534,6 +560,9 @@ function buildCleanBackup(input: {
       accountKey: requireIdFor(accountKeyMap, row.account_id, "recurring account key"),
       categoryKey: keyFor(categoryKeyMap, row.category_id),
       potKey: keyFor(potKeyMap, row.pot_id),
+      ruleKind: row.rule_kind,
+      destinationAccountKey: keyFor(accountKeyMap, row.destination_account_id),
+      destinationPotKey: keyFor(potKeyMap, row.destination_pot_id),
       createdByMemberKey: keyFor(memberKeyMap, row.created_by),
       title: row.title,
       notes: row.notes,
@@ -547,6 +576,25 @@ function buildCleanBackup(input: {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     })),
+    recurringRunExecutions: input.recurringRunExecutions
+      .map((execution) => {
+        const recurringTransactionKey = keyFor(recurringKeyMap, execution.recurring_transaction_id);
+        if (!recurringTransactionKey) return null;
+
+        return {
+          key: requireIdFor(recurringExecutionKeyMap, execution.id, "recurring execution key"),
+          recurringTransactionKey,
+          scheduledFor: execution.scheduled_for,
+          status: execution.status,
+          skipReason: execution.skip_reason,
+          errorMessage: execution.error_message,
+          attemptedAt: execution.attempted_at,
+          completedAt: execution.completed_at,
+          createdAt: execution.created_at,
+          updatedAt: execution.updated_at,
+        };
+      })
+      .filter(isPresent),
     monthlyBudget: {
       configs: input.budgetConfigs.map((config) => ({
         key: requireIdFor(configKeyMap, config.id, "budget config key"),
@@ -838,6 +886,9 @@ function buildRecurringTransactionInserts(
         account_id: accountId,
         category_id: idFor(categoryMap, row.categoryKey),
         pot_id: idFor(potMap, row.potKey),
+        rule_kind: row.ruleKind,
+        destination_account_id: idFor(accountMap, row.destinationAccountKey),
+        destination_pot_id: idFor(potMap, row.destinationPotKey),
         title: row.title,
         notes: row.notes,
         amount: row.amount,
@@ -855,6 +906,34 @@ function buildRecurringTransactionInserts(
     .filter(isPresent);
 }
 
+function buildRecurringRunExecutionInserts(
+  backup: HouseholdBackupFile,
+  householdId: string,
+  recurringMap: Map<string, string>,
+  executionMap: Map<string, string>,
+) {
+  return backup.recurringRunExecutions
+    .map((execution) => {
+      const recurringTransactionId = idFor(recurringMap, execution.recurringTransactionKey);
+      if (!recurringTransactionId) return null;
+
+      return {
+        id: requireIdFor(executionMap, execution.key, "recurring execution"),
+        household_id: householdId,
+        recurring_transaction_id: recurringTransactionId,
+        scheduled_for: execution.scheduledFor,
+        status: execution.status,
+        skip_reason: execution.skipReason,
+        error_message: execution.errorMessage,
+        attempted_at: execution.attemptedAt,
+        completed_at: execution.completedAt,
+        created_at: execution.createdAt,
+        updated_at: execution.updatedAt,
+      };
+    })
+    .filter(isPresent);
+}
+
 function buildTransactionInserts(
   backup: HouseholdBackupFile,
   householdId: string,
@@ -865,6 +944,7 @@ function buildTransactionInserts(
   potMap: Map<string, string>,
   runMap: Map<string, string>,
   ruleMap: Map<string, string>,
+  executionMap: Map<string, string>,
   transferGroupMap: Map<string, string>,
   memberMap: Map<string, string>,
 ) {
@@ -882,6 +962,7 @@ function buildTransactionInserts(
         transfer_group_id: idFor(transferGroupMap, transaction.transferGroupKey),
         monthly_budget_run_id: idFor(runMap, transaction.monthlyBudgetRunKey),
         generated_by_rule_id: idFor(ruleMap, transaction.generatedByRuleKey),
+        recurring_execution_id: idFor(executionMap, transaction.recurringExecutionKey),
         budget_section: transaction.budgetSection,
         title: transaction.title,
         notes: transaction.notes,
@@ -988,8 +1069,9 @@ export class HouseholdBackupService {
     const transactionIds = transactions.map((transaction) => transaction.id);
     const budgetConfigIds = budgetConfigs.map((config) => config.id);
     const budgetRunIds = budgetRuns.map((run) => run.id);
+    const recurringTransactionIds = recurringTransactions.map((transaction) => transaction.id);
 
-    const [savingPotAccounts, attachments, budgetRules, incomeInputs] = await Promise.all([
+    const [savingPotAccounts, attachments, budgetRules, incomeInputs, recurringRunExecutions] = await Promise.all([
       potIds.length
         ? fetchPaged<SavingPotAccount>((from, to) =>
             supabase
@@ -1030,6 +1112,16 @@ export class HouseholdBackupService {
               .range(from, to) as any,
           )
         : Promise.resolve([]),
+      recurringTransactionIds.length
+        ? fetchPaged<RecurringRunExecution>((from, to) =>
+            supabase
+              .from("recurring_run_executions")
+              .select("*")
+              .in("recurring_transaction_id", recurringTransactionIds)
+              .order("scheduled_for", { ascending: true })
+              .range(from, to) as any,
+          )
+        : Promise.resolve([]),
     ]);
 
     return buildCleanBackup({
@@ -1041,6 +1133,7 @@ export class HouseholdBackupService {
       savingPotAccounts,
       transactions,
       recurringTransactions,
+      recurringRunExecutions,
       budgetConfigs,
       budgetRules,
       budgetRuns,
@@ -1066,6 +1159,7 @@ export class HouseholdBackupService {
       savingPots: backup.savingPots.length,
       savingPotAccounts: backup.savingPotAccounts.length,
       recurringTransactions: backup.recurringTransactions.length,
+      recurringRunExecutions: backup.recurringRunExecutions.length,
       budgetConfigs: backup.monthlyBudget.configs.length,
       budgetRules: backup.monthlyBudget.rules.length,
       budgetRuns: backup.monthlyBudget.runs.length,
@@ -1112,6 +1206,7 @@ export class HouseholdBackupService {
     const ruleMap = newIdMap(backup.monthlyBudget.rules);
     const runMap = newIdMap(backup.monthlyBudget.runs);
     const recurringMap = newIdMap(backup.recurringTransactions);
+    const recurringExecutionMap = newIdMap(backup.recurringRunExecutions);
     const transactionMap = newIdMap(backup.transactions);
     const transferGroupMap = new Map(
       [...new Set(backup.transactions.map((transaction) => transaction.transferGroupKey).filter(isPresent))]
@@ -1160,6 +1255,10 @@ export class HouseholdBackupService {
         memberMap,
       ),
     );
+    const recurringRunExecutions = await insertMany(
+      "recurring_run_executions",
+      buildRecurringRunExecutionInserts(backup, householdId, recurringMap, recurringExecutionMap),
+    );
     const transactions = await insertMany(
       "transactions",
       buildTransactionInserts(
@@ -1172,6 +1271,7 @@ export class HouseholdBackupService {
         potMap,
         runMap,
         ruleMap,
+        recurringExecutionMap,
         transferGroupMap,
         memberMap,
       ),
@@ -1188,6 +1288,7 @@ export class HouseholdBackupService {
       savingPots: savingPots.length,
       savingPotAccounts: savingPotAccounts.length,
       recurringTransactions: recurringTransactions.length,
+      recurringRunExecutions: recurringRunExecutions.length,
       budgetConfigs: budgetConfigs.length,
       budgetRules: budgetRules.length,
       budgetRuns: budgetRuns.length,

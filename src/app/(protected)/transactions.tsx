@@ -263,6 +263,7 @@ export default function TransactionsScreen() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [sortBy, setSortBy] = useState<TransactionSortKey>('newest');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [menuTransaction, setMenuTransaction] = useState<any | null>(null);
   const [editTransaction, setEditTransaction] = useState<TransactionEditDraft | null>(null);
@@ -490,9 +491,33 @@ export default function TransactionsScreen() {
         onScroll: handleTransactionsScroll,
         scrollEventThrottle: 16,
       }}
+      overlay={
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setCreateModalOpen(true)}
+          style={({ pressed }) => [styles.floatingCreateButton, pressed && styles.pressed] as any}
+        >
+          <Ionicons name="add-circle-outline" size={20} color={colors.primaryForeground} />
+          <Text style={styles.floatingCreateButtonText}>{t('transactions.addTransaction')}</Text>
+        </Pressable>
+      }
     >
       <Card>
-        <Section title={t('transactions.filtersTitle')} subtitle={t('transactions.filtersSubtitle')}>
+        <Section
+          title={t('transactions.filtersTitle')}
+          subtitle={filtersOpen ? t('transactions.filtersSubtitle') : t('transactions.filtersCollapsed')}
+          action={
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setFiltersOpen((current) => !current)}
+              style={[styles.filterToggle, { borderColor: colors.border, backgroundColor: colors.surfaceMuted }]}
+            >
+              <Ionicons name={filtersOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={18} color={colors.text} />
+              <Text style={[styles.filterToggleLabel, { color: colors.text }]}>{filtersOpen ? t('transactions.hideFilters') : t('transactions.showFilters')}</Text>
+            </Pressable>
+          }
+        >
+          {filtersOpen ? (
           <View style={{ gap: spacing(3) }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2), flexWrap: 'wrap' }}>
             <Ionicons name="funnel-outline" size={16} color={colors.textSecondary} />
@@ -570,18 +595,7 @@ export default function TransactionsScreen() {
               />
             </View>
           </View>
-        </Section>
-      </Card>
-
-      <Card>
-        <Section title={t('transactions.createTitle')} subtitle={t('transactions.createSubtitle')}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2) }}>
-            <Ionicons name="create-outline" size={16} color={colors.textSecondary} />
-            {(['income', 'expense'] as const).map((item) => (
-              <Pill key={item} label={t(`transactions.types.${item}`)} active={type === item} onPress={() => setType(item)} />
-            ))}
-          </View>
-          <Button label={t('transactions.openCreate', { defaultValue: t('transactions.create') })} onPress={() => setCreateModalOpen(true)} />
+          ) : null}
         </Section>
       </Card>
 
@@ -758,6 +772,8 @@ export default function TransactionsScreen() {
         )}
       </Section>
 
+      <View style={styles.floatingCreateSpacer} />
+
       <DropdownMenu
         visible={menuTransaction !== null}
         title={menuTransaction?.title ?? t('transactions.title')}
@@ -912,6 +928,43 @@ function createStyles(colors: any) {
     fontSize: typography.fontSize[22],
     fontWeight: String(typography.fontWeight.extraBold),
     lineHeight: typography.lineHeight[22],
+  },
+  floatingCreateButton: {
+    position: 'absolute',
+    right: spacing(6),
+    bottom: spacing(6),
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing(2),
+    paddingHorizontal: spacing(4),
+    paddingVertical: spacing(3),
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  floatingCreateButtonText: {
+    color: colors.primaryForeground,
+    fontSize: typography.fontSize[14],
+    fontWeight: String(typography.fontWeight.extraBold),
+  },
+  floatingCreateSpacer: {
+    height: spacing(16),
+  },
+  filterToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing(1.5),
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing(3),
+    paddingVertical: spacing(2),
+  },
+  filterToggleLabel: {
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.semibold as any,
   },
   modalBackdrop: {
     flex: 1,

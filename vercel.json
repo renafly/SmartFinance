@@ -1,7 +1,19 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npx expo export --platform web",
   "outputDirectory": "dist",
   "cleanUrls": true,
+  "crons": [
+    {
+      "path": "/api/cron/execute-recurring",
+      "schedule": "0 * * * *"
+    }
+  ],
+  "functions": {
+    "api/cron/execute-recurring.js": {
+      "maxDuration": 60
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
@@ -35,7 +47,7 @@
       "destination": "/invite/[token]"
     },
     {
-      "source": "/(.*)",
+      "source": "/:path((?!api/).*)",
       "destination": "/"
     }
   ]

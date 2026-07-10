@@ -2,8 +2,11 @@ import { useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
+import { Redirect } from 'expo-router';
 
 import { Card, Page, Section } from '@/components/migrated-page';
+import { isSystemAdminEmail } from '@/constants/admin-access';
+import { useAuth } from '@/providers/AuthProvider';
 import { supabase } from '@/shared/lib/supabase/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius } from '@/theme/radius';
@@ -32,6 +35,8 @@ function maskSecret(value: string | undefined, configuredLabel: string) {
 export default function DiagnosticsScreen() {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
+  const { isLoading, profile, session } = useAuth();
+  const canViewDiagnostics = isSystemAdminEmail(profile?.email, session?.user.email);
   const [storageStatus, setStorageStatus] = useState<DiagnosticItem | null>(null);
   const [functionStatus, setFunctionStatus] = useState<DiagnosticItem | null>(null);
   const [isChecking, setIsChecking] = useState(false);
@@ -92,6 +97,9 @@ export default function DiagnosticsScreen() {
       value: t('diagnostics.notChecked'),
     },
   ];
+
+  if (isLoading) return null;
+  if (!canViewDiagnostics) return <Redirect href="/(protected)" />;
 
   async function runLiveChecks() {
     setIsChecking(true);

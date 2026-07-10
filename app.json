@@ -37,7 +37,13 @@
       "expo-localization",
       "expo-web-browser",
       "expo-status-bar",
-      "expo-image"
+      "expo-image",
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "default"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

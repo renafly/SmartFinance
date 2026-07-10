@@ -10,6 +10,8 @@ import { typography } from '@/theme/typography';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 import { useResponsiveMetrics } from '@/theme/responsive';
+import { isSystemAdminEmail } from '@/constants/admin-access';
+import { NotificationCenter } from '@/components/notification-center';
 
 const menuIconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
   dashboard: 'home-outline',
@@ -18,7 +20,6 @@ const menuIconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
   transfers: 'swap-horizontal-outline',
   monthlyBudget: 'calculator-outline',
   savings: 'file-tray-full-outline',
-  recurring: 'repeat-outline',
   categories: 'pricetag-outline',
   members: 'people-outline',
   diagnostics: 'pulse-outline',
@@ -61,7 +62,6 @@ export function ProtectedDrawerLayout() {
       <Drawer.Screen name="transfers" options={{ title: t('drawer.transfers') }} />
       <Drawer.Screen name="budget" options={{ title: t('drawer.monthlyBudget') }} />
       <Drawer.Screen name="savings" options={{ title: t('drawer.savings') }} />
-      <Drawer.Screen name="recurring" options={{ title: t('drawer.recurring') }} />
       <Drawer.Screen name="categories" options={{ title: t('drawer.categories') }} />
       <Drawer.Screen name="members" options={{ title: t('drawer.members') }} />
       <Drawer.Screen name="diagnostics" options={{ title: t('drawer.diagnostics') }} />
@@ -73,10 +73,11 @@ export function ProtectedDrawerLayout() {
 function DrawerContent(props: DrawerContentComponentProps) {
   const { t } = useTranslation('common');
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { logout, profile, session } = useAuth();
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
   const closeDrawerAfterNavigate = Platform.OS !== 'web' || !responsive.isDesktop;
+  const canViewDiagnostics = isSystemAdminEmail(profile?.email, session?.user.email);
   const navigateTo = (href: string) => {
     router.push(href as any);
     if (closeDrawerAfterNavigate) {
@@ -90,10 +91,11 @@ function DrawerContent(props: DrawerContentComponentProps) {
     { key: 'transfers', label: t('drawer.transfers'), href: '/(protected)/transfers' },
     { key: 'monthlyBudget', label: t('drawer.monthlyBudget'), href: '/(protected)/budget' },
     { key: 'savings', label: t('drawer.savings'), href: '/(protected)/savings' },
-    { key: 'recurring', label: t('drawer.recurring'), href: '/(protected)/recurring' },
     { key: 'categories', label: t('drawer.categories'), href: '/(protected)/categories' },
     { key: 'members', label: t('drawer.members'), href: '/(protected)/members' },
-    { key: 'diagnostics', label: t('drawer.diagnostics'), href: '/(protected)/diagnostics' },
+    ...(canViewDiagnostics
+      ? [{ key: 'diagnostics' as const, label: t('drawer.diagnostics'), href: '/(protected)/diagnostics' }]
+      : []),
     { key: 'settings', label: t('drawer.settings'), href: '/(protected)/settings' },
   ];
 
@@ -118,7 +120,6 @@ function DrawerContent(props: DrawerContentComponentProps) {
         { key: 'transfers', label: t('drawer.transfers'), href: '/(protected)/transfers' },
         { key: 'monthlyBudget', label: t('drawer.monthlyBudget'), href: '/(protected)/budget' },
         { key: 'savings', label: t('drawer.savings'), href: '/(protected)/savings' },
-        { key: 'recurring', label: t('drawer.recurring'), href: '/(protected)/recurring' },
       ],
     },
     {
@@ -127,7 +128,9 @@ function DrawerContent(props: DrawerContentComponentProps) {
       items: [
         { key: 'categories', label: t('drawer.categories'), href: '/(protected)/categories' },
         { key: 'members', label: t('drawer.members'), href: '/(protected)/members' },
-        { key: 'diagnostics', label: t('drawer.diagnostics'), href: '/(protected)/diagnostics' },
+        ...(canViewDiagnostics
+          ? [{ key: 'diagnostics' as const, label: t('drawer.diagnostics'), href: '/(protected)/diagnostics' }]
+          : []),
         { key: 'settings', label: t('drawer.settings'), href: '/(protected)/settings' },
       ],
     },
@@ -167,6 +170,8 @@ function DrawerContent(props: DrawerContentComponentProps) {
           <Text style={[styles.brandTitle, { color: colors.foreground }]}>{t('drawer.brand')}</Text>
           <Text style={[styles.brandSubtitle, { color: colors.foreground, opacity: 0.72 }]}>{t('drawer.subtitle')}</Text>
         </View>
+
+        <NotificationCenter />
 
         <View style={styles.groupedMenu}>
           {menuGroups.map((group) => (
@@ -221,10 +226,12 @@ function DrawerContent(props: DrawerContentComponentProps) {
       showsVerticalScrollIndicator
       keyboardShouldPersistTaps="handled"
     >
-        <View style={[styles.brand, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+      <View style={[styles.brand, { backgroundColor: colors.muted, borderColor: colors.border }]}>
         <Text style={[styles.brandTitle, { color: colors.foreground }]}>{t('drawer.brand')}</Text>
         <Text style={[styles.brandSubtitle, { color: colors.foreground, opacity: 0.72 }]}>{t('drawer.subtitle')}</Text>
       </View>
+
+      <NotificationCenter />
 
       <View style={styles.navList}>
         {menuItems.map((item) => {

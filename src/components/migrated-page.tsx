@@ -23,29 +23,31 @@ type PageProps = {
   subtitle?: string;
   children: ReactNode;
   actions?: ReactNode;
+  overlay?: ReactNode;
   scrollViewProps?: ScrollViewProps;
 };
 
-export function Page({ title, subtitle, children, actions, scrollViewProps }: PageProps) {
+export function Page({ title, subtitle, children, actions, overlay, scrollViewProps }: PageProps) {
   const { colors } = useTheme();
   const { t } = useTranslation('common');
   const responsive = useResponsiveMetrics();
 
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      style={[styles.scrollView, { backgroundColor: colors.background }]}
-      {...scrollViewProps}
-      contentContainerStyle={[
-        styles.page,
-        {
-          backgroundColor: colors.background,
-          padding: responsive.pagePadding,
-          gap: responsive.pageGap,
-        },
-      ]}
-    >
-      <View style={[styles.pageInner, { gap: responsive.pageGap }]}>
+    <View style={styles.pageShell}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        style={[styles.scrollView, { backgroundColor: colors.background }]}
+        {...scrollViewProps}
+        contentContainerStyle={[
+          styles.page,
+          {
+            backgroundColor: colors.background,
+            padding: responsive.pagePadding,
+            gap: responsive.pageGap,
+          },
+        ]}
+      >
+        <View style={[styles.pageInner, { gap: responsive.pageGap }]}>
         <View
           style={[
             styles.header,
@@ -95,8 +97,10 @@ export function Page({ title, subtitle, children, actions, scrollViewProps }: Pa
         </View>
 
         <View style={[styles.pageBody, { gap: responsive.pageGap }]}>{children}</View>
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+      {overlay}
+    </View>
   );
 }
 
@@ -279,6 +283,9 @@ export function formatDate(value?: string | null) {
 }
 
 const styles = StyleSheet.create({
+  pageShell: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },

@@ -56,6 +56,12 @@ const SECTION_SORT_ORDER: Record<string, number> = {
   remaining_cash: 4,
 };
 
+type MemberContributionSummary = {
+  label: string;
+  section: MonthlyBudgetRuleDraft['section'];
+  amount: number;
+};
+
 function monthKey(value: string) {
   return value.slice(0, 7);
 }
@@ -669,6 +675,41 @@ export default function BudgetScreen() {
   const incomeModeSummary = t('budget.incomeModeSummary', {
     value: t(`budget.incomeModes.${incomeMode}`),
   });
+  const memberContributionMap = useMemo(() => {
+    const rulesById = new Map(ruleDrafts.map((rule) => [rule.id, rule]));
+    const accountsById = new Map(accounts.map((account) => [account.id, account]));
+    const grouped = new Map<string, MemberContributionSummary[]>();
+
+    for (const transfer of preview.transfers) {
+      if (transfer.isSystemGenerated || !transfer.ruleId) continue;
+
+      const rule = rulesById.get(transfer.ruleId);
+      const sourceAccount = accountsById.get(transfer.sourceAccountId);
+      const memberId = rule?.ownerMemberId || sourceAccount?.owner_profile_id;
+      if (!memberId) continue;
+
+      const current = grouped.get(memberId) ?? [];
+      current.push({
+        label: transfer.title,
+        section: transfer.section,
+        amount: transfer.amount,
+      });
+      grouped.set(memberId, current);
+    }
+
+    for (const [memberId, contributions] of grouped.entries()) {
+      grouped.set(
+        memberId,
+        contributions.sort((a, b) => {
+          const sectionDelta = getSectionRank(a.section) - getSectionRank(b.section);
+          if (sectionDelta !== 0) return sectionDelta;
+          return a.label.localeCompare(b.label);
+        }),
+      );
+    }
+
+    return grouped;
+  }, [accounts, preview.transfers, ruleDrafts]);
   const memberSummaryRows = useMemo(
     () =>
       members
@@ -676,9 +717,10 @@ export default function BudgetScreen() {
           id: member.userId,
           label: getMemberLabel(member),
           value: formatCurrency(preview.memberTotals[member.userId] ?? 0),
+          contributions: memberContributionMap.get(member.userId) ?? [],
         }))
         .sort((a, b) => a.label.localeCompare(b.label)),
-    [members, preview.memberTotals],
+    [memberContributionMap, members, preview.memberTotals],
   );
   const resumeRows = useMemo(
     () => [
@@ -798,9 +840,6 @@ export default function BudgetScreen() {
                   <View
                     key={row.id}
                     style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
                       gap: spacing(3),
                       paddingVertical: spacing(2),
                       paddingHorizontal: spacing(3),
@@ -812,15 +851,42 @@ export default function BudgetScreen() {
                       borderLeftColor: accentColor,
                     } as any}
                   >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
-                      <Ionicons name="person-circle-outline" size={16} color={accentColor} />
-                      <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.semibold) } as any}>
-                        {row.label}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing(3) } as any}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                        <Ionicons name="person-circle-outline" size={16} color={accentColor} />
+                        <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.semibold) } as any}>
+                          {row.label}
+                        </Text>
+                      </View>
+                      <Text style={{ color: accentColor, fontWeight: String(typography.fontWeight.bold) } as any}>
+                        {row.value}
                       </Text>
                     </View>
-                    <Text style={{ color: accentColor, fontWeight: String(typography.fontWeight.bold) } as any}>
-                      {row.value}
-                    </Text>
+                    {row.contributions.length > 0 ? (
+                      <View style={{ gap: spacing(1) } as any}>
+                        {row.contributions.map((contribution, contributionIndex) => (
+                          <View
+                            key={`${row.id}-${contribution.section}-${contribution.label}-${contributionIndex}`}
+                            style={{
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: spacing(2),
+                            } as any}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1) } as any}>
+                              <Ionicons name={getSectionBadgeIcon(contribution.section)} size={12} color={colors.textSecondary} />
+                              <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
+                                {contribution.label}
+                              </Text>
+                            </View>
+                            <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>
+                              {formatCurrency(contribution.amount)}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
                   </View>
                   );
                 })}

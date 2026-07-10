@@ -25,10 +25,10 @@ import {
 import { typography } from "@/theme/typography";
 import { useAccountsWithBalances } from "../../features/accounts/hooks";
 import { useHouseholdMemberDetails } from "../../features/households/hooks";
-import { useRecurringTransactions } from "../../features/recurring-transactions/hooks";
 import {
   useCreateSavingPot,
   useDeleteSavingPot,
+  useSavingPotForecasts,
   useSavingPotAccountAssignments,
   useSavingPotBalances,
   useSavingPots,
@@ -58,43 +58,14 @@ type AccountGroupView = AccountGroup & {
 type SelectionMode =
   { kind: "create" } | { kind: "edit"; potId: string; potName: string };
 
-type RecurringRule = {
-  account_id: string;
-  amount: number;
-  type: "income" | "expense";
-  frequency: "daily" | "weekly" | "monthly" | "yearly" | "custom";
-  excluded_months?: number[] | null;
-  is_active: boolean;
+type PotScope = "shared" | "account_specific";
+
+type PotDraft = {
+  name: string;
+  targetAmount: string;
+  scope: PotScope;
+  accountIds: string[];
 };
-
-function getMonthlyRecurringAmount(rule: RecurringRule, month = new Date()) {
-  const monthNumber = month.getMonth() + 1;
-  if (rule.frequency === "custom" && Array.isArray(rule.excluded_months)) {
-    const excluded = rule.excluded_months
-      .map((value) => Number(value))
-      .filter((value) => Number.isFinite(value));
-    if (excluded.includes(monthNumber)) {
-      return 0;
-    }
-  }
-
-  const multiplier = {
-    daily: 30,
-    weekly: 52 / 12,
-    monthly: 1,
-    yearly: 1 / 12,
-    custom: 1,
-  }[rule.frequency];
-
-  const signedAmount = rule.type === "income" ? rule.amount : -rule.amount;
-  return signedAmount * multiplier;
-}
-
-function addMonths(date: Date, months: number) {
-  const next = new Date(date);
-  next.setMonth(next.getMonth() + months);
-  return next;
-}
 
 function buildAccountGroups(
   accounts: AccountOption[],
@@ -166,7 +137,7 @@ export default function SavingsScreen() {
   const assignmentsQuery = useSavingPotAccountAssignments();
   const accountsQuery = useAccountsWithBalances();
   const membersQuery = useHouseholdMemberDetails();
-  const recurringQuery = useRecurringTransactions();
+  const savingPotForecasts = useSavingPotForecasts();
   const createSavingPot = useCreateSavingPot();
   const deleteSavingPot = useDeleteSavingPot();
   const updateSavingPot = useUpdateSavingPot();
@@ -175,7 +146,7 @@ export default function SavingsScreen() {
   const [name, setName] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
   const [createdById, setCreatedById] = useState("");
-  const [potScope, setPotScope] = useState<"shared" | "account_specific">("shared");
+  const [potScope, setPotScope] = useState<PotScope>("shared");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createSelectedAccountIds, setCreateSelectedAccountIds] = useState<
     string[]
@@ -186,9 +157,7 @@ export default function SavingsScreen() {
   const [draftAccountIds, setDraftAccountIds] = useState<string[]>([]);
   const [collapsedGroupKeys, setCollapsedGroupKeys] = useState<string[]>([]);
   const [hasLoadedCollapsedGroups, setHasLoadedCollapsedGroups] = useState(false);
-  const [draftPotValues, setDraftPotValues] = useState<
-    Record<string, { name: string; targetAmount: string }>
-  >({});
+  const [draftPotValues, setDraftPotValues] = useState<Record<string, PotDraft>>({});
   const [activePotMenu, setActivePotMenu] = useState<{
     id: string;
     name: string;
@@ -199,10 +168,10 @@ export default function SavingsScreen() {
   const canCreateSavingPot =
     !createSavingPot.isPending &&
     name.trim().length > 0 &&
-    (parsedTargetAmount === null || Number.isFinite(parsedTargetAmount));
+    (parsedTargetAmount === null || Number.isFinite(parsedTargetAmount)) &&
+    (potScope === "shared" || createSelectedAccountIds.length > 0);
 
   const accounts = (accountsQuery.data ?? []) as AccountOption[];
-  const recurringRules = (recurringQuery.data ?? []) as RecurringRule[];
   const memberLabelMap = new Map(
     (membersQuery.data ?? [])
       .filter((member) => member.status === "accepted")
@@ -228,6 +197,11 @@ export default function SavingsScreen() {
   const createSelectedAccountsLabel =
     createSelectedAccountIds.length > 0
       ? t("savings.selectedAccountsSummary", { count: createSelectedAccountIds.length })
+      : t("savings.noAccountsSelected");
+  const editingDraft = editingPotId ? draftPotValues[editingPotId] : null;
+  const editingSelectedAccountsLabel =
+    editingDraft && editingDraft.accountIds.length > 0
+      ? t("savings.selectedAccountsSummary", { count: editingDraft.accountIds.length })
       : t("savings.noAccountsSelected");
 
   useEffect(() => {
@@ -310,11 +284,6 @@ export default function SavingsScreen() {
     setSelectionMode({ kind: "create" });
   }
 
-  function openEditPicker(potId: string, potName: string) {
-    setDraftAccountIds(selectionMap.get(potId) ?? []);
-    setSelectionMode({ kind: "edit", potId, potName });
-  }
-
   function updateDraftPotField(
     potId: string,
     field: "name" | "targetAmount",
@@ -325,6 +294,8 @@ export default function SavingsScreen() {
       [potId]: {
         name: current[potId]?.name ?? "",
         targetAmount: current[potId]?.targetAmount ?? "",
+        scope: current[potId]?.scope ?? "shared",
+        accountIds: current[potId]?.accountIds ?? [],
         [field]: value,
       },
     }));
@@ -336,6 +307,7 @@ export default function SavingsScreen() {
     potTargetAmount?: number | null,
   ) {
     const current = draftPotValues[potId];
+    const selectedAccountIds = selectionMap.get(potId) ?? [];
     setDraftPotValues((drafts) => ({
       ...drafts,
       [potId]: {
@@ -345,10 +317,39 @@ export default function SavingsScreen() {
           (potTargetAmount !== null && potTargetAmount !== undefined
             ? String(potTargetAmount)
             : ""),
+        scope: current?.scope ?? (selectedAccountIds.length > 0 ? "account_specific" : "shared"),
+        accountIds: current?.accountIds ?? selectedAccountIds,
       },
     }));
     setEditingPotId(potId);
     setActivePotMenu(null);
+  }
+
+  function updateDraftPotScope(potId: string, scope: PotScope) {
+    setDraftPotValues((current) => {
+      const existingSelection = selectionMap.get(potId) ?? [];
+      const currentDraft = current[potId] ?? {
+        name: "",
+        targetAmount: "",
+        scope,
+        accountIds: existingSelection,
+      };
+
+      return {
+        ...current,
+        [potId]: {
+          ...currentDraft,
+          scope,
+          accountIds: scope === "shared" ? [] : currentDraft.accountIds,
+        },
+      };
+    });
+  }
+
+  function openEditAccountPickerFromDraft(potId: string, potName: string) {
+    const draft = draftPotValues[potId];
+    setDraftAccountIds(draft?.accountIds ?? selectionMap.get(potId) ?? []);
+    setSelectionMode({ kind: "edit", potId, potName });
   }
 
   function closePicker() {
@@ -373,10 +374,30 @@ export default function SavingsScreen() {
       return;
     }
 
-    await updateSavingPotAccounts.mutateAsync({
-      potId: selectionMode.potId,
-      accountIds: draftAccountIds,
-    });
+    if (editingPotId === selectionMode.potId) {
+      setDraftPotValues((current) => {
+        const currentDraft = current[selectionMode.potId] ?? {
+          name: selectionMode.potName,
+          targetAmount: "",
+          scope: "account_specific" as PotScope,
+          accountIds: [],
+        };
+
+        return {
+          ...current,
+          [selectionMode.potId]: {
+            ...currentDraft,
+            scope: "account_specific",
+            accountIds: draftAccountIds,
+          },
+        };
+      });
+    } else {
+      await updateSavingPotAccounts.mutateAsync({
+        potId: selectionMode.potId,
+        accountIds: draftAccountIds,
+      });
+    }
 
     closePicker();
   }
@@ -390,12 +411,19 @@ export default function SavingsScreen() {
       : null;
     if (draft.name.trim().length === 0) return;
     if (nextTargetAmount !== null && !Number.isFinite(nextTargetAmount)) return;
+    if (draft.scope === "account_specific" && draft.accountIds.length === 0) return;
 
     await updateSavingPot.mutateAsync({
       id: potId,
       name: draft.name.trim(),
       target_amount: nextTargetAmount,
     });
+
+    await updateSavingPotAccounts.mutateAsync({
+      potId,
+      accountIds: draft.scope === "account_specific" ? draft.accountIds : [],
+    });
+
     setEditingPotId(null);
   }
 
@@ -420,16 +448,7 @@ export default function SavingsScreen() {
             const selectedCount = Number(balance?.selected_account_count ?? 0);
             const selectedAccountIds = selectionMap.get(pot.id) ?? [];
             const isSharedPot = selectedAccountIds.length === 0;
-            const estimateAccountIds =
-              selectedAccountIds.length > 0
-                ? selectedAccountIds
-                : accounts.map((account) => account.id);
-            const accountIdSet = new Set(estimateAccountIds);
-            const monthlyRecurringNet = recurringRules
-              .filter(
-                (rule) => rule.is_active && accountIdSet.has(rule.account_id),
-              )
-              .reduce((sum, rule) => sum + getMonthlyRecurringAmount(rule), 0);
+            const forecast = savingPotForecasts.get(pot.id);
             const targetValue = Number(
               balance?.target_amount ?? pot.target_amount ?? 0,
             );
@@ -511,26 +530,41 @@ export default function SavingsScreen() {
                       ]}
                     />
                   </View>
-                  {remainingValue > 0 && monthlyRecurringNet > 0 ? (
+                  {forecast?.completionDate ? (
                     <Text style={styles.potMeta}>
                       {t("savings.estimatedFinish", {
-                        value: addMonths(
-                          new Date(),
-                          Math.max(
-                            1,
-                            Math.ceil(remainingValue / monthlyRecurringNet),
-                          ),
-                        ).toLocaleDateString(),
+                        value: new Date(`${forecast.completionDate}T12:00:00`).toLocaleDateString(),
                       })}
                     </Text>
                   ) : (
                     <Text style={styles.potMeta}>
-                      {t("savings.estimateUnavail")}
+                      {forecast?.unavailableReason === "missing_target"
+                        ? t("savings.forecastUnavailableNoTarget")
+                        : forecast?.unavailableReason === "beyond_horizon"
+                          ? t("savings.forecastUnavailableBeyondHorizon")
+                          : t("savings.forecastUnavailableNoContributions")}
                     </Text>
                   )}
-                  <Text style={styles.potMeta}>
-                    {t("savings.estimateNote")}
-                  </Text>
+                  {forecast?.monthlyContribution ? (
+                    <View style={{ gap: spacing(0.5) }}>
+                      <Text style={styles.potMeta}>
+                        {t("savings.forecastMonthlyContribution", {
+                          value: formatCurrency(forecast.monthlyContribution),
+                        })}
+                      </Text>
+                      {forecast.sources.map((source) => (
+                        <Text key={source.kind} style={styles.potMeta}>
+                          {source.kind === "recurring_transfer"
+                            ? t("savings.forecastRecurringTransfers", {
+                                value: formatCurrency(source.monthlyContribution),
+                              })
+                            : t("savings.forecastMonthlyBudget", {
+                                value: formatCurrency(source.monthlyContribution),
+                              })}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null}
                 </View>
               </Card>
             );
@@ -552,27 +586,91 @@ export default function SavingsScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t("savings.editDetails")}</Text>
             <Text style={styles.modalSubtitle}>
-              {t("savings.selectedAccountsHint")}
+              {t("savings.editPotSubtitle")}
             </Text>
             {editingPotId ? (
               <>
-                <Field
-                  label={t("savings.name")}
-                  value={draftPotValues[editingPotId]?.name ?? ""}
-                  onChangeText={(value) =>
-                    updateDraftPotField(editingPotId, "name", value)
-                  }
-                  placeholder={t("savings.namePlaceholder")}
-                />
-                <Field
-                  label={t("savings.targetAmount")}
-                  value={draftPotValues[editingPotId]?.targetAmount ?? ""}
-                  onChangeText={(value) =>
-                    updateDraftPotField(editingPotId, "targetAmount", value)
-                  }
-                  keyboardType="numeric"
-                  placeholder="1000"
-                />
+                <ScrollView
+                  style={styles.editModalScroll}
+                  contentContainerStyle={styles.editModalContent}
+                >
+                  <Field
+                    label={t("savings.name")}
+                    value={draftPotValues[editingPotId]?.name ?? ""}
+                    onChangeText={(value) =>
+                      updateDraftPotField(editingPotId, "name", value)
+                    }
+                    placeholder={t("savings.namePlaceholder")}
+                  />
+                  <Field
+                    label={t("savings.targetAmount")}
+                    value={draftPotValues[editingPotId]?.targetAmount ?? ""}
+                    onChangeText={(value) =>
+                      updateDraftPotField(editingPotId, "targetAmount", value)
+                    }
+                    keyboardType="numeric"
+                    placeholder="1000"
+                  />
+                  <View style={styles.editSection}>
+                    <Text style={styles.sectionLabel}>{t("savings.scopeLabel")}</Text>
+                    <View style={styles.pillWrap}>
+                      <Pressable
+                        onPress={() => updateDraftPotScope(editingPotId, "shared")}
+                        style={({ pressed }) => [
+                          styles.scopePill,
+                          draftPotValues[editingPotId]?.scope !== "account_specific" && styles.scopePillActive,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <Text
+                          style={
+                            draftPotValues[editingPotId]?.scope !== "account_specific"
+                              ? styles.scopePillTextActive
+                              : styles.scopePillText
+                          }
+                        >
+                          {t("savings.scopeShared")}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => updateDraftPotScope(editingPotId, "account_specific")}
+                        style={({ pressed }) => [
+                          styles.scopePill,
+                          draftPotValues[editingPotId]?.scope === "account_specific" && styles.scopePillActive,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <Text
+                          style={
+                            draftPotValues[editingPotId]?.scope === "account_specific"
+                              ? styles.scopePillTextActive
+                              : styles.scopePillText
+                          }
+                        >
+                          {t("savings.scopeAccountSpecific")}
+                        </Text>
+                      </Pressable>
+                    </View>
+                    <Text style={styles.potMeta}>
+                      {draftPotValues[editingPotId]?.scope === "account_specific"
+                        ? t("savings.selectAccountsRequiredHint")
+                        : t("savings.sharedAccountsHint")}
+                    </Text>
+                    {draftPotValues[editingPotId]?.scope === "account_specific" ? (
+                      <SelectionTrigger
+                        label={t("savings.selectAccounts")}
+                        valueLabel={editingSelectedAccountsLabel}
+                        hint={t("savings.selectAccountsRequiredHint")}
+                        placeholder={t("savings.selectAccounts")}
+                        iconName="wallet-outline"
+                        onPress={() => openEditAccountPickerFromDraft(
+                          editingPotId,
+                          draftPotValues[editingPotId]?.name || t("savings.editDetails"),
+                        )}
+                      />
+                    ) : null}
+                  </View>
+                </ScrollView>
                 <View style={styles.modalActions}>
                   <Button
                     label={t("savings.closeAccounts")}
@@ -581,12 +679,18 @@ export default function SavingsScreen() {
                   />
                   <Button
                     label={
-                      updateSavingPot.isPending
+                      updateSavingPot.isPending || updateSavingPotAccounts.isPending
                         ? t("saving")
                         : t("savings.savePot")
                     }
                     onPress={() => void savePot(editingPotId)}
-                    disabled={updateSavingPot.isPending}
+                    disabled={
+                      updateSavingPot.isPending ||
+                      updateSavingPotAccounts.isPending ||
+                      !draftPotValues[editingPotId]?.name.trim() ||
+                      (draftPotValues[editingPotId]?.scope === "account_specific" &&
+                        draftPotValues[editingPotId]?.accountIds.length === 0)
+                    }
                   />
                 </View>
               </>
@@ -666,13 +770,13 @@ export default function SavingsScreen() {
             <Text style={styles.potMeta}>
               {potScope === "shared"
                 ? t("savings.sharedAccountsHint")
-                : t("savings.selectAccountsHint")}
+                : t("savings.selectAccountsRequiredHint")}
             </Text>
             {potScope === "account_specific" ? (
               <SelectionTrigger
                 label={t("savings.selectAccounts")}
                 valueLabel={createSelectedAccountsLabel}
-                hint={t("savings.selectAccountsHint")}
+                hint={t("savings.selectAccountsRequiredHint")}
                 placeholder={t("savings.selectAccounts")}
                 iconName="wallet-outline"
                 onPress={openCreatePicker}
@@ -741,21 +845,6 @@ export default function SavingsScreen() {
             >
               <Text style={styles.menuItemText}>
                 {t("savings.editDetails")}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                if (activePotMenu) {
-                  openEditPicker(activePotMenu.id, activePotMenu.name);
-                }
-              }}
-              style={({ pressed }) => [
-                styles.menuItem,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.menuItemText}>
-                {t("savings.editAccounts")}
               </Text>
             </Pressable>
             <Pressable
@@ -1080,6 +1169,16 @@ function createStyles(colors: any) {
     },
     modalList: {
       maxHeight: spacing(105),
+    },
+    editModalScroll: {
+      maxHeight: spacing(118),
+    },
+    editModalContent: {
+      gap: spacing(3.5),
+      paddingBottom: spacing(1),
+    },
+    editSection: {
+      gap: spacing(2),
     },
     group: {
       gap: spacing(2.5),

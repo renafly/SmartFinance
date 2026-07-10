@@ -512,6 +512,9 @@ export class MonthlyBudgetService {
     let recurringNetTotal = 0;
     for (const rule of input.recurringTransactions) {
       if (!rule.is_active) continue;
+      // Transfers only move money between household accounts. They must never
+      // change the income/expense total used to calculate a monthly budget.
+      if (rule.rule_kind === "transfer") continue;
       const account = accountsById.get(rule.account_id);
       if (!account) continue;
 

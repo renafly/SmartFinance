@@ -141,6 +141,22 @@ describe("MonthlyBudgetService.buildPreview", () => {
     expect(result.transfers).toEqual([]);
   });
 
+  it("does not treat recurring transfers as household income or expenses", () => {
+    const result = preview({
+      rules: [],
+      recurringTransactions: [
+        recurring({
+          rule_kind: "transfer",
+          destination_account_id: "savings-1",
+          amount: 250,
+        }),
+      ],
+    });
+
+    expect(result.recurringNetTotal).toBe(0);
+    expect(result.remainingCash).toBe(3500);
+  });
+
   it("distributes fixed remaining cash excess to eligible savings accounts", () => {
     const result = preview({
       settings: {

@@ -93,6 +93,7 @@ export function IconPicker({
 
     return (
       <Pressable
+        accessibilityLabel={iconName}
         onPress={() => {
           onChange(iconName);
           setOpen(false);
@@ -105,18 +106,9 @@ export function IconPicker({
       >
         <Ionicons
           name={iconName as any}
-          size={20}
+          size={24}
           color={active ? colors.primaryForeground : colors.textSecondary}
         />
-        <Text
-          numberOfLines={1}
-          style={[
-            styles.iconName,
-            { color: active ? colors.primaryForeground : colors.textSecondary },
-          ]}
-        >
-          {iconName}
-        </Text>
       </Pressable>
     );
   }
@@ -222,20 +214,14 @@ const styles: any = StyleSheet.create({
   },
   iconTile: {
     flex: 1,
-    minWidth: 92,
+    minWidth: 72,
     maxWidth: '32%',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing(1),
-    paddingVertical: spacing(2.5),
+    paddingVertical: spacing(3),
     paddingHorizontal: spacing(2),
     borderWidth: 1,
     borderRadius: radius.lg,
-  },
-  iconName: {
-    fontSize: typography.fontSize[12],
-    fontWeight: typography.fontWeight.semibold as any,
-    textAlign: 'center',
   },
   closeButton: {
     alignSelf: 'flex-end',
