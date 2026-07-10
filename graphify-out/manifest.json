@@ -1343,5 +1343,10 @@
     "mtime": 1783673760.1787362,
     "ast_hash": "d20b15bdcbef4f71998d6a3627217ac6",
     "semantic_hash": ""
+  },
+  "global.d.ts": {
+    "mtime": 1783674001.0323834,
+    "ast_hash": "fb8214c6467938c43691a41c63101314",
+    "semantic_hash": ""
   }
 }
