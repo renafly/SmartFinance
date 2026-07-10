@@ -47,6 +47,9 @@ $$;
 drop policy if exists "Members can upload attachments" on storage.objects;
 drop policy if exists "Members can view attachments" on storage.objects;
 drop policy if exists "Members can delete attachments" on storage.objects;
+drop policy if exists "Household members can upload attachment files" on storage.objects;
+drop policy if exists "Household members can view attachment files" on storage.objects;
+drop policy if exists "Household members can delete attachment files" on storage.objects;
 
 create policy "Members can upload attachment files"
 on storage.objects

@@ -42,7 +42,11 @@ export function createSupabaseMock(tableResults: Record<string, QueryResult> = {
         list: jest.fn(async () => ({ data: [], error: null })),
         upload: jest.fn(async () => ({ data: { path: 'test/path' }, error: null })),
         remove: jest.fn(async () => ({ data: null, error: null })),
-        getPublicUrl: jest.fn(() => ({ data: { publicUrl: 'http://localhost/file.pdf' } })),
+        download: jest.fn(async () => ({ data: new Blob(), error: null })),
+        createSignedUrl: jest.fn(async () => ({
+          data: { signedUrl: 'http://localhost/signed-file.pdf' },
+          error: null,
+        })),
       })),
     },
     auth: {

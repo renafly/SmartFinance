@@ -740,8 +740,8 @@
     "semantic_hash": "052c14a95d3457839ceb2bc20b0af344"
   },
   "src/repositories/attachments.repository.ts": {
-    "mtime": 1783618118.7397497,
-    "ast_hash": "1e70f3652133db5f78dd30ae09464b13",
+    "mtime": 1783670646.4672353,
+    "ast_hash": "9e94c47ea0dd816fff94e69d78a565fc",
     "semantic_hash": ""
   },
   "src/repositories/base.repository.ts": {
@@ -1100,9 +1100,9 @@
     "semantic_hash": ""
   },
   "test/mocks/supabase.ts": {
-    "mtime": 1783587303.7259786,
-    "ast_hash": "2428492bffd25b757379b47a32fe0ac2",
-    "semantic_hash": "2428492bffd25b757379b47a32fe0ac2"
+    "mtime": 1783670651.5386631,
+    "ast_hash": "036cfa76c5285dc48576c32472989e20",
+    "semantic_hash": ""
   },
   "test/setup/jest.setup.ts": {
     "mtime": 1783604223.8534982,
@@ -1139,18 +1139,8 @@
     "ast_hash": "bc60e1cde15c5f7ed7dada21c910210e",
     "semantic_hash": ""
   },
-  "supabase/migrations/025_attachment_storage_privacy.sql": {
-    "mtime": 1783618176.951679,
-    "ast_hash": "24c4560a03952e86fa14198e542eef7f",
-    "semantic_hash": ""
-  },
-  "supabase/migrations/025_security_rls_rpc_hardening.sql": {
-    "mtime": 1783618242.897102,
-    "ast_hash": "8538688f177a55abc78473deb54ca106",
-    "semantic_hash": ""
-  },
   "test-results/.last-run.json": {
-    "mtime": 1783606183.812668,
+    "mtime": 1783670966.7756968,
     "ast_hash": "f196824657d8858bc7fa44eecbba38b1",
     "semantic_hash": ""
   },
@@ -1195,8 +1185,8 @@
     "semantic_hash": ""
   },
   "docs/testing.md": {
-    "mtime": 1783605938.595418,
-    "ast_hash": "eea6655cfd34dcb3b1ce25f90a2fcae2",
+    "mtime": 1783670655.6322834,
+    "ast_hash": "815980f671c1db316f0a051afe8f98f8",
     "semantic_hash": ""
   },
   "assets/expo.icon/Assets/expo-symbol 2.svg": {
@@ -1337,6 +1327,16 @@
   "scripts/seed_budget_rules_base_movements.sql": {
     "mtime": 1783643843.0787964,
     "ast_hash": "7e252b97c56fb04f7b466f4f0e0a4793",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260710000100_security_rls_rpc_hardening.sql": {
+    "mtime": 1783670756.8544664,
+    "ast_hash": "d23d3c64d423a681258d736e18900254",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260710000200_attachment_storage_privacy.sql": {
+    "mtime": 1783670706.550946,
+    "ast_hash": "0faf77774fb2aee731ed54cafc2fe8bd",
     "semantic_hash": ""
   }
 }

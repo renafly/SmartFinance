@@ -115,14 +115,14 @@
     "semantic_hash": "dad6f2cc5aea198231c05b3f9cd7603a"
   },
   "src/app/(protected)/accounts.tsx": {
-    "mtime": 1783642975.7623563,
-    "ast_hash": "dba3e39bc21ee6fb7cdb20ede355ce63",
+    "mtime": 1783643492.3211303,
+    "ast_hash": "bd0ccbb1fdc22bd61d52a9187a6a7eab",
     "semantic_hash": ""
   },
   "src/app/(protected)/budget.tsx": {
-    "mtime": 1783449961.3301332,
-    "ast_hash": "9fe1b646ae0417843c5df2309faf1e42",
-    "semantic_hash": "9fe1b646ae0417843c5df2309faf1e42"
+    "mtime": 1783643579.3066287,
+    "ast_hash": "03726f8b53c3edba522ea4028aae7a6f",
+    "semantic_hash": ""
   },
   "src/app/(protected)/categories.tsx": {
     "mtime": 1783460122.8604465,
@@ -1327,6 +1327,16 @@
   "scripts/seed_recurring_budget_movements.sql": {
     "mtime": 1783643243.4047306,
     "ast_hash": "d200364f493268337ee0d779b70c8c1d",
+    "semantic_hash": ""
+  },
+  "scripts/rollback_recurring_budget_movements.sql": {
+    "mtime": 1783643747.8931146,
+    "ast_hash": "7c9c9f279afc13e42ca599d067483ab7",
+    "semantic_hash": ""
+  },
+  "scripts/seed_budget_rules_base_movements.sql": {
+    "mtime": 1783643843.0787964,
+    "ast_hash": "7e252b97c56fb04f7b466f4f0e0a4793",
     "semantic_hash": ""
   }
 }

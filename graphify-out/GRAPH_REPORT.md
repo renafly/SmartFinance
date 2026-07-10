@@ -1,7 +1,7 @@
 # Graph Report - SmartFinance  (2026-07-10)
 
 ## Corpus Check
-- 245 files · ~132,046 words
+- 245 files · ~131,946 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `2e9039e6`
+- Built from commit: `e5c20113`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

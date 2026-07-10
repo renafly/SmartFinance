@@ -177,49 +177,5 @@ grant execute on function public.delete_household(uuid) to authenticated;
 grant execute on function public.get_household_invitation_details(text) to anon, authenticated;
 grant execute on function public.set_saving_pot_accounts(uuid, uuid[]) to authenticated;
 
--- ============================================================
--- Storage attachment policies
--- ============================================================
--- The app currently uploads invoice files before inserting attachment metadata,
--- using paths like:
---   {household_id}/transactions/{transaction_id}/{timestamp}-{safe_file_name}
--- Insert is therefore path-based. Select/delete are also path-bound to the
--- caller's accepted household membership. Updates are intentionally not
--- granted; client uploads use upsert=false and overwrites should stay denied.
-
-drop policy if exists "Members can upload attachments" on storage.objects;
-drop policy if exists "Members can view attachments" on storage.objects;
-drop policy if exists "Members can delete attachments" on storage.objects;
-drop policy if exists "Household members can upload attachment files" on storage.objects;
-drop policy if exists "Household members can view attachment files" on storage.objects;
-drop policy if exists "Household members can delete attachment files" on storage.objects;
-
-create policy "Household members can upload attachment files"
-on storage.objects
-for insert
-to authenticated
-with check (
-    bucket_id = 'attachments'
-    and name ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/transactions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[^/]+$'
-    and public.is_household_member(split_part(name, '/', 1)::uuid, auth.uid())
-);
-
-create policy "Household members can view attachment files"
-on storage.objects
-for select
-to authenticated
-using (
-    bucket_id = 'attachments'
-    and name ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/transactions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[^/]+$'
-    and public.is_household_member(split_part(name, '/', 1)::uuid, auth.uid())
-);
-
-create policy "Household members can delete attachment files"
-on storage.objects
-for delete
-to authenticated
-using (
-    bucket_id = 'attachments'
-    and name ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/transactions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[^/]+$'
-    and public.is_household_member(split_part(name, '/', 1)::uuid, auth.uid())
-);
+-- Attachment storage object policies are handled in the following migration so
+-- they can align exactly with the app's canonical households/{id}/... paths.

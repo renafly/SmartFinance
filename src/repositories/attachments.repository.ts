@@ -28,7 +28,7 @@ export class AttachmentsRepository extends BaseRepository<"attachments"> {
   /**
    * Uploads a file to the given storage bucket and records the resulting
    * attachment row. Pass storagePath as the path *within* the bucket
-   * (e.g. `${householdId}/${transactionId}/${fileName}`).
+   * (e.g. `households/${householdId}/transactions/${transactionId}/${fileName}`).
    */
   async uploadAndCreate(params: {
     bucket: string;
