@@ -7,6 +7,7 @@ import {
   Text,
   TextInput,
   View,
+  type ScrollViewProps,
   type TextInputProps,
 } from 'react-native';
 
@@ -22,9 +23,10 @@ type PageProps = {
   subtitle?: string;
   children: ReactNode;
   actions?: ReactNode;
+  scrollViewProps?: ScrollViewProps;
 };
 
-export function Page({ title, subtitle, children, actions }: PageProps) {
+export function Page({ title, subtitle, children, actions, scrollViewProps }: PageProps) {
   const { colors } = useTheme();
   const { t } = useTranslation('common');
   const responsive = useResponsiveMetrics();
@@ -33,6 +35,7 @@ export function Page({ title, subtitle, children, actions }: PageProps) {
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       style={[styles.scrollView, { backgroundColor: colors.background }]}
+      {...scrollViewProps}
       contentContainerStyle={[
         styles.page,
         {

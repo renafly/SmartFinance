@@ -72,7 +72,8 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
       .from("transactions")
       .select(TRANSACTION_WITH_RELATIONS_SELECT)
       .eq("household_id", householdId)
-      .order("transaction_date", { ascending: false });
+      .order("transaction_date", { ascending: false })
+      .order("id", { ascending: false });
 
     if (filters.accountId) query = query.eq("account_id", filters.accountId);
     if (filters.categoryId) query = query.eq("category_id", filters.categoryId);

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -20,11 +20,17 @@ import {
 import { useHouseholdMemberDetails, useMyHouseholds } from '../../features/households/hooks';
 import { usePreferencesStore, type AppCurrency } from '@/stores/preferencesStore';
 import { typography } from '@/theme/typography';
+import { useTransactions } from '../../features/transactions/hooks/useTransactions';
 
 const accountTypes = ['bank', 'cash', 'savings', 'credit_card', 'investment', 'ppr'] as const;
 const currencyOptions: AppCurrency[] = ['EUR', 'USD', 'GBP'];
 
 type EditMode = {
+  id: string;
+  name: string;
+};
+
+type AccountHistoryMode = {
   id: string;
   name: string;
 };
@@ -45,6 +51,7 @@ export default function AccountsScreen() {
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [menuAccount, setMenuAccount] = useState<EditMode | null>(null);
+  const [accountHistory, setAccountHistory] = useState<AccountHistoryMode | null>(null);
   const [editAccount, setEditAccount] = useState<{
     id: string;
     name: string;
@@ -60,6 +67,7 @@ export default function AccountsScreen() {
   const [ownerProfileId, setOwnerProfileId] = useState('');
   const [ownerFilter, setOwnerFilter] = useState<'all' | 'shared' | string>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | (typeof accountTypes)[number]>('all');
+  const [formError, setFormError] = useState<string | null>(null);
 
   const accounts = (accountsQuery.data ?? []) as any[];
   const members = (membersQuery.data ?? []).filter((member) => member.status === 'accepted');
@@ -123,17 +131,38 @@ export default function AccountsScreen() {
   const archivedCount = accounts.filter((item: any) => item.is_archived).length;
   const activeFilterCount = Number(ownerFilter !== 'all') + Number(typeFilter !== 'all');
   const parsedInitialBalance = Number(initialBalance);
+  const accountTransfersQuery = useTransactions(
+    accountHistory ? { accountId: accountHistory.id } : {},
+    { enabled: Boolean(accountHistory?.id) },
+  );
+  const accountTransactions = accountTransfersQuery.data ?? [];
+  const hasTransferRows = accountTransactions.some((item: any) => Boolean(item.transfer_group_id));
+  const accountTransfers = useMemo(
+    () =>
+      accountTransactions
+        .filter((item: any) => (hasTransferRows ? Boolean(item.transfer_group_id) : true))
+        .sort((a: any, b: any) => {
+          const dateA = new Date(a.transaction_date ?? 0).getTime();
+          const dateB = new Date(b.transaction_date ?? 0).getTime();
+          return dateB - dateA || String(b.id ?? '').localeCompare(String(a.id ?? ''));
+        }),
+    [accountTransactions, hasTransferRows],
+  );
   const canCreateAccount =
     !createAccount.isPending &&
     name.trim().length > 0 &&
     Number.isFinite(parsedInitialBalance);
 
   async function handleCreate() {
-    if (!householdId || !profile?.id || !name.trim() || !Number.isFinite(parsedInitialBalance)) return;
+    if (!householdId || !profile?.id || !name.trim() || !Number.isFinite(parsedInitialBalance) || parsedInitialBalance < 0) {
+      setFormError(t('accounts.createError', { defaultValue: t('accounts.initialBalance') }));
+      return;
+    }
 
+    setFormError(null);
     await createAccount.mutateAsync({
       household_id: householdId,
-      owner_profile_id: ownerProfileId || profile.id,
+      owner_profile_id: ownerProfileId === '' ? null : ownerProfileId || profile.id,
       name: name.trim(),
       type,
       currency: currency,
@@ -149,6 +178,7 @@ export default function AccountsScreen() {
   }
 
   function openCreateDialog() {
+    setFormError(null);
     setName('');
     setType('bank');
     setCurrency(preferredCurrency);
@@ -178,8 +208,12 @@ export default function AccountsScreen() {
     if (!editAccount) return;
 
     const nextInitialBalance = Number(editAccount.initialBalance);
-    if (!editAccount.name.trim() || !Number.isFinite(nextInitialBalance) || nextInitialBalance < 0) return;
+    if (!editAccount.name.trim() || !Number.isFinite(nextInitialBalance) || nextInitialBalance < 0) {
+      setFormError(t('accounts.saveError', { defaultValue: t('accounts.initialBalance') }));
+      return;
+    }
 
+    setFormError(null);
     await updateAccount.mutateAsync({
       id: editAccount.id,
       data: {
@@ -193,6 +227,12 @@ export default function AccountsScreen() {
 
     setEditAccount(null);
   }
+
+  useEffect(() => {
+    if (accountHistory?.id) {
+      void accountTransfersQuery.refetch();
+    }
+  }, [accountHistory?.id]);
 
   return (
     <Page title={t('accounts.title')} subtitle={t('accounts.subtitle')} actions={<Button label={t('accounts.create')} onPress={openCreateDialog} />}>
@@ -269,13 +309,18 @@ export default function AccountsScreen() {
               return (
                 <TableRow key={account.id}>
                   <TableCell flex={2}>
-                    <View style={{ gap: spacing(1) }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-                        <Ionicons name={getAccountTypeIcon(account.type)} size={18} color={colors.primary} />
-                        <Text style={styles.accountName}>{account.name}</Text>
+                    <Pressable
+                      onPress={() => setAccountHistory({ id: account.id, name: account.name })}
+                      style={({ pressed }) => [styles.accountRowPressable, pressed && styles.pressed]}
+                    >
+                      <View style={{ gap: spacing(1) }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
+                          <Ionicons name={getAccountTypeIcon(account.type)} size={18} color={colors.primary} />
+                          <Text style={styles.accountName}>{account.name}</Text>
+                        </View>
+                        <Badge label={isArchived ? t('accounts.archived') : t('accounts.active')} tone={isArchived ? 'destructive' : 'success'} />
                       </View>
-                      <Badge label={isArchived ? t('accounts.archived') : t('accounts.active')} tone={isArchived ? 'destructive' : 'success'} />
-                    </View>
+                    </Pressable>
                   </TableCell>
                   <TableCell flex={1.4}>
                     <Text style={styles.accountMeta}>{getOwnerLabel(account.owner_profile_id)}</Text>
@@ -324,6 +369,7 @@ export default function AccountsScreen() {
               <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
               <Text style={styles.modalSubtitle}>{t('accounts.createSubtitle')}</Text>
             </View>
+            {formError ? <Text style={{ color: colors.destructive, fontWeight: String(typography.fontWeight.semibold) } as any}>{formError}</Text> : null}
             <Field label={t('accounts.name')} value={name} onChangeText={setName} placeholder={t('accounts.namePlaceholder')} />
             <Text style={styles.sectionLabel}>{t('accounts.typeLabel')}</Text>
             <View style={styles.pillWrap}>
@@ -418,6 +464,7 @@ export default function AccountsScreen() {
               <Ionicons name="pencil-outline" size={18} color={colors.primary} />
               <Text style={styles.modalSubtitle}>{t('settings.selectedAccountsHint', { defaultValue: t('accounts.subtitle') })}</Text>
             </View>
+            {formError ? <Text style={{ color: colors.destructive, fontWeight: String(typography.fontWeight.semibold) } as any}>{formError}</Text> : null}
             {editAccount ? (
               <>
                 <Field
@@ -473,6 +520,76 @@ export default function AccountsScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={accountHistory !== null} transparent animationType="fade" onRequestClose={() => setAccountHistory(null)}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.backdropPressable} onPress={() => setAccountHistory(null)} />
+          <View style={styles.historyModalCard}>
+            <Text style={styles.modalTitle}>{accountHistory?.name ?? t('accounts.title')}</Text>
+            <View style={styles.modalTitleRow}>
+              <Ionicons name="swap-horizontal-outline" size={18} color={colors.primary} />
+              <Text style={styles.modalSubtitle}>
+                {t('accounts.accountTransfersSubtitle', {
+                  defaultValue: 'Transfers for this account, newest first.',
+                })}
+              </Text>
+            </View>
+            <ScrollView style={styles.historyScroll} contentContainerStyle={{ gap: spacing(3) }}>
+              {(accountTransfersQuery.isPending || accountTransfersQuery.isFetching) ? (
+                <Text style={styles.accountMeta}>{t('accounts.accountTransfersLoading', { defaultValue: 'Loading transfers...' })}</Text>
+              ) : accountTransfersQuery.error ? (
+                <View style={{ gap: spacing(2) }}>
+                  <Text style={styles.transferAmountExpense}>
+                    {t('accounts.accountTransfersError', { defaultValue: 'Could not load transfers for this account.' })}
+                  </Text>
+                  <Button
+                    label={t('retry', { defaultValue: 'Retry' })}
+                    variant="secondary"
+                    onPress={() => void accountTransfersQuery.refetch()}
+                  />
+                </View>
+              ) : accountTransfers.length ? (
+                <Table
+                  columns={[
+                    { label: t('transactions.dateLabel'), flex: 1 },
+                    { label: t('transactions.titleLabel'), flex: 2 },
+                    { label: t('transactions.typeLabel', { defaultValue: 'Type' }), flex: 1 },
+                    { label: t('transactions.amountLabel'), align: 'right' },
+                  ]}
+                >
+                  {accountTransfers.map((item: any) => (
+                    <TableRow key={item.id}>
+                      <TableCell flex={1}>
+                        <Text style={styles.accountMeta}>{new Date(item.transaction_date).toLocaleDateString()}</Text>
+                      </TableCell>
+                      <TableCell flex={2}>
+                        <Text style={styles.accountName}>{item.title}</Text>
+                      </TableCell>
+                      <TableCell flex={1}>
+                        <Badge label={t(`transactions.types.${item.type}`, { defaultValue: item.type })} tone={item.type === 'expense' ? 'destructive' : 'success'} />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Text style={item.type === 'expense' ? styles.transferAmountExpense : styles.transferAmountIncome}>
+                          {item.type === 'expense' ? '-' : '+'}{formatCurrency(item.amount)}
+                        </Text>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </Table>
+              ) : (
+                <EmptyState
+                  title={t('accounts.accountTransfersEmptyTitle', { defaultValue: 'No transfers yet' })}
+                  description={t('accounts.accountTransfersEmptySubtitle', {
+                    defaultValue: 'This account does not have any transfer records yet.',
+                  })}
+                  icon="swap-horizontal-outline"
+                />
+              )}
+            </ScrollView>
+            <Button label={t('close', { defaultValue: 'Close' })} variant="secondary" onPress={() => setAccountHistory(null)} />
+          </View>
+        </View>
+      </Modal>
     </Page>
   );
 }
@@ -490,6 +607,11 @@ function createStyles(colors: any) {
     fontWeight: String(typography.fontWeight.bold),
     fontSize: typography.fontSize[16],
   },
+  accountRowPressable: {
+    borderRadius: radius.lg,
+    paddingVertical: spacing(1),
+    paddingRight: spacing(1),
+  },
   accountMeta: {
     color: colors.textSecondary,
   },
@@ -497,6 +619,14 @@ function createStyles(colors: any) {
     color: colors.primary,
     fontWeight: String(typography.fontWeight.extraBold),
     fontSize: typography.fontSize[18],
+  },
+  transferAmountIncome: {
+    color: colors.success,
+    fontWeight: String(typography.fontWeight.extraBold),
+  },
+  transferAmountExpense: {
+    color: colors.destructive,
+    fontWeight: String(typography.fontWeight.extraBold),
   },
   menuButton: {
     width: spacing(10.5),
@@ -531,6 +661,21 @@ function createStyles(colors: any) {
     borderColor: colors.border,
     borderRadius: radius.xl,
     backgroundColor: colors.surface,
+  },
+  historyModalCard: {
+    width: '100%',
+    maxWidth: spacing(180),
+    maxHeight: '82%',
+    alignSelf: 'center' as const,
+    gap: spacing(3.5),
+    padding: spacing(4.5),
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
+    backgroundColor: colors.surface,
+  },
+  historyScroll: {
+    maxHeight: spacing(120),
   },
   menuCard: {
     width: '100%',

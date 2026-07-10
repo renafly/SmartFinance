@@ -276,6 +276,7 @@ export default function BudgetScreen() {
   const [hasLoadedCollapsedPreference, setHasLoadedCollapsedPreference] = useState(false);
 
   const hydratedConfigId = useRef<string | null>(null);
+  const hydratedWorkspaceSignature = useRef<string | null>(null);
   const hydratedRunId = useRef<string | null>(null);
   const hydratedCollapsedPreferenceKey = useRef<string | null>(null);
   const collapsedPreferenceDirtyRef = useRef(false);
@@ -317,10 +318,31 @@ export default function BudgetScreen() {
   const destinationPotGroupLabel = useMemo(() => t('budget.destinationGroups.pigBanks'), [t]);
   const accountNameMap = useMemo(() => new Map(accounts.map((account) => [account.id, account.name])), [accounts]);
   const potNameMap = useMemo(() => new Map(savingPots.map((pot: any) => [pot.id, pot.name])), [savingPots]);
+  const workspaceSignature = useMemo(
+    () =>
+      workspace?.config?.id
+        ? JSON.stringify({
+            configId: workspace.config.id,
+            configName: workspace.config.name ?? '',
+            rules: (workspace.rules ?? []).map((rule: any) => ({
+              id: rule.id,
+              updatedAt: rule.updated_at ?? '',
+              priority: rule.priority ?? null,
+              amount: rule.amount ?? null,
+              sourceAccountId: rule.source_account_id ?? '',
+              destinationAccountId: rule.destination_account_id ?? '',
+              destinationPotId: rule.destination_pot_id ?? '',
+              isActive: rule.is_active ?? true,
+            })),
+          })
+        : null,
+    [workspace?.config?.id, workspace?.config?.name, workspace?.rules],
+  );
 
   useEffect(() => {
-    if (workspace?.config?.id && hydratedConfigId.current !== workspace.config.id) {
+    if (workspace?.config?.id && workspaceSignature && hydratedWorkspaceSignature.current !== workspaceSignature) {
       hydratedConfigId.current = workspace.config.id;
+      hydratedWorkspaceSignature.current = workspaceSignature;
       setConfigId(workspace.config.id);
       setBudgetName(workspace.config.name ?? t('budget.defaultName'));
       setRuleDrafts(sortRuleDrafts(mapRulesToDrafts(workspace.rules ?? [])));
@@ -333,6 +355,7 @@ export default function BudgetScreen() {
 
     if (!workspace?.config?.id && hydratedConfigId.current !== '__draft__' && accounts.length > 0 && members.length > 0) {
       hydratedConfigId.current = '__draft__';
+      hydratedWorkspaceSignature.current = '__draft__';
       setConfigId(null);
       setBudgetName(t('budget.defaultName'));
       setRuleDrafts([]);
@@ -341,7 +364,7 @@ export default function BudgetScreen() {
       setFixedRemainingCashAmount(String(household?.fixed_remaining_cash_amount ?? 0));
       setExcessCashDistributionMethod((household?.excess_cash_distribution_method ?? 'even_split') as 'even_split');
     }
-  }, [accounts, household, members, t, workspace?.config?.id, workspace?.config?.name, workspace?.rules]);
+  }, [accounts, household, members, t, workspace?.config?.id, workspace?.config?.name, workspace?.rules, workspaceSignature]);
 
   useEffect(() => {
     if (!selectedRun?.id || hydratedRunId.current === selectedRun.id) return;

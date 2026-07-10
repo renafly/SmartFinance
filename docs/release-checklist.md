@@ -7,7 +7,8 @@ Use this checklist before promoting a Vercel deployment to production.
 - Run `npx tsc --noEmit --pretty false`.
 - Run `npx expo export --platform web`.
 - Confirm Vercel uses `npx expo export --platform web` and `dist`.
-- Confirm `vercel.json` keeps SPA rewrites for protected and invite deep links.
+- Confirm `vercel.json` keeps SPA rewrites for protected pages and `/invite/:token` links.
+- Confirm Vercel response headers are present on `/login`, `/settings`, and `/invite/:token`.
 
 ## Environment
 
@@ -29,6 +30,14 @@ Use this checklist before promoting a Vercel deployment to production.
 - Open `/invite/:token` directly from a clean browser session.
 - Accept a valid invite with the invited Google account.
 - Try an invite with the wrong Google account and confirm it does not loop.
+
+## Security Headers
+
+- Confirm `Content-Security-Policy-Report-Only` is present before enforcing CSP.
+- Review browser console CSP reports after login, invite acceptance, dashboard load, and attachment flows.
+- Confirm `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, and `X-Frame-Options: DENY` are present.
+- Confirm CSP report-only does not block Google sign-in, Supabase calls, Vercel Speed Insights, static assets, fonts, or images.
+- Do not switch from report-only CSP to enforcing CSP until production smoke tests are clean.
 
 ## Responsive UI
 

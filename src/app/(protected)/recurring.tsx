@@ -145,7 +145,7 @@ function DatePickerField({
   }, [open, value]);
 
   if (Platform.OS === 'web') {
-    return <Field label={label} value={value} onChangeText={onChange} placeholder={placeholder} />;
+    return <Field label={label} value={value} onChangeText={onChange} placeholder={placeholder} {...({ type: 'date' } as any)} />;
   }
 
   const displayValue = value.trim().length > 0 ? formatDateInputValue(parseDateInputValue(value) ?? new Date()) : placeholder;
@@ -243,6 +243,8 @@ export default function RecurringScreen() {
   const [frequency, setFrequency] = useState<(typeof frequencies)[number]>('monthly');
   const [excludedMonths, setExcludedMonths] = useState<number[]>([]);
   const [nextRun, setNextRun] = useState(new Date().toISOString().slice(0, 10));
+  const [accountFilter, setAccountFilter] = useState('all');
+  const [formError, setFormError] = useState<string | null>(null);
   const [menuRecurring, setMenuRecurring] = useState<any | null>(null);
   const [editRecurring, setEditRecurring] = useState<RecurringEditDraft | null>(null);
   const memberLabelMap = new Map(
@@ -254,6 +256,10 @@ export default function RecurringScreen() {
       ]),
   );
   const currentUserLabel = profile?.full_name?.trim() || profile?.email?.trim() || t('settings.you');
+  const filteredRecurring = useMemo(
+    () => (recurringQuery.data ?? []).filter((item: any) => accountFilter === 'all' || item.account_id === accountFilter),
+    [accountFilter, recurringQuery.data],
+  );
   const parsedAmount = Number(amount);
   const canCreateRecurring =
     !createRecurring.isPending &&
@@ -266,8 +272,12 @@ export default function RecurringScreen() {
     /^\d{4}-\d{2}-\d{2}$/.test(nextRun);
 
   async function handleCreate() {
-    if (!householdId || !profile?.id || !accountId || !title.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0) return;
+    if (!householdId || !profile?.id || !accountId || !title.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setFormError(t('settings.editDetails'));
+      return;
+    }
 
+    setFormError(null);
     await createRecurring.mutateAsync({
       household_id: householdId,
       account_id: accountId,
@@ -313,9 +323,11 @@ export default function RecurringScreen() {
       nextAmount <= 0 ||
       !/^\d{4}-\d{2}-\d{2}$/.test(editRecurring.nextRun)
     ) {
+      setFormError(t('settings.editDetails'));
       return;
     }
 
+    setFormError(null);
     await updateRecurring.mutateAsync({
       id: editRecurring.id,
       title: editRecurring.title.trim(),
@@ -369,6 +381,7 @@ export default function RecurringScreen() {
     <Page title={t('recurring.title')} subtitle={t('recurring.subtitle')}>
       <Card>
         <Section title={t('recurring.createTitle')}>
+          {formError ? <Text style={{ color: colors.destructive, fontWeight: String(typography.fontWeight.semibold) } as any}>{formError}</Text> : null}
           <Field label={t('recurring.titleLabel')} value={title} onChangeText={setTitle} />
           <Field label={t('recurring.amount')} value={amount} onChangeText={setAmount} keyboardType="numeric" />
           <DatePickerField
@@ -437,7 +450,16 @@ export default function RecurringScreen() {
       </Card>
 
       <Section title={t('recurring.rulesTitle')} subtitle={t('recurring.rulesSubtitle', { count: (recurringQuery.data ?? []).length })}>
-        {(recurringQuery.data ?? []).length ? (
+        <View style={{ gap: spacing(2), marginBottom: spacing(3) }}>
+          <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>{t('recurring.account')}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
+            <Pill label={t('all', { defaultValue: 'All' })} active={accountFilter === 'all'} onPress={() => setAccountFilter('all')} />
+            {(accountsQuery.data ?? []).map((account: any) => (
+              <Pill key={account.id} label={account.name} active={accountFilter === account.id} onPress={() => setAccountFilter(account.id)} />
+            ))}
+          </View>
+        </View>
+        {filteredRecurring.length ? (
           <Table
             columns={[
               { label: t('recurring.titleLabel'), flex: 2 },
@@ -448,7 +470,7 @@ export default function RecurringScreen() {
               { label: '', flex: 0.35, align: 'right' },
             ]}
           >
-            {(recurringQuery.data ?? []).map((item: any) => (
+            {filteredRecurring.map((item: any) => (
               <TableRow key={item.id}>
                 <TableCell flex={2}>
                   <View style={{ gap: spacing(1) }}>

@@ -1,7 +1,7 @@
 import { useTheme } from "@/theme/ThemeProvider";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Modal,
@@ -13,7 +13,7 @@ import {
 } from "react-native";
 
 import { HouseholdMemberSelect } from "@/components/household-member-select";
-import { MultiSelectShell } from "@/components/selection-shell";
+import { MultiSelectShell, SelectionTrigger } from "@/components/selection-shell";
 import {
   Button,
   Card,
@@ -49,6 +49,10 @@ type AccountGroup = {
   key: string;
   title: string;
   accounts: AccountOption[];
+};
+
+type AccountGroupView = AccountGroup & {
+  accountCount: number;
 };
 
 type SelectionMode =
@@ -144,6 +148,14 @@ function buildSelectionMap(rows: { pot_id: string; account_id: string }[]) {
   return map;
 }
 
+function getAccountSummary(account: AccountOption, memberLabelMap: Map<string, string>, sharedLabel: string) {
+  const ownerLabel = account.owner_profile_id
+    ? memberLabelMap.get(account.owner_profile_id) ?? sharedLabel
+    : sharedLabel;
+
+  return `${account.type} · ${ownerLabel}`;
+}
+
 export default function SavingsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -163,6 +175,7 @@ export default function SavingsScreen() {
   const [name, setName] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
   const [createdById, setCreatedById] = useState("");
+  const [potScope, setPotScope] = useState<"shared" | "account_specific">("shared");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createSelectedAccountIds, setCreateSelectedAccountIds] = useState<
     string[]
@@ -171,6 +184,8 @@ export default function SavingsScreen() {
     null,
   );
   const [draftAccountIds, setDraftAccountIds] = useState<string[]>([]);
+  const [collapsedGroupKeys, setCollapsedGroupKeys] = useState<string[]>([]);
+  const [hasLoadedCollapsedGroups, setHasLoadedCollapsedGroups] = useState(false);
   const [draftPotValues, setDraftPotValues] = useState<
     Record<string, { name: string; targetAmount: string }>
   >({});
@@ -208,6 +223,54 @@ export default function SavingsScreen() {
     (balancesQuery.data ?? []).map((pot: any) => [pot.id, pot]),
   );
   const selectionMap = buildSelectionMap(assignmentsQuery.data ?? []);
+  const collapsedGroupsKey = householdId ? `smartfinance:savings:collapsed-groups:${householdId}` : null;
+  const hydratedCollapsedGroupsKey = useRef<string | null>(null);
+  const createSelectedAccountsLabel =
+    createSelectedAccountIds.length > 0
+      ? t("savings.selectedAccountsSummary", { count: createSelectedAccountIds.length })
+      : t("savings.noAccountsSelected");
+
+  useEffect(() => {
+    if (!collapsedGroupsKey || typeof window === "undefined") return;
+    if (hydratedCollapsedGroupsKey.current === collapsedGroupsKey) return;
+
+    const raw = window.localStorage.getItem(collapsedGroupsKey);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setCollapsedGroupKeys(parsed.filter((item) => typeof item === "string"));
+        }
+      } catch {
+        setCollapsedGroupKeys([]);
+      }
+    } else {
+      setCollapsedGroupKeys([]);
+    }
+
+    hydratedCollapsedGroupsKey.current = collapsedGroupsKey;
+    setHasLoadedCollapsedGroups(true);
+  }, [collapsedGroupsKey]);
+
+  useEffect(() => {
+    if (!collapsedGroupsKey || typeof window === "undefined" || !hasLoadedCollapsedGroups) return;
+    window.localStorage.setItem(collapsedGroupsKey, JSON.stringify(collapsedGroupKeys));
+  }, [collapsedGroupKeys, collapsedGroupsKey, hasLoadedCollapsedGroups]);
+
+  const toggleCollapsedGroup = (groupKey: string) => {
+    setCollapsedGroupKeys((current) =>
+      current.includes(groupKey) ? current.filter((item) => item !== groupKey) : [...current, groupKey],
+    );
+  };
+
+  const groupedAccounts = useMemo<AccountGroupView[]>(
+    () =>
+      groups.map((group) => ({
+        ...group,
+        accountCount: group.accounts.length,
+      })),
+    [groups],
+  );
 
   async function handleCreate() {
     if (
@@ -224,7 +287,7 @@ export default function SavingsScreen() {
       created_by: createdById || profile.id,
       name: name.trim(),
       target_amount: parsedTargetAmount,
-      selected_account_ids: createSelectedAccountIds,
+      selected_account_ids: potScope === "account_specific" ? createSelectedAccountIds : [],
     } as any);
 
     setName("");
@@ -237,6 +300,7 @@ export default function SavingsScreen() {
     setName("");
     setTargetAmount("");
     setCreateSelectedAccountIds([]);
+    setPotScope("shared");
     setCreatedById(profile?.id ?? "");
     setCreateDialogOpen(true);
   }
@@ -355,6 +419,7 @@ export default function SavingsScreen() {
             const balance = balanceMap.get(pot.id);
             const selectedCount = Number(balance?.selected_account_count ?? 0);
             const selectedAccountIds = selectionMap.get(pot.id) ?? [];
+            const isSharedPot = selectedAccountIds.length === 0;
             const estimateAccountIds =
               selectedAccountIds.length > 0
                 ? selectedAccountIds
@@ -426,11 +491,11 @@ export default function SavingsScreen() {
                     </Text>
                     <Text style={styles.potMeta}>
                       {t("savings.accountsUsed")}:{" "}
-                      {selectedCount > 0
-                        ? t("savings.selectedAccountsSummary", {
+                      {isSharedPot
+                        ? t("savings.scopeShared")
+                        : t("savings.scopeAccountSpecific", {
                             count: selectedCount,
-                          })
-                        : t("savings.allAccountsUsed")}
+                          })}
                     </Text>
                     {percent !== null ? (
                       <Text style={styles.potMeta}>
@@ -559,6 +624,60 @@ export default function SavingsScreen() {
               keyboardType="numeric"
               placeholder="1000"
             />
+            <Text style={styles.sectionLabel}>{t("savings.scopeLabel")}</Text>
+            <View style={styles.pillWrap}>
+              <Pressable
+                onPress={() => setPotScope("shared")}
+                style={({ pressed }) => [
+                  styles.scopePill,
+                  potScope === "shared" && styles.scopePillActive,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text
+                  style={
+                    potScope === "shared"
+                      ? styles.scopePillTextActive
+                      : styles.scopePillText
+                  }
+                >
+                  {t("savings.scopeShared")}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setPotScope("account_specific")}
+                style={({ pressed }) => [
+                  styles.scopePill,
+                  potScope === "account_specific" && styles.scopePillActive,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text
+                  style={
+                    potScope === "account_specific"
+                      ? styles.scopePillTextActive
+                      : styles.scopePillText
+                  }
+                >
+                  {t("savings.scopeAccountSpecific")}
+                </Text>
+              </Pressable>
+            </View>
+            <Text style={styles.potMeta}>
+              {potScope === "shared"
+                ? t("savings.sharedAccountsHint")
+                : t("savings.selectAccountsHint")}
+            </Text>
+            {potScope === "account_specific" ? (
+              <SelectionTrigger
+                label={t("savings.selectAccounts")}
+                valueLabel={createSelectedAccountsLabel}
+                hint={t("savings.selectAccountsHint")}
+                placeholder={t("savings.selectAccounts")}
+                iconName="wallet-outline"
+                onPress={openCreatePicker}
+              />
+            ) : null}
             <HouseholdMemberSelect
               label={t("savings.createdBy")}
               members={(membersQuery.data ?? []).filter(
@@ -569,27 +688,6 @@ export default function SavingsScreen() {
               hint={t("savings.createdByPlaceholder")}
               onChange={setCreatedById}
             />
-            <Pressable
-              onPress={openCreatePicker}
-              style={({ pressed }) => [
-                styles.selector,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.selectorLabel}>
-                {t("savings.selectAccounts")}
-              </Text>
-              <Text style={styles.selectorValue}>
-                {createSelectedAccountIds.length > 0
-                  ? t("savings.selectedAccountsSummary", {
-                      count: createSelectedAccountIds.length,
-                    })
-                  : t("savings.allAccountsUsed")}
-              </Text>
-              <Text style={styles.selectorHint}>
-                {t("savings.selectedAccountsHint")}
-              </Text>
-            </Pressable>
             <View style={styles.modalActions}>
               <Button
                 label={t("savings.closeAccounts")}
@@ -704,50 +802,66 @@ export default function SavingsScreen() {
             style={styles.modalList}
             contentContainerStyle={{ gap: spacing(3.5) }}
           >
-            {groups.map((group) => (
-              <View key={group.key} style={styles.group}>
-                <Text style={styles.groupTitle}>{group.title}</Text>
-                <View style={{ gap: spacing(2.5) }}>
-                  {group.accounts.map((account) => {
-                    const selected = draftAccountIds.includes(account.id);
+            {groupedAccounts.map((group) => {
+              const isCollapsed = !hasLoadedCollapsedGroups || collapsedGroupKeys.includes(group.key);
 
-                    return (
-                      <Pressable
-                        key={account.id}
-                        onPress={() => toggleDraftAccount(account.id)}
-                        style={({ pressed }) => [
-                          styles.accountRow,
-                          selected && styles.accountRowSelected,
-                          pressed && styles.pressed,
-                        ]}
-                      >
-                        <View style={{ flex: 1, gap: spacing(1) }}>
-                          <Text style={styles.accountName}>
-                            {account.name}
-                          </Text>
-                          <Text style={styles.accountMeta}>
-                            {t(`accounts.types.${account.type}`)}
-                          </Text>
-                          <Text style={styles.accountMeta}>
-                            {formatCurrency(account.current_balance)}
-                          </Text>
-                        </View>
-                        <View
-                          style={[
-                            styles.checkbox,
-                            selected && styles.checkboxSelected,
-                          ]}
-                        >
-                          <Text style={styles.checkboxLabel}>
-                            {selected ? "✓" : ""}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
+              return (
+                <View key={group.key} style={styles.group}>
+                  <Pressable
+                    onPress={() => toggleCollapsedGroup(group.key)}
+                    style={({ pressed }) => [
+                      styles.groupHeader,
+                      { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.groupTitle}>{group.title}</Text>
+                      <Text style={styles.groupSubtitle}>
+                        {t("savings.groupCount", { count: group.accountCount })}
+                      </Text>
+                    </View>
+                    <Text style={styles.groupChevron}>{isCollapsed ? "▸" : "▾"}</Text>
+                  </Pressable>
+                  {!isCollapsed ? (
+                    <View style={{ gap: spacing(2.5), paddingLeft: spacing(1) }}>
+                      {group.accounts.map((account) => {
+                        const selected = draftAccountIds.includes(account.id);
+
+                        return (
+                          <Pressable
+                            key={account.id}
+                            onPress={() => toggleDraftAccount(account.id)}
+                            style={({ pressed }) => [
+                              styles.accountRow,
+                              selected && styles.accountRowSelected,
+                              pressed && styles.pressed,
+                            ]}
+                          >
+                            <View style={{ flex: 1, gap: spacing(1) }}>
+                              <Text style={styles.accountName}>{account.name}</Text>
+                              <Text style={styles.accountMeta}>
+                                {getAccountSummary(account, memberLabelMap, t("dashboard.shared"))} · {formatCurrency(account.current_balance)}
+                              </Text>
+                            </View>
+                            <View
+                              style={[
+                                styles.checkbox,
+                                selected && styles.checkboxSelected,
+                              ]}
+                            >
+                              <Text style={styles.checkboxLabel}>
+                                {selected ? "✓" : ""}
+                              </Text>
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </ScrollView>
         )}
       </MultiSelectShell>
@@ -757,6 +871,58 @@ export default function SavingsScreen() {
 
 function createStyles(colors: any) {
   return StyleSheet.create({
+    scopePill: {
+      paddingHorizontal: spacing(3),
+      paddingVertical: spacing(1.5),
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+    },
+    scopePillActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary,
+    },
+    scopePillText: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+      fontWeight: typography.fontWeight.semibold,
+    },
+    scopePillTextActive: {
+      color: colors.primaryForeground,
+      fontSize: typography.fontSize[12],
+      fontWeight: typography.fontWeight.semibold,
+    },
+    sectionLabel: {
+      color: colors.textSecondary,
+      fontWeight: typography.fontWeight.semibold,
+    },
+    pillWrap: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing(1.5),
+    },
+    groupHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: spacing(2),
+      paddingHorizontal: spacing(3),
+      paddingVertical: spacing(2.5),
+      borderRadius: radius.lg,
+      borderWidth: 1,
+    },
+    groupSubtitle: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+      marginTop: spacing(0.5),
+    },
+    groupChevron: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[18],
+      fontWeight: typography.fontWeight.bold,
+      paddingLeft: spacing(1),
+    },
     selector: {
       gap: spacing(1.5),
       padding: spacing(3.5),

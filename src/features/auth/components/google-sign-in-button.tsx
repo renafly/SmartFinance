@@ -32,7 +32,6 @@ export function GoogleSignInButton({ redirectTo }: GoogleSignInButtonProps) {
   async function onSignInButtonPress() {
     storePendingRedirectTo(redirectTo);
     const callbackUrl = Linking.createURL(AUTH_CALLBACK_ROUTE);
-    console.debug('[GoogleSignInButton] redirectTo:', callbackUrl);
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -44,12 +43,11 @@ export function GoogleSignInButton({ redirectTo }: GoogleSignInButtonProps) {
     });
 
     if (error) {
-      console.error('[GoogleSignInButton] signInWithOAuth error:', error);
+      console.error('[GoogleSignInButton] Google sign-in could not start.');
       throw error;
     }
 
     const googleOAuthUrl = data.url;
-    console.debug('[GoogleSignInButton] oauth url:', googleOAuthUrl);
 
     if (!googleOAuthUrl) {
       throw new Error('No OAuth URL returned from Supabase.');
@@ -62,29 +60,27 @@ export function GoogleSignInButton({ redirectTo }: GoogleSignInButtonProps) {
         showInRecents: true,
       },
     );
-    console.debug('[GoogleSignInButton] auth session result:', result);
 
     if (result.type === 'success') {
       const params = extractParamsFromUrl(result.url);
-      console.debug('[GoogleSignInButton] extracted params:', params);
 
       if (params.access_token && params.refresh_token) {
         const { error: sessionError } = await supabase.auth.setSession({
           access_token: params.access_token,
           refresh_token: params.refresh_token,
         });
-        console.debug('[GoogleSignInButton] setSession result error:', sessionError);
 
         if (sessionError) {
+          console.error('[GoogleSignInButton] Google session could not be restored.');
           throw sessionError;
         }
 
         router.replace(consumePendingRedirectTo() as any);
       } else {
-        console.error('[GoogleSignInButton] missing access_token or refresh_token in callback url');
+        console.error('[GoogleSignInButton] Google sign-in callback was incomplete.');
       }
     } else {
-      console.error('[GoogleSignInButton] auth session did not complete successfully');
+      console.error('[GoogleSignInButton] Google sign-in did not complete.');
     }
   }
 

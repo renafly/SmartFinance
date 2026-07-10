@@ -81,7 +81,7 @@ describe("transactionsService.createTransaction", () => {
     expect(mockUploadAndCreate).toHaveBeenCalledWith({
       bucket: "attachments",
       storagePath:
-        "household-1/transactions/transaction-1/1710000000000-receipt_1_.pdf",
+        "households/household-1/transactions/transaction-1/1710000000000-receipt_1_.pdf",
       file,
       transactionId: "transaction-1",
       uploadedBy: "profile-1",
@@ -114,5 +114,51 @@ describe("transactionsService.createTransaction", () => {
     ).rejects.toThrow(attachmentError);
 
     expect(mockDelete).toHaveBeenCalledWith("transaction-1");
+  });
+
+  it("rejects unsupported attachment types before creating a transaction", async () => {
+    await expect(
+      transactionsService.createTransaction({
+        household_id: "household-1",
+        account_id: "account-1",
+        created_by: "profile-1",
+        title: "Receipt",
+        amount: 12,
+        type: "expense",
+        transaction_date: "2026-07-09T10:00:00.000Z",
+        attachment: {
+          file: new ArrayBuffer(8),
+          fileName: "receipt.exe",
+          fileSize: 2048,
+          mimeType: "application/octet-stream",
+        },
+      } as any),
+    ).rejects.toThrow("Attachment file type is not supported.");
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockUploadAndCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized attachments before creating a transaction", async () => {
+    await expect(
+      transactionsService.createTransaction({
+        household_id: "household-1",
+        account_id: "account-1",
+        created_by: "profile-1",
+        title: "Receipt",
+        amount: 12,
+        type: "expense",
+        transaction_date: "2026-07-09T10:00:00.000Z",
+        attachment: {
+          file: new ArrayBuffer(8),
+          fileName: "receipt.pdf",
+          fileSize: 10 * 1024 * 1024 + 1,
+          mimeType: "application/pdf",
+        },
+      } as any),
+    ).rejects.toThrow("Attachment file is larger than the 10 MB limit.");
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockUploadAndCreate).not.toHaveBeenCalled();
   });
 });

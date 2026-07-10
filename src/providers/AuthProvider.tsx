@@ -3,6 +3,10 @@ import { supabase } from '../shared/lib/supabase/client';
 import { useSession, type Claims, type UserProfile } from '../shared/session';
 import { usePreferencesStore, type AppCurrency } from '@/stores/preferencesStore';
 
+function logAuthError(message: string) {
+  console.error(message);
+}
+
 type AuthContextValue = {
   session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session'];
   restoring: boolean;
@@ -28,7 +32,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   async function syncAuthState(isActive = true) {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) {
-      console.error('Error restoring Supabase session:', sessionError);
+      logAuthError('Error restoring Supabase session.');
     }
 
     if (isActive) {
@@ -37,7 +41,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const { data, error } = await supabase.auth.getClaims();
     if (error) {
-      console.error('Error fetching claims:', error);
+      logAuthError('Error fetching claims.');
     }
 
     if (isActive) {
@@ -113,7 +117,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
     if (claimsError) {
-      console.error('Error fetching claims after sign-in:', claimsError);
+      logAuthError('Error fetching claims after sign-in.');
     }
 
     setClaims(claimsData?.claims ?? null);

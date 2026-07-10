@@ -26,6 +26,7 @@ type DashboardAccount = {
   type: string;
   currency?: string;
   owner_profile_id?: string | null;
+  initial_balance?: number | null;
   current_balance?: number | null;
   balance?: number | null;
 };
@@ -258,8 +259,21 @@ export default function DashboardScreen() {
   }, [members]);
 
   const investmentAccounts = useMemo(
-    () => accounts.filter((account) => account.type === 'investment' || account.type === 'ppr'),
-    [accounts],
+    () =>
+      accounts
+        .filter((account) => account.type === 'investment' || account.type === 'ppr')
+        .slice()
+        .sort((a, b) => {
+          const typeOrder = (value: string) => (value === 'investment' ? 0 : value === 'ppr' ? 1 : 99);
+          const ownerA = a.owner_profile_id ? getPersonLabel(memberMap.get(a.owner_profile_id), t('dashboard.shared')) : t('dashboard.shared');
+          const ownerB = b.owner_profile_id ? getPersonLabel(memberMap.get(b.owner_profile_id), t('dashboard.shared')) : t('dashboard.shared');
+          return (
+            typeOrder(a.type) - typeOrder(b.type) ||
+            ownerA.localeCompare(ownerB) ||
+            a.name.localeCompare(b.name)
+          );
+        }),
+    [accounts, memberMap, t],
   );
 
   const savingsAccounts = useMemo(
@@ -530,11 +544,16 @@ export default function DashboardScreen() {
               { label: t('accounts.name'), flex: 2 },
               { label: t('accounts.owner'), flex: 1.2 },
               { label: t('accounts.typeLabel'), flex: 1 },
+              { label: t('accounts.initialBalance'), align: 'right' },
               { label: t('dashboard.total'), align: 'right' },
+              { label: t('dashboard.difference', { defaultValue: t('dashboard.total') }), align: 'right' },
             ]}
           >
             {investmentAccounts.map((account) => {
               const owner = account.owner_profile_id ? memberMap.get(account.owner_profile_id) : undefined;
+              const initialBalance = Number(account.initial_balance ?? 0);
+              const currentBalance = Number(account.current_balance ?? account.balance ?? 0);
+              const balanceDifference = currentBalance - initialBalance;
 
               return (
                 <TableRow key={account.id}>
@@ -556,7 +575,21 @@ export default function DashboardScreen() {
                     <Badge label={t(`accounts.types.${account.type}`)} tone="neutral" />
                   </TableCell>
                   <TableCell align="right">
-                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(account.current_balance ?? account.balance ?? 0)}</Text>
+                    <Text style={{ color: colors.textSecondary }}>{formatCurrency(initialBalance)}</Text>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(currentBalance)}</Text>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text
+                      style={{
+                        color: balanceDifference > 0 ? colors.success : balanceDifference < 0 ? colors.destructive : colors.textSecondary,
+                        fontWeight: typography.fontWeight.extraBold as any,
+                      }}
+                    >
+                      {balanceDifference > 0 ? '+' : ''}
+                      {formatCurrency(balanceDifference)}
+                    </Text>
                   </TableCell>
                 </TableRow>
               );

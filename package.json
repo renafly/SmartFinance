@@ -83,7 +83,8 @@
     "test:ci": "jest --runInBand --coverage=false",
     "typecheck:test": "tsc --noEmit --pretty false -p tsconfig.test.json",
     "test:supabase": "node ./test/supabase/run-local-contract-tests.mjs",
-    "test:e2e:web": "npx expo export --platform web && playwright test"
+    "test:e2e:web": "npx expo export --platform web && playwright test",
+    "security:check": "node ./test/security/run-security-check.mjs"
   },
   "private": true
 }
