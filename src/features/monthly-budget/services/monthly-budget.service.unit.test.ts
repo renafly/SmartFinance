@@ -47,6 +47,9 @@ function rule(overrides: Record<string, unknown>) {
     frequency: "monthly",
     priority: 0,
     is_active: true,
+    active_months: [],
+    active_from_month: null,
+    active_to_month: null,
     created_at: "2026-01-01T00:00:00.000Z",
     ...overrides,
   } as any;
@@ -119,6 +122,37 @@ describe("MonthlyBudgetService.buildPreview", () => {
         isSystemGenerated: false,
       }),
     ]);
+  });
+
+  it("skips monthly budget rules outside the selected active months", () => {
+    const result = preview({
+      rules: [
+        rule({
+          active_months: [1, 2],
+        }),
+      ],
+      month: "2026-07",
+    });
+
+    expect(result.validationIssues).toEqual([]);
+    expect(result.configuredTotal).toBe(0);
+    expect(result.transfers).toEqual([]);
+  });
+
+  it("honors active month ranges when building the preview", () => {
+    const result = preview({
+      rules: [
+        rule({
+          active_from_month: 5,
+          active_to_month: 9,
+        }),
+      ],
+      month: "2026-07",
+    });
+
+    expect(result.validationIssues).toEqual([]);
+    expect(result.configuredTotal).toBe(500);
+    expect(result.transfers).toHaveLength(1);
   });
 
   it("excludes custom recurring transactions during excluded months", () => {

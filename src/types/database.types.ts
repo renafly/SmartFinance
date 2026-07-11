@@ -275,6 +275,9 @@ export type Database = {
           frequency: Database["public"]["Enums"]["recurring_frequency"];
           priority: number;
           is_active: boolean;
+          active_months: number[] | null;
+          active_from_month: number | null;
+          active_to_month: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -291,6 +294,9 @@ export type Database = {
           frequency?: Database["public"]["Enums"]["recurring_frequency"];
           priority?: number;
           is_active?: boolean;
+          active_months?: number[] | null;
+          active_from_month?: number | null;
+          active_to_month?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -307,6 +313,9 @@ export type Database = {
           frequency?: Database["public"]["Enums"]["recurring_frequency"];
           priority?: number;
           is_active?: boolean;
+          active_months?: number[] | null;
+          active_from_month?: number | null;
+          active_to_month?: number | null;
           created_at?: string;
           updated_at?: string;
         };

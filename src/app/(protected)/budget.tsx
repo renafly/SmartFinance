@@ -56,6 +56,21 @@ const SECTION_SORT_ORDER: Record<string, number> = {
   remaining_cash: 4,
 };
 
+const MONTH_OPTIONS = [
+  { value: 1, label: 'Jan' },
+  { value: 2, label: 'Feb' },
+  { value: 3, label: 'Mar' },
+  { value: 4, label: 'Apr' },
+  { value: 5, label: 'May' },
+  { value: 6, label: 'Jun' },
+  { value: 7, label: 'Jul' },
+  { value: 8, label: 'Aug' },
+  { value: 9, label: 'Sep' },
+  { value: 10, label: 'Oct' },
+  { value: 11, label: 'Nov' },
+  { value: 12, label: 'Dec' },
+];
+
 type MemberContributionSummary = {
   label: string;
   section: MonthlyBudgetRuleDraft['section'];
@@ -95,6 +110,24 @@ function buildPotNameByAccountId(
 
 function getSectionRank(section: string) {
   return SECTION_SORT_ORDER[section] ?? 99;
+}
+
+function normalizeMonthSelection(months: unknown) {
+  if (!Array.isArray(months)) return [];
+
+  return [...new Set(
+    months
+      .map((item) => Number(item))
+      .filter((item) => Number.isFinite(item) && item >= 1 && item <= 12),
+  )].sort((a, b) => a - b);
+}
+
+function formatMonthSelection(months: number[]) {
+  if (months.length === 0) return 'All months';
+
+  return months
+    .map((month) => MONTH_OPTIONS.find((option) => option.value === month)?.label ?? String(month))
+    .join(', ');
 }
 
 function sortRuleDrafts(rules: MonthlyBudgetRuleDraft[]) {
@@ -181,6 +214,9 @@ function mapRulesToDrafts(rules: any[]): MonthlyBudgetRuleDraft[] {
     amount: String(rule.amount ?? ''),
     priority: String(rule.priority ?? index),
     isActive: Boolean(rule.is_active ?? true),
+    activeMonths: normalizeMonthSelection(rule.active_months),
+    activeFromMonth: rule.active_from_month ? String(rule.active_from_month) : '',
+    activeToMonth: rule.active_to_month ? String(rule.active_to_month) : '',
   }));
 }
 
@@ -302,6 +338,9 @@ export default function BudgetScreen() {
               sourceAccountId: rule.source_account_id ?? '',
               destinationAccountId: rule.destination_account_id ?? '',
               isActive: rule.is_active ?? true,
+              activeMonths: normalizeMonthSelection(rule.active_months),
+              activeFromMonth: rule.active_from_month ?? null,
+              activeToMonth: rule.active_to_month ?? null,
             })),
           })
         : null,
@@ -416,6 +455,9 @@ export default function BudgetScreen() {
       frequency: 'monthly',
       priority: Number.isFinite(Number(rule.priority)) ? Number(rule.priority) : index,
       is_active: rule.isActive,
+      active_months: normalizeMonthSelection(rule.activeMonths),
+      active_from_month: rule.activeFromMonth ? Number(rule.activeFromMonth) : null,
+      active_to_month: rule.activeToMonth ? Number(rule.activeToMonth) : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }));
@@ -458,12 +500,22 @@ export default function BudgetScreen() {
 
   const rulesAreValid = ruleDrafts.every((rule) => {
     const amount = Number(rule.amount);
+    const activeMonths = normalizeMonthSelection(rule.activeMonths);
+    const activeFromMonth = rule.activeFromMonth ? Number(rule.activeFromMonth) : null;
+    const activeToMonth = rule.activeToMonth ? Number(rule.activeToMonth) : null;
+    const hasActiveRange = Boolean(rule.activeFromMonth || rule.activeToMonth);
+    const hasValidActiveFromMonth = activeFromMonth != null && Number.isFinite(activeFromMonth) && activeFromMonth >= 1 && activeFromMonth <= 12;
+    const hasValidActiveToMonth = activeToMonth != null && Number.isFinite(activeToMonth) && activeToMonth >= 1 && activeToMonth <= 12;
     return Boolean(
       rule.name.trim() &&
         rule.sourceAccountId &&
         rule.destinationAccountId &&
         Number.isFinite(amount) &&
-        amount > 0,
+        amount > 0 &&
+        activeMonths.length === rule.activeMonths.length &&
+        (!rule.activeFromMonth || hasValidActiveFromMonth) &&
+        (!rule.activeToMonth || hasValidActiveToMonth) &&
+        (!hasActiveRange || (rule.activeFromMonth && rule.activeToMonth)),
     );
   });
 
@@ -496,6 +548,9 @@ export default function BudgetScreen() {
         amount: '0',
         priority: String(current.length),
         isActive: true,
+        activeMonths: [],
+        activeFromMonth: '',
+        activeToMonth: '',
       },
     ]);
   }
@@ -525,6 +580,20 @@ export default function BudgetScreen() {
             }
           : rule,
       ),
+    );
+  }
+
+  function updateRuleActiveMonths(ruleId: string, monthValue: number) {
+    setRuleDrafts((current) =>
+      current.map((rule) => {
+        if (rule.id !== ruleId) return rule;
+
+        const activeMonths = rule.activeMonths.includes(monthValue)
+          ? rule.activeMonths.filter((item) => item !== monthValue)
+          : [...rule.activeMonths, monthValue].sort((a, b) => a - b);
+
+        return { ...rule, activeMonths };
+      }),
     );
   }
 
@@ -936,6 +1005,7 @@ export default function BudgetScreen() {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) } as any}>
             {ruleDrafts.map((rule) => {
               const destinationLabel = accountNameMap.get(rule.destinationAccountId) ?? t('budget.selectDestinationAccount');
+              const activeMonthsLabel = formatMonthSelection(rule.activeMonths);
 
               return (
                 <View
@@ -1011,6 +1081,45 @@ export default function BudgetScreen() {
                         {members.map((member) => (
                           <Pill key={member.userId} label={getMemberLabel(member)} active={rule.ownerMemberId === member.userId} onPress={() => updateRuleDraft(rule.id, { ownerMemberId: member.userId })} />
                         ))}
+                      </View>
+                      <View style={{ gap: spacing(2) } as any}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                          <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
+                          <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
+                            {t('budget.activeMonths')}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(1.5) }}>
+                          {MONTH_OPTIONS.map((option) => (
+                            <Pill
+                              key={option.value}
+                              label={option.label}
+                              active={rule.activeMonths.includes(option.value)}
+                              onPress={() => updateRuleActiveMonths(rule.id, option.value)}
+                            />
+                          ))}
+                        </View>
+                        <Text style={{ color: colors.textSecondary } as any}>
+                          {activeMonthsLabel}
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
+                          <Field
+                            label={t('budget.activeFromMonth')}
+                            value={rule.activeFromMonth}
+                            onChangeText={(value) => updateRuleDraft(rule.id, { activeFromMonth: value })}
+                            keyboardType="numeric"
+                            placeholder="1"
+                            style={{ flex: 1, minWidth: 140 }}
+                          />
+                          <Field
+                            label={t('budget.activeToMonth')}
+                            value={rule.activeToMonth}
+                            onChangeText={(value) => updateRuleDraft(rule.id, { activeToMonth: value })}
+                            keyboardType="numeric"
+                            placeholder="12"
+                            style={{ flex: 1, minWidth: 140 }}
+                          />
+                        </View>
                       </View>
                       <GroupedAccountSelect
                         label={t('budget.sourceAccount')}
