@@ -1,3 +1,4 @@
+import '../global.css';
 import { Stack } from 'expo-router';
 import { VercelSpeedInsights } from '@/components/vercel-speed-insights';
 import { RootProvider } from '../providers/RootProvider';

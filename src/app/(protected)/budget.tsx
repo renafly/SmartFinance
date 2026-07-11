@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Page, Card, Section, Field, Button, Pill, formatCurrency } from '@/components/migrated-page';
 import { GroupedAccountSelect } from '@/components/grouped-account-select';
 import { GroupedDestinationSelect, type DestinationSelection } from '@/components/grouped-destination-select';
+import { MonthPickerField } from '@/components/date-picker-field';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { radius } from '@/theme/radius';
@@ -56,11 +57,28 @@ const SECTION_SORT_ORDER: Record<string, number> = {
   remaining_cash: 4,
 };
 
+const MONTH_OPTIONS = [
+  { value: 1, label: 'Jan' },
+  { value: 2, label: 'Feb' },
+  { value: 3, label: 'Mar' },
+  { value: 4, label: 'Apr' },
+  { value: 5, label: 'May' },
+  { value: 6, label: 'Jun' },
+  { value: 7, label: 'Jul' },
+  { value: 8, label: 'Aug' },
+  { value: 9, label: 'Sep' },
+  { value: 10, label: 'Oct' },
+  { value: 11, label: 'Nov' },
+  { value: 12, label: 'Dec' },
+];
+
 type MemberContributionSummary = {
   label: string;
   section: MonthlyBudgetRuleDraft['section'];
   amount: number;
 };
+
+const SHARED_SUMMARY_ID = '__shared__';
 
 function monthKey(value: string) {
   return value.slice(0, 7);
@@ -95,6 +113,31 @@ function buildPotNameByAccountId(
 
 function getSectionRank(section: string) {
   return SECTION_SORT_ORDER[section] ?? 99;
+}
+
+function normalizeMonthSelection(months: unknown) {
+  if (!Array.isArray(months)) return [];
+
+  return [...new Set(
+    months
+      .map((item) => Number(item))
+      .filter((item) => Number.isFinite(item) && item >= 1 && item <= 12),
+  )].sort((a, b) => a - b);
+}
+
+function formatMonthSelection(months: number[]) {
+  if (months.length === 0) return 'All months';
+
+  return months
+    .map((month) => MONTH_OPTIONS.find((option) => option.value === month)?.label ?? String(month))
+    .join(', ');
+}
+
+function getRuleRowKey(index: number, totalRules: number, columns: number) {
+  const rowStart = columns === 1 ? index : Math.floor(index / columns) * columns;
+  const rowRuleCount = columns === 1 ? 1 : Math.min(columns, totalRules - rowStart);
+  const rowEnd = rowStart + rowRuleCount - 1;
+  return `${rowStart}-${rowEnd}`;
 }
 
 function sortRuleDrafts(rules: MonthlyBudgetRuleDraft[]) {
@@ -181,6 +224,9 @@ function mapRulesToDrafts(rules: any[]): MonthlyBudgetRuleDraft[] {
     amount: String(rule.amount ?? ''),
     priority: String(rule.priority ?? index),
     isActive: Boolean(rule.is_active ?? true),
+    activeMonths: normalizeMonthSelection(rule.active_months),
+    activeFromMonth: rule.active_from_month ? String(rule.active_from_month) : '',
+    activeToMonth: rule.active_to_month ? String(rule.active_to_month) : '',
   }));
 }
 
@@ -244,7 +290,7 @@ export default function BudgetScreen() {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [ruleDrafts, setRuleDrafts] = useState<MonthlyBudgetRuleDraft[]>([]);
   const [incomeDrafts, setIncomeDrafts] = useState<MonthlyBudgetIncomeDraft[]>([]);
-  const [collapsedRuleIds, setCollapsedRuleIds] = useState<string[]>([]);
+  const [collapsedRuleRowKeys, setCollapsedRuleRowKeys] = useState<string[]>([]);
   const [hasLoadedCollapsedPreference, setHasLoadedCollapsedPreference] = useState(false);
 
   const hydratedConfigId = useRef<string | null>(null);
@@ -252,7 +298,7 @@ export default function BudgetScreen() {
   const hydratedRunId = useRef<string | null>(null);
   const hydratedCollapsedPreferenceKey = useRef<string | null>(null);
   const collapsedPreferenceDirtyRef = useRef(false);
-  const collapsedStateKey = householdId ? `smartfinance:monthly-budget:collapsed:${householdId}` : null;
+  const collapsedStateKey = householdId ? `smartfinance:monthly-budget:collapsed-rows:${householdId}` : null;
 
   const currentMonthRun = useMemo(
     () => runs.find((run: any) => monthKey(run.month) === month) ?? null,
@@ -288,6 +334,7 @@ export default function BudgetScreen() {
     () => buildPotNameByAccountId(savingPotAssignments, potNameMap),
     [potNameMap, savingPotAssignments],
   );
+  const ruleColumns = windowWidth >= 980 ? 2 : 1;
   const workspaceSignature = useMemo(
     () =>
       workspace?.config?.id
@@ -302,6 +349,9 @@ export default function BudgetScreen() {
               sourceAccountId: rule.source_account_id ?? '',
               destinationAccountId: rule.destination_account_id ?? '',
               isActive: rule.is_active ?? true,
+              activeMonths: normalizeMonthSelection(rule.active_months),
+              activeFromMonth: rule.active_from_month ?? null,
+              activeToMonth: rule.active_to_month ?? null,
             })),
           })
         : null,
@@ -381,14 +431,14 @@ export default function BudgetScreen() {
       try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          setCollapsedRuleIds(parsed.filter((item) => typeof item === 'string'));
+          setCollapsedRuleRowKeys(parsed.filter((item) => typeof item === 'string'));
         }
       } catch {
-        setCollapsedRuleIds([]);
+        setCollapsedRuleRowKeys([]);
       }
       collapsedPreferenceDirtyRef.current = false;
     } else {
-      setCollapsedRuleIds([]);
+      setCollapsedRuleRowKeys([]);
       collapsedPreferenceDirtyRef.current = false;
     }
 
@@ -399,8 +449,8 @@ export default function BudgetScreen() {
   useEffect(() => {
     if (!collapsedStateKey || typeof window === 'undefined' || !hasLoadedCollapsedPreference) return;
     if (!collapsedPreferenceDirtyRef.current && window.localStorage.getItem(collapsedStateKey) === null) return;
-    window.localStorage.setItem(collapsedStateKey, JSON.stringify(collapsedRuleIds));
-  }, [collapsedRuleIds, collapsedStateKey, hasLoadedCollapsedPreference]);
+    window.localStorage.setItem(collapsedStateKey, JSON.stringify(collapsedRuleRowKeys));
+  }, [collapsedRuleRowKeys, collapsedStateKey, hasLoadedCollapsedPreference]);
 
   const preview = useMemo<MonthlyBudgetPreview>(() => {
     const mappedRules = ruleDrafts.map((rule, index) => ({
@@ -416,6 +466,9 @@ export default function BudgetScreen() {
       frequency: 'monthly',
       priority: Number.isFinite(Number(rule.priority)) ? Number(rule.priority) : index,
       is_active: rule.isActive,
+      active_months: normalizeMonthSelection(rule.activeMonths),
+      active_from_month: rule.activeFromMonth ? Number(rule.activeFromMonth) : null,
+      active_to_month: rule.activeToMonth ? Number(rule.activeToMonth) : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }));
@@ -458,21 +511,40 @@ export default function BudgetScreen() {
 
   const rulesAreValid = ruleDrafts.every((rule) => {
     const amount = Number(rule.amount);
+    const activeMonths = normalizeMonthSelection(rule.activeMonths);
+    const activeFromMonth = rule.activeFromMonth ? Number(rule.activeFromMonth) : null;
+    const activeToMonth = rule.activeToMonth ? Number(rule.activeToMonth) : null;
+    const hasActiveRange = Boolean(rule.activeFromMonth || rule.activeToMonth);
+    const hasValidActiveFromMonth = activeFromMonth != null && Number.isFinite(activeFromMonth) && activeFromMonth >= 1 && activeFromMonth <= 12;
+    const hasValidActiveToMonth = activeToMonth != null && Number.isFinite(activeToMonth) && activeToMonth >= 1 && activeToMonth <= 12;
     return Boolean(
       rule.name.trim() &&
         rule.sourceAccountId &&
         rule.destinationAccountId &&
         Number.isFinite(amount) &&
-        amount > 0,
+        amount > 0 &&
+        activeMonths.length === rule.activeMonths.length &&
+        (!rule.activeFromMonth || hasValidActiveFromMonth) &&
+        (!rule.activeToMonth || hasValidActiveToMonth) &&
+        (!hasActiveRange || (rule.activeFromMonth && rule.activeToMonth)),
     );
   });
 
-  const autoCollapsedRuleIds = !hasLoadedCollapsedPreference && windowWidth < 860 ? ruleDrafts.map((rule) => rule.id) : [];
-  const effectiveCollapsedRuleIds = hasLoadedCollapsedPreference
-    ? collapsedRuleIds
-    : autoCollapsedRuleIds;
-  const allRulesCollapsed = ruleDrafts.length > 0 && effectiveCollapsedRuleIds.length === ruleDrafts.length;
-  const effectiveAllRulesCollapsed = ruleDrafts.length > 0 && effectiveCollapsedRuleIds.length === ruleDrafts.length;
+  const autoCollapsedRuleRowKeys = !hasLoadedCollapsedPreference && windowWidth < 860
+    ? ruleDrafts.map((_, index) => getRuleRowKey(index, ruleDrafts.length, ruleColumns))
+    : [];
+  const effectiveCollapsedRuleRowKeys = hasLoadedCollapsedPreference
+    ? collapsedRuleRowKeys
+    : autoCollapsedRuleRowKeys;
+  const allRuleRowKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (let index = 0; index < ruleDrafts.length; index += ruleColumns) {
+      keys.push(getRuleRowKey(index, ruleDrafts.length, ruleColumns));
+    }
+    return keys;
+  }, [ruleColumns, ruleDrafts.length]);
+  const allRulesCollapsed = ruleDrafts.length > 0 && allRuleRowKeys.every((key) => effectiveCollapsedRuleRowKeys.includes(key));
+  const effectiveAllRulesCollapsed = allRulesCollapsed;
   const configReady = Boolean(householdId && profile?.id && budgetName.trim() && rulesAreValid);
   const draftReady = Boolean(configId && configReady && preview.validationIssues.length === 0);
   const selectedRunDraftReady = Boolean(selectedRun?.id && selectedRun.status === 'draft' && preview.validationIssues.length === 0);
@@ -496,6 +568,9 @@ export default function BudgetScreen() {
         amount: '0',
         priority: String(current.length),
         isActive: true,
+        activeMonths: [],
+        activeFromMonth: '',
+        activeToMonth: '',
       },
     ]);
   }
@@ -510,7 +585,7 @@ export default function BudgetScreen() {
 
   function setCollapsedPreference(next: string[]) {
     collapsedPreferenceDirtyRef.current = true;
-    setCollapsedRuleIds(next);
+    setCollapsedRuleRowKeys(next);
   }
 
   function updateDestinationDraft(ruleId: string, selection: DestinationSelection) {
@@ -528,11 +603,39 @@ export default function BudgetScreen() {
     );
   }
 
+  function updateRuleActiveMonths(ruleId: string, monthValue: number) {
+    setRuleDrafts((current) =>
+      current.map((rule) => {
+        if (rule.id !== ruleId) return rule;
+
+        const activeMonths = rule.activeMonths.includes(monthValue)
+          ? rule.activeMonths.filter((item) => item !== monthValue)
+          : [...rule.activeMonths, monthValue].sort((a, b) => a - b);
+
+        return { ...rule, activeMonths };
+      }),
+    );
+  }
+
   function toggleRuleCollapsed(id: string) {
     collapsedPreferenceDirtyRef.current = true;
-    setCollapsedRuleIds((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
-    );
+    setCollapsedRuleRowKeys((current) => {
+      const targetIndex = ruleDrafts.findIndex((rule) => rule.id === id);
+      if (targetIndex < 0) return current;
+
+      const rowStart = ruleColumns === 1 ? targetIndex : Math.floor(targetIndex / ruleColumns) * ruleColumns;
+      const rowRuleCount = ruleColumns === 1 ? 1 : Math.min(ruleColumns, ruleDrafts.length - rowStart);
+      const rowEnd = rowStart + rowRuleCount - 1;
+      const rowKey = `${rowStart}-${rowEnd}`;
+      const rowIsFullyCollapsed = current.includes(rowKey);
+      const shouldCollapse = !rowIsFullyCollapsed;
+
+      if (shouldCollapse) {
+        return [...new Set([...current, rowKey])];
+      }
+
+      return current.filter((item) => item !== rowKey);
+    });
   }
 
   async function handleSaveConfiguration() {
@@ -553,6 +656,8 @@ export default function BudgetScreen() {
     setConfigId(result.config.id);
     hydratedConfigId.current = result.config.id;
     setRuleDrafts(sortRuleDrafts(ruleDrafts));
+    setCollapsedRuleRowKeys([]);
+    collapsedPreferenceDirtyRef.current = false;
   }
 
   async function handleSaveDraft() {
@@ -591,7 +696,6 @@ export default function BudgetScreen() {
   }
 
   const runInputs = runIncomeInputsQuery.data ?? [];
-  const ruleColumns = windowWidth >= 980 ? 2 : 1;
   const ruleCardStyle = useMemo(() => {
     if (ruleColumns === 1) {
       return { width: '100%' };
@@ -620,8 +724,7 @@ export default function BudgetScreen() {
 
       const rule = rulesById.get(transfer.ruleId);
       const sourceAccount = accountsById.get(transfer.sourceAccountId);
-      const memberId = rule?.ownerMemberId || sourceAccount?.owner_profile_id;
-      if (!memberId) continue;
+      const memberId = rule?.ownerMemberId || sourceAccount?.owner_profile_id || SHARED_SUMMARY_ID;
 
       const current = grouped.get(memberId) ?? [];
       current.push({
@@ -645,18 +748,29 @@ export default function BudgetScreen() {
 
     return grouped;
   }, [accounts, preview.transfers, ruleDrafts]);
-  const memberSummaryRows = useMemo(
-    () =>
-      members
+  const memberSummaryRows = useMemo(() => {
+    const people = members
         .map((member) => ({
           id: member.userId,
           label: getMemberLabel(member),
           value: formatCurrency(preview.memberTotals[member.userId] ?? 0),
           contributions: memberContributionMap.get(member.userId) ?? [],
         }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-    [memberContributionMap, members, preview.memberTotals],
-  );
+        .sort((a, b) => a.label.localeCompare(b.label));
+
+    const sharedContributions = memberContributionMap.get(SHARED_SUMMARY_ID) ?? [];
+    if (sharedContributions.length === 0) return people;
+
+    return [
+      ...people,
+      {
+        id: SHARED_SUMMARY_ID,
+        label: t('budget.shared'),
+        value: formatCurrency(sharedContributions.reduce((total, item) => total + item.amount, 0)),
+        contributions: sharedContributions,
+      },
+    ];
+  }, [memberContributionMap, members, preview.memberTotals, t]);
   const resumeRows = useMemo(
     () => [
       { label: t('budget.incomeTotal'), value: formatCurrency(preview.incomeTotal), icon: 'cash-outline' as const },
@@ -834,7 +948,7 @@ export default function BudgetScreen() {
       <Card>
         <Section title={t('budget.householdSettings')} subtitle={t('budget.householdSettingsSubtitle')}>
           <Field label={t('budget.name')} value={budgetName} onChangeText={setBudgetName} placeholder={t('budget.namePlaceholder')} />
-          <Field label={t('budget.month')} value={month} onChangeText={setMonth} placeholder="YYYY-MM" />
+          <MonthPickerField label={t('budget.month')} value={month} onChange={setMonth} placeholder="MM-YYYY" />
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
             <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
@@ -907,7 +1021,7 @@ export default function BudgetScreen() {
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
               <Button
                 label={allRulesCollapsed ? t('budget.expandAllRules') : t('budget.collapseAllRules')}
-                onPress={() => setCollapsedPreference(allRulesCollapsed ? [] : ruleDrafts.map((rule) => rule.id))}
+                onPress={() => setCollapsedPreference(allRulesCollapsed ? [] : allRuleRowKeys)}
                 variant="secondary"
               />
               <Button label={t('budget.addRule')} onPress={addRule} variant="secondary" />
@@ -934,8 +1048,14 @@ export default function BudgetScreen() {
           </View>
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) } as any}>
-            {ruleDrafts.map((rule) => {
+            {ruleDrafts.map((rule, index) => {
               const destinationLabel = accountNameMap.get(rule.destinationAccountId) ?? t('budget.selectDestinationAccount');
+              const activeMonthsLabel = formatMonthSelection(rule.activeMonths);
+              const rowStart = ruleColumns === 1 ? index : Math.floor(index / ruleColumns) * ruleColumns;
+              const rowRuleCount = ruleColumns === 1 ? 1 : Math.min(ruleColumns, ruleDrafts.length - rowStart);
+              const rowEnd = rowStart + rowRuleCount - 1;
+              const rowKey = `${rowStart}-${rowEnd}`;
+              const isCollapsed = effectiveCollapsedRuleRowKeys.includes(rowKey);
 
               return (
                 <View
@@ -982,10 +1102,10 @@ export default function BudgetScreen() {
                         <Ionicons name="wallet-outline" size={12} color={colors.textSecondary} /> {t('budget.destinationAccount')}: {destinationLabel}
                       </Text>
                     </View>
-                    <Ionicons name={effectiveCollapsedRuleIds.includes(rule.id) ? 'chevron-forward-outline' : 'chevron-down-outline'} size={18} color={colors.textSecondary} />
+                    <Ionicons name={isCollapsed ? 'chevron-forward-outline' : 'chevron-down-outline'} size={18} color={colors.textSecondary} />
                   </Pressable>
 
-                  {!effectiveCollapsedRuleIds.includes(rule.id) ? (
+                  {!isCollapsed ? (
                     <>
                       <Field
                         label={t('budget.ruleName')}
@@ -1011,6 +1131,45 @@ export default function BudgetScreen() {
                         {members.map((member) => (
                           <Pill key={member.userId} label={getMemberLabel(member)} active={rule.ownerMemberId === member.userId} onPress={() => updateRuleDraft(rule.id, { ownerMemberId: member.userId })} />
                         ))}
+                      </View>
+                      <View style={{ gap: spacing(2) } as any}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                          <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
+                          <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
+                            {t('budget.activeMonths')}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(1.5) }}>
+                          {MONTH_OPTIONS.map((option) => (
+                            <Pill
+                              key={option.value}
+                              label={option.label}
+                              active={rule.activeMonths.includes(option.value)}
+                              onPress={() => updateRuleActiveMonths(rule.id, option.value)}
+                            />
+                          ))}
+                        </View>
+                        <Text style={{ color: colors.textSecondary } as any}>
+                          {activeMonthsLabel}
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
+                          <Field
+                            label={t('budget.activeFromMonth')}
+                            value={rule.activeFromMonth}
+                            onChangeText={(value) => updateRuleDraft(rule.id, { activeFromMonth: value })}
+                            keyboardType="numeric"
+                            placeholder="1"
+                            style={{ flex: 1, minWidth: 140 }}
+                          />
+                          <Field
+                            label={t('budget.activeToMonth')}
+                            value={rule.activeToMonth}
+                            onChangeText={(value) => updateRuleDraft(rule.id, { activeToMonth: value })}
+                            keyboardType="numeric"
+                            placeholder="12"
+                            style={{ flex: 1, minWidth: 140 }}
+                          />
+                        </View>
                       </View>
                       <GroupedAccountSelect
                         label={t('budget.sourceAccount')}

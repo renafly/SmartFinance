@@ -43,6 +43,9 @@ export type MonthlyBudgetRuleDraft = {
   amount: string;
   priority: string;
   isActive: boolean;
+  activeMonths: number[];
+  activeFromMonth: string;
+  activeToMonth: string;
 };
 
 export type MonthlyBudgetIncomeDraft = {
@@ -118,6 +121,43 @@ function getExcludedMonths(rule: RecurringTransaction) {
         .map((item) => Number(item))
         .filter((item) => Number.isFinite(item) && item >= 1 && item <= 12)
     : [];
+}
+
+function getRuleActiveMonths(months: Array<number | string> | null | undefined) {
+  return Array.isArray(months)
+    ? [...new Set(months.map((item) => Number(item)).filter((item) => Number.isFinite(item) && item >= 1 && item <= 12))]
+    : [];
+}
+
+function parseMonthField(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  const month = Number(value);
+  return Number.isFinite(month) && month >= 1 && month <= 12 ? month : null;
+}
+
+function isMonthWithinWindow(month: number, start: number, end: number) {
+  if (start <= end) return month >= start && month <= end;
+  return month >= start || month <= end;
+}
+
+function isBudgetRuleActiveForMonth(rule: BudgetRule, month: string) {
+  if (!rule.is_active) return false;
+
+  const monthNumber = getMonthNumber(month);
+  if (!monthNumber) return false;
+
+  const activeMonths = getRuleActiveMonths(rule.active_months as Array<number | string> | null | undefined);
+  if (activeMonths.length > 0 && !activeMonths.includes(monthNumber)) return false;
+
+  const activeFromMonth = Number(rule.active_from_month ?? NaN);
+  const activeToMonth = Number(rule.active_to_month ?? NaN);
+
+  if (Number.isFinite(activeFromMonth) || Number.isFinite(activeToMonth)) {
+    if (!Number.isFinite(activeFromMonth) || !Number.isFinite(activeToMonth)) return false;
+    return isMonthWithinWindow(monthNumber, activeFromMonth, activeToMonth);
+  }
+
+  return true;
 }
 
 function getRecurringMonthlyAmount(rule: RecurringTransaction, month: string) {
@@ -209,7 +249,7 @@ export class MonthlyBudgetService {
     remainingCashStrategy: Database["public"]["Enums"]["remaining_cash_strategy"];
     fixedRemainingCashAmount: number;
     excessCashDistributionMethod: Database["public"]["Enums"]["excess_cash_distribution_method"];
-    rules: MonthlyBudgetRuleDraft[];
+    rules: MonthlyBudgetRuleDraft[]; 
   }) {
     const sortedRules = [...input.rules].sort((a, b) => {
       const sectionDelta = getSectionSortRank(a.section) - getSectionSortRank(b.section);
@@ -232,26 +272,28 @@ export class MonthlyBudgetService {
         throw new Error(`Rule "${rule.name}" cannot use the same source and destination account.`);
       }
       if (!Number.isFinite(amount) || amount <= 0) throw new Error(`Rule "${rule.name}" needs a valid amount.`);
+
+      const activeMonths = getRuleActiveMonths(rule.activeMonths);
+      const activeFromMonth = parseMonthField(rule.activeFromMonth);
+      const activeToMonth = parseMonthField(rule.activeToMonth);
+      if ((rule.activeFromMonth && !activeFromMonth) || (rule.activeToMonth && !activeToMonth)) {
+        throw new Error(`Rule "${rule.name}" has an invalid active month range.`);
+      }
+      if ((rule.activeFromMonth || rule.activeToMonth) && (!activeFromMonth || !activeToMonth)) {
+        throw new Error(`Rule "${rule.name}" needs both start and end months for its active range.`);
+      }
+      if (activeMonths.length > 0 && activeMonths.length !== rule.activeMonths.length) {
+        throw new Error(`Rule "${rule.name}" has an invalid active months selection.`);
+      }
     }
-
-    await monthlyBudgetRepository.deactivateHouseholdConfigs(input.householdId);
-
-    const configResult = await monthlyBudgetRepository.saveConfig(
-      {
-        household_id: input.householdId,
-        name: input.name.trim(),
-        is_active: true,
-      },
-      input.configId ?? undefined,
-    );
-
-    if (configResult.error) throw configResult.error;
 
     const rules = sortedRules.map((rule, index) => {
       const amount = Number(rule.amount);
 
       return {
-        budget_config_id: configResult.data.id,
+        id: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rule.id)
+          ? rule.id
+          : null,
         name: rule.name.trim(),
         section: rule.section,
         source_account_id: rule.sourceAccountId,
@@ -264,22 +306,34 @@ export class MonthlyBudgetService {
         frequency: "monthly" as const,
         priority: index,
         is_active: rule.isActive,
+        active_months: getRuleActiveMonths(rule.activeMonths),
+        active_from_month: parseMonthField(rule.activeFromMonth),
+        active_to_month: parseMonthField(rule.activeToMonth),
       };
     });
 
-    const rulesResult = await monthlyBudgetRepository.replaceRules(configResult.data.id, rules);
-    if (rulesResult.error) throw rulesResult.error;
+    const { error: saveError } = await supabase.rpc("save_monthly_budget_configuration", {
+      p_household_id: input.householdId,
+      p_config_id: input.configId ?? null,
+      p_name: input.name.trim(),
+      p_income_mode: input.incomeMode,
+      p_remaining_cash_strategy: input.remainingCashStrategy,
+      p_fixed_remaining_cash_amount: roundMoney(input.fixedRemainingCashAmount),
+      p_excess_cash_distribution_method: input.excessCashDistributionMethod,
+      p_rules: rules,
+    });
+
+    if (saveError) throw saveError;
+
+    const configResult = await monthlyBudgetRepository.getActiveConfigWithRules(input.householdId);
+    if (configResult.error || !configResult.data) {
+      throw configResult.error ?? new Error("Unable to load the saved monthly budget configuration.");
+    }
 
     const { data: householdResult, error: householdError } = await supabase
       .from("households")
-      .update({
-        income_mode: input.incomeMode,
-        remaining_cash_strategy: input.remainingCashStrategy,
-        fixed_remaining_cash_amount: roundMoney(input.fixedRemainingCashAmount),
-        excess_cash_distribution_method: input.excessCashDistributionMethod,
-      })
+      .select("*")
       .eq("id", input.householdId)
-      .select()
       .single();
 
     if (householdError) throw householdError;
@@ -287,7 +341,7 @@ export class MonthlyBudgetService {
     return {
       config: configResult.data,
       household: householdResult,
-      rules: rulesResult.data ?? [],
+      rules: configResult.data.rules,
     };
   }
 
@@ -487,7 +541,7 @@ export class MonthlyBudgetService {
     let configuredTotal = 0;
 
     const sortedRules = [...input.rules]
-      .filter((rule) => rule.is_active)
+      .filter((rule) => isBudgetRuleActiveForMonth(rule, month))
       .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0) || a.created_at.localeCompare(b.created_at));
 
     for (const rule of sortedRules) {

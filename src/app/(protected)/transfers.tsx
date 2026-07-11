@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Badge, EmptyState, Table, TableCell, TableRow } from '@/components/data-surface';
 import { GroupedAccountSelect } from '@/components/grouped-account-select';
 import { GroupedDestinationSelect, type DestinationSelection } from '@/components/grouped-destination-select';
+import { DatePickerField as SharedDatePickerField } from '@/components/date-picker-field';
 import { HouseholdMemberSelect } from '@/components/household-member-select';
 import { Button, Card, Field, Page, Pill, Section, formatCurrency, formatDate } from '@/components/migrated-page';
 import { useAccountsWithBalances } from '@/features/accounts/hooks';
@@ -105,7 +106,7 @@ function DatePickerField({ label, value, onChange, placeholder }: { label: strin
   }, [open, value]);
 
   if (Platform.OS === 'web') {
-    return <Field label={label} value={value} onChangeText={onChange} placeholder={placeholder} {...({ type: 'date' } as any)} />;
+    return <SharedDatePickerField label={label} value={value} onChange={onChange} placeholder={placeholder} />;
   }
 
   return (

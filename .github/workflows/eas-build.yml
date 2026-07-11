@@ -53,7 +53,7 @@ jobs:
         run: npm run test:e2e:web
 
   eas-build:
-    name: Trigger Android and iOS EAS builds
+    name: Trigger Android EAS build
     runs-on: ubuntu-latest
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -86,5 +86,5 @@ jobs:
             exit 1
           fi
 
-      - name: Trigger Android and iOS production builds
-        run: eas build --platform all --profile production --non-interactive --no-wait
+      - name: Trigger Android production build
+        run: eas build --platform android --profile production --non-interactive --no-wait

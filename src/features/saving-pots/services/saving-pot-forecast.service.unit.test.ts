@@ -122,6 +122,31 @@ describe("buildSavingPotForecasts", () => {
     expect(result.completionDate).toBe("2026-12-01");
   });
 
+  it("only projects monthly budget rules during their active months", () => {
+    const result = forecast({
+      pots: [{ id: "pot-1", targetAmount: 200, currentAmount: 0 }],
+      monthlyBudgetRules: [{
+        id: "seasonal-bonus",
+        source_account_id: "cash-1",
+        destination_account_id: "pot-account-1",
+        amount: 100,
+        frequency: "monthly",
+        created_at: "2026-07-01T00:00:00.000Z",
+        active_months: [6, 12],
+        is_active: true,
+      }],
+      savingPotAccountAssignments: [{ pot_id: "pot-1", account_id: "pot-account-1" }],
+    });
+
+    expect(result.monthlyContribution).toBeCloseTo(16.67, 2);
+    expect(result.completionDate).toBe("2027-06-01");
+    expect(result.timeline).toEqual(expect.arrayContaining([
+      expect.objectContaining({ month: "2026-07", contribution: 0, projectedAmount: 0 }),
+      expect.objectContaining({ month: "2026-12", contribution: 100, projectedAmount: 100 }),
+      expect.objectContaining({ month: "2027-06", contribution: 100, projectedAmount: 200, reachedTarget: true }),
+    ]));
+  });
+
   it("does not count a transfer between accounts in the same pot", () => {
     const result = forecast({
       recurringTransfers: [{

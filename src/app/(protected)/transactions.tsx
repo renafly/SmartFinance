@@ -14,6 +14,7 @@ import { Badge, EmptyState, Table, TableCell, TableRow } from '@/components/data
 import { HouseholdMemberSelect } from '@/components/household-member-select';
 import { DropdownMenu, SelectionOptionRow, SelectionShell, SelectionTrigger } from '@/components/selection-shell';
 import { GroupedAccountSelect } from '@/components/grouped-account-select';
+import { DatePickerField as SharedDatePickerField } from '@/components/date-picker-field';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAccountsWithBalances } from '../../features/accounts/hooks';
 import { useTopLevelCategories } from '../../features/categories/hooks';
@@ -136,7 +137,7 @@ function DatePickerField({
   }, [open, value]);
 
   if (Platform.OS === 'web') {
-    return <Field label={label} value={value} onChangeText={onChange} placeholder={placeholder} {...({ type: 'date' } as any)} />;
+    return <SharedDatePickerField label={label} value={value} onChange={onChange} placeholder={placeholder} />;
   }
 
   return (
@@ -564,13 +565,13 @@ export default function TransactionsScreen() {
                   label={t('transactions.dateFrom', { defaultValue: 'From date' })}
                   value={dateFrom}
                   onChange={setDateFrom}
-                  placeholder={t('transactions.dateFromPlaceholder', { defaultValue: 'YYYY-MM-DD' })}
+                  placeholder={t('transactions.dateFromPlaceholder', { defaultValue: 'DD-MM-YYYY' })}
                 />
                 <DateFilterField
                   label={t('transactions.dateTo', { defaultValue: 'To date' })}
                   value={dateTo}
                   onChange={setDateTo}
-                  placeholder={t('transactions.dateToPlaceholder', { defaultValue: 'YYYY-MM-DD' })}
+                  placeholder={t('transactions.dateToPlaceholder', { defaultValue: 'DD-MM-YYYY' })}
                 />
                 {(dateFrom || dateTo) ? (
                   <Button
@@ -624,7 +625,7 @@ export default function TransactionsScreen() {
               label={t('transactions.dateLabel')}
               value={date}
               onChange={setDate}
-              placeholder={t('transactions.datePlaceholder', { defaultValue: 'YYYY-MM-DD' })}
+              placeholder={t('transactions.datePlaceholder', { defaultValue: 'DD-MM-YYYY' })}
             />
             <Field label={t('transactions.notesLabel')} value={notes} onChangeText={setNotes} placeholder={t('transactions.notesPlaceholder')} />
             <DropdownField
@@ -853,10 +854,11 @@ export default function TransactionsScreen() {
                   onChangeText={(value) => setEditTransaction((current) => (current ? { ...current, amount: value } : current))}
                   keyboardType="numeric"
                 />
-                <Field
+                <SharedDatePickerField
                   label={t('transactions.dateLabel')}
                   value={editTransaction.date}
-                  onChangeText={(value) => setEditTransaction((current) => (current ? { ...current, date: value } : current))}
+                  onChange={(value) => setEditTransaction((current) => (current ? { ...current, date: value } : current))}
+                  placeholder={t('transactions.datePlaceholder', { defaultValue: 'DD-MM-YYYY' })}
                 />
                 <Field
                   label={t('transactions.notesLabel')}
