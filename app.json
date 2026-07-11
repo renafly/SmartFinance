@@ -8,6 +8,7 @@
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.renafly.smartfinance",
       "icon": "./assets/expo.icon"
     },
     "android": {
