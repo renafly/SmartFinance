@@ -16,32 +16,19 @@ export default function GoogleSignInButton() {
   async function onGoogleButtonSuccess(
     authRequestResponse: CredentialResponse,
   ) {
-    console.debug("[GoogleSignInButton.web] Google sign in successful:", {
-      authRequestResponse,
-    });
     const rawNonce = nonceRef.current;
 
     if (!rawNonce || !authRequestResponse.credential) return;
 
     if (authRequestResponse.clientId && authRequestResponse.credential) {
-      const { data, error } = await supabase.auth.signInWithIdToken({
+      const { error } = await supabase.auth.signInWithIdToken({
         provider: "google",
         token: authRequestResponse.credential,
         nonce: rawNonce,
       });
 
       if (error) {
-        console.error(
-          "[GoogleSignInButton.web] Error signing in with Google:",
-          error,
-        );
-      }
-
-      if (data) {
-        console.log(
-          "[GoogleSignInButton.web] Google sign in successful:",
-          data,
-        );
+        console.error("[GoogleSignInButton.web] Error signing in with Google.");
       }
     }
   }

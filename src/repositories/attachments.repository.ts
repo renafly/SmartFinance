@@ -28,7 +28,7 @@ export class AttachmentsRepository extends BaseRepository<"attachments"> {
   /**
    * Uploads a file to the given storage bucket and records the resulting
    * attachment row. Pass storagePath as the path *within* the bucket
-   * (e.g. `${householdId}/${transactionId}/${fileName}`).
+   * (e.g. `households/${householdId}/transactions/${transactionId}/${fileName}`).
    */
   async uploadAndCreate(params: {
     bucket: string;
@@ -39,11 +39,13 @@ export class AttachmentsRepository extends BaseRepository<"attachments"> {
     fileName: string;
     fileSize: number;
     mimeType: string;
+    upsert?: boolean;
   }): Promise<RepoResult<Attachment>> {
     const { error: uploadError } = await this.client.storage
       .from(params.bucket)
       .upload(params.storagePath, params.file, {
         contentType: params.mimeType,
+        upsert: params.upsert ?? false,
       });
 
     if (uploadError) return { data: null, error: uploadError };
@@ -69,5 +71,21 @@ export class AttachmentsRepository extends BaseRepository<"attachments"> {
     if (storageError) return { data: null, error: storageError };
 
     return this.delete(id);
+  }
+
+  async createSignedUrl(
+    id: string,
+    bucket: string,
+    expiresInSeconds = 300,
+  ): Promise<RepoResult<string>> {
+    const { data: attachment, error: findError } = await this.findById(id);
+    if (findError) return { data: null, error: findError };
+
+    const { data, error } = await this.client.storage
+      .from(bucket)
+      .createSignedUrl(attachment.storage_path, expiresInSeconds);
+
+    if (error) return { data: null, error };
+    return { data: data.signedUrl, error: null };
   }
 }

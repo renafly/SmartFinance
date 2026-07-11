@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import Svg, { Circle } from 'react-native-svg';
 
 import { Page, Section, formatCurrency, formatDate, Button } from '@/components/migrated-page';
 import { Badge, EmptyState, Table, TableCell, TableRow } from '@/components/data-surface';
+import { SelectionOptionRow, SelectionShell, SelectionTrigger } from '@/components/selection-shell';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
@@ -16,6 +17,7 @@ import { radius } from '@/theme/radius';
 
 import { useAuth } from '../../providers/AuthProvider';
 import { useHouseholdMemberDetails } from '../../features/households/hooks/useHouseholdMemberDetails';
+import { useDefaultHousehold, useMyHouseholds } from '../../features/households/hooks';
 import { accountsService } from '../../features/accounts/services/accounts.service';
 import { transactionsService } from '../../features/transactions/services/transaction.service';
 import { savingPotsService } from '../../features/saving-pots/services/saving-pots.service';
@@ -26,6 +28,7 @@ type DashboardAccount = {
   type: string;
   currency?: string;
   owner_profile_id?: string | null;
+  initial_balance?: number | null;
   current_balance?: number | null;
   balance?: number | null;
 };
@@ -50,8 +53,19 @@ function getPersonLabel(member: MemberDetails | undefined, fallback: string) {
   return member?.fullName?.trim() || member?.email?.trim() || fallback;
 }
 
+function getAccountOwnerLabel(account: DashboardAccount, memberMap: Map<string, MemberDetails>, sharedLabel: string) {
+  return account.owner_profile_id ? getPersonLabel(memberMap.get(account.owner_profile_id), sharedLabel) : sharedLabel;
+}
+
 function sumBalances<T>(items: T[], getValue: (item: T) => number) {
   return items.reduce((sum, item) => sum + getValue(item), 0);
+}
+
+function formatLocalDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 type AllocationKey = 'invested' | 'savings' | 'pots';
@@ -214,10 +228,20 @@ function GoalMeter({ balance, target }: { balance: number; target?: number | nul
 
 export default function DashboardScreen() {
   const { t } = useTranslation('common');
-  const { profile, householdId, logout } = useAuth();
+  const { profile, householdId } = useAuth();
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
   const membersQuery = useHouseholdMemberDetails();
+  const householdsQuery = useMyHouseholds();
+  const setDefaultHousehold = useDefaultHousehold();
+  const [householdPickerOpen, setHouseholdPickerOpen] = useState(false);
+  const currentMonthBounds = useMemo(() => {
+    const now = new Date();
+    return {
+      start: formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1)),
+      end: formatLocalDate(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+    };
+  }, []);
 
   const accountsQuery = useQuery({
     queryKey: ['dashboard', 'accounts', householdId],
@@ -228,6 +252,15 @@ export default function DashboardScreen() {
   const transactionsQuery = useQuery({
     queryKey: ['dashboard', 'transactions', householdId],
     queryFn: () => transactionsService.getTransactions(householdId!, { limit: 5 }),
+    enabled: !!householdId,
+  });
+
+  const monthlyTransactionsQuery = useQuery({
+    queryKey: ['dashboard', 'monthly-account-transactions', householdId, currentMonthBounds],
+    queryFn: () => transactionsService.getTransactions(householdId!, {
+      from: currentMonthBounds.start,
+      to: currentMonthBounds.end,
+    }),
     enabled: !!householdId,
   });
 
@@ -248,6 +281,30 @@ export default function DashboardScreen() {
   const savingPots = (savingPotsQuery.data ?? []) as DashboardPot[];
   const savingPotBalances = (savingPotBalancesQuery.data ?? []) as DashboardPot[];
   const members = (membersQuery.data ?? []) as MemberDetails[];
+  const households = householdsQuery.data ?? [];
+  const currentHousehold = households.find((item: any) => item.id === householdId);
+  const currentHouseholdName = currentHousehold?.name?.trim() || t('settings.currentHouseholdLabel');
+  const monthlyExpensesByAccount = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const transaction of monthlyTransactionsQuery.data ?? []) {
+      // Transfer source legs are expenses in the ledger, but not money spent.
+      if (transaction.type !== 'expense' || transaction.transfer_group_id || !transaction.account_id) continue;
+      totals.set(
+        transaction.account_id,
+        (totals.get(transaction.account_id) ?? 0) + Number(transaction.amount ?? 0),
+      );
+    }
+    return totals;
+  }, [monthlyTransactionsQuery.data]);
+  const monthlyBalanceChangesByAccount = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const transaction of monthlyTransactionsQuery.data ?? []) {
+      if (!transaction.account_id) continue;
+      const signedAmount = Number(transaction.amount ?? 0) * (transaction.type === 'income' ? 1 : -1);
+      totals.set(transaction.account_id, (totals.get(transaction.account_id) ?? 0) + signedAmount);
+    }
+    return totals;
+  }, [monthlyTransactionsQuery.data]);
 
   const memberMap = useMemo(() => {
     const map = new Map<string, MemberDetails>();
@@ -258,8 +315,21 @@ export default function DashboardScreen() {
   }, [members]);
 
   const investmentAccounts = useMemo(
-    () => accounts.filter((account) => account.type === 'investment' || account.type === 'ppr'),
-    [accounts],
+    () =>
+      accounts
+        .filter((account) => account.type === 'investment' || account.type === 'ppr')
+        .slice()
+        .sort((a, b) => {
+          const typeOrder = (value: string) => (value === 'investment' ? 0 : value === 'ppr' ? 1 : 99);
+          const ownerA = a.owner_profile_id ? getPersonLabel(memberMap.get(a.owner_profile_id), t('dashboard.shared')) : t('dashboard.shared');
+          const ownerB = b.owner_profile_id ? getPersonLabel(memberMap.get(b.owner_profile_id), t('dashboard.shared')) : t('dashboard.shared');
+          return (
+            typeOrder(a.type) - typeOrder(b.type) ||
+            ownerA.localeCompare(ownerB) ||
+            a.name.localeCompare(b.name)
+          );
+        }),
+    [accounts, memberMap, t],
   );
 
   const savingsAccounts = useMemo(
@@ -399,7 +469,16 @@ export default function DashboardScreen() {
     <Page
       title={t('dashboard.title')}
       subtitle={t('dashboard.subtitle', { name: profile?.full_name ? `, ${profile.full_name}` : '' })}
-      actions={<Button label={t('logout')} onPress={() => void logout()} variant="secondary" />}
+      actions={
+        <SelectionTrigger
+          label={t('dashboard.household')}
+          valueLabel={currentHouseholdName}
+          placeholder={t('dashboard.selectHousehold')}
+          iconName="home-outline"
+          disabled={households.length <= 1 || setDefaultHousehold.isPending}
+          onPress={() => setHouseholdPickerOpen(true)}
+        />
+      }
     >
       <View
         style={[
@@ -527,36 +606,54 @@ export default function DashboardScreen() {
         {investmentAccounts.length ? (
           <Table
             columns={[
-              { label: t('accounts.name'), flex: 2 },
-              { label: t('accounts.owner'), flex: 1.2 },
-              { label: t('accounts.typeLabel'), flex: 1 },
+              { label: t('accounts.name'), flex: 2.4 },
+              { label: t('accounts.initialBalance'), align: 'right' },
               { label: t('dashboard.total'), align: 'right' },
+              { label: t('dashboard.changeThisMonth'), align: 'right' },
+              { label: t('dashboard.spentThisMonth'), align: 'right' },
             ]}
           >
             {investmentAccounts.map((account) => {
-              const owner = account.owner_profile_id ? memberMap.get(account.owner_profile_id) : undefined;
+              const ownerLabel = getAccountOwnerLabel(account, memberMap, t('dashboard.shared'));
+              const initialBalance = Number(account.initial_balance ?? 0);
+              const currentBalance = Number(account.current_balance ?? account.balance ?? 0);
+              const balanceDifference = monthlyBalanceChangesByAccount.get(account.id) ?? 0;
+              const spentThisMonth = monthlyExpensesByAccount.get(account.id) ?? 0;
 
               return (
                 <TableRow key={account.id}>
-                  <TableCell flex={2}>
+                  <TableCell flex={2.4}>
                     <View style={{ gap: spacing(1) }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
                         <Ionicons name={account.type === 'ppr' ? 'shield-checkmark-outline' : 'trending-up-outline'} size={18} color={colors.primary} />
                         <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any, fontSize: typography.fontSize[15] }}>
-                          {account.name}
+                          {account.name} - {ownerLabel}
                         </Text>
                       </View>
                       <Badge label={t(`accounts.types.${account.type}`)} tone="primary" />
                     </View>
                   </TableCell>
-                  <TableCell flex={1.2}>
-                    <Text style={{ color: colors.textSecondary }}>{getPersonLabel(owner, t('dashboard.shared'))}</Text>
-                  </TableCell>
-                  <TableCell>
-                    <Badge label={t(`accounts.types.${account.type}`)} tone="neutral" />
+                  <TableCell align="right">
+                    <Text style={{ color: colors.textSecondary }}>{formatCurrency(initialBalance)}</Text>
                   </TableCell>
                   <TableCell align="right">
-                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(account.current_balance ?? account.balance ?? 0)}</Text>
+                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(currentBalance)}</Text>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text
+                      style={{
+                        color: balanceDifference > 0 ? colors.success : balanceDifference < 0 ? colors.destructive : colors.textSecondary,
+                        fontWeight: typography.fontWeight.extraBold as any,
+                      }}
+                    >
+                      {balanceDifference > 0 ? '+' : ''}
+                      {formatCurrency(balanceDifference)}
+                    </Text>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text style={{ color: spentThisMonth > 0 ? colors.destructive : colors.textSecondary, fontWeight: typography.fontWeight.extraBold as any }}>
+                      {formatCurrency(spentThisMonth)}
+                    </Text>
                   </TableCell>
                 </TableRow>
               );
@@ -574,36 +671,54 @@ export default function DashboardScreen() {
         {savingsAccounts.length ? (
           <Table
             columns={[
-              { label: t('accounts.name'), flex: 2 },
-              { label: t('accounts.owner'), flex: 1.2 },
-              { label: t('accounts.typeLabel'), flex: 1 },
+              { label: t('accounts.name'), flex: 2.4 },
+              { label: t('accounts.initialBalance'), align: 'right' },
               { label: t('dashboard.total'), align: 'right' },
+              { label: t('dashboard.changeThisMonth'), align: 'right' },
+              { label: t('dashboard.spentThisMonth'), align: 'right' },
             ]}
           >
             {savingsAccounts.map((account) => {
-              const owner = account.owner_profile_id ? memberMap.get(account.owner_profile_id) : undefined;
+              const ownerLabel = getAccountOwnerLabel(account, memberMap, t('dashboard.shared'));
+              const initialBalance = Number(account.initial_balance ?? 0);
+              const currentBalance = Number(account.current_balance ?? account.balance ?? 0);
+              const balanceDifference = monthlyBalanceChangesByAccount.get(account.id) ?? 0;
+              const spentThisMonth = monthlyExpensesByAccount.get(account.id) ?? 0;
 
               return (
                 <TableRow key={account.id}>
-                  <TableCell flex={2}>
+                  <TableCell flex={2.4}>
                     <View style={{ gap: spacing(1) }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
                         <Ionicons name="file-tray-full-outline" size={18} color={colors.primary} />
                         <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any, fontSize: typography.fontSize[15] }}>
-                          {account.name}
+                          {account.name} - {ownerLabel}
                         </Text>
                       </View>
                       <Badge label={t(`accounts.types.${account.type}`)} tone="success" />
                     </View>
                   </TableCell>
-                  <TableCell flex={1.2}>
-                    <Text style={{ color: colors.textSecondary }}>{getPersonLabel(owner, t('dashboard.shared'))}</Text>
-                  </TableCell>
-                  <TableCell>
-                    <Badge label={t(`accounts.types.${account.type}`)} tone="neutral" />
+                  <TableCell align="right">
+                    <Text style={{ color: colors.textSecondary }}>{formatCurrency(initialBalance)}</Text>
                   </TableCell>
                   <TableCell align="right">
-                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(account.current_balance ?? account.balance ?? 0)}</Text>
+                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(currentBalance)}</Text>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text
+                      style={{
+                        color: balanceDifference > 0 ? colors.success : balanceDifference < 0 ? colors.destructive : colors.textSecondary,
+                        fontWeight: typography.fontWeight.extraBold as any,
+                      }}
+                    >
+                      {balanceDifference > 0 ? '+' : ''}
+                      {formatCurrency(balanceDifference)}
+                    </Text>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text style={{ color: spentThisMonth > 0 ? colors.destructive : colors.textSecondary, fontWeight: typography.fontWeight.extraBold as any }}>
+                      {formatCurrency(spentThisMonth)}
+                    </Text>
                   </TableCell>
                 </TableRow>
               );
@@ -657,6 +772,33 @@ export default function DashboardScreen() {
           <EmptyState title={t('dashboard.noSavingPots')} icon="save-outline" />
         )}
       </Section>
+
+      <SelectionShell
+        visible={householdPickerOpen}
+        title={t('dashboard.selectHousehold')}
+        closeLabel={t('cancel')}
+        onClose={() => setHouseholdPickerOpen(false)}
+      >
+        <View style={{ gap: spacing(2) }}>
+          {households.map((household: any) => (
+            <SelectionOptionRow
+              key={household.id}
+              title={household.name}
+              subtitle={household.id === householdId ? t('settings.default') : undefined}
+              active={household.id === householdId}
+              iconName="home-outline"
+              onPress={() => {
+                if (household.id === householdId) {
+                  setHouseholdPickerOpen(false);
+                  return;
+                }
+
+                void setDefaultHousehold.mutateAsync(household.id).then(() => setHouseholdPickerOpen(false));
+              }}
+            />
+          ))}
+        </View>
+      </SelectionShell>
 
       <Section title={t('dashboard.recentTransactions')} subtitle={t('dashboard.recentTransactionsSubtitle')}>
         {transactions.length ? (

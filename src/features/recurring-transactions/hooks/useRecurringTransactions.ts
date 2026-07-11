@@ -14,6 +14,14 @@ export function useRecurringTransactions() {
   });
 }
 
+export function useRecurringExecutionHistory(recurringTransactionId?: string) {
+  return useQuery({
+    queryKey: ["recurring-executions", recurringTransactionId],
+    queryFn: () => recurringTransactionsService.getExecutionHistory(recurringTransactionId!),
+    enabled: Boolean(recurringTransactionId),
+  });
+}
+
 export function useCreateRecurringTransaction() {
   const queryClient = useQueryClient();
 

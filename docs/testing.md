@@ -8,6 +8,7 @@ Use the fastest checks while developing, then run the release-only gates before 
 - `npm run test:integration` runs integration tests only.
 - `npm run test:ci` runs the Jest suite in band without coverage.
 - `npm run typecheck:test` type-checks test files with Jest globals isolated from app source.
+- `npm run security:check` runs the release security gate: app/test typechecks, Jest, web E2E, and strict local Supabase security contracts.
 - `npm run lint` runs Expo linting.
 
 ## Local Supabase Contract Check
@@ -25,6 +26,7 @@ Seed expectation:
 - The check only reads contract surfaces such as views and tables; it does not create test data.
 - If the env vars are missing, the command skips so regular CI does not accidentally require a local Supabase daemon.
 - For a release gate, set `SUPABASE_TEST_REQUIRED=1` so missing local env vars fail instead of skipping.
+- For the full security gate, also set `SUPABASE_SECURITY_CHECK=1` and seed cross-household test env vars when available.
 
 ## Release-Only Web Smoke
 

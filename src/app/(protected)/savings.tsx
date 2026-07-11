@@ -1,7 +1,7 @@
 import { useTheme } from "@/theme/ThemeProvider";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Modal,
@@ -13,7 +13,7 @@ import {
 } from "react-native";
 
 import { HouseholdMemberSelect } from "@/components/household-member-select";
-import { MultiSelectShell } from "@/components/selection-shell";
+import { MultiSelectShell, SelectionTrigger } from "@/components/selection-shell";
 import {
   Button,
   Card,
@@ -25,10 +25,10 @@ import {
 import { typography } from "@/theme/typography";
 import { useAccountsWithBalances } from "../../features/accounts/hooks";
 import { useHouseholdMemberDetails } from "../../features/households/hooks";
-import { useRecurringTransactions } from "../../features/recurring-transactions/hooks";
 import {
   useCreateSavingPot,
   useDeleteSavingPot,
+  useSavingPotForecasts,
   useSavingPotAccountAssignments,
   useSavingPotBalances,
   useSavingPots,
@@ -51,46 +51,18 @@ type AccountGroup = {
   accounts: AccountOption[];
 };
 
+type AccountGroupView = AccountGroup & {
+  accountCount: number;
+};
+
 type SelectionMode =
   { kind: "create" } | { kind: "edit"; potId: string; potName: string };
 
-type RecurringRule = {
-  account_id: string;
-  amount: number;
-  type: "income" | "expense";
-  frequency: "daily" | "weekly" | "monthly" | "yearly" | "custom";
-  excluded_months?: number[] | null;
-  is_active: boolean;
+type PotDraft = {
+  name: string;
+  targetAmount: string;
+  accountIds: string[];
 };
-
-function getMonthlyRecurringAmount(rule: RecurringRule, month = new Date()) {
-  const monthNumber = month.getMonth() + 1;
-  if (rule.frequency === "custom" && Array.isArray(rule.excluded_months)) {
-    const excluded = rule.excluded_months
-      .map((value) => Number(value))
-      .filter((value) => Number.isFinite(value));
-    if (excluded.includes(monthNumber)) {
-      return 0;
-    }
-  }
-
-  const multiplier = {
-    daily: 30,
-    weekly: 52 / 12,
-    monthly: 1,
-    yearly: 1 / 12,
-    custom: 1,
-  }[rule.frequency];
-
-  const signedAmount = rule.type === "income" ? rule.amount : -rule.amount;
-  return signedAmount * multiplier;
-}
-
-function addMonths(date: Date, months: number) {
-  const next = new Date(date);
-  next.setMonth(next.getMonth() + months);
-  return next;
-}
 
 function buildAccountGroups(
   accounts: AccountOption[],
@@ -144,6 +116,14 @@ function buildSelectionMap(rows: { pot_id: string; account_id: string }[]) {
   return map;
 }
 
+function getAccountSummary(account: AccountOption, memberLabelMap: Map<string, string>, sharedLabel: string) {
+  const ownerLabel = account.owner_profile_id
+    ? memberLabelMap.get(account.owner_profile_id) ?? sharedLabel
+    : sharedLabel;
+
+  return `${account.type} · ${ownerLabel}`;
+}
+
 export default function SavingsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -154,7 +134,7 @@ export default function SavingsScreen() {
   const assignmentsQuery = useSavingPotAccountAssignments();
   const accountsQuery = useAccountsWithBalances();
   const membersQuery = useHouseholdMemberDetails();
-  const recurringQuery = useRecurringTransactions();
+  const savingPotForecasts = useSavingPotForecasts();
   const createSavingPot = useCreateSavingPot();
   const deleteSavingPot = useDeleteSavingPot();
   const updateSavingPot = useUpdateSavingPot();
@@ -171,9 +151,9 @@ export default function SavingsScreen() {
     null,
   );
   const [draftAccountIds, setDraftAccountIds] = useState<string[]>([]);
-  const [draftPotValues, setDraftPotValues] = useState<
-    Record<string, { name: string; targetAmount: string }>
-  >({});
+  const [collapsedGroupKeys, setCollapsedGroupKeys] = useState<string[]>([]);
+  const [hasLoadedCollapsedGroups, setHasLoadedCollapsedGroups] = useState(false);
+  const [draftPotValues, setDraftPotValues] = useState<Record<string, PotDraft>>({});
   const [activePotMenu, setActivePotMenu] = useState<{
     id: string;
     name: string;
@@ -184,10 +164,10 @@ export default function SavingsScreen() {
   const canCreateSavingPot =
     !createSavingPot.isPending &&
     name.trim().length > 0 &&
-    (parsedTargetAmount === null || Number.isFinite(parsedTargetAmount));
+    (parsedTargetAmount === null || Number.isFinite(parsedTargetAmount)) &&
+    createSelectedAccountIds.length > 0;
 
   const accounts = (accountsQuery.data ?? []) as AccountOption[];
-  const recurringRules = (recurringQuery.data ?? []) as RecurringRule[];
   const memberLabelMap = new Map(
     (membersQuery.data ?? [])
       .filter((member) => member.status === "accepted")
@@ -208,6 +188,69 @@ export default function SavingsScreen() {
     (balancesQuery.data ?? []).map((pot: any) => [pot.id, pot]),
   );
   const selectionMap = buildSelectionMap(assignmentsQuery.data ?? []);
+  const assignedPotByAccount = useMemo(
+    () => new Map((assignmentsQuery.data ?? []).map((assignment) => [assignment.account_id, assignment.pot_id])),
+    [assignmentsQuery.data],
+  );
+  const collapsedGroupsKey = householdId ? `smartfinance:savings:collapsed-groups:${householdId}` : null;
+  const hydratedCollapsedGroupsKey = useRef<string | null>(null);
+  const createSelectedAccountsLabel =
+    createSelectedAccountIds.length > 0
+      ? t("savings.selectedAccountsSummary", { count: createSelectedAccountIds.length })
+      : t("savings.noAccountsSelected");
+  const editingDraft = editingPotId ? draftPotValues[editingPotId] : null;
+  const editingSelectedAccountsLabel =
+    editingDraft && editingDraft.accountIds.length > 0
+      ? t("savings.selectedAccountsSummary", { count: editingDraft.accountIds.length })
+      : t("savings.noAccountsSelected");
+
+  useEffect(() => {
+    if (!collapsedGroupsKey || typeof window === "undefined") return;
+    if (hydratedCollapsedGroupsKey.current === collapsedGroupsKey) return;
+
+    const raw = window.localStorage.getItem(collapsedGroupsKey);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setCollapsedGroupKeys(parsed.filter((item) => typeof item === "string"));
+        }
+      } catch {
+        setCollapsedGroupKeys([]);
+      }
+    } else {
+      setCollapsedGroupKeys([]);
+    }
+
+    hydratedCollapsedGroupsKey.current = collapsedGroupsKey;
+    setHasLoadedCollapsedGroups(true);
+  }, [collapsedGroupsKey]);
+
+  useEffect(() => {
+    if (!collapsedGroupsKey || typeof window === "undefined" || !hasLoadedCollapsedGroups) return;
+    window.localStorage.setItem(collapsedGroupsKey, JSON.stringify(collapsedGroupKeys));
+  }, [collapsedGroupKeys, collapsedGroupsKey, hasLoadedCollapsedGroups]);
+
+  const toggleCollapsedGroup = (groupKey: string) => {
+    setCollapsedGroupKeys((current) =>
+      current.includes(groupKey) ? current.filter((item) => item !== groupKey) : [...current, groupKey],
+    );
+  };
+
+  const groupedAccounts = useMemo<AccountGroupView[]>(
+    () =>
+      groups
+        .map((group) => ({
+          ...group,
+          accounts: group.accounts.filter((account) => {
+            const assignedPotId = assignedPotByAccount.get(account.id);
+            return !assignedPotId || (selectionMode?.kind === "edit" && assignedPotId === selectionMode.potId);
+          }),
+        }))
+        .filter((group) => group.accounts.length > 0)
+        .map((group) => ({ ...group, accountCount: group.accounts.length })),
+    [assignedPotByAccount, groups, selectionMode],
+  );
 
   async function handleCreate() {
     if (
@@ -246,11 +289,6 @@ export default function SavingsScreen() {
     setSelectionMode({ kind: "create" });
   }
 
-  function openEditPicker(potId: string, potName: string) {
-    setDraftAccountIds(selectionMap.get(potId) ?? []);
-    setSelectionMode({ kind: "edit", potId, potName });
-  }
-
   function updateDraftPotField(
     potId: string,
     field: "name" | "targetAmount",
@@ -261,6 +299,7 @@ export default function SavingsScreen() {
       [potId]: {
         name: current[potId]?.name ?? "",
         targetAmount: current[potId]?.targetAmount ?? "",
+        accountIds: current[potId]?.accountIds ?? [],
         [field]: value,
       },
     }));
@@ -272,6 +311,7 @@ export default function SavingsScreen() {
     potTargetAmount?: number | null,
   ) {
     const current = draftPotValues[potId];
+    const selectedAccountIds = selectionMap.get(potId) ?? [];
     setDraftPotValues((drafts) => ({
       ...drafts,
       [potId]: {
@@ -281,10 +321,17 @@ export default function SavingsScreen() {
           (potTargetAmount !== null && potTargetAmount !== undefined
             ? String(potTargetAmount)
             : ""),
+        accountIds: current?.accountIds ?? selectedAccountIds,
       },
     }));
     setEditingPotId(potId);
     setActivePotMenu(null);
+  }
+
+  function openEditAccountPickerFromDraft(potId: string, potName: string) {
+    const draft = draftPotValues[potId];
+    setDraftAccountIds(draft?.accountIds ?? selectionMap.get(potId) ?? []);
+    setSelectionMode({ kind: "edit", potId, potName });
   }
 
   function closePicker() {
@@ -309,10 +356,28 @@ export default function SavingsScreen() {
       return;
     }
 
-    await updateSavingPotAccounts.mutateAsync({
-      potId: selectionMode.potId,
-      accountIds: draftAccountIds,
-    });
+    if (editingPotId === selectionMode.potId) {
+      setDraftPotValues((current) => {
+        const currentDraft = current[selectionMode.potId] ?? {
+          name: selectionMode.potName,
+          targetAmount: "",
+          accountIds: [],
+        };
+
+        return {
+          ...current,
+          [selectionMode.potId]: {
+            ...currentDraft,
+            accountIds: draftAccountIds,
+          },
+        };
+      });
+    } else {
+      await updateSavingPotAccounts.mutateAsync({
+        potId: selectionMode.potId,
+        accountIds: draftAccountIds,
+      });
+    }
 
     closePicker();
   }
@@ -326,12 +391,19 @@ export default function SavingsScreen() {
       : null;
     if (draft.name.trim().length === 0) return;
     if (nextTargetAmount !== null && !Number.isFinite(nextTargetAmount)) return;
+    if (draft.accountIds.length === 0) return;
 
     await updateSavingPot.mutateAsync({
       id: potId,
       name: draft.name.trim(),
       target_amount: nextTargetAmount,
     });
+
+    await updateSavingPotAccounts.mutateAsync({
+      potId,
+      accountIds: draft.accountIds,
+    });
+
     setEditingPotId(null);
   }
 
@@ -354,17 +426,7 @@ export default function SavingsScreen() {
           {(savingPotsQuery.data ?? []).map((pot: any) => {
             const balance = balanceMap.get(pot.id);
             const selectedCount = Number(balance?.selected_account_count ?? 0);
-            const selectedAccountIds = selectionMap.get(pot.id) ?? [];
-            const estimateAccountIds =
-              selectedAccountIds.length > 0
-                ? selectedAccountIds
-                : accounts.map((account) => account.id);
-            const accountIdSet = new Set(estimateAccountIds);
-            const monthlyRecurringNet = recurringRules
-              .filter(
-                (rule) => rule.is_active && accountIdSet.has(rule.account_id),
-              )
-              .reduce((sum, rule) => sum + getMonthlyRecurringAmount(rule), 0);
+            const forecast = savingPotForecasts.get(pot.id);
             const targetValue = Number(
               balance?.target_amount ?? pot.target_amount ?? 0,
             );
@@ -426,11 +488,7 @@ export default function SavingsScreen() {
                     </Text>
                     <Text style={styles.potMeta}>
                       {t("savings.accountsUsed")}:{" "}
-                      {selectedCount > 0
-                        ? t("savings.selectedAccountsSummary", {
-                            count: selectedCount,
-                          })
-                        : t("savings.allAccountsUsed")}
+                      {t("savings.scopeAccountSpecific", { count: selectedCount })}
                     </Text>
                     {percent !== null ? (
                       <Text style={styles.potMeta}>
@@ -446,26 +504,41 @@ export default function SavingsScreen() {
                       ]}
                     />
                   </View>
-                  {remainingValue > 0 && monthlyRecurringNet > 0 ? (
+                  {forecast?.completionDate ? (
                     <Text style={styles.potMeta}>
                       {t("savings.estimatedFinish", {
-                        value: addMonths(
-                          new Date(),
-                          Math.max(
-                            1,
-                            Math.ceil(remainingValue / monthlyRecurringNet),
-                          ),
-                        ).toLocaleDateString(),
+                        value: new Date(`${forecast.completionDate}T12:00:00`).toLocaleDateString(),
                       })}
                     </Text>
                   ) : (
                     <Text style={styles.potMeta}>
-                      {t("savings.estimateUnavail")}
+                      {forecast?.unavailableReason === "missing_target"
+                        ? t("savings.forecastUnavailableNoTarget")
+                        : forecast?.unavailableReason === "beyond_horizon"
+                          ? t("savings.forecastUnavailableBeyondHorizon")
+                          : t("savings.forecastUnavailableNoContributions")}
                     </Text>
                   )}
-                  <Text style={styles.potMeta}>
-                    {t("savings.estimateNote")}
-                  </Text>
+                  {forecast?.monthlyContribution ? (
+                    <View style={{ gap: spacing(0.5) }}>
+                      <Text style={styles.potMeta}>
+                        {t("savings.forecastMonthlyContribution", {
+                          value: formatCurrency(forecast.monthlyContribution),
+                        })}
+                      </Text>
+                      {forecast.sources.map((source) => (
+                        <Text key={source.kind} style={styles.potMeta}>
+                          {source.kind === "recurring_transfer"
+                            ? t("savings.forecastRecurringTransfers", {
+                                value: formatCurrency(source.monthlyContribution),
+                              })
+                            : t("savings.forecastMonthlyBudget", {
+                                value: formatCurrency(source.monthlyContribution),
+                              })}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null}
                 </View>
               </Card>
             );
@@ -487,27 +560,45 @@ export default function SavingsScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t("savings.editDetails")}</Text>
             <Text style={styles.modalSubtitle}>
-              {t("savings.selectedAccountsHint")}
+              {t("savings.editPotSubtitle")}
             </Text>
             {editingPotId ? (
               <>
-                <Field
-                  label={t("savings.name")}
-                  value={draftPotValues[editingPotId]?.name ?? ""}
-                  onChangeText={(value) =>
-                    updateDraftPotField(editingPotId, "name", value)
-                  }
-                  placeholder={t("savings.namePlaceholder")}
-                />
-                <Field
-                  label={t("savings.targetAmount")}
-                  value={draftPotValues[editingPotId]?.targetAmount ?? ""}
-                  onChangeText={(value) =>
-                    updateDraftPotField(editingPotId, "targetAmount", value)
-                  }
-                  keyboardType="numeric"
-                  placeholder="1000"
-                />
+                <ScrollView
+                  style={styles.editModalScroll}
+                  contentContainerStyle={styles.editModalContent}
+                >
+                  <Field
+                    label={t("savings.name")}
+                    value={draftPotValues[editingPotId]?.name ?? ""}
+                    onChangeText={(value) =>
+                      updateDraftPotField(editingPotId, "name", value)
+                    }
+                    placeholder={t("savings.namePlaceholder")}
+                  />
+                  <Field
+                    label={t("savings.targetAmount")}
+                    value={draftPotValues[editingPotId]?.targetAmount ?? ""}
+                    onChangeText={(value) =>
+                      updateDraftPotField(editingPotId, "targetAmount", value)
+                    }
+                    keyboardType="numeric"
+                    placeholder="1000"
+                  />
+                  <View style={styles.editSection}>
+                    <SelectionTrigger
+                      label={t("savings.selectAccounts")}
+                      valueLabel={editingSelectedAccountsLabel}
+                      hint={t("savings.selectAccountsRequiredHint")}
+                      placeholder={t("savings.selectAccounts")}
+                      iconName="wallet-outline"
+                      onPress={() => openEditAccountPickerFromDraft(
+                        editingPotId,
+                        draftPotValues[editingPotId]?.name || t("savings.editDetails"),
+                      )}
+                    />
+                  </View>
+                </ScrollView>
                 <View style={styles.modalActions}>
                   <Button
                     label={t("savings.closeAccounts")}
@@ -516,12 +607,17 @@ export default function SavingsScreen() {
                   />
                   <Button
                     label={
-                      updateSavingPot.isPending
+                      updateSavingPot.isPending || updateSavingPotAccounts.isPending
                         ? t("saving")
                         : t("savings.savePot")
                     }
                     onPress={() => void savePot(editingPotId)}
-                    disabled={updateSavingPot.isPending}
+                    disabled={
+                      updateSavingPot.isPending ||
+                      updateSavingPotAccounts.isPending ||
+                      !draftPotValues[editingPotId]?.name.trim() ||
+                      draftPotValues[editingPotId]?.accountIds.length === 0
+                    }
                   />
                 </View>
               </>
@@ -559,6 +655,14 @@ export default function SavingsScreen() {
               keyboardType="numeric"
               placeholder="1000"
             />
+            <SelectionTrigger
+              label={t("savings.selectAccounts")}
+              valueLabel={createSelectedAccountsLabel}
+              hint={t("savings.selectAccountsRequiredHint")}
+              placeholder={t("savings.selectAccounts")}
+              iconName="wallet-outline"
+              onPress={openCreatePicker}
+            />
             <HouseholdMemberSelect
               label={t("savings.createdBy")}
               members={(membersQuery.data ?? []).filter(
@@ -569,27 +673,6 @@ export default function SavingsScreen() {
               hint={t("savings.createdByPlaceholder")}
               onChange={setCreatedById}
             />
-            <Pressable
-              onPress={openCreatePicker}
-              style={({ pressed }) => [
-                styles.selector,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.selectorLabel}>
-                {t("savings.selectAccounts")}
-              </Text>
-              <Text style={styles.selectorValue}>
-                {createSelectedAccountIds.length > 0
-                  ? t("savings.selectedAccountsSummary", {
-                      count: createSelectedAccountIds.length,
-                    })
-                  : t("savings.allAccountsUsed")}
-              </Text>
-              <Text style={styles.selectorHint}>
-                {t("savings.selectedAccountsHint")}
-              </Text>
-            </Pressable>
             <View style={styles.modalActions}>
               <Button
                 label={t("savings.closeAccounts")}
@@ -648,21 +731,6 @@ export default function SavingsScreen() {
             <Pressable
               onPress={() => {
                 if (activePotMenu) {
-                  openEditPicker(activePotMenu.id, activePotMenu.name);
-                }
-              }}
-              style={({ pressed }) => [
-                styles.menuItem,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.menuItemText}>
-                {t("savings.editAccounts")}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                if (activePotMenu) {
                   void deleteSavingPot.mutateAsync(activePotMenu.id);
                 }
                 setActivePotMenu(null);
@@ -695,7 +763,7 @@ export default function SavingsScreen() {
         onConfirm={() => void savePickerSelection()}
         confirmDisabled={updateSavingPotAccounts.isPending}
       >
-        {accounts.length === 0 ? (
+        {groupedAccounts.length === 0 ? (
           <Text style={styles.modalEmpty}>
             {t("savings.noAccountsAvailable")}
           </Text>
@@ -704,50 +772,66 @@ export default function SavingsScreen() {
             style={styles.modalList}
             contentContainerStyle={{ gap: spacing(3.5) }}
           >
-            {groups.map((group) => (
-              <View key={group.key} style={styles.group}>
-                <Text style={styles.groupTitle}>{group.title}</Text>
-                <View style={{ gap: spacing(2.5) }}>
-                  {group.accounts.map((account) => {
-                    const selected = draftAccountIds.includes(account.id);
+            {groupedAccounts.map((group) => {
+              const isCollapsed = !hasLoadedCollapsedGroups || collapsedGroupKeys.includes(group.key);
 
-                    return (
-                      <Pressable
-                        key={account.id}
-                        onPress={() => toggleDraftAccount(account.id)}
-                        style={({ pressed }) => [
-                          styles.accountRow,
-                          selected && styles.accountRowSelected,
-                          pressed && styles.pressed,
-                        ]}
-                      >
-                        <View style={{ flex: 1, gap: spacing(1) }}>
-                          <Text style={styles.accountName}>
-                            {account.name}
-                          </Text>
-                          <Text style={styles.accountMeta}>
-                            {t(`accounts.types.${account.type}`)}
-                          </Text>
-                          <Text style={styles.accountMeta}>
-                            {formatCurrency(account.current_balance)}
-                          </Text>
-                        </View>
-                        <View
-                          style={[
-                            styles.checkbox,
-                            selected && styles.checkboxSelected,
-                          ]}
-                        >
-                          <Text style={styles.checkboxLabel}>
-                            {selected ? "✓" : ""}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
+              return (
+                <View key={group.key} style={styles.group}>
+                  <Pressable
+                    onPress={() => toggleCollapsedGroup(group.key)}
+                    style={({ pressed }) => [
+                      styles.groupHeader,
+                      { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.groupTitle}>{group.title}</Text>
+                      <Text style={styles.groupSubtitle}>
+                        {t("savings.groupCount", { count: group.accountCount })}
+                      </Text>
+                    </View>
+                    <Text style={styles.groupChevron}>{isCollapsed ? "▸" : "▾"}</Text>
+                  </Pressable>
+                  {!isCollapsed ? (
+                    <View style={{ gap: spacing(2.5), paddingLeft: spacing(1) }}>
+                      {group.accounts.map((account) => {
+                        const selected = draftAccountIds.includes(account.id);
+
+                        return (
+                          <Pressable
+                            key={account.id}
+                            onPress={() => toggleDraftAccount(account.id)}
+                            style={({ pressed }) => [
+                              styles.accountRow,
+                              selected && styles.accountRowSelected,
+                              pressed && styles.pressed,
+                            ]}
+                          >
+                            <View style={{ flex: 1, gap: spacing(1) }}>
+                              <Text style={styles.accountName}>{account.name}</Text>
+                              <Text style={styles.accountMeta}>
+                                {getAccountSummary(account, memberLabelMap, t("dashboard.shared"))} · {formatCurrency(account.current_balance)}
+                              </Text>
+                            </View>
+                            <View
+                              style={[
+                                styles.checkbox,
+                                selected && styles.checkboxSelected,
+                              ]}
+                            >
+                              <Text style={styles.checkboxLabel}>
+                                {selected ? "✓" : ""}
+                              </Text>
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </ScrollView>
         )}
       </MultiSelectShell>
@@ -757,6 +841,58 @@ export default function SavingsScreen() {
 
 function createStyles(colors: any) {
   return StyleSheet.create({
+    scopePill: {
+      paddingHorizontal: spacing(3),
+      paddingVertical: spacing(1.5),
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+    },
+    scopePillActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary,
+    },
+    scopePillText: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+      fontWeight: typography.fontWeight.semibold,
+    },
+    scopePillTextActive: {
+      color: colors.primaryForeground,
+      fontSize: typography.fontSize[12],
+      fontWeight: typography.fontWeight.semibold,
+    },
+    sectionLabel: {
+      color: colors.textSecondary,
+      fontWeight: typography.fontWeight.semibold,
+    },
+    pillWrap: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing(1.5),
+    },
+    groupHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: spacing(2),
+      paddingHorizontal: spacing(3),
+      paddingVertical: spacing(2.5),
+      borderRadius: radius.lg,
+      borderWidth: 1,
+    },
+    groupSubtitle: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+      marginTop: spacing(0.5),
+    },
+    groupChevron: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[18],
+      fontWeight: typography.fontWeight.bold,
+      paddingLeft: spacing(1),
+    },
     selector: {
       gap: spacing(1.5),
       padding: spacing(3.5),
@@ -914,6 +1050,16 @@ function createStyles(colors: any) {
     },
     modalList: {
       maxHeight: spacing(105),
+    },
+    editModalScroll: {
+      maxHeight: spacing(118),
+    },
+    editModalContent: {
+      gap: spacing(3.5),
+      paddingBottom: spacing(1),
+    },
+    editSection: {
+      gap: spacing(2),
     },
     group: {
       gap: spacing(2.5),

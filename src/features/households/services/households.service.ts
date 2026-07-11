@@ -19,6 +19,51 @@ type InvitationDetails = {
   expires_at: string | null;
 };
 
+const INVITE_TOKEN_PATTERN = /^invite_[A-Za-z0-9_-]+$/;
+
+function normalizeInviteWebBase(value: string | undefined) {
+  const candidate = value?.trim().replace(/\/+$/, '');
+  if (!candidate) return undefined;
+
+  try {
+    const url = new URL(candidate);
+    const isLocalhost =
+      url.hostname === 'localhost' ||
+      url.hostname === '127.0.0.1' ||
+      url.hostname === '::1';
+
+    if (url.protocol !== 'https:' && !(url.protocol === 'http:' && isLocalhost)) {
+      return undefined;
+    }
+
+    return url.origin;
+  } catch {
+    return undefined;
+  }
+}
+
+function createInviteLinks(token: string) {
+  if (!INVITE_TOKEN_PATTERN.test(token)) {
+    throw new Error('Invalid invitation token.');
+  }
+
+  const configuredWebBase = normalizeInviteWebBase(process.env.EXPO_PUBLIC_INVITE_WEB_URL);
+  const runtimeWebBase =
+    typeof window !== 'undefined' && window.location?.origin
+      ? normalizeInviteWebBase(window.location.origin)
+      : undefined;
+
+  const inviteWebBaseUrl = configuredWebBase ?? runtimeWebBase;
+  const nativeInviteLink = `smartfinance://invite/${token}`;
+  const webInviteLink = inviteWebBaseUrl ? `${inviteWebBaseUrl}/invite/${token}` : null;
+
+  return {
+    inviteLink: webInviteLink ?? nativeInviteLink,
+    nativeInviteLink,
+    webInviteLink,
+  };
+}
+
 class HouseholdsService {
   async createHousehold(name: string) {
     const householdName = name.trim();
@@ -124,20 +169,7 @@ class HouseholdsService {
 
     if (error) throw error;
 
-    const configuredWebBase = process.env.EXPO_PUBLIC_INVITE_WEB_URL?.replace(/\/$/, "");
-    const runtimeWebBase =
-      typeof window !== "undefined" && window.location?.origin
-        ? window.location.origin
-        : undefined;
-
-    const inviteWebBaseUrl = configuredWebBase ?? runtimeWebBase;
-    const nativeInviteLink = `smartfinance://invite/${token}`;
-    const webInviteLink = inviteWebBaseUrl
-      ? `${inviteWebBaseUrl}/invite/${token}`
-      : null;
-
-    // Prefer a web URL in browsers so localhost testing works from email click-through.
-    const inviteLink = webInviteLink ?? nativeInviteLink;
+    const { inviteLink, nativeInviteLink, webInviteLink } = createInviteLinks(token);
 
     // Optional async delivery: if the edge function is not deployed yet, keep the
     // invitation creation successful and allow manual link sharing.
@@ -147,6 +179,7 @@ class HouseholdsService {
         body: {
           email,
           role: input.role,
+          token,
           inviteLink,
           nativeInviteLink,
           webInviteLink,

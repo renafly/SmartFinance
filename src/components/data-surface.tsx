@@ -135,9 +135,10 @@ const TableColumnsContext = createContext<TableColumn[]>([]);
 
 type TableRowProps = {
   children: ReactNode;
+  onPress?: () => void;
 };
 
-export function TableRow({ children }: TableRowProps) {
+export function TableRow({ children, onPress }: TableRowProps) {
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
   const columns = useContext(TableColumnsContext);
@@ -153,8 +154,11 @@ export function TableRow({ children }: TableRowProps) {
       })
     : children;
 
+  const RowComponent = onPress ? Pressable : View;
+
   return (
-    <View
+    <RowComponent
+      {...(onPress ? { onPress, accessibilityRole: 'button' as const } : {})}
       style={[
         styles.tableRow,
         {
@@ -170,10 +174,11 @@ export function TableRow({ children }: TableRowProps) {
           borderRadius: responsive.isPhone ? radius.lg : undefined,
           marginBottom: responsive.isPhone ? spacing(2) : 0,
         },
+        onPress ? styles.tableRowPressable : null,
       ] as any}
     >
       {rowChildren}
-    </View>
+    </RowComponent>
   );
 }
 
@@ -199,9 +204,9 @@ export function Table({ columns, children }: TableProps) {
       >
         {!responsive.isPhone ? (
           <View style={[styles.tableHeader, { backgroundColor: colors.surface, borderColor: colors.border }] as any}>
-            {columns.map((column) => (
+            {columns.map((column, index) => (
               <Text
-                key={column.label}
+                key={`${column.label}-${index}`}
                 style={[
                   styles.tableHeaderLabel,
                   {
@@ -402,6 +407,9 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'stretch',
     borderBottomWidth: 1,
+  },
+  tableRowPressable: {
+    cursor: 'pointer' as any,
   },
   tableBody: {
     width: '100%',

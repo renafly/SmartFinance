@@ -14,7 +14,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { useAccounts, useAccountsWithBalances } from '../../features/accounts/hooks';
 import { useHouseholdMemberDetails, useMyHouseholds } from '../../features/households/hooks';
 import { useRecurringTransactions } from '../../features/recurring-transactions/hooks';
-import { useSavingPotAccountAssignments, useSavingPotBalances, useSavingPots } from '../../features/saving-pots/hooks';
+import { useSavingPotAccountAssignments, useSavingPots } from '../../features/saving-pots/hooks';
 import {
   useCancelMonthlyBudgetRun,
   useConfirmMonthlyBudgetRun,
@@ -56,6 +56,12 @@ const SECTION_SORT_ORDER: Record<string, number> = {
   remaining_cash: 4,
 };
 
+type MemberContributionSummary = {
+  label: string;
+  section: MonthlyBudgetRuleDraft['section'];
+  amount: number;
+};
+
 function monthKey(value: string) {
   return value.slice(0, 7);
 }
@@ -76,47 +82,15 @@ function pickDefaultAccountId(accounts: AccountLike[], ownerId: string | null, a
   return any?.id ?? '';
 }
 
-function buildPotAccountMap(assignments: { pot_id: string; account_id: string }[]) {
-  const map = new Map<string, string[]>();
-
-  for (const assignment of assignments) {
-    const current = map.get(assignment.pot_id) ?? [];
-    current.push(assignment.account_id);
-    map.set(assignment.pot_id, current);
-  }
-
-  return map;
-}
-
-function pickHighestBalanceAccountId(accounts: AccountLike[], accountIds: string[]) {
-  let candidate = '';
-  let candidateBalance = Number.NEGATIVE_INFINITY;
-
-  for (const accountId of accountIds) {
-    const account = accounts.find((item) => item.id === accountId);
-    if (!account) continue;
-    const balance = Number(account.current_balance ?? 0);
-    if (balance > candidateBalance) {
-      candidate = account.id;
-      candidateBalance = balance;
-    }
-  }
-
-  return candidate || accountIds[0] || '';
-}
-
-function pickDefaultPotSelection(
-  pots: { id: string }[],
-  potAccountMap: Map<string, string[]>,
-  accounts: AccountLike[],
+function buildPotNameByAccountId(
+  assignments: { pot_id: string; account_id: string }[],
+  potNameMap: Map<string, string>,
 ) {
-  const pot = pots[0];
-  if (!pot) return null;
-  const accountId = pickHighestBalanceAccountId(accounts, potAccountMap.get(pot.id) ?? []);
-  return {
-    potId: pot.id,
-    accountId: accountId || pickDefaultAccountId(accounts, null, ['cash', 'bank', 'savings', 'investment', 'ppr']),
-  };
+  return assignments.reduce<Record<string, string>>((result, assignment) => {
+    const potName = potNameMap.get(assignment.pot_id);
+    if (potName) result[assignment.account_id] = potName;
+    return result;
+  }, {});
 }
 
 function getSectionRank(section: string) {
@@ -201,8 +175,8 @@ function mapRulesToDrafts(rules: any[]): MonthlyBudgetRuleDraft[] {
     section: rule.section ?? 'savings',
     sourceAccountId: rule.source_account_id ?? '',
     destinationAccountId: rule.destination_account_id ?? '',
-    destinationPotId: rule.destination_pot_id ?? null,
-    destinationKind: rule.destination_pot_id ? 'pot' : 'account',
+    destinationPotId: null,
+    destinationKind: 'account',
     ownerMemberId: rule.owner_member_id ?? null,
     amount: String(rule.amount ?? ''),
     priority: String(rule.priority ?? index),
@@ -235,7 +209,6 @@ export default function BudgetScreen() {
   const membersQuery = useHouseholdMemberDetails();
   const recurringQuery = useRecurringTransactions();
   const savingPotsQuery = useSavingPots();
-  const savingPotBalancesQuery = useSavingPotBalances();
   const savingPotAssignmentsQuery = useSavingPotAccountAssignments();
   const saveConfiguration = useSaveMonthlyBudgetConfiguration();
   const saveDraft = useSaveMonthlyBudgetDraft();
@@ -259,7 +232,6 @@ export default function BudgetScreen() {
   const members = ((membersQuery.data ?? []) as MemberLike[]).filter((member) => member.status === 'accepted');
   const recurringTransactions = recurringQuery.data ?? [];
   const savingPots = savingPotsQuery.data ?? [];
-  const savingPotBalances = savingPotBalancesQuery.data ?? [];
   const savingPotAssignments = savingPotAssignmentsQuery.data ?? [];
 
   const [configId, setConfigId] = useState<string | null>(null);
@@ -276,6 +248,7 @@ export default function BudgetScreen() {
   const [hasLoadedCollapsedPreference, setHasLoadedCollapsedPreference] = useState(false);
 
   const hydratedConfigId = useRef<string | null>(null);
+  const hydratedWorkspaceSignature = useRef<string | null>(null);
   const hydratedRunId = useRef<string | null>(null);
   const hydratedCollapsedPreferenceKey = useRef<string | null>(null);
   const collapsedPreferenceDirtyRef = useRef(false);
@@ -298,11 +271,6 @@ export default function BudgetScreen() {
     () => accounts.filter((account) => incomeCashAccountIds.includes(account.id)),
     [accounts, incomeCashAccountIds],
   );
-  const potAccountMap = useMemo(() => buildPotAccountMap(savingPotAssignments), [savingPotAssignments]);
-  const savingPotBalanceMap = useMemo(
-    () => new Map(savingPotBalances.map((pot: any) => [pot.id, pot])),
-    [savingPotBalances],
-  );
   const destinationAccountTypeLabels = useMemo(
     () => ({
       bank: t('budget.destinationGroups.bank'),
@@ -314,13 +282,36 @@ export default function BudgetScreen() {
     }),
     [t],
   );
-  const destinationPotGroupLabel = useMemo(() => t('budget.destinationGroups.pigBanks'), [t]);
   const accountNameMap = useMemo(() => new Map(accounts.map((account) => [account.id, account.name])), [accounts]);
   const potNameMap = useMemo(() => new Map(savingPots.map((pot: any) => [pot.id, pot.name])), [savingPots]);
+  const potNameByAccountId = useMemo(
+    () => buildPotNameByAccountId(savingPotAssignments, potNameMap),
+    [potNameMap, savingPotAssignments],
+  );
+  const workspaceSignature = useMemo(
+    () =>
+      workspace?.config?.id
+        ? JSON.stringify({
+            configId: workspace.config.id,
+            configName: workspace.config.name ?? '',
+            rules: (workspace.rules ?? []).map((rule: any) => ({
+              id: rule.id,
+              updatedAt: rule.updated_at ?? '',
+              priority: rule.priority ?? null,
+              amount: rule.amount ?? null,
+              sourceAccountId: rule.source_account_id ?? '',
+              destinationAccountId: rule.destination_account_id ?? '',
+              isActive: rule.is_active ?? true,
+            })),
+          })
+        : null,
+    [workspace?.config?.id, workspace?.config?.name, workspace?.rules],
+  );
 
   useEffect(() => {
-    if (workspace?.config?.id && hydratedConfigId.current !== workspace.config.id) {
+    if (workspace?.config?.id && workspaceSignature && hydratedWorkspaceSignature.current !== workspaceSignature) {
       hydratedConfigId.current = workspace.config.id;
+      hydratedWorkspaceSignature.current = workspaceSignature;
       setConfigId(workspace.config.id);
       setBudgetName(workspace.config.name ?? t('budget.defaultName'));
       setRuleDrafts(sortRuleDrafts(mapRulesToDrafts(workspace.rules ?? [])));
@@ -333,6 +324,7 @@ export default function BudgetScreen() {
 
     if (!workspace?.config?.id && hydratedConfigId.current !== '__draft__' && accounts.length > 0 && members.length > 0) {
       hydratedConfigId.current = '__draft__';
+      hydratedWorkspaceSignature.current = '__draft__';
       setConfigId(null);
       setBudgetName(t('budget.defaultName'));
       setRuleDrafts([]);
@@ -341,7 +333,7 @@ export default function BudgetScreen() {
       setFixedRemainingCashAmount(String(household?.fixed_remaining_cash_amount ?? 0));
       setExcessCashDistributionMethod((household?.excess_cash_distribution_method ?? 'even_split') as 'even_split');
     }
-  }, [accounts, household, members, t, workspace?.config?.id, workspace?.config?.name, workspace?.rules]);
+  }, [accounts, household, members, t, workspace?.config?.id, workspace?.config?.name, workspace?.rules, workspaceSignature]);
 
   useEffect(() => {
     if (!selectedRun?.id || hydratedRunId.current === selectedRun.id) return;
@@ -418,7 +410,7 @@ export default function BudgetScreen() {
       section: rule.section,
       source_account_id: rule.sourceAccountId,
       destination_account_id: rule.destinationAccountId,
-      destination_pot_id: rule.destinationPotId,
+      destination_pot_id: null,
       owner_member_id: rule.ownerMemberId || null,
       amount: Number(rule.amount),
       frequency: 'monthly',
@@ -466,14 +458,10 @@ export default function BudgetScreen() {
 
   const rulesAreValid = ruleDrafts.every((rule) => {
     const amount = Number(rule.amount);
-    const destinationValid =
-      rule.destinationKind === 'pot'
-        ? Boolean(rule.destinationPotId)
-        : Boolean(rule.destinationAccountId);
     return Boolean(
       rule.name.trim() &&
         rule.sourceAccountId &&
-        destinationValid &&
+        rule.destinationAccountId &&
         Number.isFinite(amount) &&
         amount > 0,
     );
@@ -494,7 +482,6 @@ export default function BudgetScreen() {
   }
 
   function addRule() {
-    const defaultPotSelection = pickDefaultPotSelection(savingPots, potAccountMap, accounts);
     setRuleDrafts((current) => [
       ...current,
       {
@@ -502,10 +489,9 @@ export default function BudgetScreen() {
         name: '',
         section: 'savings',
         sourceAccountId: pickDefaultAccountId(accounts, null, ['cash', 'bank']),
-        destinationAccountId:
-          defaultPotSelection?.accountId ?? pickDefaultAccountId(accounts, null, ['savings', 'investment', 'ppr', 'cash', 'bank']),
-        destinationPotId: defaultPotSelection?.potId ?? null,
-        destinationKind: defaultPotSelection ? 'pot' : 'account',
+        destinationAccountId: pickDefaultAccountId(accounts, null, ['savings', 'investment', 'ppr', 'cash', 'bank']),
+        destinationPotId: null,
+        destinationKind: 'account',
         ownerMemberId: members[0]?.userId ?? null,
         amount: '0',
         priority: String(current.length),
@@ -528,28 +514,6 @@ export default function BudgetScreen() {
   }
 
   function updateDestinationDraft(ruleId: string, selection: DestinationSelection) {
-    if (selection.kind === 'pot') {
-      const destinationAccountId = pickHighestBalanceAccountId(
-        accounts,
-        potAccountMap.get(selection.id) ?? [],
-      );
-
-      setRuleDrafts((current) =>
-        current.map((rule) =>
-          rule.id === ruleId
-            ? {
-                ...rule,
-                destinationKind: 'pot',
-                destinationPotId: selection.id,
-                destinationAccountId:
-                  destinationAccountId || pickDefaultAccountId(accounts, null, ['savings', 'investment', 'ppr', 'cash', 'bank']),
-              }
-            : rule,
-        ),
-      );
-      return;
-    }
-
     setRuleDrafts((current) =>
       current.map((rule) =>
         rule.id === ruleId
@@ -646,6 +610,41 @@ export default function BudgetScreen() {
   const incomeModeSummary = t('budget.incomeModeSummary', {
     value: t(`budget.incomeModes.${incomeMode}`),
   });
+  const memberContributionMap = useMemo(() => {
+    const rulesById = new Map(ruleDrafts.map((rule) => [rule.id, rule]));
+    const accountsById = new Map(accounts.map((account) => [account.id, account]));
+    const grouped = new Map<string, MemberContributionSummary[]>();
+
+    for (const transfer of preview.transfers) {
+      if (transfer.isSystemGenerated || !transfer.ruleId) continue;
+
+      const rule = rulesById.get(transfer.ruleId);
+      const sourceAccount = accountsById.get(transfer.sourceAccountId);
+      const memberId = rule?.ownerMemberId || sourceAccount?.owner_profile_id;
+      if (!memberId) continue;
+
+      const current = grouped.get(memberId) ?? [];
+      current.push({
+        label: transfer.title,
+        section: transfer.section,
+        amount: transfer.amount,
+      });
+      grouped.set(memberId, current);
+    }
+
+    for (const [memberId, contributions] of grouped.entries()) {
+      grouped.set(
+        memberId,
+        contributions.sort((a, b) => {
+          const sectionDelta = getSectionRank(a.section) - getSectionRank(b.section);
+          if (sectionDelta !== 0) return sectionDelta;
+          return a.label.localeCompare(b.label);
+        }),
+      );
+    }
+
+    return grouped;
+  }, [accounts, preview.transfers, ruleDrafts]);
   const memberSummaryRows = useMemo(
     () =>
       members
@@ -653,9 +652,10 @@ export default function BudgetScreen() {
           id: member.userId,
           label: getMemberLabel(member),
           value: formatCurrency(preview.memberTotals[member.userId] ?? 0),
+          contributions: memberContributionMap.get(member.userId) ?? [],
         }))
         .sort((a, b) => a.label.localeCompare(b.label)),
-    [members, preview.memberTotals],
+    [memberContributionMap, members, preview.memberTotals],
   );
   const resumeRows = useMemo(
     () => [
@@ -775,9 +775,6 @@ export default function BudgetScreen() {
                   <View
                     key={row.id}
                     style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
                       gap: spacing(3),
                       paddingVertical: spacing(2),
                       paddingHorizontal: spacing(3),
@@ -789,15 +786,42 @@ export default function BudgetScreen() {
                       borderLeftColor: accentColor,
                     } as any}
                   >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
-                      <Ionicons name="person-circle-outline" size={16} color={accentColor} />
-                      <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.semibold) } as any}>
-                        {row.label}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing(3) } as any}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                        <Ionicons name="person-circle-outline" size={16} color={accentColor} />
+                        <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.semibold) } as any}>
+                          {row.label}
+                        </Text>
+                      </View>
+                      <Text style={{ color: accentColor, fontWeight: String(typography.fontWeight.bold) } as any}>
+                        {row.value}
                       </Text>
                     </View>
-                    <Text style={{ color: accentColor, fontWeight: String(typography.fontWeight.bold) } as any}>
-                      {row.value}
-                    </Text>
+                    {row.contributions.length > 0 ? (
+                      <View style={{ gap: spacing(1) } as any}>
+                        {row.contributions.map((contribution, contributionIndex) => (
+                          <View
+                            key={`${row.id}-${contribution.section}-${contribution.label}-${contributionIndex}`}
+                            style={{
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: spacing(2),
+                            } as any}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1) } as any}>
+                              <Ionicons name={getSectionBadgeIcon(contribution.section)} size={12} color={colors.textSecondary} />
+                              <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
+                                {contribution.label}
+                              </Text>
+                            </View>
+                            <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>
+                              {formatCurrency(contribution.amount)}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
                   </View>
                   );
                 })}
@@ -911,10 +935,7 @@ export default function BudgetScreen() {
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) } as any}>
             {ruleDrafts.map((rule) => {
-              const destinationLabel =
-                rule.destinationKind === 'pot'
-                  ? potNameMap.get(rule.destinationPotId ?? '') ?? t('budget.selectDestinationPot')
-                  : accountNameMap.get(rule.destinationAccountId) ?? t('budget.selectDestinationAccount');
+              const destinationLabel = accountNameMap.get(rule.destinationAccountId) ?? t('budget.selectDestinationAccount');
 
               return (
                 <View
@@ -958,7 +979,7 @@ export default function BudgetScreen() {
                         {' · '}
                         <Ionicons name="swap-horizontal-outline" size={12} color={colors.textSecondary} /> {t('budget.sourceAccount')}: {accountNameMap.get(rule.sourceAccountId) ?? t('budget.selectSourceAccount')}
                         {' · '}
-                        <Ionicons name={rule.destinationKind === 'pot' ? 'save-outline' : 'wallet-outline'} size={12} color={colors.textSecondary} /> {t('budget.destinationAccount')}: {destinationLabel}
+                        <Ionicons name="wallet-outline" size={12} color={colors.textSecondary} /> {t('budget.destinationAccount')}: {destinationLabel}
                       </Text>
                     </View>
                     <Ionicons name={effectiveCollapsedRuleIds.includes(rule.id) ? 'chevron-forward-outline' : 'chevron-down-outline'} size={18} color={colors.textSecondary} />
@@ -1009,13 +1030,7 @@ export default function BudgetScreen() {
                         label={t('budget.destinationAccount')}
                         accounts={accounts}
                         members={members}
-                        pots={savingPotBalances.map((pot: any) => ({
-                          ...pot,
-                          name: savingPotBalanceMap.get(pot.id)?.name ?? potNameMap.get(pot.id) ?? pot.name,
-                        }))}
-                        value={rule.destinationKind === 'pot'
-                          ? { kind: 'pot', id: rule.destinationPotId ?? '' }
-                          : { kind: 'account', id: rule.destinationAccountId }}
+                        value={{ kind: 'account', id: rule.destinationAccountId }}
                         placeholder={t('budget.selectDestinationAccount')}
                         hint={t('budget.destinationSelectorHint')}
                         groupBy="type"
@@ -1023,7 +1038,8 @@ export default function BudgetScreen() {
                         sharedLabel={t('budget.shared')}
                         unassignedLabel={t('settings.unnamedUser')}
                         closeLabel={t('cancel')}
-                        potGroupLabel={destinationPotGroupLabel}
+                        potNameByAccountId={potNameByAccountId}
+                        potLabel={t('budget.pigBank')}
                         onChange={(selection) => updateDestinationDraft(rule.id, selection)}
                       />
                       <Field
@@ -1095,14 +1111,12 @@ export default function BudgetScreen() {
             {preview.transfers.map((transfer) => (
               <View key={`${transfer.ruleId ?? transfer.title}-${transfer.destinationAccountId}`} style={{ padding: spacing(3), borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceMuted } as any}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
-                  <Ionicons name={transfer.destinationKind === 'pot' ? 'save-outline' : 'swap-horizontal-outline'} size={16} color={colors.textSecondary} />
+                  <Ionicons name="swap-horizontal-outline" size={16} color={colors.textSecondary} />
                   <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>{transfer.title}</Text>
                 </View>
                 <Text style={{ color: colors.textSecondary } as any}>
                   {transfer.section} · {formatCurrency(transfer.amount)} · {' '}
-                  {transfer.destinationKind === 'pot'
-                    ? `${t('budget.destinationAccount')}: ${potNameMap.get(transfer.destinationPotId ?? '') ?? t('budget.selectDestinationPot')}`
-                    : `${t('budget.destinationAccount')}: ${accountNameMap.get(transfer.destinationAccountId) ?? t('budget.selectDestinationAccount')}`}
+                  {`${t('budget.destinationAccount')}: ${accountNameMap.get(transfer.destinationAccountId) ?? t('budget.selectDestinationAccount')}`}
                 </Text>
               </View>
             ))}

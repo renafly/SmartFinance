@@ -77,3 +77,5 @@ export function useDeleteSavingPot() {
     },
   })
 }
+
+export { useSavingPotForecasts } from "./useSavingPotForecasts";

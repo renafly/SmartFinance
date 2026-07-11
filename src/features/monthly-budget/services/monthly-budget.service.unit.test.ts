@@ -11,6 +11,7 @@ jest.mock("@/shared/lib/supabase/client", () => ({
 }));
 
 import { MonthlyBudgetService } from "./monthly-budget.service";
+import { monthlyBudgetRepository } from "@/repositories/monthly-budget.repository";
 
 const service = new MonthlyBudgetService();
 
@@ -139,6 +140,110 @@ describe("MonthlyBudgetService.buildPreview", () => {
     expect(result.recurringNetTotal).toBe(0);
     expect(result.remainingCash).toBe(1000);
     expect(result.transfers).toEqual([]);
+  });
+
+  it("does not treat recurring transfers as household income or expenses", () => {
+    const result = preview({
+      rules: [],
+      recurringTransactions: [
+        recurring({
+          rule_kind: "transfer",
+          destination_account_id: "savings-1",
+          amount: 250,
+        }),
+      ],
+    });
+
+    expect(result.recurringNetTotal).toBe(0);
+    expect(result.remainingCash).toBe(3500);
+  });
+
+  it("requires a concrete destination account instead of resolving a pig bank", () => {
+    const result = preview({
+      rules: [
+        rule({
+          destination_account_id: null,
+          destination_pot_id: "pot-1",
+        }),
+      ],
+      savingPots: [{ id: "pot-1", name: "House", household_id: "household-1" } as any],
+      savingPotAccountAssignments: [
+        { pot_id: "pot-1", account_id: "savings-1" } as any,
+      ],
+    });
+
+    expect(result.validationIssues).toEqual([
+      'Rule "Monthly saving" has no valid destination account.',
+    ]);
+    expect(result.transfers).toEqual([]);
+  });
+
+  it("creates an account-only preview even when legacy pot data is present", () => {
+    const result = preview({
+      rules: [
+        rule({
+          destination_account_id: "savings-1",
+          destination_pot_id: "pot-1",
+        }),
+      ],
+      savingPots: [{ id: "pot-1", name: "House", household_id: "household-1" } as any],
+      savingPotAccountAssignments: [
+        { pot_id: "pot-1", account_id: "cash-1" } as any,
+      ],
+    });
+
+    expect(result.validationIssues).toEqual([]);
+    expect(result.transfers).toEqual([
+      expect.objectContaining({
+        sourceAccountId: "cash-1",
+        destinationAccountId: "savings-1",
+        destinationPotId: null,
+        destinationKind: "account",
+      }),
+    ]);
+  });
+
+  it("reports a rule whose source account does not exist", () => {
+    const result = preview({
+      rules: [rule({ source_account_id: "missing-account" })],
+    });
+
+    expect(result.validationIssues).toEqual([
+      'Rule "Monthly saving" has no valid source account.',
+    ]);
+    expect(result.transfers).toEqual([]);
+  });
+
+  it("rejects confirmation of a preview with a legacy pig bank transfer", async () => {
+    Object.assign(monthlyBudgetRepository, {
+      listRuns: jest.fn().mockResolvedValue({
+        data: [{ id: "run-1", status: "draft" }],
+        error: null,
+      }),
+    });
+
+    await expect(service.confirmRun({
+      runId: "run-1",
+      householdId: "household-1",
+      month: "2026-07",
+      createdBy: member.userId,
+      preview: {
+        ...preview(),
+        validationIssues: [],
+        transfers: [{
+          ruleId: "rule-1",
+          title: "Monthly saving",
+          section: "savings",
+          sourceAccountId: "cash-1",
+          destinationAccountId: "savings-1",
+          destinationPotId: "pot-1",
+          destinationKind: "pot",
+          amount: 500,
+          generatedByRuleId: "rule-1",
+          isSystemGenerated: false,
+        }],
+      },
+    })).rejects.toThrow('Budget transfer "Monthly saving" must use two different valid accounts.');
   });
 
   it("distributes fixed remaining cash excess to eligible savings accounts", () => {

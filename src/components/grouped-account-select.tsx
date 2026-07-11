@@ -4,6 +4,7 @@ import { Text, View, StyleSheet } from "react-native";
 import { useTheme } from "@/theme/ThemeProvider";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
+import { formatCurrency } from "@/components/migrated-page";
 import { SelectionOptionRow, SelectionShell, SelectionTrigger } from "@/components/selection-shell";
 
 type MemberLike = {
@@ -44,8 +45,23 @@ function getMemberLabel(member?: MemberLike | null, fallback = "") {
 }
 
 function getAccountLabel(account: AccountLike) {
-  const balance = Number(account.current_balance ?? account.balance ?? 0).toFixed(2);
-  return `${account.name} · ${account.type} · €${balance}`;
+  return `${account.name} · ${formatCurrency(account.current_balance ?? account.balance ?? 0)}`;
+}
+
+function getOwnerLabel(account: AccountLike, memberMap: Map<string, MemberLike>, sharedLabel: string, unassignedLabel: string) {
+  return account.owner_profile_id
+    ? getMemberLabel(memberMap.get(account.owner_profile_id), unassignedLabel)
+    : sharedLabel;
+}
+
+function getAccountSubtitle(
+  account: AccountLike,
+  memberMap: Map<string, MemberLike>,
+  sharedLabel: string,
+  unassignedLabel: string,
+  typeLabels: Record<string, string>,
+) {
+  return `${getOwnerLabel(account, memberMap, sharedLabel, unassignedLabel)} · ${typeLabels[account.type] ?? account.type} · ${formatCurrency(account.current_balance ?? account.balance ?? 0)}`;
 }
 
 export function GroupedAccountSelect({
@@ -132,7 +148,7 @@ export function GroupedAccountSelect({
                     <SelectionOptionRow
                       key={account.id}
                       title={account.name}
-                      subtitle={`${account.type} · €${Number(account.current_balance ?? account.balance ?? 0).toFixed(2)}`}
+                      subtitle={getAccountSubtitle(account, memberMap, sharedLabel, unassignedLabel, typeLabels)}
                       active={active}
                       iconName="business-outline"
                       onPress={() => {

@@ -6,6 +6,7 @@ import { FeatureFlagProvider } from "./FeatureFlagProvider";
 import { ModalProvider } from "./ModalProvider";
 import { QueryProvider } from "./QueryProvider";
 import { ToastProvider } from "./ToastProvider";
+import { NotificationsProvider } from "./NotificationsProvider";
 
 // Composition order matters: Theme and Query are foundational (most
 // other providers may want colors or query hooks), Auth needs Query
@@ -19,7 +20,9 @@ export function RootProvider({ children }: PropsWithChildren) {
         <AuthProvider>
           <FeatureFlagProvider>
             <ModalProvider>
-              <ToastProvider>{children}</ToastProvider>
+              <ToastProvider>
+                <NotificationsProvider>{children}</NotificationsProvider>
+              </ToastProvider>
             </ModalProvider>
           </FeatureFlagProvider>
         </AuthProvider>

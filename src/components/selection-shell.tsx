@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { type ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/migrated-page';
 import { radius } from '@/theme/radius';
@@ -110,6 +110,7 @@ export function SelectionShell({
               width: '100%',
               maxWidth: responsive.isPhone ? undefined : spacing(160),
               alignSelf: 'center',
+              overflow: 'hidden',
             },
           ]}
         >
@@ -117,7 +118,13 @@ export function SelectionShell({
             <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
             {subtitle ? <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
           </View>
-          {children}
+          <ScrollView
+            style={styles.modalBody}
+            contentContainerStyle={styles.modalBodyContent}
+            showsVerticalScrollIndicator
+          >
+            {children}
+          </ScrollView>
           <Pressable
             onPress={onClose}
             style={({ pressed }) => [
@@ -327,6 +334,12 @@ const styles = StyleSheet.create({
   modalCard: {
     gap: spacing(3.5),
     borderWidth: 1,
+  },
+  modalBody: {
+    flexGrow: 1,
+  },
+  modalBodyContent: {
+    gap: spacing(3),
   },
   modalHeader: {
     gap: spacing(1),
