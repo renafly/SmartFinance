@@ -57,7 +57,9 @@ export function GoogleLoginScreen() {
           <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>
             {t("auth.continueWith")}
           </Text>
-          <GoogleSignInButton redirectTo={redirectTo} />
+          <View style={{ alignSelf: "center" }}>
+            <GoogleSignInButton redirectTo={redirectTo} />
+          </View>
           <Text style={[styles.caption, { color: colors.textSecondary }]}>
             {t("auth.loginDescription")}
           </Text>
@@ -131,6 +133,7 @@ const styles = StyleSheet.create({
     maxWidth: 320,
   },
   card: {
+    alignItems: "center",
     borderRadius: radius.xl * 1.15,
     padding: spacing(6),
     gap: spacing(4),
