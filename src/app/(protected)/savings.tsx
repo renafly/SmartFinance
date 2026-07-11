@@ -4,6 +4,7 @@ import { spacing } from "@/theme/spacing";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  FlatList,
   Modal,
   Pressable,
   ScrollView,
@@ -11,6 +12,7 @@ import {
   Text,
   View,
 } from "react-native";
+import type { SavingPotForecastTimelineItem } from "@/features/saving-pots/services/saving-pot-forecast.service";
 
 import { HouseholdMemberSelect } from "@/components/household-member-select";
 import { MultiSelectShell, SelectionTrigger } from "@/components/selection-shell";
@@ -62,6 +64,15 @@ type PotDraft = {
   name: string;
   targetAmount: string;
   accountIds: string[];
+};
+
+type ForecastViewMode = "monthly" | "yearly";
+
+type ForecastYearRow = {
+  year: string;
+  contribution: number;
+  projectedAmount: number;
+  remainingAmount: number;
 };
 
 function buildAccountGroups(
@@ -124,6 +135,34 @@ function getAccountSummary(account: AccountOption, memberLabelMap: Map<string, s
   return `${account.type} · ${ownerLabel}`;
 }
 
+function buildForecastYearRows(timeline: SavingPotForecastTimelineItem[]) {
+  const rows = new Map<string, ForecastYearRow>();
+
+  for (const item of timeline) {
+    const year = item.month.slice(0, 4);
+    const current = rows.get(year) ?? {
+      year,
+      contribution: 0,
+      projectedAmount: 0,
+      remainingAmount: 0,
+    };
+
+    current.contribution += item.contribution;
+    current.projectedAmount = item.projectedAmount;
+    current.remainingAmount = item.remainingAmount;
+    rows.set(year, current);
+  }
+
+  return [...rows.values()];
+}
+
+function formatForecastMonth(month: string) {
+  return new Date(`${month}-01T12:00:00`).toLocaleDateString(undefined, {
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export default function SavingsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -159,6 +198,8 @@ export default function SavingsScreen() {
     name: string;
   } | null>(null);
   const [editingPotId, setEditingPotId] = useState<string | null>(null);
+  const [expandedForecastPotId, setExpandedForecastPotId] = useState<string | null>(null);
+  const [forecastViewMode, setForecastViewMode] = useState<ForecastViewMode>("monthly");
 
   const parsedTargetAmount = targetAmount.trim() ? Number(targetAmount) : null;
   const canCreateSavingPot =
@@ -432,6 +473,8 @@ export default function SavingsScreen() {
             );
             const currentValue = Number(balance?.balance ?? 0);
             const remainingValue = Math.max(0, targetValue - currentValue);
+            const isForecastExpanded = expandedForecastPotId === pot.id;
+            const forecastYears = forecast ? buildForecastYearRows(forecast.timeline) : [];
             const percent =
               balance?.target_amount && Number(balance.target_amount) > 0
                 ? Math.min(
@@ -538,6 +581,82 @@ export default function SavingsScreen() {
                         </Text>
                       ))}
                     </View>
+                  ) : null}
+                  {forecast && forecast.timeline.length > 0 ? (
+                    <>
+                      <Pressable
+                        onPress={() => setExpandedForecastPotId((current) => current === pot.id ? null : pot.id)}
+                        style={({ pressed }) => [styles.forecastToggle, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.forecastToggleText}>
+                          {isForecastExpanded ? t("savings.hideForecast") : t("savings.showForecast")}
+                        </Text>
+                        <Text style={styles.forecastToggleChevron}>{isForecastExpanded ? "▴" : "▾"}</Text>
+                      </Pressable>
+                      {isForecastExpanded ? (
+                        <View style={styles.forecastPanel}>
+                          <View style={styles.forecastPanelHeader}>
+                            <Text style={styles.forecastPanelTitle}>{t("savings.forecastTimeline")}</Text>
+                            <View style={styles.forecastViewToggle}>
+                              {(["monthly", "yearly"] as const).map((mode) => (
+                                <Pressable
+                                  key={mode}
+                                  onPress={() => setForecastViewMode(mode)}
+                                  style={({ pressed }) => [
+                                    styles.forecastViewButton,
+                                    forecastViewMode === mode && styles.forecastViewButtonActive,
+                                    pressed && styles.pressed,
+                                  ]}
+                                >
+                                  <Text style={forecastViewMode === mode ? styles.forecastViewButtonTextActive : styles.forecastViewButtonText}>
+                                    {mode === "monthly" ? t("savings.forecastMonthlyView") : t("savings.forecastYearlyView")}
+                                  </Text>
+                                </Pressable>
+                              ))}
+                            </View>
+                          </View>
+                          <View style={styles.forecastColumnLabels}>
+                            <Text style={[styles.forecastColumnLabel, styles.forecastLabelPrimary]}>
+                              {forecastViewMode === "monthly" ? t("savings.forecastMonth") : t("savings.forecastYear")}
+                            </Text>
+                            <Text style={styles.forecastColumnLabel}>{t("savings.forecastContributionShort")}</Text>
+                            <Text style={styles.forecastColumnLabel}>{t("savings.forecastBalanceShort")}</Text>
+                          </View>
+                          {forecastViewMode === "monthly" ? (
+                            <FlatList
+                              data={forecast.timeline}
+                              keyExtractor={(item) => item.month}
+                              nestedScrollEnabled
+                              style={styles.forecastTimelineScroll}
+                              contentContainerStyle={styles.forecastTimelineContent}
+                              initialNumToRender={12}
+                              windowSize={5}
+                              renderItem={({ item }) => (
+                                <View style={[styles.forecastRow, item.reachedTarget && styles.forecastRowComplete]}>
+                                  <Text style={[styles.forecastRowText, styles.forecastLabelPrimary]}>{formatForecastMonth(item.month)}</Text>
+                                  <Text style={styles.forecastRowText}>{formatCurrency(item.contribution)}</Text>
+                                  <Text style={styles.forecastRowBalance}>{formatCurrency(item.projectedAmount)}</Text>
+                                </View>
+                              )}
+                            />
+                          ) : (
+                            <FlatList
+                              data={forecastYears}
+                              keyExtractor={(item) => item.year}
+                              scrollEnabled={false}
+                              contentContainerStyle={styles.forecastYearRows}
+                              renderItem={({ item }) => (
+                                <View style={[styles.forecastRow, item.remainingAmount === 0 && styles.forecastRowComplete]}>
+                                  <Text style={[styles.forecastRowText, styles.forecastLabelPrimary]}>{item.year}</Text>
+                                  <Text style={styles.forecastRowText}>{formatCurrency(item.contribution)}</Text>
+                                  <Text style={styles.forecastRowBalance}>{formatCurrency(item.projectedAmount)}</Text>
+                                </View>
+                              )}
+                            />
+                          )}
+                        </View>
+                      ) : null}
+                    </>
                   ) : null}
                 </View>
               </Card>
@@ -1015,6 +1134,123 @@ function createStyles(colors: any) {
       height: "100%",
       borderRadius: radius.full,
       backgroundColor: colors.success,
+    },
+    forecastToggle: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: spacing(2),
+      marginTop: spacing(1),
+      paddingHorizontal: spacing(3),
+      paddingVertical: spacing(2),
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+    },
+    forecastToggleText: {
+      color: colors.primary,
+      fontSize: typography.fontSize[13],
+      fontWeight: typography.fontWeight.extraBold,
+    },
+    forecastToggleChevron: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[16],
+      fontWeight: typography.fontWeight.bold,
+    },
+    forecastPanel: {
+      gap: spacing(2),
+      padding: spacing(3),
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    forecastPanelHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: spacing(2),
+    },
+    forecastPanelTitle: {
+      color: colors.text,
+      fontSize: typography.fontSize[13],
+      fontWeight: typography.fontWeight.extraBold,
+    },
+    forecastViewToggle: {
+      flexDirection: "row",
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: "hidden",
+    },
+    forecastViewButton: {
+      paddingHorizontal: spacing(2),
+      paddingVertical: spacing(1),
+    },
+    forecastViewButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    forecastViewButtonText: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+      fontWeight: typography.fontWeight.bold,
+    },
+    forecastViewButtonTextActive: {
+      color: colors.primaryForeground,
+      fontSize: typography.fontSize[12],
+      fontWeight: typography.fontWeight.bold,
+    },
+    forecastColumnLabels: {
+      flexDirection: "row",
+      gap: spacing(1),
+      paddingHorizontal: spacing(2),
+    },
+    forecastColumnLabel: {
+      flex: 1,
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+      fontWeight: typography.fontWeight.bold,
+      textAlign: "right",
+      textTransform: "uppercase",
+    },
+    forecastLabelPrimary: {
+      flex: 1.25,
+      textAlign: "left",
+    },
+    forecastTimelineScroll: {
+      maxHeight: spacing(80),
+    },
+    forecastTimelineContent: {
+      gap: spacing(1),
+    },
+    forecastYearRows: {
+      gap: spacing(1),
+    },
+    forecastRow: {
+      flexDirection: "row",
+      gap: spacing(1),
+      paddingHorizontal: spacing(2),
+      paddingVertical: spacing(1.5),
+      borderRadius: radius.md,
+      backgroundColor: colors.surfaceMuted,
+    },
+    forecastRowComplete: {
+      backgroundColor: colors.successSoft,
+    },
+    forecastRowText: {
+      flex: 1,
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+      fontWeight: typography.fontWeight.semibold,
+      textAlign: "right",
+    },
+    forecastRowBalance: {
+      flex: 1,
+      color: colors.text,
+      fontSize: typography.fontSize[12],
+      fontWeight: typography.fontWeight.extraBold,
+      textAlign: "right",
     },
     modalBackdrop: {
       flex: 1,

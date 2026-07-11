@@ -140,6 +140,11 @@ describe("buildSavingPotForecasts", () => {
 
     expect(result.monthlyContribution).toBeCloseTo(16.67, 2);
     expect(result.completionDate).toBe("2027-06-01");
+    expect(result.timeline).toEqual(expect.arrayContaining([
+      expect.objectContaining({ month: "2026-07", contribution: 0, projectedAmount: 0 }),
+      expect.objectContaining({ month: "2026-12", contribution: 100, projectedAmount: 100 }),
+      expect.objectContaining({ month: "2027-06", contribution: 100, projectedAmount: 200, reachedTarget: true }),
+    ]));
   });
 
   it("does not count a transfer between accounts in the same pot", () => {

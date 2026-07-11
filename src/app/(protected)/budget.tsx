@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Page, Card, Section, Field, Button, Pill, formatCurrency } from '@/components/migrated-page';
 import { GroupedAccountSelect } from '@/components/grouped-account-select';
 import { GroupedDestinationSelect, type DestinationSelection } from '@/components/grouped-destination-select';
+import { MonthPickerField } from '@/components/date-picker-field';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { radius } from '@/theme/radius';
@@ -947,7 +948,7 @@ export default function BudgetScreen() {
       <Card>
         <Section title={t('budget.householdSettings')} subtitle={t('budget.householdSettingsSubtitle')}>
           <Field label={t('budget.name')} value={budgetName} onChangeText={setBudgetName} placeholder={t('budget.namePlaceholder')} />
-          <Field label={t('budget.month')} value={month} onChangeText={setMonth} placeholder="YYYY-MM" />
+          <MonthPickerField label={t('budget.month')} value={month} onChange={setMonth} placeholder="MM-YYYY" />
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
             <Ionicons name="people-outline" size={16} color={colors.textSecondary} />

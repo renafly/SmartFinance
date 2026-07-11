@@ -11,6 +11,14 @@ export type SavingPotForecastSource = {
   contributionCount: number;
 };
 
+export type SavingPotForecastTimelineItem = {
+  month: string;
+  contribution: number;
+  projectedAmount: number;
+  remainingAmount: number;
+  reachedTarget: boolean;
+};
+
 export type SavingPotForecast = {
   potId: string;
   currentAmount: number;
@@ -18,6 +26,7 @@ export type SavingPotForecast = {
   remainingAmount: number;
   monthlyContribution: number;
   sources: SavingPotForecastSource[];
+  timeline: SavingPotForecastTimelineItem[];
   completionDate: string | null;
   unavailableReason: SavingPotForecastUnavailableReason | null;
 };
@@ -305,6 +314,54 @@ function findCompletionDate(
   return null;
 }
 
+function buildForecastTimeline(
+  contributions: ForecastContribution[],
+  currentAmount: number,
+  targetAmount: number,
+  asOf: Date,
+  horizon: Date,
+) {
+  const nextOccurrences = contributions.map((contribution) =>
+    getNextOccurrence(contribution, asOf, horizon),
+  );
+  const timeline: SavingPotForecastTimelineItem[] = [];
+  let projectedAmount = currentAmount;
+  let monthStart = new Date(Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), 1));
+  let guard = 0;
+
+  while (monthStart <= horizon && projectedAmount < targetAmount && guard < FORECAST_HORIZON_MONTHS) {
+    const nextMonthStart = addMonths(monthStart, 1);
+    let contribution = 0;
+
+    nextOccurrences.forEach((occurrence, index) => {
+      while (occurrence && occurrence < nextMonthStart) {
+        contribution = roundMoney(contribution + contributions[index].amount);
+        nextOccurrences[index] = getNextOccurrence(
+          contributions[index],
+          addOccurrence(occurrence, contributions[index].frequency),
+          horizon,
+        );
+        occurrence = nextOccurrences[index];
+      }
+    });
+
+    projectedAmount = roundMoney(projectedAmount + contribution);
+    const remainingAmount = Math.max(0, roundMoney(targetAmount - projectedAmount));
+    timeline.push({
+      month: monthStart.toISOString().slice(0, 7),
+      contribution,
+      projectedAmount,
+      remainingAmount,
+      reachedTarget: remainingAmount === 0,
+    });
+
+    monthStart = nextMonthStart;
+    guard += 1;
+  }
+
+  return timeline;
+}
+
 export function buildSavingPotForecasts(input: {
   pots: ForecastPot[];
   recurringTransfers: RecurringTransferRule[];
@@ -339,6 +396,7 @@ export function buildSavingPotForecasts(input: {
             remainingAmount: 0,
             monthlyContribution: 0,
             sources: [],
+            timeline: [],
             completionDate: null,
             unavailableReason: "missing_target",
           } satisfies SavingPotForecast,
@@ -355,6 +413,7 @@ export function buildSavingPotForecasts(input: {
             remainingAmount,
             monthlyContribution: 0,
             sources: [],
+            timeline: [],
             completionDate: toDateKey(asOf),
             unavailableReason: null,
           } satisfies SavingPotForecast,
@@ -407,6 +466,7 @@ export function buildSavingPotForecasts(input: {
             remainingAmount,
             monthlyContribution: 0,
             sources,
+            timeline: [],
             completionDate: null,
             unavailableReason: "no_active_contributions",
           } satisfies SavingPotForecast,
@@ -414,6 +474,14 @@ export function buildSavingPotForecasts(input: {
       }
 
       const completionDate = findCompletionDate(contributions, remainingAmount, asOf, horizon);
+      const resolvedTargetAmount = targetAmount ?? 0;
+      const timeline = buildForecastTimeline(
+        contributions,
+        currentAmount,
+        resolvedTargetAmount,
+        asOf,
+        horizon,
+      );
 
       return [
         pot.id,
@@ -424,6 +492,7 @@ export function buildSavingPotForecasts(input: {
           remainingAmount,
           monthlyContribution: totalMonthlyContribution,
           sources,
+          timeline,
           completionDate,
           unavailableReason: completionDate ? null : "beyond_horizon",
         } satisfies SavingPotForecast,
