@@ -278,6 +278,7 @@ export type Database = {
           active_months: number[] | null;
           active_from_month: number | null;
           active_to_month: number | null;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -297,6 +298,7 @@ export type Database = {
           active_months?: number[] | null;
           active_from_month?: number | null;
           active_to_month?: number | null;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -316,6 +318,7 @@ export type Database = {
           active_months?: number[] | null;
           active_from_month?: number | null;
           active_to_month?: number | null;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -861,6 +864,23 @@ export type Database = {
       set_saving_pot_accounts: {
         Args: { p_pot_id: string; p_account_ids: string[] };
         Returns: void;
+      };
+      save_monthly_budget_configuration: {
+        Args: {
+          p_household_id: string;
+          p_config_id: string | null;
+          p_name: string;
+          p_income_mode: Database["public"]["Enums"]["household_income_mode"];
+          p_remaining_cash_strategy: Database["public"]["Enums"]["remaining_cash_strategy"];
+          p_fixed_remaining_cash_amount: number;
+          p_excess_cash_distribution_method: Database["public"]["Enums"]["excess_cash_distribution_method"];
+          p_rules: Json;
+        };
+        Returns: string;
+      };
+      restore_budget_rule: {
+        Args: { p_rule_id: string };
+        Returns: boolean;
       };
       transfer_household_ownership: {
         Args: { p_household_id: string; p_new_owner_id: string };

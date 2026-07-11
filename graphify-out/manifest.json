@@ -120,8 +120,8 @@
     "semantic_hash": ""
   },
   "src/app/(protected)/budget.tsx": {
-    "mtime": 1783774354.3068182,
-    "ast_hash": "aadf8eb37cdc95600c32b5df33f414a2",
+    "mtime": 1783790267.76911,
+    "ast_hash": "f83578df600107ffc3b63aa8b527de0b",
     "semantic_hash": ""
   },
   "src/app/(protected)/categories.tsx": {
@@ -535,8 +535,8 @@
     "semantic_hash": ""
   },
   "src/features/monthly-budget/services/monthly-budget.service.ts": {
-    "mtime": 1783774345.1994536,
-    "ast_hash": "ccd0c1be395b94d6377a2ffc0196b936",
+    "mtime": 1783784163.5514975,
+    "ast_hash": "7c72717deb988e423015574f55e196eb",
     "semantic_hash": ""
   },
   "src/features/monthly-budget/services/monthly-budget.service.unit.test.ts": {
@@ -765,8 +765,8 @@
     "semantic_hash": ""
   },
   "src/repositories/monthly-budget.repository.ts": {
-    "mtime": 1783771221.5051591,
-    "ast_hash": "86ee0f25eb918aa121f002ecbf9f18b2",
+    "mtime": 1783784162.0424185,
+    "ast_hash": "16ba23a9444f67b6fae2fcd74c63fc75",
     "semantic_hash": ""
   },
   "src/repositories/profiles.repository.ts": {
@@ -945,8 +945,8 @@
     "semantic_hash": ""
   },
   "src/types/database.types.ts": {
-    "mtime": 1783774095.8196995,
-    "ast_hash": "59a8d226fa33301de1fd625994649c5b",
+    "mtime": 1783784160.43304,
+    "ast_hash": "e067098d91286f96dad82157ec9d8a84",
     "semantic_hash": ""
   },
   "supabase/.temp/linked-project.json": {
@@ -1000,9 +1000,9 @@
     "semantic_hash": "f84274bb603e4b8b58a048daab54ea52"
   },
   "supabase/migrations/010_audit_logs.sql": {
-    "mtime": 1782944159.3039832,
-    "ast_hash": "d0bdcb85acbbbbd0f30c55bc3ede4228",
-    "semantic_hash": "d0bdcb85acbbbbd0f30c55bc3ede4228"
+    "mtime": 1783783520.7080927,
+    "ast_hash": "94c4777801cffbc2e60c26001134407c",
+    "semantic_hash": ""
   },
   "supabase/migrations/011_invitations.sql": {
     "mtime": 1782908292.913158,
@@ -1320,8 +1320,8 @@
     "semantic_hash": ""
   },
   "scripts/seed_budget_rules_base_movements.sql": {
-    "mtime": 1783771634.2712781,
-    "ast_hash": "b02d3589658e56c7ee9d966e9672ccfc",
+    "mtime": 1783789272.9473302,
+    "ast_hash": "0ad4277e04de84a48dd1c16cc41e67cc",
     "semantic_hash": ""
   },
   "supabase/migrations/20260710000100_security_rls_rpc_hardening.sql": {
@@ -1330,8 +1330,8 @@
     "semantic_hash": ""
   },
   "supabase/migrations/20260710000200_attachment_storage_privacy.sql": {
-    "mtime": 1783771634.4577284,
-    "ast_hash": "5515712d51fe789d16c5cc484987c387",
+    "mtime": 1783784482.6623788,
+    "ast_hash": "38896615b0ca4c24ab52b4bcb30555af",
     "semantic_hash": ""
   },
   ".github/workflows/eas-build.yml": {
@@ -1360,13 +1360,13 @@
     "semantic_hash": ""
   },
   "src/features/saving-pots/services/saving-pot-forecast.service.ts": {
-    "mtime": 1783771634.3842363,
-    "ast_hash": "004588277b2ff7f106c154a5ec63a318",
+    "mtime": 1783790215.537626,
+    "ast_hash": "a900af3a8d95b2c2c9c0d561f1a71f84",
     "semantic_hash": ""
   },
   "src/features/saving-pots/services/saving-pot-forecast.service.unit.test.ts": {
-    "mtime": 1783771634.3852344,
-    "ast_hash": "e1611badcd1016b82fb88618a959cc79",
+    "mtime": 1783790217.8574367,
+    "ast_hash": "89208ef4801c4dd41f273033ce41111d",
     "semantic_hash": ""
   },
   "src/repositories/recurring.transactions.repository.unit.test.ts": {
@@ -1422,6 +1422,16 @@
   "supabase/migrations/20260711000200_monthly_budget_rule_month_windows.sql": {
     "mtime": 1783774094.429668,
     "ast_hash": "6792d79fbd87dafa37e6efee8345b229",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260711000300_audit_budget_rules.sql": {
+    "mtime": 1783783519.0660856,
+    "ast_hash": "598c6708b243033eb81bca031d2956e8",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260711000400_soft_delete_monthly_budget_rules.sql": {
+    "mtime": 1783784158.8649497,
+    "ast_hash": "09dd62d2c71ec01b38778c4b05b82658",
     "semantic_hash": ""
   }
 }

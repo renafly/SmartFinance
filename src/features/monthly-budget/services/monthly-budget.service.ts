@@ -287,24 +287,13 @@ export class MonthlyBudgetService {
       }
     }
 
-    await monthlyBudgetRepository.deactivateHouseholdConfigs(input.householdId);
-
-    const configResult = await monthlyBudgetRepository.saveConfig(
-      {
-        household_id: input.householdId,
-        name: input.name.trim(),
-        is_active: true,
-      },
-      input.configId ?? undefined,
-    );
-
-    if (configResult.error) throw configResult.error;
-
     const rules = sortedRules.map((rule, index) => {
       const amount = Number(rule.amount);
 
       return {
-        budget_config_id: configResult.data.id,
+        id: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rule.id)
+          ? rule.id
+          : null,
         name: rule.name.trim(),
         section: rule.section,
         source_account_id: rule.sourceAccountId,
@@ -323,19 +312,28 @@ export class MonthlyBudgetService {
       };
     });
 
-    const rulesResult = await monthlyBudgetRepository.replaceRules(configResult.data.id, rules);
-    if (rulesResult.error) throw rulesResult.error;
+    const { error: saveError } = await supabase.rpc("save_monthly_budget_configuration", {
+      p_household_id: input.householdId,
+      p_config_id: input.configId ?? null,
+      p_name: input.name.trim(),
+      p_income_mode: input.incomeMode,
+      p_remaining_cash_strategy: input.remainingCashStrategy,
+      p_fixed_remaining_cash_amount: roundMoney(input.fixedRemainingCashAmount),
+      p_excess_cash_distribution_method: input.excessCashDistributionMethod,
+      p_rules: rules,
+    });
+
+    if (saveError) throw saveError;
+
+    const configResult = await monthlyBudgetRepository.getActiveConfigWithRules(input.householdId);
+    if (configResult.error || !configResult.data) {
+      throw configResult.error ?? new Error("Unable to load the saved monthly budget configuration.");
+    }
 
     const { data: householdResult, error: householdError } = await supabase
       .from("households")
-      .update({
-        income_mode: input.incomeMode,
-        remaining_cash_strategy: input.remainingCashStrategy,
-        fixed_remaining_cash_amount: roundMoney(input.fixedRemainingCashAmount),
-        excess_cash_distribution_method: input.excessCashDistributionMethod,
-      })
+      .select("*")
       .eq("id", input.householdId)
-      .select()
       .single();
 
     if (householdError) throw householdError;
@@ -343,7 +341,7 @@ export class MonthlyBudgetService {
     return {
       config: configResult.data,
       household: householdResult,
-      rules: rulesResult.data ?? [],
+      rules: configResult.data.rules,
     };
   }
 

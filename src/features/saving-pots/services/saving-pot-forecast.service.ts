@@ -41,6 +41,9 @@ type ForecastRule = {
   next_run?: string | null;
   created_at?: string | null;
   excluded_months?: Array<number | string> | null;
+  active_months?: Array<number | string> | null;
+  active_from_month?: number | string | null;
+  active_to_month?: number | string | null;
 };
 
 type RecurringTransferRule = ForecastRule & {
@@ -53,6 +56,9 @@ type ForecastContribution = {
   frequency: ForecastFrequency;
   firstRun: Date;
   excludedMonths: number[];
+  activeMonths: number[];
+  activeFromMonth: number | null;
+  activeToMonth: number | null;
 };
 
 type SavingPotAccountAssignment = {
@@ -116,11 +122,44 @@ function normalizeExcludedMonths(months: ForecastRule["excluded_months"]) {
     .filter((month) => Number.isInteger(month) && month >= 1 && month <= 12);
 }
 
+function normalizeActiveMonths(months: ForecastRule["active_months"]) {
+  if (!Array.isArray(months)) return [];
+
+  return [...new Set(
+    months
+      .map((month) => Number(month))
+      .filter((month) => Number.isInteger(month) && month >= 1 && month <= 12),
+  )];
+}
+
+function normalizeMonth(value: number | string | null | undefined) {
+  const month = Number(value);
+  return Number.isInteger(month) && month >= 1 && month <= 12 ? month : null;
+}
+
+function isMonthWithinWindow(month: number, start: number, end: number) {
+  if (start <= end) return month >= start && month <= end;
+  return month >= start || month <= end;
+}
+
 function isIncludedOccurrence(contribution: ForecastContribution, date: Date) {
-  return !(
-    contribution.frequency === "custom" &&
-    contribution.excludedMonths.includes(date.getUTCMonth() + 1)
-  );
+  const month = date.getUTCMonth() + 1;
+
+  if (contribution.frequency === "custom" && contribution.excludedMonths.includes(month)) {
+    return false;
+  }
+
+  if (contribution.kind !== "monthly_budget") return true;
+  if (contribution.activeMonths.length > 0 && !contribution.activeMonths.includes(month)) {
+    return false;
+  }
+
+  if (contribution.activeFromMonth !== null || contribution.activeToMonth !== null) {
+    if (contribution.activeFromMonth === null || contribution.activeToMonth === null) return false;
+    return isMonthWithinWindow(month, contribution.activeFromMonth, contribution.activeToMonth);
+  }
+
+  return true;
 }
 
 function getNextOccurrence(
@@ -183,6 +222,9 @@ function toContribution(
     frequency: rule.frequency,
     firstRun,
     excludedMonths: normalizeExcludedMonths(rule.excluded_months),
+    activeMonths: normalizeActiveMonths(rule.active_months),
+    activeFromMonth: normalizeMonth(rule.active_from_month),
+    activeToMonth: normalizeMonth(rule.active_to_month),
   } satisfies ForecastContribution;
 }
 

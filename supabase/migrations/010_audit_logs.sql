@@ -42,9 +42,16 @@ begin
 
     elsif tg_table_name in (
         'accounts', 'categories', 'transactions',
-        'recurring_transactions', 'saving_pots'
+        'recurring_transactions', 'saving_pots', 'budget_rules'
     ) then
-        v_household_id := coalesce(new.household_id, old.household_id);
+        if tg_table_name = 'budget_rules' then
+            select bc.household_id
+              into v_household_id
+              from public.budget_configs bc
+             where bc.id = coalesce(new.budget_config_id, old.budget_config_id);
+        else
+            v_household_id := coalesce(new.household_id, old.household_id);
+        end if;
 
     elsif tg_table_name = 'attachments' then
         select t.household_id into v_household_id
@@ -105,6 +112,10 @@ for each row execute function public.audit_trigger();
 
 create trigger audit_recurring_transactions
 after insert or update or delete on public.recurring_transactions
+for each row execute function public.audit_trigger();
+
+create trigger audit_budget_rules
+after insert or update or delete on public.budget_rules
 for each row execute function public.audit_trigger();
 
 create trigger audit_attachments

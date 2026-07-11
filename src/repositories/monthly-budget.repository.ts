@@ -109,6 +109,7 @@ export class MonthlyBudgetRepository extends BaseRepository<"budget_configs"> {
       .from("budget_rules")
       .select("*")
       .eq("budget_config_id", budgetConfigId)
+      .is("deleted_at", null)
       .order("priority", { ascending: true })
       .order("created_at", { ascending: true });
 
@@ -138,6 +139,15 @@ export class MonthlyBudgetRepository extends BaseRepository<"budget_configs"> {
 
     if (error) return { data: null, error };
     return { data: (data ?? []) as BudgetRule[], error: null };
+  }
+
+  async restoreRule(id: string): Promise<RepoResult<boolean>> {
+    const { data, error } = await this.client.rpc("restore_budget_rule", {
+      p_rule_id: id,
+    });
+
+    if (error) return { data: null, error };
+    return { data: Boolean(data), error: null };
   }
 
   async listRuns(householdId: string): Promise<RepoResult<MonthlyBudgetRun[]>> {

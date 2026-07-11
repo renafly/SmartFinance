@@ -77,6 +77,8 @@ type MemberContributionSummary = {
   amount: number;
 };
 
+const SHARED_SUMMARY_ID = '__shared__';
+
 function monthKey(value: string) {
   return value.slice(0, 7);
 }
@@ -128,6 +130,13 @@ function formatMonthSelection(months: number[]) {
   return months
     .map((month) => MONTH_OPTIONS.find((option) => option.value === month)?.label ?? String(month))
     .join(', ');
+}
+
+function getRuleRowKey(index: number, totalRules: number, columns: number) {
+  const rowStart = columns === 1 ? index : Math.floor(index / columns) * columns;
+  const rowRuleCount = columns === 1 ? 1 : Math.min(columns, totalRules - rowStart);
+  const rowEnd = rowStart + rowRuleCount - 1;
+  return `${rowStart}-${rowEnd}`;
 }
 
 function sortRuleDrafts(rules: MonthlyBudgetRuleDraft[]) {
@@ -280,7 +289,7 @@ export default function BudgetScreen() {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [ruleDrafts, setRuleDrafts] = useState<MonthlyBudgetRuleDraft[]>([]);
   const [incomeDrafts, setIncomeDrafts] = useState<MonthlyBudgetIncomeDraft[]>([]);
-  const [collapsedRuleIds, setCollapsedRuleIds] = useState<string[]>([]);
+  const [collapsedRuleRowKeys, setCollapsedRuleRowKeys] = useState<string[]>([]);
   const [hasLoadedCollapsedPreference, setHasLoadedCollapsedPreference] = useState(false);
 
   const hydratedConfigId = useRef<string | null>(null);
@@ -288,7 +297,7 @@ export default function BudgetScreen() {
   const hydratedRunId = useRef<string | null>(null);
   const hydratedCollapsedPreferenceKey = useRef<string | null>(null);
   const collapsedPreferenceDirtyRef = useRef(false);
-  const collapsedStateKey = householdId ? `smartfinance:monthly-budget:collapsed:${householdId}` : null;
+  const collapsedStateKey = householdId ? `smartfinance:monthly-budget:collapsed-rows:${householdId}` : null;
 
   const currentMonthRun = useMemo(
     () => runs.find((run: any) => monthKey(run.month) === month) ?? null,
@@ -324,6 +333,7 @@ export default function BudgetScreen() {
     () => buildPotNameByAccountId(savingPotAssignments, potNameMap),
     [potNameMap, savingPotAssignments],
   );
+  const ruleColumns = windowWidth >= 980 ? 2 : 1;
   const workspaceSignature = useMemo(
     () =>
       workspace?.config?.id
@@ -420,14 +430,14 @@ export default function BudgetScreen() {
       try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          setCollapsedRuleIds(parsed.filter((item) => typeof item === 'string'));
+          setCollapsedRuleRowKeys(parsed.filter((item) => typeof item === 'string'));
         }
       } catch {
-        setCollapsedRuleIds([]);
+        setCollapsedRuleRowKeys([]);
       }
       collapsedPreferenceDirtyRef.current = false;
     } else {
-      setCollapsedRuleIds([]);
+      setCollapsedRuleRowKeys([]);
       collapsedPreferenceDirtyRef.current = false;
     }
 
@@ -438,8 +448,8 @@ export default function BudgetScreen() {
   useEffect(() => {
     if (!collapsedStateKey || typeof window === 'undefined' || !hasLoadedCollapsedPreference) return;
     if (!collapsedPreferenceDirtyRef.current && window.localStorage.getItem(collapsedStateKey) === null) return;
-    window.localStorage.setItem(collapsedStateKey, JSON.stringify(collapsedRuleIds));
-  }, [collapsedRuleIds, collapsedStateKey, hasLoadedCollapsedPreference]);
+    window.localStorage.setItem(collapsedStateKey, JSON.stringify(collapsedRuleRowKeys));
+  }, [collapsedRuleRowKeys, collapsedStateKey, hasLoadedCollapsedPreference]);
 
   const preview = useMemo<MonthlyBudgetPreview>(() => {
     const mappedRules = ruleDrafts.map((rule, index) => ({
@@ -519,12 +529,21 @@ export default function BudgetScreen() {
     );
   });
 
-  const autoCollapsedRuleIds = !hasLoadedCollapsedPreference && windowWidth < 860 ? ruleDrafts.map((rule) => rule.id) : [];
-  const effectiveCollapsedRuleIds = hasLoadedCollapsedPreference
-    ? collapsedRuleIds
-    : autoCollapsedRuleIds;
-  const allRulesCollapsed = ruleDrafts.length > 0 && effectiveCollapsedRuleIds.length === ruleDrafts.length;
-  const effectiveAllRulesCollapsed = ruleDrafts.length > 0 && effectiveCollapsedRuleIds.length === ruleDrafts.length;
+  const autoCollapsedRuleRowKeys = !hasLoadedCollapsedPreference && windowWidth < 860
+    ? ruleDrafts.map((_, index) => getRuleRowKey(index, ruleDrafts.length, ruleColumns))
+    : [];
+  const effectiveCollapsedRuleRowKeys = hasLoadedCollapsedPreference
+    ? collapsedRuleRowKeys
+    : autoCollapsedRuleRowKeys;
+  const allRuleRowKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (let index = 0; index < ruleDrafts.length; index += ruleColumns) {
+      keys.push(getRuleRowKey(index, ruleDrafts.length, ruleColumns));
+    }
+    return keys;
+  }, [ruleColumns, ruleDrafts.length]);
+  const allRulesCollapsed = ruleDrafts.length > 0 && allRuleRowKeys.every((key) => effectiveCollapsedRuleRowKeys.includes(key));
+  const effectiveAllRulesCollapsed = allRulesCollapsed;
   const configReady = Boolean(householdId && profile?.id && budgetName.trim() && rulesAreValid);
   const draftReady = Boolean(configId && configReady && preview.validationIssues.length === 0);
   const selectedRunDraftReady = Boolean(selectedRun?.id && selectedRun.status === 'draft' && preview.validationIssues.length === 0);
@@ -565,7 +584,7 @@ export default function BudgetScreen() {
 
   function setCollapsedPreference(next: string[]) {
     collapsedPreferenceDirtyRef.current = true;
-    setCollapsedRuleIds(next);
+    setCollapsedRuleRowKeys(next);
   }
 
   function updateDestinationDraft(ruleId: string, selection: DestinationSelection) {
@@ -599,9 +618,23 @@ export default function BudgetScreen() {
 
   function toggleRuleCollapsed(id: string) {
     collapsedPreferenceDirtyRef.current = true;
-    setCollapsedRuleIds((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
-    );
+    setCollapsedRuleRowKeys((current) => {
+      const targetIndex = ruleDrafts.findIndex((rule) => rule.id === id);
+      if (targetIndex < 0) return current;
+
+      const rowStart = ruleColumns === 1 ? targetIndex : Math.floor(targetIndex / ruleColumns) * ruleColumns;
+      const rowRuleCount = ruleColumns === 1 ? 1 : Math.min(ruleColumns, ruleDrafts.length - rowStart);
+      const rowEnd = rowStart + rowRuleCount - 1;
+      const rowKey = `${rowStart}-${rowEnd}`;
+      const rowIsFullyCollapsed = current.includes(rowKey);
+      const shouldCollapse = !rowIsFullyCollapsed;
+
+      if (shouldCollapse) {
+        return [...new Set([...current, rowKey])];
+      }
+
+      return current.filter((item) => item !== rowKey);
+    });
   }
 
   async function handleSaveConfiguration() {
@@ -622,6 +655,8 @@ export default function BudgetScreen() {
     setConfigId(result.config.id);
     hydratedConfigId.current = result.config.id;
     setRuleDrafts(sortRuleDrafts(ruleDrafts));
+    setCollapsedRuleRowKeys([]);
+    collapsedPreferenceDirtyRef.current = false;
   }
 
   async function handleSaveDraft() {
@@ -660,7 +695,6 @@ export default function BudgetScreen() {
   }
 
   const runInputs = runIncomeInputsQuery.data ?? [];
-  const ruleColumns = windowWidth >= 980 ? 2 : 1;
   const ruleCardStyle = useMemo(() => {
     if (ruleColumns === 1) {
       return { width: '100%' };
@@ -689,8 +723,7 @@ export default function BudgetScreen() {
 
       const rule = rulesById.get(transfer.ruleId);
       const sourceAccount = accountsById.get(transfer.sourceAccountId);
-      const memberId = rule?.ownerMemberId || sourceAccount?.owner_profile_id;
-      if (!memberId) continue;
+      const memberId = rule?.ownerMemberId || sourceAccount?.owner_profile_id || SHARED_SUMMARY_ID;
 
       const current = grouped.get(memberId) ?? [];
       current.push({
@@ -714,18 +747,29 @@ export default function BudgetScreen() {
 
     return grouped;
   }, [accounts, preview.transfers, ruleDrafts]);
-  const memberSummaryRows = useMemo(
-    () =>
-      members
+  const memberSummaryRows = useMemo(() => {
+    const people = members
         .map((member) => ({
           id: member.userId,
           label: getMemberLabel(member),
           value: formatCurrency(preview.memberTotals[member.userId] ?? 0),
           contributions: memberContributionMap.get(member.userId) ?? [],
         }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-    [memberContributionMap, members, preview.memberTotals],
-  );
+        .sort((a, b) => a.label.localeCompare(b.label));
+
+    const sharedContributions = memberContributionMap.get(SHARED_SUMMARY_ID) ?? [];
+    if (sharedContributions.length === 0) return people;
+
+    return [
+      ...people,
+      {
+        id: SHARED_SUMMARY_ID,
+        label: t('budget.shared'),
+        value: formatCurrency(sharedContributions.reduce((total, item) => total + item.amount, 0)),
+        contributions: sharedContributions,
+      },
+    ];
+  }, [memberContributionMap, members, preview.memberTotals, t]);
   const resumeRows = useMemo(
     () => [
       { label: t('budget.incomeTotal'), value: formatCurrency(preview.incomeTotal), icon: 'cash-outline' as const },
@@ -976,7 +1020,7 @@ export default function BudgetScreen() {
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
               <Button
                 label={allRulesCollapsed ? t('budget.expandAllRules') : t('budget.collapseAllRules')}
-                onPress={() => setCollapsedPreference(allRulesCollapsed ? [] : ruleDrafts.map((rule) => rule.id))}
+                onPress={() => setCollapsedPreference(allRulesCollapsed ? [] : allRuleRowKeys)}
                 variant="secondary"
               />
               <Button label={t('budget.addRule')} onPress={addRule} variant="secondary" />
@@ -1003,9 +1047,14 @@ export default function BudgetScreen() {
           </View>
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) } as any}>
-            {ruleDrafts.map((rule) => {
+            {ruleDrafts.map((rule, index) => {
               const destinationLabel = accountNameMap.get(rule.destinationAccountId) ?? t('budget.selectDestinationAccount');
               const activeMonthsLabel = formatMonthSelection(rule.activeMonths);
+              const rowStart = ruleColumns === 1 ? index : Math.floor(index / ruleColumns) * ruleColumns;
+              const rowRuleCount = ruleColumns === 1 ? 1 : Math.min(ruleColumns, ruleDrafts.length - rowStart);
+              const rowEnd = rowStart + rowRuleCount - 1;
+              const rowKey = `${rowStart}-${rowEnd}`;
+              const isCollapsed = effectiveCollapsedRuleRowKeys.includes(rowKey);
 
               return (
                 <View
@@ -1052,10 +1101,10 @@ export default function BudgetScreen() {
                         <Ionicons name="wallet-outline" size={12} color={colors.textSecondary} /> {t('budget.destinationAccount')}: {destinationLabel}
                       </Text>
                     </View>
-                    <Ionicons name={effectiveCollapsedRuleIds.includes(rule.id) ? 'chevron-forward-outline' : 'chevron-down-outline'} size={18} color={colors.textSecondary} />
+                    <Ionicons name={isCollapsed ? 'chevron-forward-outline' : 'chevron-down-outline'} size={18} color={colors.textSecondary} />
                   </Pressable>
 
-                  {!effectiveCollapsedRuleIds.includes(rule.id) ? (
+                  {!isCollapsed ? (
                     <>
                       <Field
                         label={t('budget.ruleName')}

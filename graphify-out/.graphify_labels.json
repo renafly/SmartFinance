@@ -44,9 +44,10 @@
   "42": "themeStore.ts",
   "43": "Welcome to your Expo app 👋",
   "44": "RecurringTransactionsRepository",
+  "45": "NotificationsProvider.tsx",
   "46": "transaction.schema.ts",
   "47": "members.tsx",
-  "48": "HouseholdBackupService",
+  "49": "saving-pots.repository.ts",
   "50": "SmartFinance Testing",
   "51": "account.schema.ts",
   "52": ".importHouseholdBackup",
@@ -59,7 +60,6 @@
   "59": "useAuthContext.ts",
   "60": "supabase.ts",
   "61": "eslint.config.js",
-  "62": "monthly-budget.service.unit.test.ts",
   "63": "localStorageService.ts",
   "64": "shadows.ts",
   "65": "authUiStore.ts",
@@ -89,7 +89,12 @@
   "89": "buildCleanBackup",
   "90": "CLAUDE.md",
   "91": "CategoriesRepository",
+  "92": "SettingsScreen",
+  "93": "SavingPotsService",
   "94": "global.d.ts",
   "95": "AccountsRepository",
-  "98": "run-security-check.mjs"
+  "96": "animated-icon.tsx",
+  "97": "RecurringTransactionsService",
+  "99": "index.ts",
+  "100": "normalizeEmail"
 }
