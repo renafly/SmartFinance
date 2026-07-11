@@ -1,7 +1,5 @@
 const { timingSafeEqual } = require("node:crypto");
 
-const LISBON_TIME_ZONE = "Europe/Lisbon";
-
 function hasValidCronSecret(authorization, expectedSecret) {
   if (!expectedSecret || !authorization?.startsWith("Bearer ")) return false;
 
@@ -11,14 +9,6 @@ function hasValidCronSecret(authorization, expectedSecret) {
 
   return suppliedBuffer.length === expectedBuffer.length &&
     timingSafeEqual(suppliedBuffer, expectedBuffer);
-}
-
-function getLisbonHour(now = new Date()) {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: LISBON_TIME_ZONE,
-    hour: "2-digit",
-    hourCycle: "h23",
-  }).format(now);
 }
 
 module.exports = async (req, res) => {
@@ -39,11 +29,6 @@ module.exports = async (req, res) => {
 
   if (!hasValidCronSecret(req.headers.authorization, cronSecret)) {
     res.status(401).json({ error: "Unauthorized." });
-    return;
-  }
-
-  if (getLisbonHour() !== "01") {
-    res.status(204).end();
     return;
   }
 

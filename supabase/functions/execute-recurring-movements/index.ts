@@ -107,10 +107,6 @@ Deno.serve(async (req) => {
   }
 
   const clock = getLisbonClock();
-  if (clock.hour !== "01") {
-    return jsonResponse(204, { skipped: "outside_execution_window" });
-  }
-
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,

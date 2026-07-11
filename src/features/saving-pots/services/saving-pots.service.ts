@@ -23,16 +23,23 @@ class SavingPotsService {
     selected_account_ids?: string[]
   }) {
     const { selected_account_ids: selectedAccountIds = [], ...potInput } = input
+    if (selectedAccountIds.length === 0) {
+      throw new Error('Select at least one account for this saving pot.')
+    }
+
     const { data, error } = await repositories.savingPots.create(potInput as any)
     if (error) throw error
 
-    if (data && selectedAccountIds.length > 0) {
+    if (data) {
       const selectionResult = await repositories.savingPots.setAccountAssignments(
         data.id,
         selectedAccountIds,
       )
 
-      if (selectionResult.error) throw selectionResult.error
+      if (selectionResult.error) {
+        await repositories.savingPots.delete(data.id)
+        throw selectionResult.error
+      }
     }
 
     return data
@@ -45,6 +52,10 @@ class SavingPotsService {
   }
 
   async setAccountAssignments(potId: string, accountIds: string[]) {
+    if (accountIds.length === 0) {
+      throw new Error('Select at least one account for this saving pot.')
+    }
+
     const { data, error } = await repositories.savingPots.setAccountAssignments(potId, accountIds)
     if (error) throw error
     return data

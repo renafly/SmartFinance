@@ -120,7 +120,8 @@ type CleanBudgetRule = {
   budgetConfigKey: string;
   sourceAccountKey: string;
   destinationAccountKey: string;
-  destinationPotKey: string | null;
+  /** Legacy v1 field accepted during import but omitted from new exports. */
+  destinationPotKey?: string | null;
   ownerMemberKey: string | null;
   name: string;
   section: Database["public"]["Enums"]["monthly_budget_section"];
@@ -160,7 +161,8 @@ type CleanRecurringTransaction = {
   potKey: string | null;
   ruleKind: Database["public"]["Enums"]["recurring_rule_kind"];
   destinationAccountKey: string | null;
-  destinationPotKey: string | null;
+  /** Legacy v1 field accepted during import but omitted from new exports. */
+  destinationPotKey?: string | null;
   createdByMemberKey: string | null;
   title: string;
   notes: string | null;
@@ -562,7 +564,6 @@ function buildCleanBackup(input: {
       potKey: keyFor(potKeyMap, row.pot_id),
       ruleKind: row.rule_kind,
       destinationAccountKey: keyFor(accountKeyMap, row.destination_account_id),
-      destinationPotKey: keyFor(potKeyMap, row.destination_pot_id),
       createdByMemberKey: keyFor(memberKeyMap, row.created_by),
       title: row.title,
       notes: row.notes,
@@ -615,7 +616,6 @@ function buildCleanBackup(input: {
             budgetConfigKey,
             sourceAccountKey,
             destinationAccountKey,
-            destinationPotKey: keyFor(potKeyMap, rule.destination_pot_id),
             ownerMemberKey: keyFor(memberKeyMap, rule.owner_member_id),
             name: rule.name,
             section: rule.section,

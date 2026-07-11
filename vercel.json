@@ -6,7 +6,7 @@
   "crons": [
     {
       "path": "/api/cron/execute-recurring",
-      "schedule": "0 * * * *"
+      "schedule": "0 1 * * *"
     }
   ],
   "functions": {

@@ -358,6 +358,11 @@ export default function TransactionsScreen() {
       : createdByFilter === currentUserId || createdByFilter === ''
         ? currentUserLabel
         : memberLabelMap.get(createdByFilter) ?? t('settings.unnamedUser');
+  const effectiveCreatedById = createdById || currentUserId;
+  const selectedCreateCreatorLabel =
+    effectiveCreatedById === currentUserId
+      ? currentUserLabel
+      : memberLabelMap.get(effectiveCreatedById) ?? t('settings.unnamedUser');
   const canCreateTransaction =
     !createTransaction.isPending &&
     Boolean(householdId) &&
@@ -414,7 +419,7 @@ export default function TransactionsScreen() {
     setAttachment(draft);
   }
 
-  async function handleCreate() {
+  async function handleCreate(keepOpen = false) {
     if (!householdId || !profile?.id || !effectiveAccountId || !title.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0) return;
     await createTransaction.mutateAsync({
       household_id: householdId,
@@ -434,7 +439,9 @@ export default function TransactionsScreen() {
     setNotes('');
     setCategoryId(null);
     setAttachment(null);
-    setCreateModalOpen(false);
+    setDate(new Date().toISOString().slice(0, 10));
+    setType('expense');
+    if (!keepOpen) setCreateModalOpen(false);
   }
 
   function openEditTransaction(item: any) {
@@ -622,13 +629,16 @@ export default function TransactionsScreen() {
             <Field label={t('transactions.notesLabel')} value={notes} onChangeText={setNotes} placeholder={t('transactions.notesPlaceholder')} />
             <DropdownField
               label={t('transactions.createdBy')}
-              valueLabel={selectedCreatorLabel}
+              valueLabel={selectedCreateCreatorLabel}
               placeholder={t('transactions.createdByPlaceholder')}
               hint={t('transactions.createdByPlaceholder')}
+              selectedKey={effectiveCreatedById}
               onChange={setCreatedById}
               options={[
-                { key: '', label: currentUserLabel, subtitle: t('settings.you') },
-                ...accountMemberOptions.map((member) => ({ key: member.id, label: member.label })),
+                { key: currentUserId, label: currentUserLabel, subtitle: t('settings.you') },
+                ...accountMemberOptions
+                  .filter((member) => member.id !== currentUserId)
+                  .map((member) => ({ key: member.id, label: member.label })),
               ]}
             />
             <GroupedAccountSelect
@@ -690,6 +700,12 @@ export default function TransactionsScreen() {
             </View>
             <View style={styles.modalActions}>
               <Button label={t('cancel')} variant="secondary" onPress={() => setCreateModalOpen(false)} />
+              <Button
+                label={createTransaction.isPending ? t('saving') : t('transactions.createAndNew')}
+                variant="secondary"
+                onPress={() => void handleCreate(true)}
+                disabled={!canCreateTransaction}
+              />
               <Button label={createTransaction.isPending ? t('saving') : t('transactions.create')} onPress={() => void handleCreate()} disabled={!canCreateTransaction} />
             </View>
           </View>

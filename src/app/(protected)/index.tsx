@@ -61,6 +61,13 @@ function sumBalances<T>(items: T[], getValue: (item: T) => number) {
   return items.reduce((sum, item) => sum + getValue(item), 0);
 }
 
+function formatLocalDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 type AllocationKey = 'invested' | 'savings' | 'pots';
 
 type AllocationSegment = {
@@ -228,6 +235,13 @@ export default function DashboardScreen() {
   const householdsQuery = useMyHouseholds();
   const setDefaultHousehold = useDefaultHousehold();
   const [householdPickerOpen, setHouseholdPickerOpen] = useState(false);
+  const currentMonthBounds = useMemo(() => {
+    const now = new Date();
+    return {
+      start: formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1)),
+      end: formatLocalDate(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+    };
+  }, []);
 
   const accountsQuery = useQuery({
     queryKey: ['dashboard', 'accounts', householdId],
@@ -238,6 +252,15 @@ export default function DashboardScreen() {
   const transactionsQuery = useQuery({
     queryKey: ['dashboard', 'transactions', householdId],
     queryFn: () => transactionsService.getTransactions(householdId!, { limit: 5 }),
+    enabled: !!householdId,
+  });
+
+  const monthlyTransactionsQuery = useQuery({
+    queryKey: ['dashboard', 'monthly-account-transactions', householdId, currentMonthBounds],
+    queryFn: () => transactionsService.getTransactions(householdId!, {
+      from: currentMonthBounds.start,
+      to: currentMonthBounds.end,
+    }),
     enabled: !!householdId,
   });
 
@@ -261,6 +284,27 @@ export default function DashboardScreen() {
   const households = householdsQuery.data ?? [];
   const currentHousehold = households.find((item: any) => item.id === householdId);
   const currentHouseholdName = currentHousehold?.name?.trim() || t('settings.currentHouseholdLabel');
+  const monthlyExpensesByAccount = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const transaction of monthlyTransactionsQuery.data ?? []) {
+      // Transfer source legs are expenses in the ledger, but not money spent.
+      if (transaction.type !== 'expense' || transaction.transfer_group_id || !transaction.account_id) continue;
+      totals.set(
+        transaction.account_id,
+        (totals.get(transaction.account_id) ?? 0) + Number(transaction.amount ?? 0),
+      );
+    }
+    return totals;
+  }, [monthlyTransactionsQuery.data]);
+  const monthlyBalanceChangesByAccount = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const transaction of monthlyTransactionsQuery.data ?? []) {
+      if (!transaction.account_id) continue;
+      const signedAmount = Number(transaction.amount ?? 0) * (transaction.type === 'income' ? 1 : -1);
+      totals.set(transaction.account_id, (totals.get(transaction.account_id) ?? 0) + signedAmount);
+    }
+    return totals;
+  }, [monthlyTransactionsQuery.data]);
 
   const memberMap = useMemo(() => {
     const map = new Map<string, MemberDetails>();
@@ -565,14 +609,16 @@ export default function DashboardScreen() {
               { label: t('accounts.name'), flex: 2.4 },
               { label: t('accounts.initialBalance'), align: 'right' },
               { label: t('dashboard.total'), align: 'right' },
-              { label: t('dashboard.changeSinceInitialBalance'), align: 'right' },
+              { label: t('dashboard.changeThisMonth'), align: 'right' },
+              { label: t('dashboard.spentThisMonth'), align: 'right' },
             ]}
           >
             {investmentAccounts.map((account) => {
               const ownerLabel = getAccountOwnerLabel(account, memberMap, t('dashboard.shared'));
               const initialBalance = Number(account.initial_balance ?? 0);
               const currentBalance = Number(account.current_balance ?? account.balance ?? 0);
-              const balanceDifference = currentBalance - initialBalance;
+              const balanceDifference = monthlyBalanceChangesByAccount.get(account.id) ?? 0;
+              const spentThisMonth = monthlyExpensesByAccount.get(account.id) ?? 0;
 
               return (
                 <TableRow key={account.id}>
@@ -604,6 +650,11 @@ export default function DashboardScreen() {
                       {formatCurrency(balanceDifference)}
                     </Text>
                   </TableCell>
+                  <TableCell align="right">
+                    <Text style={{ color: spentThisMonth > 0 ? colors.destructive : colors.textSecondary, fontWeight: typography.fontWeight.extraBold as any }}>
+                      {formatCurrency(spentThisMonth)}
+                    </Text>
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -623,14 +674,16 @@ export default function DashboardScreen() {
               { label: t('accounts.name'), flex: 2.4 },
               { label: t('accounts.initialBalance'), align: 'right' },
               { label: t('dashboard.total'), align: 'right' },
-              { label: t('dashboard.changeSinceInitialBalance'), align: 'right' },
+              { label: t('dashboard.changeThisMonth'), align: 'right' },
+              { label: t('dashboard.spentThisMonth'), align: 'right' },
             ]}
           >
             {savingsAccounts.map((account) => {
               const ownerLabel = getAccountOwnerLabel(account, memberMap, t('dashboard.shared'));
               const initialBalance = Number(account.initial_balance ?? 0);
               const currentBalance = Number(account.current_balance ?? account.balance ?? 0);
-              const balanceDifference = currentBalance - initialBalance;
+              const balanceDifference = monthlyBalanceChangesByAccount.get(account.id) ?? 0;
+              const spentThisMonth = monthlyExpensesByAccount.get(account.id) ?? 0;
 
               return (
                 <TableRow key={account.id}>
@@ -660,6 +713,11 @@ export default function DashboardScreen() {
                     >
                       {balanceDifference > 0 ? '+' : ''}
                       {formatCurrency(balanceDifference)}
+                    </Text>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text style={{ color: spentThisMonth > 0 ? colors.destructive : colors.textSecondary, fontWeight: typography.fontWeight.extraBold as any }}>
+                      {formatCurrency(spentThisMonth)}
                     </Text>
                   </TableCell>
                 </TableRow>

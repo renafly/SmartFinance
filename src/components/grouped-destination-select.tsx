@@ -22,22 +22,11 @@ type AccountLike = {
   owner_profile_id: string | null;
 };
 
-type SavingPotLike = {
-  id: string;
-  name: string;
-  target_amount?: number | null;
-  balance?: number | null;
-  selected_account_count?: number | null;
-};
-
-export type DestinationSelection =
-  | { kind: "account"; id: string }
-  | { kind: "pot"; id: string };
+export type DestinationSelection = { kind: "account"; id: string };
 
 type GroupedDestinationSelectProps = {
   label: string;
   accounts: AccountLike[];
-  pots: SavingPotLike[];
   members: MemberLike[];
   value: DestinationSelection | null;
   placeholder: string;
@@ -50,7 +39,8 @@ type GroupedDestinationSelectProps = {
   unassignedLabel?: string;
   closeLabel?: string;
   typeLabels?: Record<string, string>;
-  potGroupLabel?: string;
+  potNameByAccountId?: Record<string, string>;
+  potLabel?: string;
 };
 
 function getMemberLabel(member?: MemberLike | null, fallback = "") {
@@ -58,8 +48,9 @@ function getMemberLabel(member?: MemberLike | null, fallback = "") {
   return member.fullName?.trim() || member.email || fallback;
 }
 
-function getAccountLabel(account: AccountLike) {
-  return `${account.name} · ${formatCurrency(account.current_balance ?? account.balance ?? 0)}`;
+function getAccountLabel(account: AccountLike, potName?: string, potLabel = "") {
+  const potSuffix = potName && potLabel ? ` · ${potLabel}: ${potName}` : "";
+  return `${account.name}${potSuffix} · ${formatCurrency(account.current_balance ?? account.balance ?? 0)}`;
 }
 
 function getOwnerLabel(account: AccountLike, memberMap: Map<string, MemberLike>, sharedLabel: string, unassignedLabel: string) {
@@ -74,14 +65,16 @@ function getAccountSubtitle(
   sharedLabel: string,
   unassignedLabel: string,
   typeLabels: Record<string, string>,
+  potName?: string,
+  potLabel = "",
 ) {
-  return `${getOwnerLabel(account, memberMap, sharedLabel, unassignedLabel)} · ${typeLabels[account.type] ?? account.type} · ${formatCurrency(account.current_balance ?? account.balance ?? 0)}`;
+  const potSuffix = potName && potLabel ? ` · ${potLabel}: ${potName}` : "";
+  return `${getOwnerLabel(account, memberMap, sharedLabel, unassignedLabel)} · ${typeLabels[account.type] ?? account.type}${potSuffix} · ${formatCurrency(account.current_balance ?? account.balance ?? 0)}`;
 }
 
 export function GroupedDestinationSelect({
   label,
   accounts,
-  pots,
   members,
   value,
   placeholder,
@@ -94,20 +87,17 @@ export function GroupedDestinationSelect({
   unassignedLabel = "",
   closeLabel = "",
   typeLabels = {},
-  potGroupLabel = "",
+  potNameByAccountId = {},
+  potLabel = "",
 }: GroupedDestinationSelectProps) {
   const [open, setOpen] = useState(false);
   const { colors } = useTheme();
 
   const selectedLabel = useMemo(() => {
     if (!value) return placeholder;
-    if (value.kind === "pot") {
-      return pots.find((item) => item.id === value.id)?.name ?? placeholder;
-    }
-
     const account = accounts.find((item) => item.id === value.id);
-    return account ? getAccountLabel(account) : placeholder;
-  }, [accounts, placeholder, pots, value]);
+    return account ? getAccountLabel(account, potNameByAccountId[account.id], potLabel) : placeholder;
+  }, [accounts, placeholder, potLabel, potNameByAccountId, value]);
 
   const memberMap = useMemo(() => new Map(members.map((member) => [member.userId, member])), [members]);
   const groupedAccounts = useMemo(() => {
@@ -171,7 +161,7 @@ export function GroupedDestinationSelect({
                     <SelectionOptionRow
                       key={account.id}
                       title={account.name}
-                      subtitle={getAccountSubtitle(account, memberMap, sharedLabel, unassignedLabel, typeLabels)}
+                      subtitle={getAccountSubtitle(account, memberMap, sharedLabel, unassignedLabel, typeLabels, potNameByAccountId[account.id], potLabel)}
                       active={active}
                       iconName="business-outline"
                       onPress={() => {
@@ -184,38 +174,6 @@ export function GroupedDestinationSelect({
               </View>
             </View>
           ))}
-
-          {pots.length > 0 ? (
-            <View style={{ gap: spacing(2) }}>
-              <Text style={[styles.groupTitle, { color: colors.primary }]}>{potGroupLabel}</Text>
-              <View style={{ gap: spacing(2) }}>
-                {pots.map((pot) => {
-                  const selectionKey = `pot:${pot.id}`;
-                  const active = selectionKey === activeSelection;
-                  const target = pot.target_amount ?? 0;
-                  const balance = pot.balance ?? 0;
-                  const hasTarget = Number(target) > 0;
-                  const summary = hasTarget
-                    ? `€${balance.toFixed(2)} / €${Number(target).toFixed(2)}`
-                    : `€${balance.toFixed(2)}`;
-
-                  return (
-                    <SelectionOptionRow
-                      key={pot.id}
-                      title={pot.name}
-                      subtitle={`${summary}${typeof pot.selected_account_count === "number" ? ` · ${pot.selected_account_count}` : ""}`}
-                      active={active}
-                      iconName="briefcase-outline"
-                      onPress={() => {
-                        onChange({ kind: "pot", id: pot.id });
-                        setOpen(false);
-                      }}
-                    />
-                  );
-                })}
-              </View>
-            </View>
-          ) : null}
         </View>
       </SelectionShell>
     </View>

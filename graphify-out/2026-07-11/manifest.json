@@ -1120,8 +1120,8 @@
     "semantic_hash": ""
   },
   "vercel.json": {
-    "mtime": 1783770930.3154724,
-    "ast_hash": "9305ceb97484ed9da8627f1c8d4a545e",
+    "mtime": 1783697254.70029,
+    "ast_hash": "b47b0ad8099a460e4c22235137a8d0de",
     "semantic_hash": ""
   },
   "scripts/seed_missing_transactions.sql": {
@@ -1175,8 +1175,8 @@
     "semantic_hash": ""
   },
   "docs/release-checklist.md": {
-    "mtime": 1783770938.9733136,
-    "ast_hash": "1aaed7df28046345d210960fea3f9f50",
+    "mtime": 1783714033.1328268,
+    "ast_hash": "d10aa13533b0eefbc4258303bb23a2c0",
     "semantic_hash": ""
   },
   "docs/testing.md": {
@@ -1350,8 +1350,8 @@
     "semantic_hash": ""
   },
   "api/cron/execute-recurring.js": {
-    "mtime": 1783770932.9755185,
-    "ast_hash": "15837bedc4263b0bbac1c97632a2044c",
+    "mtime": 1783697252.3465588,
+    "ast_hash": "dc7d321e71c993daabbae8531793d27f",
     "semantic_hash": ""
   },
   "src/features/saving-pots/hooks/useSavingPotForecasts.ts": {
@@ -1375,8 +1375,8 @@
     "semantic_hash": ""
   },
   "supabase/functions/execute-recurring-movements/index.ts": {
-    "mtime": 1783770935.8667645,
-    "ast_hash": "3af7948c5aae2a42bcdb315dcaa02099",
+    "mtime": 1783714672.1249025,
+    "ast_hash": "7cb022166e6ef891b1317d9b18007dec",
     "semantic_hash": ""
   },
   "supabase/migrations/20260710000300_recurring_transfer_contract.sql": {

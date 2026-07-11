@@ -17,10 +17,6 @@ type Member = {
   status?: "pending" | "accepted";
 };
 type RecurringTransaction = Database["public"]["Tables"]["recurring_transactions"]["Row"];
-type SavingPot = Database["public"]["Tables"]["saving_pots"]["Row"] & {
-  balance?: number | null;
-  selected_account_count?: number | null;
-};
 type SavingPotAccountAssignment = Database["public"]["Tables"]["saving_pot_accounts"]["Row"];
 
 type DestinationKind = "account" | "pot";
@@ -39,7 +35,9 @@ export type MonthlyBudgetRuleDraft = {
   section: Database["public"]["Enums"]["monthly_budget_section"];
   sourceAccountId: string;
   destinationAccountId: string;
+  /** @deprecated Kept temporarily so callers can migrate to account-only destinations. */
   destinationPotId: string | null;
+  /** @deprecated Kept temporarily so callers can migrate to account-only destinations. */
   destinationKind: DestinationKind;
   ownerMemberId: string | null;
   amount: string;
@@ -59,7 +57,9 @@ export type MonthlyBudgetTransfer = {
   section: Database["public"]["Enums"]["monthly_budget_section"];
   sourceAccountId: string;
   destinationAccountId: string;
+  /** Always null for newly generated previews. */
   destinationPotId: string | null;
+  /** Always "account" for newly generated previews. */
   destinationKind: DestinationKind;
   amount: number;
   generatedByRuleId: string | null;
@@ -144,55 +144,6 @@ function getSectionSortRank(section: string) {
   return SECTION_SORT_ORDER[section] ?? 99;
 }
 
-function buildPotAccountMap(assignments: SavingPotAccountAssignment[]) {
-  const map = new Map<string, string[]>();
-
-  for (const assignment of assignments) {
-    const current = map.get(assignment.pot_id) ?? [];
-    current.push(assignment.account_id);
-    map.set(assignment.pot_id, current);
-  }
-
-  return map;
-}
-
-function resolveHighestBalanceAccount(
-  accountIds: string[],
-  accounts: Account[],
-  balances: Map<string, number>,
-  excludedAccountId?: string | null,
-) {
-  let candidate: Account | null = null;
-  let candidateBalance = Number.NEGATIVE_INFINITY;
-
-  for (const accountId of accountIds) {
-    if (excludedAccountId && accountId === excludedAccountId) continue;
-    const account = accounts.find((item) => item.id === accountId);
-    if (!account) continue;
-
-    const balance = balances.get(account.id) ?? 0;
-    if (balance > candidateBalance) {
-      candidate = account;
-      candidateBalance = balance;
-    }
-  }
-
-  return candidate;
-}
-
-function resolvePotDestination(
-  pot: SavingPot,
-  accounts: Account[],
-  balances: Map<string, number>,
-  potAccountMap: Map<string, string[]>,
-  excludedAccountId?: string | null,
-) {
-  const assignedAccountIds = potAccountMap.get(pot.id) ?? [];
-  const sourceIds = assignedAccountIds.length > 0 ? assignedAccountIds : accounts.map((account) => account.id);
-
-  return resolveHighestBalanceAccount(sourceIds, accounts, balances, excludedAccountId) ?? null;
-}
-
 function getCashAccountIds(accounts: Account[], explicitIds: string[]) {
   const ids = new Set<string>();
 
@@ -274,13 +225,10 @@ export class MonthlyBudgetService {
       const amount = Number(rule.amount);
       if (!rule.name.trim()) throw new Error("Each budget rule needs a name.");
       if (!rule.sourceAccountId) throw new Error(`Rule "${rule.name}" needs a source account.`);
-      if (rule.destinationKind === "account" && !rule.destinationAccountId) {
+      if (!rule.destinationAccountId) {
         throw new Error(`Rule "${rule.name}" needs a destination account.`);
       }
-      if (rule.destinationKind === "pot" && !rule.destinationPotId) {
-        throw new Error(`Rule "${rule.name}" needs a pig bank destination.`);
-      }
-      if (rule.destinationKind === "account" && rule.sourceAccountId === rule.destinationAccountId) {
+      if (rule.sourceAccountId === rule.destinationAccountId) {
         throw new Error(`Rule "${rule.name}" cannot use the same source and destination account.`);
       }
       if (!Number.isFinite(amount) || amount <= 0) throw new Error(`Rule "${rule.name}" needs a valid amount.`);
@@ -308,7 +256,9 @@ export class MonthlyBudgetService {
         section: rule.section,
         source_account_id: rule.sourceAccountId,
         destination_account_id: rule.destinationAccountId,
-        destination_pot_id: rule.destinationKind === "pot" ? rule.destinationPotId : null,
+        // Pots group accounts for reporting only. Budget money must always move
+        // to a concrete account, so legacy pot references are not persisted.
+        destination_pot_id: null,
         owner_member_id: rule.ownerMemberId || null,
         amount: roundMoney(Number.isFinite(amount) ? amount : 0),
         frequency: "monthly" as const,
@@ -430,6 +380,16 @@ export class MonthlyBudgetService {
     }
 
     for (const transfer of input.preview.transfers) {
+      if (
+        !transfer.sourceAccountId ||
+        !transfer.destinationAccountId ||
+        transfer.sourceAccountId === transfer.destinationAccountId ||
+        transfer.destinationKind === "pot" ||
+        transfer.destinationPotId != null
+      ) {
+        throw new Error(`Budget transfer "${transfer.title}" must use two different valid accounts.`);
+      }
+
       const result = await transactionsRepository.createTransfer({
         householdId: input.householdId,
         fromAccountId: transfer.sourceAccountId,
@@ -460,7 +420,9 @@ export class MonthlyBudgetService {
     rules: BudgetRule[];
     members: Member[];
     accounts: Account[];
-    savingPots: SavingPot[];
+    /** @deprecated Pots are no longer considered when resolving destinations. */
+    savingPots: Array<Database["public"]["Tables"]["saving_pots"]["Row"]>;
+    /** @deprecated Pots are no longer considered when resolving destinations. */
     savingPotAccountAssignments: SavingPotAccountAssignment[];
     incomeInputs: MonthlyBudgetIncomeDraft[];
     recurringTransactions: RecurringTransaction[];
@@ -473,8 +435,6 @@ export class MonthlyBudgetService {
     const memberMap = new Map(input.members.map((member) => [member.userId, member]));
     const incomeByMember = new Map<string, number>();
     const cashAccountIds = getCashAccountIds(input.accounts, input.incomeInputs.map((item) => item.cashAccountId));
-    const potMap = new Map(input.savingPots.map((pot) => [pot.id, pot]));
-    const potAccountMap = buildPotAccountMap(input.savingPotAccountAssignments);
 
     if (!input.settings) {
       validationIssues.push("Save a monthly budget configuration first.");
@@ -533,10 +493,7 @@ export class MonthlyBudgetService {
     for (const rule of sortedRules) {
       const amount = roundMoney(Number(rule.amount));
       const source = accountsById.get(rule.source_account_id);
-      const destinationPot = rule.destination_pot_id ? potMap.get(rule.destination_pot_id) : null;
-      const destination = destinationPot
-        ? resolvePotDestination(destinationPot, input.accounts, balances, potAccountMap, source?.id ?? null)
-        : accountsById.get(rule.destination_account_id);
+      const destination = accountsById.get(rule.destination_account_id);
 
       if (!Number.isFinite(amount) || amount <= 0) {
         validationIssues.push(`Rule "${rule.name}" needs a valid amount.`);
@@ -547,18 +504,10 @@ export class MonthlyBudgetService {
         continue;
       }
       if (!destination) {
-        validationIssues.push(
-          destinationPot
-            ? `Rule "${rule.name}" has no valid pig bank destination.`
-            : `Rule "${rule.name}" has no valid destination account.`,
-        );
+        validationIssues.push(`Rule "${rule.name}" has no valid destination account.`);
         continue;
       }
-      if (destinationPot && source.id === destination.id) {
-        validationIssues.push(`Rule "${rule.name}" cannot use the same source and pig bank destination account.`);
-        continue;
-      }
-      if (rule.destination_pot_id == null && source.id === destination.id) {
+      if (source.id === destination.id) {
         validationIssues.push(`Rule "${rule.name}" cannot use the same source and destination account.`);
         continue;
       }
@@ -577,8 +526,8 @@ export class MonthlyBudgetService {
         section: rule.section,
         sourceAccountId: source.id,
         destinationAccountId: destination.id,
-        destinationPotId: destinationPot?.id ?? null,
-        destinationKind: destinationPot ? "pot" : "account",
+        destinationPotId: null,
+        destinationKind: "account",
         amount,
         generatedByRuleId: rule.id,
         isSystemGenerated: false,

@@ -13,7 +13,7 @@ import { useAccountsWithBalances } from '@/features/accounts/hooks';
 import { useTopLevelCategories } from '@/features/categories/hooks';
 import { useHouseholdMemberDetails } from '@/features/households/hooks';
 import { useCreateRecurringTransaction, useDeleteRecurringTransaction, useRecurringExecutionHistory, useRecurringTransactions, useToggleRecurringTransaction, useUpdateRecurringTransaction } from '@/features/recurring-transactions/hooks';
-import { useSavingPotBalances, useSavingPots } from '@/features/saving-pots/hooks';
+import { useSavingPotAccountAssignments, useSavingPots } from '@/features/saving-pots/hooks';
 import { useCreateTransfer } from '@/features/transfers/hooks';
 import { useAuth } from '@/providers/AuthProvider';
 import { radius } from '@/theme/radius';
@@ -174,7 +174,7 @@ export default function TransfersScreen() {
   const accountsQuery = useAccountsWithBalances();
   const membersQuery = useHouseholdMemberDetails();
   const savingPotsQuery = useSavingPots();
-  const potBalancesQuery = useSavingPotBalances();
+  const savingPotAssignmentsQuery = useSavingPotAccountAssignments();
   const recurringQuery = useRecurringTransactions();
   const createTransfer = useCreateTransfer();
   const createRecurring = useCreateRecurringTransaction();
@@ -195,8 +195,14 @@ export default function TransfersScreen() {
   const members = (membersQuery.data ?? []).filter((member) => member.status === 'accepted');
   const categoriesQuery = useTopLevelCategories(draft.transactionType);
   const editCategoriesQuery = useTopLevelCategories(editing?.transactionType ?? 'expense');
-  const balanceByPotId = useMemo(() => new Map((potBalancesQuery.data ?? []).map((item: any) => [item.pot_id ?? item.id, Number(item.balance ?? item.current_balance ?? 0)])), [potBalancesQuery.data]);
-  const pots = useMemo(() => (savingPotsQuery.data ?? []).map((pot: any) => ({ ...pot, balance: balanceByPotId.get(pot.id) ?? Number(pot.balance ?? 0) })), [balanceByPotId, savingPotsQuery.data]);
+  const potNameByAccountId = useMemo(() => {
+    const potNames = new Map((savingPotsQuery.data ?? []).map((pot: any) => [pot.id, pot.name]));
+    return (savingPotAssignmentsQuery.data ?? []).reduce<Record<string, string>>((result, assignment: any) => {
+      const potName = potNames.get(assignment.pot_id);
+      if (potName) result[assignment.account_id] = potName;
+      return result;
+    }, {});
+  }, [savingPotAssignmentsQuery.data, savingPotsQuery.data]);
   const typeLabels = useMemo(() => ({
     bank: t('accounts.types.bank'), cash: t('accounts.types.cash'), savings: t('accounts.types.savings'),
     credit_card: t('accounts.types.credit_card'), investment: t('accounts.types.investment'), ppr: t('accounts.types.ppr'),
@@ -219,7 +225,7 @@ export default function TransfersScreen() {
   function validMovement(value: MovementDraft) {
     const amount = Number(value.amount);
     const requiredDestination = value.kind === 'one-off' || value.kind === 'recurring-transfer';
-    return Boolean(householdId && profile?.id && value.sourceAccountId && value.title.trim() && Number.isFinite(amount) && amount > 0 && /^\d{4}-\d{2}-\d{2}$/.test(value.nextRun) && (!requiredDestination || value.destination) && (value.kind !== 'one-off' || value.destination?.kind === 'account'));
+    return Boolean(householdId && profile?.id && value.sourceAccountId && value.title.trim() && Number.isFinite(amount) && amount > 0 && /^\d{4}-\d{2}-\d{2}$/.test(value.nextRun) && (!requiredDestination || value.destination));
   }
 
   function recurringPayload(value: MovementDraft) {
@@ -227,8 +233,8 @@ export default function TransfersScreen() {
     return {
       household_id: householdId,
       account_id: value.sourceAccountId,
-      destination_account_id: isTransfer && value.destination?.kind === 'account' ? value.destination.id : null,
-      destination_pot_id: isTransfer && value.destination?.kind === 'pot' ? value.destination.id : null,
+      destination_account_id: isTransfer ? value.destination?.id ?? null : null,
+      destination_pot_id: null,
       rule_kind: isTransfer ? 'transfer' : 'transaction',
       category_id: isTransfer ? null : value.categoryId,
       title: value.title.trim(),
@@ -258,9 +264,7 @@ export default function TransfersScreen() {
 
   function openEdit(item: any) {
     const kind = ruleKindOf(item);
-    const destination = item.destination_pot_id
-      ? { kind: 'pot' as const, id: item.destination_pot_id }
-      : item.destination_account_id ? { kind: 'account' as const, id: item.destination_account_id } : null;
+    const destination = item.destination_account_id ? { kind: 'account' as const, id: item.destination_account_id } : null;
     setEditing({ id: item.id, kind, title: item.title ?? '', amount: String(item.amount ?? ''), notes: item.notes ?? '', sourceAccountId: item.account_id ?? '', destination, categoryId: item.category_id ?? null, transactionType: item.type === 'income' ? 'income' : 'expense', frequency: item.frequency ?? 'monthly', excludedMonths: normalizeMonths(item.excluded_months), nextRun: item.next_run?.slice?.(0, 10) ?? today(), createdById: item.created_by ?? profile?.id ?? '' });
     setSelectedRule(null);
   }
@@ -284,7 +288,7 @@ export default function TransfersScreen() {
             value={draft}
             onChange={updateDraft}
             accounts={accounts as any}
-            pots={pots as any}
+            potNameByAccountId={potNameByAccountId}
             members={members as any}
             categories={categoriesQuery.data ?? []}
             typeLabels={typeLabels}
@@ -315,7 +319,7 @@ export default function TransfersScreen() {
           ]}>
             {visibleRules.map((item: any) => {
               const kind = ruleKindOf(item);
-              const destinationName = item.destination_pot?.name ?? pots.find((pot: any) => pot.id === item.destination_pot_id)?.name ?? item.destination_account?.name ?? accounts.find((account: any) => account.id === item.destination_account_id)?.name;
+              const destinationName = item.destination_account?.name ?? accounts.find((account: any) => account.id === item.destination_account_id)?.name;
               const route = kind === 'recurring-transfer'
                 ? t('transfers.transferRoute', { from: item.account?.name ?? accounts.find((account: any) => account.id === item.account_id)?.name ?? t('transfers.sourceAccount'), to: destinationName ?? t('transfers.destination') })
                 : item.account?.name ?? accounts.find((account: any) => account.id === item.account_id)?.name ?? t('recurring.account');
@@ -353,7 +357,7 @@ export default function TransfersScreen() {
           <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
             <View style={[styles.modalCard, { width: responsive.isPhone ? '100%' : spacing(150), borderColor: colors.border, backgroundColor: colors.surface }]}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>{t('transfers.editScheduled')}</Text>
-              {editing ? <MovementFields value={editing} onChange={updateEditing} accounts={accounts as any} pots={pots as any} members={members as any} categories={editCategoriesQuery.data ?? []} typeLabels={typeLabels} t={t} lockKind /> : null}
+              {editing ? <MovementFields value={editing} onChange={updateEditing} accounts={accounts as any} potNameByAccountId={potNameByAccountId} members={members as any} categories={editCategoriesQuery.data ?? []} typeLabels={typeLabels} t={t} lockKind /> : null}
               <View style={styles.modalActions}><Button label={t('cancel')} variant="secondary" onPress={() => setEditing(null)} /><Button label={updateRecurring.isPending ? t('saving') : t('transfers.saveRecurring')} onPress={() => void saveEdit()} disabled={!editing || !validMovement(editing) || updateRecurring.isPending} /></View>
             </View>
           </ScrollView>
@@ -381,11 +385,11 @@ export default function TransfersScreen() {
   );
 }
 
-function MovementFields({ value, onChange, accounts, pots, members, categories, typeLabels, t, lockKind = false }: { value: MovementDraft; onChange: (patch: Partial<MovementDraft>) => void; accounts: any[]; pots: any[]; members: any[]; categories: any[]; typeLabels: Record<string, string>; t: any; lockKind?: boolean }) {
+function MovementFields({ value, onChange, accounts, potNameByAccountId, members, categories, typeLabels, t, lockKind = false }: { value: MovementDraft; onChange: (patch: Partial<MovementDraft>) => void; accounts: any[]; potNameByAccountId: Record<string, string>; members: any[]; categories: any[]; typeLabels: Record<string, string>; t: any; lockKind?: boolean }) {
   const { colors } = useTheme();
   const isScheduled = value.kind !== 'one-off';
   const isTransfer = value.kind !== 'recurring-transaction';
-  const allowedSourceIds = value.destination?.kind === 'account' ? accounts.filter((account) => account.id !== value.destination?.id).map((account) => account.id) : undefined;
+  const allowedSourceIds = value.destination?.id ? accounts.filter((account) => account.id !== value.destination?.id).map((account) => account.id) : undefined;
   const allowedDestinationIds = value.sourceAccountId ? accounts.filter((account) => account.id !== value.sourceAccountId).map((account) => account.id) : undefined;
   const toggleMonth = (month: number) => onChange({ excludedMonths: value.excludedMonths.includes(month) ? value.excludedMonths.filter((entry) => entry !== month) : [...value.excludedMonths, month].sort((left, right) => left - right) });
 
@@ -400,7 +404,7 @@ function MovementFields({ value, onChange, accounts, pots, members, categories, 
       {isScheduled ? <View style={styles.fieldGroup}><Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('transfers.frequency')}</Text><View style={styles.pillRow}>{frequencies.map((frequency) => <Pill key={frequency} label={t(`recurring.frequencies.${frequency}`)} active={value.frequency === frequency} onPress={() => onChange({ frequency })} />)}</View></View> : null}
       {isScheduled && value.frequency === 'custom' ? <View style={styles.fieldGroup}><Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('transfers.excludeMonths')}</Text><Text style={{ color: colors.textSecondary }}>{t('transfers.excludeMonthsHint')}</Text><View style={styles.pillRow}>{months.map((month) => <Pill key={month.value} label={t(`transfers.months.${month.key}`)} active={value.excludedMonths.includes(month.value)} onPress={() => toggleMonth(month.value)} />)}</View></View> : null}
       <GroupedAccountSelect label={isTransfer ? t('transfers.sourceAccount') : t('recurring.account')} accounts={accounts} members={members} value={value.sourceAccountId} placeholder={isTransfer ? t('transfers.sourceAccount') : t('recurring.account')} hint={isTransfer ? t('transfers.sourceAccount') : t('recurring.account')} onChange={(sourceAccountId) => onChange({ sourceAccountId })} allowedAccountIds={allowedSourceIds} closeLabel={t('close')} sharedLabel={t('dashboard.shared')} unassignedLabel={t('settings.unnamedUser')} typeLabels={typeLabels} />
-      {isTransfer ? <GroupedDestinationSelect label={t('transfers.destination')} accounts={accounts} pots={value.kind === 'one-off' ? [] : pots} members={members} value={value.destination} placeholder={t('transfers.destination')} hint={t('transfers.destination')} onChange={(destination) => onChange({ destination })} allowedAccountIds={allowedDestinationIds} closeLabel={t('close')} sharedLabel={t('dashboard.shared')} unassignedLabel={t('settings.unnamedUser')} typeLabels={typeLabels} potGroupLabel={t('transfers.destinationPots')} /> : null}
+      {isTransfer ? <GroupedDestinationSelect label={t('transfers.destination')} accounts={accounts} members={members} value={value.destination} placeholder={t('transfers.destination')} hint={t('transfers.destination')} onChange={(destination) => onChange({ destination })} allowedAccountIds={allowedDestinationIds} closeLabel={t('close')} sharedLabel={t('dashboard.shared')} unassignedLabel={t('settings.unnamedUser')} typeLabels={typeLabels} potNameByAccountId={potNameByAccountId} potLabel={t('transfers.pigBank')} /> : null}
       {!isTransfer ? <><View style={styles.fieldGroup}><Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('transfers.transactionType')}</Text><View style={styles.pillRow}>{(['income', 'expense'] as TransactionType[]).map((transactionType) => <Pill key={transactionType} label={t(`recurring.types.${transactionType}`)} active={value.transactionType === transactionType} onPress={() => onChange({ transactionType, categoryId: null })} />)}</View></View><View style={styles.fieldGroup}><Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('recurring.category')}</Text><View style={styles.pillRow}><Pill label={t('none')} active={!value.categoryId} onPress={() => onChange({ categoryId: null })} />{categories.map((category) => <Pill key={category.id} label={category.name} active={value.categoryId === category.id} onPress={() => onChange({ categoryId: category.id })} />)}</View></View></> : null}
     </View>
   );

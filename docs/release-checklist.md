@@ -25,10 +25,9 @@ Use this checklist before promoting a Vercel deployment to production.
 
 - Deploy `execute-recurring-movements` with `supabase functions deploy execute-recurring-movements --no-verify-jwt` after applying the recurring execution migration.
 - Confirm the Edge Function has `CRON_SECRET`; Supabase supplies `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to deployed functions.
-- Confirm Vercel Cron is enabled for `/api/cron/execute-recurring` on the production deployment and uses the hourly `0 * * * *` schedule.
+- Confirm Vercel Cron is enabled for `/api/cron/execute-recurring` on the production deployment and uses the daily `0 1 * * *` schedule on Hobby.
 - Verify `/api/cron/execute-recurring` returns `401` without a valid `Authorization: Bearer <CRON_SECRET>` header.
-- Verify a valid call outside 01:00 `Europe/Lisbon` returns `204` and creates no transactions.
-- Verify a valid 01:00 Lisbon run creates one transaction for recurring income/expense, two linked rows for recurring transfers, and one execution-history row per scheduled occurrence.
+- Verify a valid daily run creates one transaction for recurring income/expense, two linked rows for recurring transfers, and one execution-history row per scheduled occurrence.
 - Verify an insufficient source balance records a skipped execution, advances the rule, and creates no partial transfer rows.
 - Confirm the cron endpoint is excluded from the Expo SPA rewrite and neither `CRON_SECRET` nor the service-role key appears in web environment variables or client bundles.
 
@@ -67,6 +66,6 @@ Use this checklist before promoting a Vercel deployment to production.
 - Confirm transfer creation still writes double-entry transaction rows.
 - Confirm scheduled transfers and monthly budget rules preserve source and destination semantics.
 - Set the same strong `CRON_SECRET` in Vercel and Supabase Edge Function secrets, and set `SUPABASE_URL` in Vercel.
-- Confirm the hourly Vercel cron reaches `/api/cron/execute-recurring` and only processes rules at 01:00 Europe/Lisbon.
+- Confirm the daily Vercel cron reaches `/api/cron/execute-recurring`. Hobby timing is only precise to approximately one hour, but execution is idempotent and uses the Lisbon calendar date.
 - Confirm scheduled executions create one row for income/expense rules and two linked rows for transfers, without duplicates after a repeated cron invocation.
 - Confirm household import/export creates a new household and does not include invoice binary files in v1.

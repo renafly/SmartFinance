@@ -30,6 +30,8 @@ type ForecastPot = {
 
 type ForecastRule = {
   id: string;
+  account_id?: string | null;
+  source_account_id?: string | null;
   destination_pot_id?: string | null;
   destination_account_id?: string | null;
   section?: string | null;
@@ -184,6 +186,46 @@ function toContribution(
   } satisfies ForecastContribution;
 }
 
+function ruleTargetsPotThroughDestinationAccount(
+  rule: ForecastRule,
+  potId: string,
+  potIdsByAccountId: Map<string, string[]>,
+) {
+  if (!rule.destination_account_id) return false;
+
+  // Treat legacy duplicate assignments as ambiguous instead of inflating
+  // multiple pots. The database constraint will prevent new duplicates.
+  const matchingPotIds = potIdsByAccountId.get(rule.destination_account_id) ?? [];
+  return matchingPotIds.length === 1 && matchingPotIds[0] === potId;
+}
+
+function isContributionFromOutsidePot(
+  rule: ForecastRule,
+  potId: string,
+  potIdsByAccountId: Map<string, string[]>,
+) {
+  const sourceAccountId = rule.source_account_id ?? rule.account_id;
+  if (!sourceAccountId) return true;
+
+  return !(potIdsByAccountId.get(sourceAccountId) ?? []).includes(potId);
+}
+
+function ruleContributesToPot(
+  rule: ForecastRule,
+  potId: string,
+  potIdsByAccountId: Map<string, string[]>,
+) {
+  if (!isContributionFromOutsidePot(rule, potId, potIdsByAccountId)) return false;
+
+  if (rule.destination_account_id) {
+    return ruleTargetsPotThroughDestinationAccount(rule, potId, potIdsByAccountId);
+  }
+
+  // Keep forecasts useful for pre-account-destination rules imported from an
+  // older backup. New rules must always select an account destination.
+  return rule.destination_pot_id === potId;
+}
+
 function findCompletionDate(
   contributions: ForecastContribution[],
   remainingAmount: number,
@@ -283,21 +325,13 @@ export function buildSavingPotForecasts(input: {
             (rule) =>
               rule.is_active &&
               rule.rule_kind === "transfer" &&
-              rule.destination_pot_id === pot.id,
+              ruleContributesToPot(rule, pot.id, potIdsByAccountId),
           )
           .map((rule) => toContribution(rule, "recurring_transfer", asOf)),
         ...input.monthlyBudgetRules
           .filter((rule) => {
             if (!rule.is_active) return false;
-            if (rule.destination_pot_id === pot.id) return true;
-
-            // Older saved budget rules targeted an account in the Pots section
-            // before an explicit pot destination existed. Recover that intent
-            // only when the destination account belongs to exactly one pot.
-            const matchingPotIds = rule.destination_account_id
-              ? potIdsByAccountId.get(rule.destination_account_id) ?? []
-              : [];
-            return rule.section === "pots" && matchingPotIds.length === 1 && matchingPotIds[0] === pot.id;
+            return ruleContributesToPot(rule, pot.id, potIdsByAccountId);
           })
           .map((rule) => toContribution(rule, "monthly_budget", asOf)),
       ].filter((contribution): contribution is ForecastContribution => contribution !== null);
