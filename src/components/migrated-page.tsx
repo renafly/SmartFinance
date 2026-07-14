@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Pressable,
@@ -134,16 +135,26 @@ type SectionProps = {
   subtitle?: string;
   children: ReactNode;
   action?: ReactNode;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
 };
 
-export function Section({ title, subtitle, children, action }: SectionProps) {
+export function Section({ title, subtitle, children, action, collapsible = false, defaultCollapsed = false }: SectionProps) {
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  const isExpanded = !isCollapsed;
 
   return (
     <View style={[styles.section, { gap: responsive.cardGap }]}>
       <View style={[styles.sectionHeader, responsive.isPhone && styles.sectionHeaderCompact]}>
-        <View style={{ flex: 1 }}>
+        <Pressable
+          disabled={!collapsible}
+          accessibilityRole={collapsible ? 'button' : undefined}
+          accessibilityState={collapsible ? { expanded: isExpanded } : undefined}
+          onPress={() => setIsCollapsed((current) => !current)}
+          style={({ pressed }) => [styles.sectionHeading, pressed && collapsible && styles.pressed]}
+        >
           <Text
             style={[
               styles.sectionTitle,
@@ -169,10 +180,21 @@ export function Section({ title, subtitle, children, action }: SectionProps) {
               {subtitle}
             </Text>
           ) : null}
-        </View>
+        </Pressable>
+        {collapsible ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${isExpanded ? 'Collapse' : 'Expand'} ${title}`}
+            accessibilityState={{ expanded: isExpanded }}
+            onPress={() => setIsCollapsed((current) => !current)}
+            style={[styles.sectionToggle, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
+          >
+            <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
+          </Pressable>
+        ) : null}
         {action ? <View>{action}</View> : null}
       </View>
-      {children}
+      {isExpanded ? children : null}
     </View>
   );
 }
@@ -303,6 +325,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.xl,
     alignItems: 'flex-start',
+    overflow: 'hidden',
   },
   headerActions: {
     gap: spacing(2),
@@ -334,7 +357,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     alignSelf: 'stretch',
-    borderRadius: radius.lg,
+    borderRadius: radius.xxl,
     borderWidth: 1,
   },
   section: {
@@ -348,6 +371,17 @@ const styles = StyleSheet.create({
   },
   sectionHeaderCompact: {
     flexDirection: 'column',
+  },
+  sectionHeading: {
+    flex: 1,
+  },
+  sectionToggle: {
+    width: spacing(9),
+    height: spacing(9),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: radius.full,
   },
   sectionTitle: {
     fontSize: typography.fontSize[18],

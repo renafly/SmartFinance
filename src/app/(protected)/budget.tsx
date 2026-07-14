@@ -711,6 +711,10 @@ export default function BudgetScreen() {
   const budgetIsOnTrack = preview.configuredTotal <= preview.incomeTotal;
   const budgetStatusLabel = budgetIsOnTrack ? t('budget.onTrack') : t('budget.overBudget');
   const budgetStatusColor = budgetIsOnTrack ? colors.success : colors.destructive;
+  const allocationPercent = Math.min(
+    100,
+    preview.incomeTotal > 0 ? Math.round((preview.configuredTotal / preview.incomeTotal) * 100) : 0,
+  );
   const incomeModeSummary = t('budget.incomeModeSummary', {
     value: t(`budget.incomeModes.${incomeMode}`),
   });
@@ -816,64 +820,40 @@ export default function BudgetScreen() {
                 {t('budget.shared')}
               </Text>
             </View>
-            <View
-              style={{
-                borderWidth: 1,
-                borderColor: colors.border,
-                borderRadius: radius.lg,
-                overflow: 'hidden',
-              } as any}
-            >
-              {resumeRows.map((row, index) => (
-                <View
-                  key={row.label}
-                  style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: spacing(3),
-                    paddingVertical: spacing(2.5),
-                    paddingHorizontal: spacing(3),
-                    backgroundColor: index % 2 === 0 ? colors.surfaceMuted : colors.muted,
-                    borderBottomWidth: index === resumeRows.length - 1 ? 0 : 1,
-                    borderBottomColor: colors.border,
-                  } as any}
-                >
+            <View style={{ gap: spacing(2.5), padding: spacing(3.5), borderRadius: radius.xl, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border } as any}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing(3) } as any}>
+                <View style={{ flex: 1, gap: spacing(0.5) } as any}>
+                  <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: typography.letterSpacing[10], fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.extraBold) } as any}>{t('budget.incomeTotal')}</Text>
+                  <Text style={{ color: colors.text, fontSize: typography.fontSize[28], fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(preview.incomeTotal)}</Text>
+                </View>
+                <View style={{ paddingHorizontal: spacing(2), paddingVertical: spacing(1), borderRadius: radius.full, backgroundColor: budgetIsOnTrack ? colors.successSoft : colors.destructiveSoft } as any}>
+                  <Text style={{ color: budgetStatusColor, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.extraBold) } as any}>{budgetStatusLabel}</Text>
+                </View>
+              </View>
+              <View style={{ height: spacing(2.5), borderRadius: radius.full, overflow: 'hidden', backgroundColor: colors.muted } as any}>
+                <View style={{ width: `${allocationPercent}%`, height: '100%', borderRadius: radius.full, backgroundColor: budgetIsOnTrack ? colors.success : colors.destructive } as any} />
+              </View>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
+                <View style={{ flexGrow: 1, minWidth: 150, gap: spacing(0.5), padding: spacing(2.5), borderRadius: radius.lg, backgroundColor: colors.surface } as any}>
+                  <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.semibold) } as any}>{t('budget.configuredTotal')}</Text>
+                  <Text style={{ color: colors.primary, fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(preview.configuredTotal)}</Text>
+                </View>
+                <View style={{ flexGrow: 1, minWidth: 150, gap: spacing(0.5), padding: spacing(2.5), borderRadius: radius.lg, backgroundColor: colors.surface } as any}>
+                  <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.semibold) } as any}>{t('budget.remainingCash')}</Text>
+                  <Text style={{ color: budgetIsOnTrack ? colors.success : colors.destructive, fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(preview.remainingCash)}</Text>
+                </View>
+              </View>
+            </View>
+            <View style={{ gap: spacing(1.5), padding: spacing(2.5), borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface } as any}>
+              {resumeRows.slice(1).map((row) => (
+                <View key={row.label} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing(3) } as any}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
                     <Ionicons name={row.icon} size={14} color={colors.textSecondary} />
-                    <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
-                      {row.label}
-                    </Text>
+                    <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>{row.label}</Text>
                   </View>
-                  <Text style={{ color: row.label === t('budget.budgetStatus') ? budgetStatusColor : colors.text, fontWeight: String(row.label === t('budget.budgetStatus') ? typography.fontWeight.extraBold : typography.fontWeight.bold) } as any}>
-                    {row.value}
-                  </Text>
+                  <Text style={{ color: row.label === t('budget.budgetStatus') ? budgetStatusColor : colors.text, fontWeight: String(typography.fontWeight.extraBold) } as any}>{row.value}</Text>
                 </View>
               ))}
-            </View>
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: spacing(3),
-                paddingVertical: spacing(2.5),
-                paddingHorizontal: spacing(3),
-                borderTopWidth: 1,
-                borderTopColor: colors.border,
-                backgroundColor: colors.surfaceMuted,
-                borderRadius: radius.lg,
-              } as any}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
-                <Ionicons name="layers-outline" size={16} color={colors.text} />
-                <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.extraBold) } as any}>
-                  {t('budget.configuredTotal')}
-                </Text>
-              </View>
-              <Text style={{ color: colors.primary, fontWeight: String(typography.fontWeight.extraBold) } as any}>
-                {formatCurrency(preview.configuredTotal)}
-              </Text>
             </View>
             <View style={{ gap: spacing(1.5), marginTop: spacing(1) } as any}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>

@@ -1,11 +1,11 @@
 # Graph Report - SmartFinance  (2026-07-13)
 
 ## Corpus Check
-- 278 files · ~150,767 words
+- 278 files · ~150,632 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1358 nodes · 3026 edges · 99 communities (79 shown, 20 thin omitted)
+- 1357 nodes · 3019 edges · 98 communities (79 shown, 19 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 22 edges (avg confidence: 0.68)
 - Token cost: 0 input · 0 output
 
@@ -86,7 +86,6 @@
 - typography.ts
 - untitled-theme.ts
 - untitled-theme.ts
-- tailwind.config.js
 - web-smoke.spec.ts
 - tsconfig.test.json
 - serve-dist.mjs
@@ -94,7 +93,6 @@
 - buildCleanBackup
 - grouped-account-select.tsx
 - SettingsScreen
-- RecurringTransactionsService
 - global.d.ts
 - useHouseholdBackup.integration.test.tsx
 - transfer.service.ts
@@ -104,12 +102,12 @@
 1. `useTheme()` - 96 edges
 2. `useAuth()` - 82 edges
 3. `RepoResult` - 79 edges
-4. `spacing()` - 69 edges
+4. `spacing()` - 68 edges
 5. `invalidateHouseholdData()` - 59 edges
 6. `BudgetScreen()` - 36 edges
 7. `Database` - 36 edges
-8. `typography` - 30 edges
-9. `useResponsiveMetrics()` - 29 edges
+8. `useResponsiveMetrics()` - 29 edges
+9. `typography` - 29 edges
 10. `BaseRepository` - 27 edges
 
 ## Surprising Connections (you probably didn't know these)
@@ -127,19 +125,15 @@
 ## Import Cycles
 - 2-file cycle: `src/features/saving-pots/hooks/index.ts -> src/features/saving-pots/hooks/useSavingPotForecasts.ts -> src/features/saving-pots/hooks/index.ts`
 
-## Communities (99 total, 20 thin omitted)
+## Communities (98 total, 19 thin omitted)
 
 ### Community 0 - "useAuth"
-Cohesion: 0.07
-Nodes (58): AccountLike, BudgetScreen(), buildPotNameByAccountId(), createDefaultIncomeDrafts(), formatMonthSelection(), getMemberAccentColor(), getMemberLabel(), getRuleRowKey() (+50 more)
+Cohesion: 0.05
+Nodes (67): AccountLike, BudgetScreen(), buildPotNameByAccountId(), createDefaultIncomeDrafts(), formatMonthSelection(), getMemberAccentColor(), getMemberLabel(), getRuleRowKey() (+59 more)
 
 ### Community 1 - "dependencies"
 Cohesion: 0.03
 Nodes (58): dependencies, eslint, eslint-config-expo, expo, expo-auth-session, expo-constants, expo-crypto, expo-dev-client (+50 more)
-
-### Community 2 - "recurring.tsx"
-Cohesion: 0.12
-Nodes (3): useDefaultHousehold(), useSetDefaultHousehold(), HouseholdsService
 
 ### Community 3 - "Database"
 Cohesion: 0.11
@@ -151,27 +145,27 @@ Nodes (4): RepoResult, CategoriesRepository, HouseholdsRepository, MonthlyBudget
 
 ### Community 5 - "household-backup.service.ts"
 Cohesion: 0.05
-Nodes (37): Account, Attachment, BackupKey, backupSchema, BudgetConfig, BudgetRule, Category, CleanAccount (+29 more)
+Nodes (38): Account, Attachment, BackupKey, backupSchema, BudgetConfig, BudgetRule, Category, CleanAccount (+30 more)
 
 ### Community 6 - "monthly-budget.service.ts"
 Cohesion: 0.08
 Nodes (33): Account, BudgetConfig, BudgetHouseholdSettings, BudgetRule, DestinationKind, findHighestCashAccount(), getCashAccountIds(), getExcludedMonths() (+25 more)
 
 ### Community 7 - "index.ts"
-Cohesion: 0.11
-Nodes (18): PublicLayout(), StorybookPreviewScreen(), AnimatedIcon(), AnimatedSplashOverlay(), glowKeyframe, keyframe, logoKeyframe, styles (+10 more)
+Cohesion: 0.13
+Nodes (14): PublicLayout(), AnimatedIcon(), AnimatedSplashOverlay(), glowKeyframe, keyframe, logoKeyframe, styles, AnimatedIcon() (+6 more)
 
 ### Community 8 - "google-sign-in-button.tsx"
-Cohesion: 0.17
-Nodes (12): AuthLayout(), GoogleAuthScreen(), GoogleSignInButtonProps, styles, buildCurrentRedirectTo(), canUseSessionStorage(), consumePendingRedirectTo(), normalizeRedirectTo() (+4 more)
+Cohesion: 0.18
+Nodes (11): AuthLayout(), GoogleAuthScreen(), GoogleSignInButtonProps, buildCurrentRedirectTo(), canUseSessionStorage(), consumePendingRedirectTo(), normalizeRedirectTo(), peekPendingRedirectTo() (+3 more)
 
 ### Community 9 - "app-tabs.web.tsx"
 Cohesion: 0.13
 Nodes (19): CustomTabList(), styles, ExternalLink(), Props, HintRowProps, styles, styles, ThemedText() (+11 more)
 
 ### Community 10 - "RootProvider.tsx"
-Cohesion: 0.15
-Nodes (9): FeatureFlagContext, FeatureFlagContextValue, FeatureFlagProvider(), ModalContext, ModalContextValue, ModalProvider(), QueryProvider(), DEFAULT_FLAGS (+1 more)
+Cohesion: 0.06
+Nodes (27): @vercel/speed-insights, NOTE: Provider composition (Theme, Query, Auth, Localization, Feature, RootStack(), VercelSpeedInsights(), resources, FeatureFlagContext, FeatureFlagContextValue, FeatureFlagProvider() (+19 more)
 
 ### Community 11 - "expo"
 Cohesion: 0.06
@@ -186,40 +180,40 @@ Cohesion: 0.21
 Nodes (18): getToken(), InviteScreen(), MembersScreen(), roles, HouseholdRole, useAcceptHouseholdInvitation(), useCreateHouseholdInvitation(), useDeclineHouseholdInvitation() (+10 more)
 
 ### Community 14 - "transaction.service.ts"
-Cohesion: 0.10
-Nodes (19): useTransactions(), useTransactionsInfinite(), ALLOWED_TRANSACTION_ATTACHMENT_EXTENSIONS, ALLOWED_TRANSACTION_ATTACHMENT_MIME_TYPES, buildTransactionAttachmentPath(), CreateTransactionInput, getFileExtension(), sanitizeFileName() (+11 more)
+Cohesion: 0.11
+Nodes (17): ALLOWED_TRANSACTION_ATTACHMENT_EXTENSIONS, ALLOWED_TRANSACTION_ATTACHMENT_MIME_TYPES, buildTransactionAttachmentPath(), CreateTransactionInput, getFileExtension(), sanitizeFileName(), TransactionAttachmentInput, TransactionsService (+9 more)
 
 ### Community 15 - "invalidateHouseholdData"
-Cohesion: 0.08
-Nodes (26): DatePickerField(), emptyDraft(), formatDateInput(), frequencies, Frequency, months, MovementDraft, MovementFields() (+18 more)
+Cohesion: 0.07
+Nodes (34): DatePickerField(), emptyDraft(), formatDateInput(), frequencies, Frequency, months, MovementDraft, MovementFields() (+26 more)
 
 ### Community 16 - "settings.tsx"
-Cohesion: 0.09
-Nodes (33): samples, FinanceMetricCard(), FinanceMetricCardProps, FinanceMetricTone, getToneColors(), styles, FinanceProgressBar(), FinanceProgressBarProps (+25 more)
+Cohesion: 0.13
+Nodes (19): samples, StorybookPreviewScreen(), FinanceMetricCard(), FinanceMetricCardProps, FinanceMetricTone, getToneColors(), styles, FinanceProgressBar() (+11 more)
 
 ### Community 17 - "monthly-budget.repository.ts"
 Cohesion: 0.15
 Nodes (12): BudgetConfig, BudgetConfigInsert, BudgetConfigUpdate, BudgetConfigWithRules, BudgetRule, BudgetRuleInsert, BudgetRuleUpdate, MonthlyBudgetRun (+4 more)
 
 ### Community 18 - "index.tsx"
-Cohesion: 0.08
-Nodes (50): AccountHistoryMode, accountTypes, createStyles(), currencyOptions, EditMode, CategoryEditDraft, categoryIconSuggestions, CategoryLike (+42 more)
+Cohesion: 0.09
+Nodes (35): AttachmentDraft, createStyles(), DateFilterField(), DatePickerField(), DropdownField(), DropdownFieldProps, formatDateInputValue(), parseDateInputValue() (+27 more)
 
 ### Community 19 - "HouseholdsService"
 Cohesion: 0.14
 Nodes (10): GoogleLoginScreen(), SignOutButton(), AppNotification, AuthService, StorageService, UploadFile, memoryStorage, supabase (+2 more)
 
 ### Community 20 - "grouped-account-select.tsx"
-Cohesion: 0.20
-Nodes (9): onboardingGuidesKey(), useCompleteOnboardingGuide(), useOnboardingGuides(), getCompletedGuideVersion(), OnboardingGuideDefinition, ProfilesService, shouldShowOnboardingGuide(), OnboardingGuides (+1 more)
+Cohesion: 0.25
+Nodes (9): DrawerContent(), getGuideKeyForPathname(), menuIconMap, ProtectedDrawerLayout(), SectionGuideButton(), styles, isSystemAdminEmail(), SYSTEM_ADMIN_EMAIL_SET (+1 more)
 
 ### Community 21 - "useTheme"
-Cohesion: 0.12
-Nodes (19): DiagnosticItem, DiagnosticRow(), DiagnosticsScreen(), DiagnosticStatus, maskSecret(), styles, Button(), ButtonProps (+11 more)
+Cohesion: 0.11
+Nodes (27): CategoryEditDraft, categoryIconSuggestions, CategoryLike, types, DiagnosticItem, DiagnosticRow(), DiagnosticsScreen(), DiagnosticStatus (+19 more)
 
 ### Community 22 - "households.repository.ts"
-Cohesion: 0.33
-Nodes (5): Account, CreateAccountDTO, NewAccount, UpdateAccount, UpdateAccountDTO
+Cohesion: 0.22
+Nodes (8): AccountIdInput, CreateAccountInput, UpdateAccountInput, Account, CreateAccountDTO, NewAccount, UpdateAccount, UpdateAccountDTO
 
 ### Community 23 - "CategoriesService"
 Cohesion: 0.14
@@ -227,11 +221,11 @@ Nodes (13): CategoriesScreen(), getTypeColor(), getTypeIcon(), useArchiveCategor
 
 ### Community 24 - "selection-shell.tsx"
 Cohesion: 0.11
-Nodes (10): AccountsScreen(), useAccountsWithBalances(), useArchiveAccount(), useCreateAccount(), useDeleteAccount(), useUpdateAccount(), AccountIdInput, AccountsService (+2 more)
+Nodes (13): AccountHistoryMode, AccountsScreen(), accountTypes, createStyles(), currencyOptions, EditMode, useArchiveAccount(), useCreateAccount() (+5 more)
 
 ### Community 26 - "requireIdFor"
-Cohesion: 0.17
-Nodes (19): AccountOverviewTable(), AllocationDonut(), AllocationKey, AllocationLegend(), AllocationSegment, DashboardAccount, DashboardPot, DashboardScreen() (+11 more)
+Cohesion: 0.12
+Nodes (27): AccountOverviewTable(), AllocationDonut(), AllocationKey, AllocationLegend(), AllocationSegment, DashboardAccount, DashboardPot, DashboardScreen() (+19 more)
 
 ### Community 27 - "session.types.ts"
 Cohesion: 0.33
@@ -262,8 +256,8 @@ Cohesion: 0.25
 Nodes (6): SessionRepository, SessionService, Claims, HouseholdMember, SessionState, UserProfile
 
 ### Community 35 - "HouseholdsService"
-Cohesion: 0.17
-Nodes (22): GuideModal(), GuideModalProps, styles, getOnboardingGuide(), onboardingGuides, emptyProgress(), OnboardingContext, OnboardingContextValue (+14 more)
+Cohesion: 0.10
+Nodes (30): GuideModal(), GuideModalProps, styles, getOnboardingGuide(), onboardingGuides, emptyProgress(), OnboardingContext, OnboardingContextValue (+22 more)
 
 ### Community 36 - ".importHouseholdBackup"
 Cohesion: 0.15
@@ -274,12 +268,12 @@ Cohesion: 0.20
 Nodes (9): compilerOptions, paths, strict, types, exclude, extends, include, @/* (+1 more)
 
 ### Community 39 - "households.repository.ts"
-Cohesion: 0.17
-Nodes (10): NotificationCenter(), useMarkNotificationRead(), useNotifications(), NotificationsService, NotificationsProvider(), Toast, ToastContext, ToastContextValue (+2 more)
+Cohesion: 0.33
+Nodes (4): useNotifications(), NotificationsService, NotificationsProvider(), useToast()
 
 ### Community 40 - "SavingPotsService"
-Cohesion: 0.22
-Nodes (21): buildAccountInserts(), buildBudgetConfigInserts(), buildBudgetRuleInserts(), buildBudgetRunInserts(), buildCategoryInserts(), buildIncomeInputInserts(), buildRecurringRunExecutionInserts(), buildRecurringTransactionInserts() (+13 more)
+Cohesion: 0.26
+Nodes (15): buildAccountInserts(), buildBudgetConfigInserts(), buildBudgetRuleInserts(), buildBudgetRunInserts(), buildCategoryInserts(), buildRecurringRunExecutionInserts(), buildRecurringTransactionInserts(), buildSavingPotAccountInserts() (+7 more)
 
 ### Community 42 - "themeStore.ts"
 Cohesion: 0.36
@@ -294,20 +288,20 @@ Cohesion: 0.14
 Nodes (5): RecurringRunExecution, RecurringTransaction, RecurringTransactionsRepository, RecurringTransactionWithRelations, QueryResult
 
 ### Community 45 - "NotificationsProvider.tsx"
-Cohesion: 0.26
-Nodes (10): resources, AppLanguage, getNativeStorage(), getStoredLanguage(), LanguageOption, LanguageStorage, normalizeLanguage(), setStoredLanguage() (+2 more)
+Cohesion: 0.40
+Nodes (3): backup, mockedBackupService, mockedUseAuth
 
 ### Community 46 - "transaction.schema.ts"
 Cohesion: 0.40
 Nodes (4): NOTE: "transfer" is intentionally excluded here. Transfers are created via, TransactionFormInput, TransactionFormValues, transactionSchema
 
 ### Community 47 - "members.tsx"
-Cohesion: 0.17
-Nodes (10): DropdownItem, DropdownMenuProps, MultiSelectShellProps, OptionRowProps, SelectionShellProps, SelectionTriggerProps, styles, getResponsiveMetrics() (+2 more)
+Cohesion: 0.27
+Nodes (10): AccountLike, DestinationSelection, getAccountLabel(), getAccountSubtitle(), getMemberLabel(), getOwnerLabel(), GroupedDestinationSelect(), GroupedDestinationSelectProps (+2 more)
 
 ### Community 48 - "ThemeProvider.tsx"
-Cohesion: 0.31
-Nodes (9): AccountLike, getAccountLabel(), getAccountSubtitle(), getMemberLabel(), getOwnerLabel(), GroupedAccountSelect(), GroupedAccountSelectProps, MemberLike (+1 more)
+Cohesion: 0.22
+Nodes (9): useThemeStore, blueColors, darkColors, lightColors, ThemeColors, shadows, ThemeContext, ThemeContextValue (+1 more)
 
 ### Community 50 - "SmartFinance Testing"
 Cohesion: 0.33
@@ -318,8 +312,8 @@ Cohesion: 0.50
 Nodes (3): AccountFormInput, AccountFormValues, accountSchema
 
 ### Community 52 - ".importHouseholdBackup"
-Cohesion: 0.40
-Nodes (4): getMemberFallbackMap(), normalizeEmail(), safeNamePart(), Json
+Cohesion: 0.36
+Nodes (8): buildIncomeInputInserts(), getCurrentProfile(), getMemberFallbackMap(), insertMany(), newId(), newIdMap(), normalizeEmail(), throwIfError()
 
 ### Community 53 - "colors.ts"
 Cohesion: 0.40
@@ -349,10 +343,6 @@ Nodes (3): createSupabaseMock(), createSupabaseQuery(), QueryResult
 Cohesion: 0.10
 Nodes (19): Attachment, Insert, ListOptions, Row, TableName, Update, Category, CategoryUpdate (+11 more)
 
-### Community 84 - "tailwind.config.js"
-Cohesion: 0.29
-Nodes (5): @vercel/speed-insights, NOTE: Provider composition (Theme, Query, Auth, Localization, Feature, RootStack(), VercelSpeedInsights(), RootProvider()
-
 ### Community 86 - "tsconfig.test.json"
 Cohesion: 0.33
 Nodes (5): compilerOptions, types, exclude, extends, include
@@ -366,44 +356,48 @@ Cohesion: 0.50
 Nodes (3): Expo HAS CHANGED, Graphify, Multi-Agent Workflow
 
 ### Community 89 - "buildCleanBackup"
-Cohesion: 0.40
-Nodes (6): buildCleanBackup(), buildKeyMap(), buildTransferGroupKeyMap(), keyFor(), makeKey(), scrubJsonIds()
+Cohesion: 0.29
+Nodes (7): buildCleanBackup(), buildKeyMap(), buildTransferGroupKeyMap(), fetchPaged(), keyFor(), makeKey(), scrubJsonIds()
 
 ### Community 91 - "grouped-account-select.tsx"
 Cohesion: 0.31
 Nodes (3): normalizeOnboardingGuides(), Profile, ProfilesRepository
 
 ### Community 92 - "SettingsScreen"
-Cohesion: 0.12
-Nodes (20): currencyOptions, languageOptions, SettingsScreen(), themeOptions, backup, mockedBackupService, mockedUseAuth, useExportHouseholdBackup() (+12 more)
+Cohesion: 0.26
+Nodes (8): useUpdatePreferredCurrency(), AuthContext, AuthContextValue, AuthProvider(), useSession(), AppCurrency, PreferencesState, usePreferencesStore
 
 ### Community 97 - "useHouseholdBackup.integration.test.tsx"
-Cohesion: 0.16
-Nodes (16): getTransactionTypeIcon(), TransactionsScreen(), TransfersScreen(), formatDate(), useCreateRecurringTransaction(), useDeleteRecurringTransaction(), useRecurringExecutionHistory(), useToggleRecurringTransaction() (+8 more)
+Cohesion: 0.14
+Nodes (17): SettingsScreen(), getTransactionTypeIcon(), TransactionsScreen(), useExportHouseholdBackup(), useImportHouseholdBackup(), useCreateHousehold(), useDefaultHousehold(), useSetDefaultHousehold() (+9 more)
+
+### Community 98 - "transfer.service.ts"
+Cohesion: 0.33
+Nodes (3): useCreateTransfer(), CreateTransferInput, TransferService
 
 ### Community 100 - "normalizeEmail"
-Cohesion: 0.29
-Nodes (3): asBackupFile(), fetchPaged(), HouseholdBackupService
+Cohesion: 0.25
+Nodes (4): asBackupFile(), HouseholdBackupService, safeNamePart(), Json
 
 ## Knowledge Gaps
-- **488 isolated node(s):** `config`, `parameters`, `{ timingSafeEqual }`, `name`, `slug` (+483 more)
+- **487 isolated node(s):** `config`, `parameters`, `{ timingSafeEqual }`, `name`, `slug` (+482 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **20 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **19 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `dependencies` connect `dependencies` to `scripts`, `tailwind.config.js`?**
-  _High betweenness centrality (0.121) - this node is a cross-community bridge._
-- **Why does `@vercel/speed-insights` connect `tailwind.config.js` to `dependencies`?**
-  _High betweenness centrality (0.116) - this node is a cross-community bridge._
-- **Why does `useTheme()` connect `index.ts` to `useAuth`, `google-sign-in-button.tsx`, `app-tabs.web.tsx`, `transfers.tsx`, `invalidateHouseholdData`, `settings.tsx`, `index.tsx`, `HouseholdsService`, `useTheme`, `CategoriesService`, `selection-shell.tsx`, `requireIdFor`, `session.types.ts`, `HouseholdsService`, `households.repository.ts`, `members.tsx`, `ThemeProvider.tsx`, `tailwind.config.js`, `SettingsScreen`, `useHouseholdBackup.integration.test.tsx`?**
-  _High betweenness centrality (0.106) - this node is a cross-community bridge._
+- **Why does `dependencies` connect `dependencies` to `RootProvider.tsx`, `scripts`?**
+  _High betweenness centrality (0.122) - this node is a cross-community bridge._
+- **Why does `@vercel/speed-insights` connect `RootProvider.tsx` to `dependencies`?**
+  _High betweenness centrality (0.117) - this node is a cross-community bridge._
+- **Why does `useTheme()` connect `index.ts` to `useAuth`, `google-sign-in-button.tsx`, `app-tabs.web.tsx`, `RootProvider.tsx`, `transfers.tsx`, `invalidateHouseholdData`, `settings.tsx`, `index.tsx`, `HouseholdsService`, `grouped-account-select.tsx`, `useTheme`, `CategoriesService`, `selection-shell.tsx`, `requireIdFor`, `session.types.ts`, `HouseholdsService`, `members.tsx`, `ThemeProvider.tsx`, `useHouseholdBackup.integration.test.tsx`?**
+  _High betweenness centrality (0.105) - this node is a cross-community bridge._
 - **What connects `config`, `parameters`, `{ timingSafeEqual }` to the rest of the system?**
-  _491 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _490 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `useAuth` be split into smaller, more focused modules?**
-  _Cohesion score 0.06778846153846153 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.050543637966500146 - nodes in this community are weakly interconnected._
 - **Should `dependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.034482758620689655 - nodes in this community are weakly interconnected._
 - **Should `recurring.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.11764705882352941 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.13333333333333333 - nodes in this community are weakly interconnected._

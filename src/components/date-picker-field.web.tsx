@@ -61,6 +61,7 @@ export function DatePickerField({ label, value, onChange, placeholder, granulari
       <span style={{ color: "#475569", fontSize: 14, fontWeight: 600 }}>{label}</span>
       <Group>
         <Button
+          type="button"
           style={({ isPressed }) => ({
             display: "flex",
             alignItems: "center",
@@ -85,7 +86,8 @@ export function DatePickerField({ label, value, onChange, placeholder, granulari
       </Group>
       <Popover
         offset={8}
-        style={{ border: "1px solid #CBD5E1", borderRadius: 14, background: "#FFFFFF", boxShadow: "0 16px 32px rgba(15, 23, 42, 0.16)", padding: 16, zIndex: 50 }}
+        isNonModal
+        style={{ border: "1px solid #CBD5E1", borderRadius: 14, background: "#FFFFFF", boxShadow: "0 16px 32px rgba(15, 23, 42, 0.16)", padding: 16, zIndex: 2147483647 }}
       >
         <Dialog style={{ outline: "none" }}>
           <Calendar>

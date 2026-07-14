@@ -293,9 +293,8 @@ export default function AccountsScreen() {
         {filteredAccounts.length ? (
           <Table
             columns={[
-              { label: t('accounts.name'), flex: 2.4 },
+              { label: t('accounts.name'), flex: 2.6 },
               { label: t('accounts.typeLabel'), flex: 1 },
-              { label: t('accounts.currency'), flex: 0.8, align: 'center' },
               { label: t('accounts.initialBalance'), align: 'right' },
               { label: t('dashboard.total'), align: 'right' },
               { label: '', flex: 0.35, align: 'right' },
@@ -307,13 +306,14 @@ export default function AccountsScreen() {
 
               return (
                 <TableRow key={account.id} onPress={() => setAccountHistory({ id: account.id, name: account.name })}>
-                  <TableCell flex={2.4}>
-                    <View style={{ gap: spacing(1) }}>
+                  <TableCell flex={2.6}>
+                    <View style={styles.accountIdentity}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
                         <Ionicons name={getAccountTypeIcon(account.type)} size={18} color={colors.primary} />
-                        <Text style={styles.accountName}>
-                          {account.name} - {getOwnerLabel(account.owner_profile_id)}
-                        </Text>
+                        <View style={{ flex: 1, gap: spacing(0.5) }}>
+                          <Text style={styles.accountName}>{account.name}</Text>
+                          <Text style={styles.accountMeta}>{getOwnerLabel(account.owner_profile_id)} · {account.currency}</Text>
+                        </View>
                       </View>
                       {isArchived ? (
                         <Badge label={t('accounts.archived')} tone="destructive" />
@@ -323,14 +323,11 @@ export default function AccountsScreen() {
                   <TableCell flex={1}>
                     <Badge label={t(`accounts.types.${account.type}`, { defaultValue: account.type })} tone={getAccountTypeTone(account.type)} />
                   </TableCell>
-                  <TableCell flex={0.8} align="center">
-                    <Text style={styles.accountMeta}>{account.currency}</Text>
+                  <TableCell align="right">
+                    <Text style={styles.openingBalance}>{formatCurrency(account.initial_balance ?? 0)}</Text>
                   </TableCell>
                   <TableCell align="right">
-                    <Text style={styles.accountMeta}>{formatCurrency(account.initial_balance ?? 0)}</Text>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text style={styles.accountTotal}>{formatCurrency(balance)}</Text>
+                    <Text style={styles.accountBalance}>{formatCurrency(balance)}</Text>
                   </TableCell>
                   <TableCell flex={0.35} align="right" mobilePinned>
                     <Pressable
@@ -607,11 +604,19 @@ function createStyles(colors: any) {
   },
   accountMeta: {
     color: colors.textSecondary,
+    fontSize: typography.fontSize[12],
   },
-  accountTotal: {
+  openingBalance: {
+    color: colors.textSecondary,
+    fontWeight: String(typography.fontWeight.semibold),
+  },
+  accountBalance: {
     color: colors.primary,
     fontWeight: String(typography.fontWeight.extraBold),
     fontSize: typography.fontSize[18],
+  },
+  accountIdentity: {
+    gap: spacing(1),
   },
   transferAmountIncome: {
     color: colors.success,

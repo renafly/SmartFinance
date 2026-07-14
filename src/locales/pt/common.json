@@ -47,6 +47,18 @@
     "inviteFunctionDescription": "Verifica se {{functionName}} responde a um pedido preflight seguro.",
     "runChecks": "Executar checks",
     "checking": "A verificar...",
+    "notificationTest": "Teste de notificação",
+    "notificationTestDescription": "Envia uma notificação local imediata para este dispositivo. Não requer configuração de push remoto.",
+    "triggerNotification": "Disparar notificação",
+    "triggeringNotification": "A disparar...",
+    "notificationTestChannel": "Diagnóstico",
+    "notificationTestMessageTitle": "Mensagem de teste de notificação",
+    "notificationTestMessageBody": "Mensagem de teste de notificação.",
+    "notificationTestSent": "Notificação de teste enviada. Verifique o banner de notificações.",
+    "notificationPermissionDenied": "A permissão de notificações não foi concedida.",
+    "notificationBrowserUnsupported": "Este browser não suporta notificações do sistema.",
+    "notificationSecureContextRequired": "As notificações do browser requerem uma ligação HTTPS segura.",
+    "notificationNotShown": "O browser aceitou o teste mas não o mostrou. Verifique a permissão de notificações deste site e as definições de notificações do sistema.",
     "configured": "Configurado",
     "notChecked": "Ainda não verificado",
     "notAvailable": "Indisponível",
@@ -365,6 +377,8 @@
     "verticalTotal": "Total da coluna",
     "changeSinceInitialBalance": "Variação desde o saldo inicial",
     "changeThisMonth": "Variação este mês",
+    "investedThisMonth": "Investido este mês",
+    "addedToSavingsThisMonth": "Adicionado às poupanças este mês",
     "spentThisMonth": "Gasto este mês",
     "investmentAccountsTitle": "Contas de investimento",
     "investmentAccountsSubtitle": "{{count}} conta(s) de investimento no agregado.",
@@ -777,7 +791,8 @@
 
   "notifications": {
     "title": "Notificações",
-    "empty": "Não tem notificações."
+    "empty": "Não tem notificações.",
+    "approve": "Aprovar"
   },
 
   "members": {
@@ -836,12 +851,83 @@
     "unknownError": "Erro desconhecido"
   },
 
+  "onboarding": {
+    "welcomeTitle": "Torne as suas finanças mais claras",
+    "welcomeDescription": "O SmartFinance reúne as contas, planos e objetivos do seu agregado num só lugar. Este guia curto mostra-lhe por onde começar.",
+    "progress": "Passo {{current}} de {{total}}",
+    "next": "Seguinte",
+    "back": "Anterior",
+    "skip": "Ignorar guia",
+    "done": "Concluir guia",
+    "start": "Iniciar guia",
+    "close": "Fechar",
+    "completionTitle": "Está tudo pronto",
+    "completionDescription": "Pode reabrir este guia a qualquer momento nas Definições, e as novas funcionalidades apresentam-se quando estiverem disponíveis.",
+    "restart": "Rever guia da aplicação",
+    "restartDescription": "Veja novamente o guia completo do SmartFinance.",
+    "sectionGuide": "Como funciona esta secção",
+    "reviewSectionGuide": "Rever guia",
+    "guideSeen": "Guia visto",
+    "newFeature": "Novo",
+    "featureGuideTitle": "Conheça {{feature}}",
+    "featureGuideDescription": "Esta funcionalidade é nova. Veja rapidamente como funciona.",
+    "dashboard": {
+      "title": "A sua visão financeira",
+      "description": "Veja o património acompanhado, os movimentos deste mês, contas, objetivos e atividade recente numa só vista.",
+      "tip": "Use os cabeçalhos das secções para recolher detalhes e focar-se no que importa agora."
+    },
+    "accounts": {
+      "title": "Reúna todas as contas",
+      "description": "Crie contas bancárias, de poupança, numerário, investimento, crédito e PPR. Atribua um proprietário ou deixe uma conta partilhada.",
+      "tip": "Os saldos e proprietários ajudam a distinguir dinheiro individual e partilhado."
+    },
+    "transactions": {
+      "title": "Registe entradas e saídas",
+      "description": "Adicione receitas e despesas com conta, categoria, data e notas ou fatura opcionais.",
+      "tip": "Use os filtros para rever rapidamente os gastos de uma pessoa, conta ou tipo de transação."
+    },
+    "transfers": {
+      "title": "Mova dinheiro sem perder o controlo",
+      "description": "As transferências ligam as contas de origem e destino, mantendo ambos os saldos consistentes. Também pode agendar movimentos recorrentes.",
+      "tip": "Escolha cuidadosamente a origem e o destino: uma transferência é registada como despesa e receita correspondente."
+    },
+    "budget": {
+      "title": "Planeie o mês antes de começar",
+      "description": "Defina rendimentos, regras mensais, meses ativos e destinos. Reveja a prévia antes de confirmar o mês.",
+      "tip": "Use meses ativos para regras sazonais, como contribuições de verão ou Natal."
+    },
+    "savings": {
+      "title": "Transforme poupanças em objetivos claros",
+      "description": "Crie pots de poupança, defina um objetivo, associe as contas que os alimentam e acompanhe o progresso.",
+      "tip": "Abra a previsão de contribuições de um pot para ver o percurso mensal ou anual esperado até ao objetivo."
+    },
+    "categories": {
+      "title": "Organize cada movimento",
+      "description": "Crie categorias de receita, despesa e conta para manter os relatórios e listas de transações úteis.",
+      "tip": "Use categorias-pai para organizar categorias mais detalhadas."
+    },
+    "members": {
+      "title": "Gira o agregado em conjunto",
+      "description": "Convide pessoas para o agregado, reveja adesões e gira os acessos à medida que o agregado muda.",
+      "tip": "Proprietários e administradores podem enviar convites e gerir outros membros."
+    },
+    "settings": {
+      "title": "Controle a configuração do agregado",
+      "description": "Gira os detalhes do agregado, idioma, tema, moeda, convites e cópias de segurança num só lugar.",
+      "tip": "Volte aqui sempre que quiser rever o guia da aplicação ou alterar as suas preferências."
+    }
+  },
+
   "auth": {
     "brand": "SmartFinance",
     "loginSubtitle": "Inicie sessão com Google",
     "loginTitle": "Inicie sessão com Google",
     "loginDescription": "O Google inicia a sessão através do Supabase para a aplicação carregar a sua sessão.",
     "loginFooter": "Ao continuar, aceita os Termos de Serviço e a Política de Privacidade.",
-    "continueWithGoogle": "Continuar com Google"
+    "continueWithGoogle": "Continuar com Google",
+    "googleSignInErrorTitle": "Não foi possível iniciar sessão com Google",
+    "googleSignInErrorMessage": "Tente novamente dentro de alguns instantes.",
+    "completingGoogleSignIn": "A concluir o início de sessão com Google...",
+    "googleCallbackErrorMessage": "Não foi possível concluir o início de sessão com Google. Tente novamente."
   }
 }

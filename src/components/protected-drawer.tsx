@@ -12,6 +12,8 @@ import { spacing } from '@/theme/spacing';
 import { useResponsiveMetrics } from '@/theme/responsive';
 import { isSystemAdminEmail } from '@/constants/admin-access';
 import { NotificationCenter } from '@/components/notification-center';
+import { useOnboarding } from '@/features/onboarding';
+import type { OnboardingGuideKey } from '@/features/onboarding';
 
 const menuIconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
   dashboard: 'home-outline',
@@ -25,6 +27,35 @@ const menuIconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
   diagnostics: 'pulse-outline',
   settings: 'settings-outline',
 };
+
+function getGuideKeyForPathname(pathname: string): OnboardingGuideKey | null {
+  if (pathname === '/' || pathname.endsWith('/(protected)') || pathname.endsWith('/index')) return 'dashboard';
+
+  const section = pathname.split('/').filter(Boolean).at(-1);
+  return ['accounts', 'transactions', 'transfers', 'budget', 'savings', 'categories', 'members', 'settings'].includes(section ?? '')
+    ? (section as OnboardingGuideKey)
+    : null;
+}
+
+function SectionGuideButton({ guideKey }: { guideKey: OnboardingGuideKey | null }) {
+  const { t } = useTranslation('common');
+  const { colors } = useTheme();
+  const { openGuide } = useOnboarding();
+
+  if (!guideKey) return null;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t('onboarding.sectionGuide')}
+      onPress={() => openGuide(guideKey)}
+      style={({ pressed }) => [styles.guideButton, { backgroundColor: colors.primarySoft, borderColor: colors.primary }, pressed && styles.pressed]}
+    >
+      <Ionicons name="help-circle-outline" size={18} color={colors.primary} />
+      <Text style={[styles.guideLabel, { color: colors.primary }]}>{t('onboarding.sectionGuide')}</Text>
+    </Pressable>
+  );
+}
 
 export function ProtectedDrawerLayout() {
   const { t } = useTranslation('common');
@@ -78,6 +109,7 @@ function DrawerContent(props: DrawerContentComponentProps) {
   const responsive = useResponsiveMetrics();
   const closeDrawerAfterNavigate = Platform.OS !== 'web' || !responsive.isDesktop;
   const canViewDiagnostics = isSystemAdminEmail(profile?.email, session?.user.email);
+  const guideKey = getGuideKeyForPathname(pathname);
   const navigateTo = (href: string) => {
     router.push(href as any);
     if (closeDrawerAfterNavigate) {
@@ -173,6 +205,8 @@ function DrawerContent(props: DrawerContentComponentProps) {
 
         <NotificationCenter />
 
+        <SectionGuideButton guideKey={guideKey} />
+
         <View style={styles.groupedMenu}>
           {menuGroups.map((group) => (
             <View key={group.title} style={styles.groupBlock}>
@@ -232,6 +266,8 @@ function DrawerContent(props: DrawerContentComponentProps) {
       </View>
 
       <NotificationCenter />
+
+      <SectionGuideButton guideKey={guideKey} />
 
       <View style={styles.navList}>
         {menuItems.map((item) => {
@@ -343,6 +379,20 @@ const styles: any = StyleSheet.create({
   logoutLabel: {
     fontWeight: typography.fontWeight.bold as any,
     fontSize: typography.fontSize[15],
+  },
+  guideButton: {
+    minHeight: 44,
+    paddingHorizontal: spacing(3.5),
+    paddingVertical: spacing(2.5),
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing(2),
+  },
+  guideLabel: {
+    fontWeight: typography.fontWeight.bold as any,
+    fontSize: typography.fontSize[14],
   },
   pressed: {
     opacity: 0.85,

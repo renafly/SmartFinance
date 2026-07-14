@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useNotifications, useMarkNotificationRead } from "@/features/notifications/hooks";
+import { notificationsService } from "@/features/notifications/services/notifications.service";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
@@ -13,6 +15,7 @@ export function NotificationCenter() {
   const { colors } = useTheme();
   const notifications = useNotifications();
   const markRead = useMarkNotificationRead();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const unread = (notifications.data ?? []).filter((item) => !item.read_at).length;
 
@@ -30,10 +33,31 @@ export function NotificationCenter() {
             <Text style={[styles.title, { color: colors.text }]}>{t("notifications.title")}</Text>
             <ScrollView contentContainerStyle={styles.list}>
               {(notifications.data ?? []).map((item) => (
-                <Pressable key={item.id} onPress={() => { if (!item.read_at) void markRead.mutateAsync(item.id); }} style={[styles.item, { borderColor: colors.border, backgroundColor: item.read_at ? colors.surface : colors.surfaceMuted }]}>
-                  <Text style={[styles.itemTitle, { color: colors.text }]}>{item.title}</Text>
+                <View key={item.id} style={[styles.item, { borderColor: colors.border, backgroundColor: item.read_at ? colors.surface : colors.surfaceMuted }]}>
+                  <View style={styles.itemHeader}>
+                    <Text style={[styles.itemTitle, { color: colors.text }]}>{item.title}</Text>
+                    <Pressable
+                      onPress={() => void notificationsService.softDelete(item.id).then(() => queryClient.invalidateQueries({ queryKey: ["notifications"] }))}
+                      hitSlop={8}
+                      style={styles.iconButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={t("delete")}
+                    >
+                      <Ionicons name="close" size={16} color={colors.textSecondary} />
+                    </Pressable>
+                  </View>
                   <Text style={[styles.itemBody, { color: colors.textSecondary }]}>{item.body}</Text>
-                </Pressable>
+                  {!item.read_at ? (
+                    <Pressable
+                      onPress={() => void markRead.mutateAsync(item.id)}
+                      style={[styles.approve, { borderColor: colors.primary }]}
+                    >
+                      <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.bold as any }}>
+                        {t("approve")}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
               ))}
               {!notifications.isLoading && !(notifications.data ?? []).length ? <Text style={{ color: colors.textSecondary }}>{t("notifications.empty")}</Text> : null}
             </ScrollView>
@@ -55,7 +79,10 @@ const styles: any = StyleSheet.create({
   title: { fontSize: typography.fontSize[20], fontWeight: typography.fontWeight.extraBold as any },
   list: { gap: spacing(2) },
   item: { gap: spacing(1), borderWidth: 1, borderRadius: radius.lg, padding: spacing(3) },
-  itemTitle: { fontWeight: typography.fontWeight.bold as any },
+  itemHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing(2) },
+  itemTitle: { flex: 1, fontWeight: typography.fontWeight.bold as any },
   itemBody: { fontSize: typography.fontSize[13], lineHeight: typography.lineHeight[18] },
+  iconButton: { padding: spacing(0.5) },
+  approve: { alignSelf: "flex-start", marginTop: spacing(1), borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing(2.5), paddingVertical: spacing(1.5) },
   close: { alignSelf: "flex-end", borderWidth: 1, borderRadius: radius.lg, paddingHorizontal: spacing(3), paddingVertical: spacing(2) },
 });

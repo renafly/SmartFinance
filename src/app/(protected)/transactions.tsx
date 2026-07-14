@@ -718,48 +718,38 @@ export default function TransactionsScreen() {
           <>
             <Table
               columns={[
-                { label: t('transactions.titleLabel'), flex: 2 },
-                { label: t('transactions.account'), flex: 1.2 },
-                { label: t('transactions.categories'), flex: 1.2 },
-                { label: t('transactions.createdBy'), flex: 1.2 },
-                { label: t('transactions.dateLabel'), flex: 1 },
+                { label: t('transactions.titleLabel'), flex: 2.4 },
+                { label: t('transactions.account'), flex: 1.8 },
                 { label: t('transactions.amountLabel'), align: 'right' },
                 { label: '', flex: 0.35, align: 'right' },
               ]}
             >
               {transactions.map((item: any) => (
                 <TableRow key={item.id}>
-                  <TableCell flex={2}>
-                    <View style={{ gap: spacing(1) }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                  <TableCell flex={2.4}>
+                    <View style={styles.transactionIdentity}>
+                      <View style={[styles.transactionIcon, { backgroundColor: item.type === 'expense' ? colors.destructiveSoft : colors.successSoft }]}>
                         <Ionicons name={getTransactionTypeIcon(item.type)} size={18} color={item.type === 'expense' ? colors.destructive : colors.success} />
-                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold as any } as any}>{item.title}</Text>
                       </View>
-                      <Badge label={t(`transactions.types.${item.type}`)} tone={item.type === 'expense' ? 'destructive' : 'success'} />
+                      <View style={styles.transactionDetails}>
+                        <Text style={styles.transactionTitle}>{item.title}</Text>
+                        <Text style={styles.transactionContext}>{item.category?.name ?? t('transactions.uncategorized')} · {formatDate(item.transaction_date)}</Text>
+                      </View>
                     </View>
                   </TableCell>
-                  <TableCell flex={1.2}>
-                    <Text style={{ color: colors.textSecondary } as any}>
-                      {getTransactionAccountLabel(item)}
-                    </Text>
-                  </TableCell>
-                  <TableCell flex={1.2}>
-                    <Text style={{ color: colors.textSecondary } as any}>{item.category?.name ?? t('transactions.uncategorized')}</Text>
-                  </TableCell>
-                  <TableCell flex={1.2}>
-                    <Text style={{ color: colors.textSecondary } as any}>
-                      {
-                        item.created_by_profile?.id === profile?.id
+                  <TableCell flex={1.8}>
+                    <View style={styles.transactionDetails}>
+                      <Text style={styles.transactionAccount}>{getTransactionAccountLabel(item)}</Text>
+                      <Text style={styles.transactionContext}>
+                        {item.created_by_profile?.id === profile?.id
                           ? currentUserLabel
                           : memberLabelMap.get(item.created_by_profile?.id ?? item.created_by) ?? t('settings.unnamedUser')
-                      }
-                    </Text>
-                  </TableCell>
-                  <TableCell flex={1}>
-                    <Text style={{ color: colors.textSecondary } as any}>{formatDate(item.transaction_date)}</Text>
+                        }
+                      </Text>
+                    </View>
                   </TableCell>
                   <TableCell align="right">
-                    <Text style={{ color: item.type === 'expense' ? colors.destructive : colors.success, fontWeight: typography.fontWeight.extraBold as any } as any}>
+                    <Text style={[styles.transactionAmount, { color: item.type === 'expense' ? colors.destructive : colors.success }]}>
                       {item.type === 'expense' ? '-' : '+'}{formatCurrency(item.amount)}
                     </Text>
                   </TableCell>
@@ -931,6 +921,13 @@ function createStyles(colors: any) {
     justifyContent: 'space-between',
     gap: spacing(3),
   },
+  transactionIdentity: { flexDirection: 'row', alignItems: 'center', gap: spacing(2) },
+  transactionIcon: { width: spacing(9), height: spacing(9), borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  transactionDetails: { flex: 1, gap: spacing(0.5) },
+  transactionTitle: { color: colors.text, fontWeight: String(typography.fontWeight.bold) },
+  transactionAccount: { color: colors.text, fontWeight: String(typography.fontWeight.semibold) },
+  transactionContext: { color: colors.textSecondary, fontSize: typography.fontSize[12] },
+  transactionAmount: { fontSize: typography.fontSize[16], fontWeight: String(typography.fontWeight.extraBold) },
   menuButton: {
     width: spacing(10.5),
     height: spacing(10.5),

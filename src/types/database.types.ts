@@ -448,6 +448,7 @@ export type Database = {
           locale: string;
           timezone: string | null;
           default_household_id: string | null;
+          onboarding_guides: Json;
           created_at: string;
           updated_at: string;
         };
@@ -460,6 +461,7 @@ export type Database = {
           locale?: string;
           timezone?: string | null;
           default_household_id?: string | null;
+          onboarding_guides?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -472,6 +474,7 @@ export type Database = {
           locale?: string;
           timezone?: string | null;
           default_household_id?: string | null;
+          onboarding_guides?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -836,6 +839,10 @@ export type Database = {
           success: boolean;
           message: string;
         }[];
+      };
+      complete_onboarding_guide: {
+        Args: { p_guide_key: string; p_version: number };
+        Returns: Json;
       };
       list_my_household_invitations: {
         Args: Record<string, never>;

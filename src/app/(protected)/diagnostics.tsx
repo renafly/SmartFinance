@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect } from 'expo-router';
 
 import { Card, Page, Section } from '@/components/migrated-page';
 import { isSystemAdminEmail } from '@/constants/admin-access';
 import { useAuth } from '@/providers/AuthProvider';
+import { useToast } from '@/providers/ToastProvider';
+import { notificationsService } from '@/features/notifications/services/notifications.service';
 import { supabase } from '@/shared/lib/supabase/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius } from '@/theme/radius';
@@ -25,6 +28,7 @@ type DiagnosticItem = {
 
 const STORAGE_BUCKET = 'attachments';
 const INVITE_FUNCTION = 'send-household-invitation';
+const DIAGNOSTICS_NOTIFICATION_CHANNEL = 'diagnostics-test';
 
 function maskSecret(value: string | undefined, configuredLabel: string) {
   if (!value) return '';
@@ -36,10 +40,14 @@ export default function DiagnosticsScreen() {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
   const { isLoading, profile, session } = useAuth();
+  const { show } = useToast();
+  const queryClient = useQueryClient();
   const canViewDiagnostics = isSystemAdminEmail(profile?.email, session?.user.email);
   const [storageStatus, setStorageStatus] = useState<DiagnosticItem | null>(null);
   const [functionStatus, setFunctionStatus] = useState<DiagnosticItem | null>(null);
+  const [notificationStatus, setNotificationStatus] = useState<DiagnosticItem | null>(null);
   const [isChecking, setIsChecking] = useState(false);
+  const [isTriggeringNotification, setIsTriggeringNotification] = useState(false);
 
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -171,6 +179,154 @@ export default function DiagnosticsScreen() {
     }
   }
 
+  async function triggerNotificationTest() {
+    setIsTriggeringNotification(true);
+    const defaultItem = {
+      key: 'notificationTest',
+      label: t('diagnostics.notificationTest'),
+      description: t('diagnostics.notificationTestDescription'),
+    };
+    const recipientId = session?.user.id ?? profile?.id;
+
+    async function createMenuNotification(title: string, body: string) {
+      if (!recipientId) return;
+
+      await notificationsService.createTestNotification({
+        recipientId,
+        title,
+        body,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['notifications', recipientId] });
+    }
+
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof window === 'undefined' || !('Notification' in window)) {
+          setNotificationStatus({
+            ...defaultItem,
+            status: 'error',
+            value: t('diagnostics.notificationBrowserUnsupported'),
+          });
+          return;
+        }
+
+        if (!window.isSecureContext) {
+          setNotificationStatus({
+            ...defaultItem,
+            status: 'warning',
+            value: t('diagnostics.notificationSecureContextRequired'),
+          });
+          return;
+        }
+
+        const permission =
+          Notification.permission === 'granted'
+            ? Notification.permission
+            : await Notification.requestPermission();
+
+        if (permission !== 'granted') {
+          setNotificationStatus({
+            ...defaultItem,
+            status: 'error',
+            value: t('diagnostics.notificationPermissionDenied'),
+          });
+          return;
+        }
+
+        const wasShown = await new Promise<boolean>((resolve) => {
+          const notification = new Notification(t('diagnostics.notificationTestMessageTitle'), {
+            body: t('diagnostics.notificationTestMessageBody'),
+            tag: DIAGNOSTICS_NOTIFICATION_CHANNEL,
+          });
+          const timeout = setTimeout(() => {
+            notification.close();
+            resolve(false);
+          }, 4_000);
+
+          notification.onshow = () => {
+            clearTimeout(timeout);
+            resolve(true);
+          };
+          notification.onerror = () => {
+            clearTimeout(timeout);
+            resolve(false);
+          };
+        });
+
+        if (!wasShown) {
+          setNotificationStatus({
+            ...defaultItem,
+            status: 'warning',
+            value: t('diagnostics.notificationNotShown'),
+          });
+          return;
+        }
+
+        setNotificationStatus({
+          ...defaultItem,
+          status: 'ready',
+          value: t('diagnostics.notificationTestSent'),
+        });
+        await createMenuNotification(t('diagnostics.notificationTestMessageTitle'), t('diagnostics.notificationTestMessageBody'));
+        show(t('diagnostics.notificationTestSent'));
+        return;
+      }
+
+      const Notifications = await import('expo-notifications');
+
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync(DIAGNOSTICS_NOTIFICATION_CHANNEL, {
+          name: t('diagnostics.notificationTestChannel'),
+          importance: Notifications.AndroidImportance.DEFAULT,
+        });
+      }
+
+      const existingPermission = await Notifications.getPermissionsAsync();
+      const permission =
+        existingPermission.status === 'granted'
+          ? existingPermission
+          : await Notifications.requestPermissionsAsync();
+
+      if (permission.status !== 'granted') {
+        setNotificationStatus({
+          ...defaultItem,
+          status: 'error',
+          value: t('diagnostics.notificationPermissionDenied'),
+        });
+        return;
+      }
+
+      const title = t('diagnostics.notificationTestMessageTitle');
+      const body = t('diagnostics.notificationTestMessageBody');
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data: { source: 'release-diagnostics' },
+        },
+        trigger: null,
+      });
+
+      await createMenuNotification(title, body);
+
+      setNotificationStatus({
+        ...defaultItem,
+        status: 'ready',
+        value: t('diagnostics.notificationTestSent'),
+      });
+      show(t('diagnostics.notificationTestSent'));
+    } catch (error) {
+      setNotificationStatus({
+        ...defaultItem,
+        status: 'error',
+        value: error instanceof Error ? error.message : t('diagnostics.unknownError'),
+      });
+    } finally {
+      setIsTriggeringNotification(false);
+    }
+  }
+
   return (
     <Page title={t('diagnostics.title')} subtitle={t('diagnostics.subtitle')}>
       <Card>
@@ -199,6 +355,47 @@ export default function DiagnosticsScreen() {
             <Ionicons name="pulse-outline" size={18} color={colors.primaryForeground} />
             <Text style={[styles.checkButtonText, { color: colors.primaryForeground }]}>
               {isChecking ? t('diagnostics.checking') : t('diagnostics.runChecks')}
+            </Text>
+          </Pressable>
+        </Section>
+      </Card>
+
+      <Card>
+        <Section
+          title={t('diagnostics.notificationTest')}
+          subtitle={t('diagnostics.notificationTestDescription')}
+        >
+          <View style={styles.grid}>
+            <DiagnosticRow
+              item={
+                notificationStatus ?? {
+                  key: 'notificationTest',
+                  label: t('diagnostics.notificationTest'),
+                  description: t('diagnostics.notificationTestDescription'),
+                  status: 'warning',
+                  value: t('diagnostics.notChecked'),
+                }
+              }
+            />
+          </View>
+          <Pressable
+            onPress={() => void triggerNotificationTest()}
+            disabled={isTriggeringNotification}
+            style={({ pressed }) => [
+              styles.checkButton,
+              {
+                backgroundColor: colors.primary,
+                borderColor: colors.primary,
+                opacity: isTriggeringNotification ? 0.6 : 1,
+              },
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons name="notifications-outline" size={18} color={colors.primaryForeground} />
+            <Text style={[styles.checkButtonText, { color: colors.primaryForeground }]}>
+              {isTriggeringNotification
+                ? t('diagnostics.triggeringNotification')
+                : t('diagnostics.triggerNotification')}
             </Text>
           </Pressable>
         </Section>

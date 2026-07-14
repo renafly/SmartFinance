@@ -6,6 +6,27 @@ import type { Database } from "@/types/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+export type OnboardingGuides = Record<string, number>;
+
+function normalizeOnboardingGuides(value: Database["public"]["Tables"]["profiles"]["Row"]["onboarding_guides"]): OnboardingGuides {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  const guides: OnboardingGuides = {};
+  for (const [key, version] of Object.entries(value)) {
+    if (
+      /^[a-z0-9][a-z0-9_-]{0,63}$/.test(key) &&
+      typeof version === "number" &&
+      Number.isInteger(version) &&
+      version > 0
+    ) {
+      guides[key] = version;
+    }
+  }
+
+  return guides;
+}
 
 export class ProfilesRepository extends BaseRepository<"profiles"> {
   constructor(client: SupabaseClient<Database>) {
@@ -37,5 +58,28 @@ export class ProfilesRepository extends BaseRepository<"profiles"> {
       return { data: null, error: new Error("no authenticated user") };
 
     return this.findById(authData.user.id);
+  }
+
+  async getCurrentOnboardingGuides(): Promise<RepoResult<OnboardingGuides>> {
+    const result = await this.findCurrent();
+
+    if (result.error) return { data: null, error: result.error };
+    return {
+      data: normalizeOnboardingGuides(result.data.onboarding_guides),
+      error: null,
+    };
+  }
+
+  async completeOnboardingGuide(
+    guideKey: string,
+    version: number,
+  ): Promise<RepoResult<OnboardingGuides>> {
+    const { data, error } = await this.client.rpc("complete_onboarding_guide", {
+      p_guide_key: guideKey,
+      p_version: version,
+    });
+
+    if (error) return { data: null, error };
+    return { data: normalizeOnboardingGuides(data), error: null };
   }
 }
