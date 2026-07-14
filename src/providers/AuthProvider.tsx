@@ -1,10 +1,45 @@
 import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
+import * as Linking from 'expo-linking';
 import { supabase } from '../shared/lib/supabase/client';
 import { useSession, type Claims, type UserProfile } from '../shared/session';
 import { usePreferencesStore, type AppCurrency } from '@/stores/preferencesStore';
+import { AUTH_CALLBACK_ROUTE } from '@/features/auth/constants';
 
 function logAuthError(message: string) {
   console.error(message);
+}
+
+function isNativeAuthCallback(url: string) {
+  const parsedUrl = new URL(url);
+  const callbackPath = `${parsedUrl.hostname ? `/${parsedUrl.hostname}` : ''}${parsedUrl.pathname}`;
+
+  return parsedUrl.protocol === 'smartfinance:' && (
+    callbackPath === AUTH_CALLBACK_ROUTE || callbackPath === '/google-auth'
+  );
+}
+
+async function completeNativeAuthCallback(url: string) {
+  if (!isNativeAuthCallback(url)) return false;
+
+  const parsedUrl = new URL(url);
+  const hashParams = new URLSearchParams(parsedUrl.hash.slice(1));
+  const accessToken = hashParams.get('access_token');
+  const refreshToken = hashParams.get('refresh_token');
+  const code = parsedUrl.searchParams.get('code');
+
+  if (accessToken && refreshToken) {
+    const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+    if (error) throw error;
+    return true;
+  }
+
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) throw error;
+    return true;
+  }
+
+  throw new Error('The authentication callback did not contain a session.');
 }
 
 type AuthContextValue = {
@@ -63,6 +98,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     fetchClaims();
 
+    const handleNativeCallback = async (url: string) => {
+      try {
+        const completed = await completeNativeAuthCallback(url);
+        if (completed) await syncAuthState(isMounted);
+      } catch (error) {
+        console.error('Error completing native Supabase callback.', error);
+      }
+    };
+
+    void Linking.getInitialURL().then((url) => {
+      if (url) void handleNativeCallback(url);
+    });
+
+    const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
+      void handleNativeCallback(url);
+    });
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
@@ -80,6 +132,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       isMounted = false;
       subscription.unsubscribe();
+      linkingSubscription.remove();
     };
   }, []);
 

@@ -50,9 +50,9 @@
     "semantic_hash": ""
   },
   "eas.json": {
-    "mtime": 1782501859.9014857,
-    "ast_hash": "53ed3d0ef84b9f86b397e06d7d98abfa",
-    "semantic_hash": "53ed3d0ef84b9f86b397e06d7d98abfa"
+    "mtime": 1783941624.4305148,
+    "ast_hash": "cb736ecf99ef9af583257dc5ca9fb631",
+    "semantic_hash": ""
   },
   "eslint.config.js": {
     "mtime": 1783771220.937006,
@@ -115,13 +115,13 @@
     "semantic_hash": ""
   },
   "src/app/(protected)/accounts.tsx": {
-    "mtime": 1783930000.5150218,
-    "ast_hash": "79729c046af67eb7a939e27150adf60d",
+    "mtime": 1783942401.1207435,
+    "ast_hash": "5348c014ff52484a38dfe5c4a8e627af",
     "semantic_hash": ""
   },
   "src/app/(protected)/budget.tsx": {
-    "mtime": 1783929935.639987,
-    "ast_hash": "7fca71adf649c9600db8fbb8f3993f6c",
+    "mtime": 1783943189.49738,
+    "ast_hash": "19d4c72535a47020cb1e2497d16f5c02",
     "semantic_hash": ""
   },
   "src/app/(protected)/categories.tsx": {
@@ -130,13 +130,13 @@
     "semantic_hash": ""
   },
   "src/app/(protected)/diagnostics.tsx": {
-    "mtime": 1783771634.289703,
-    "ast_hash": "da656b46c9210ace6456e2ef4f55a492",
+    "mtime": 1783967367.020006,
+    "ast_hash": "4768585841b4f235b3c692a555fb3896",
     "semantic_hash": ""
   },
   "src/app/(protected)/index.tsx": {
-    "mtime": 1783932264.6994717,
-    "ast_hash": "5aa4c548983aea658be258907420be91",
+    "mtime": 1783947989.815294,
+    "ast_hash": "3c3ca6bdb2a7324971b2545e53a214e9",
     "semantic_hash": ""
   },
   "src/app/(protected)/members.tsx": {
@@ -145,23 +145,23 @@
     "semantic_hash": ""
   },
   "src/app/(protected)/savings.tsx": {
-    "mtime": 1783930164.0674663,
-    "ast_hash": "b067eb983d71c9f048f4d0cfbfb81185",
+    "mtime": 1783944314.9126163,
+    "ast_hash": "e08893afe5e21439aecc5fcd3609fb4b",
     "semantic_hash": ""
   },
   "src/app/(protected)/settings.tsx": {
-    "mtime": 1783940340.514547,
-    "ast_hash": "afe4870f1f712f43010fb94b3c6adda6",
+    "mtime": 1783942413.6356769,
+    "ast_hash": "5a024c5c391d0646fa1538e906e4b2ea",
     "semantic_hash": ""
   },
   "src/app/(protected)/transactions.tsx": {
-    "mtime": 1783929982.5485678,
-    "ast_hash": "8a8fe5ad3568597b2dbb09f7fb5269f4",
+    "mtime": 1783942560.9189923,
+    "ast_hash": "ef026e28cf67bb0d5fed325d4807e499",
     "semantic_hash": ""
   },
   "src/app/(protected)/transfers.tsx": {
-    "mtime": 1783930120.508124,
-    "ast_hash": "f693c6b16f7980f18659c459a40b8309",
+    "mtime": 1783942419.7125971,
+    "ast_hash": "981a20c72c68383ba908845c9d5efb41",
     "semantic_hash": ""
   },
   "src/app/(public)/_layout.tsx": {
@@ -185,8 +185,8 @@
     "semantic_hash": ""
   },
   "src/app/google-auth.tsx": {
-    "mtime": 1783771634.3065953,
-    "ast_hash": "38ca0c5922b0d04c4da42ac446ecb887",
+    "mtime": 1783942125.009983,
+    "ast_hash": "ce6b24f82bc59fcee29306c6a024aba3",
     "semantic_hash": ""
   },
   "src/app/invite/[token].tsx": {
@@ -215,8 +215,8 @@
     "semantic_hash": ""
   },
   "src/components/data-surface.tsx": {
-    "mtime": 1783771634.3096676,
-    "ast_hash": "b639043f2168f916c541df45b9534cee",
+    "mtime": 1783942393.5475018,
+    "ast_hash": "26ad1a737da0a75f6b1f6b6424347ee7",
     "semantic_hash": ""
   },
   "src/components/external-link.tsx": {
@@ -245,8 +245,8 @@
     "semantic_hash": ""
   },
   "src/components/icon-picker.tsx": {
-    "mtime": 1783771634.3191483,
-    "ast_hash": "ea5461c96f23446e6af4c4a3ab8777fc",
+    "mtime": 1783944290.4300115,
+    "ast_hash": "f04d79d3ddb5284c211f7a3dd553a679",
     "semantic_hash": ""
   },
   "src/components/migrated-page.tsx": {
@@ -260,8 +260,8 @@
     "semantic_hash": ""
   },
   "src/components/selection-shell.tsx": {
-    "mtime": 1783771634.3319678,
-    "ast_hash": "9f5ad7651f1dea5805d6567943ab3987",
+    "mtime": 1783944288.7128236,
+    "ast_hash": "8b909adb5333dba6b9ebc975f6fc984f",
     "semantic_hash": ""
   },
   "src/components/themed-text.tsx": {
@@ -375,8 +375,8 @@
     "semantic_hash": ""
   },
   "src/features/auth/components/google-sign-in-button.tsx": {
-    "mtime": 1783771634.3376215,
-    "ast_hash": "ddac4cd6bd056021a1a3e26cc5fb962f",
+    "mtime": 1783941967.174878,
+    "ast_hash": "de823fdbc3311a2016aa97c6863479a4",
     "semantic_hash": ""
   },
   "src/features/auth/components/google-sign-in-button.web.tsx": {
@@ -390,8 +390,8 @@
     "semantic_hash": ""
   },
   "src/features/auth/constants.ts": {
-    "mtime": 1783771221.2502468,
-    "ast_hash": "372f8a68dc4599c316eaaa83118317f5",
+    "mtime": 1783942119.7923687,
+    "ast_hash": "a693fe9d60a6adbdc3304f92cca7fd37",
     "semantic_hash": ""
   },
   "src/features/auth/index.ts": {
@@ -400,8 +400,8 @@
     "semantic_hash": ""
   },
   "src/features/auth/redirects.ts": {
-    "mtime": 1783771221.25835,
-    "ast_hash": "630c99cc9af1d1120f711c22b59e7b3e",
+    "mtime": 1783943196.2349145,
+    "ast_hash": "10dc5b4f3484f844af6e9441104c5836",
     "semantic_hash": ""
   },
   "src/features/auth/redirects.unit.test.ts": {
@@ -535,8 +535,8 @@
     "semantic_hash": ""
   },
   "src/features/monthly-budget/services/monthly-budget.service.ts": {
-    "mtime": 1783784163.5514975,
-    "ast_hash": "7c72717deb988e423015574f55e196eb",
+    "mtime": 1783942399.9992628,
+    "ast_hash": "56bf0c41f7df30a04e8df746f13d4812",
     "semantic_hash": ""
   },
   "src/features/monthly-budget/services/monthly-budget.service.unit.test.ts": {
@@ -575,8 +575,8 @@
     "semantic_hash": ""
   },
   "src/features/saving-pots/hooks/index.ts": {
-    "mtime": 1783771634.3802352,
-    "ast_hash": "dfafc688b9c938846ac8a9433a7593a2",
+    "mtime": 1783967412.4232433,
+    "ast_hash": "a993e086f7445de6abb46f1ac8945d9f",
     "semantic_hash": ""
   },
   "src/features/saving-pots/services/saving-pots.service.ts": {
@@ -680,13 +680,13 @@
     "semantic_hash": ""
   },
   "src/locales/en/common.json": {
-    "mtime": 1783939904.050639,
-    "ast_hash": "f894bed293ed8d3adbd338d285205ac9",
+    "mtime": 1783965669.7865267,
+    "ast_hash": "87d1599f39881c2c7e25118e97a55d03",
     "semantic_hash": ""
   },
   "src/locales/pt/common.json": {
-    "mtime": 1783939906.4229758,
-    "ast_hash": "da847cdf94488c0be69a63a63fa05535",
+    "mtime": 1783965672.5495582,
+    "ast_hash": "bbf259e11ffb5abc0fdfc780b01fe9f5",
     "semantic_hash": ""
   },
   "src/navigation/Guest.tsx": {
@@ -700,8 +700,8 @@
     "semantic_hash": ""
   },
   "src/providers/AuthProvider.tsx": {
-    "mtime": 1783771634.420655,
-    "ast_hash": "1807b815878aa54c883cfe26e654d614",
+    "mtime": 1783942718.7779999,
+    "ast_hash": "47b2247c5203fa0db4f3bfaa7600b235",
     "semantic_hash": ""
   },
   "src/providers/FeatureFlagProvider.tsx": {
@@ -765,8 +765,8 @@
     "semantic_hash": ""
   },
   "src/repositories/monthly-budget.repository.ts": {
-    "mtime": 1783784162.0424185,
-    "ast_hash": "16ba23a9444f67b6fae2fcd74c63fc75",
+    "mtime": 1783942405.7086987,
+    "ast_hash": "5724b092076b16bc5aa92f97557e6de2",
     "semantic_hash": ""
   },
   "src/repositories/profiles.repository.ts": {
@@ -1350,8 +1350,8 @@
     "semantic_hash": ""
   },
   "src/features/saving-pots/hooks/useSavingPotForecasts.ts": {
-    "mtime": 1783771634.382237,
-    "ast_hash": "d52529f59eef6fc7ac1098b2ed4c2068",
+    "mtime": 1783967473.1359937,
+    "ast_hash": "dd86b4f5970ba5cccf9bf1ff28d8515f",
     "semantic_hash": ""
   },
   "src/features/saving-pots/services/saving-pot-forecast.service.ts": {
@@ -1400,8 +1400,8 @@
     "semantic_hash": ""
   },
   "src/providers/NotificationsProvider.tsx": {
-    "mtime": 1783771634.4237578,
-    "ast_hash": "a266c3088d47561abd8337d514b74279",
+    "mtime": 1783967349.5598097,
+    "ast_hash": "30ad300d56a627236c3947e6672da570",
     "semantic_hash": ""
   },
   "supabase/migrations/20260710000500_notifications.sql": {
@@ -1507,6 +1507,26 @@
   "src/features/onboarding/ProfileOnboardingProvider.tsx": {
     "mtime": 1783940311.4461312,
     "ast_hash": "e129fb1bc27302996c012d30499cbefc",
+    "semantic_hash": ""
+  },
+  "src/app/login-callback.tsx": {
+    "mtime": 1783942122.9803052,
+    "ast_hash": "ca69752b907c54d864b5851a8837e126",
+    "semantic_hash": ""
+  },
+  "src/features/auth/components/login-callback-screen.tsx": {
+    "mtime": 1783942720.3328457,
+    "ast_hash": "43260d2d0c09c82dfaf72be481a6698c",
+    "semantic_hash": ""
+  },
+  "src/shared/lib/persistent-storage.ts": {
+    "mtime": 1783943186.4957428,
+    "ast_hash": "23b05a9613ec935eed4025f28a3bf7e4",
+    "semantic_hash": ""
+  },
+  "src/features/saving-pots/hooks/useSavingPotQueries.ts": {
+    "mtime": 1783967385.9462414,
+    "ast_hash": "e04fc8986c56a0f5d9f74d6a6c1e2f68",
     "semantic_hash": ""
   }
 }

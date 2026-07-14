@@ -2,15 +2,10 @@ import { useEffect, useRef, type PropsWithChildren } from "react";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
 import { useAuth } from "@/providers/AuthProvider";
 import { useNotifications } from "@/features/notifications/hooks";
 import { notificationsService } from "@/features/notifications/services/notifications.service";
 import { useToast } from "./ToastProvider";
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false }),
-});
 
 export function NotificationsProvider({ children }: PropsWithChildren) {
   const { profile } = useAuth();
@@ -32,6 +27,10 @@ export function NotificationsProvider({ children }: PropsWithChildren) {
     const userId = profile.id;
 
     async function register() {
+      const Notifications = await import("expo-notifications");
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false }),
+      });
       if (Platform.OS === "android") {
         await Notifications.setNotificationChannelAsync("default", {
           name: "SmartFinance",
@@ -43,7 +42,13 @@ export function NotificationsProvider({ children }: PropsWithChildren) {
       if (!active || permission.status !== "granted") return;
       const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
       if (!projectId) return;
-      const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+      let token: string;
+      try {
+        token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+      } catch {
+        // Android push-token registration requires native Firebase configuration.
+        return;
+      }
       if (active && (Platform.OS === "android" || Platform.OS === "ios")) {
         await notificationsService.registerPushDevice(userId, token, Platform.OS);
       }

@@ -4,7 +4,6 @@ import { spacing } from "@/theme/spacing";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  FlatList,
   Modal,
   Pressable,
   ScrollView,
@@ -25,6 +24,7 @@ import {
   Section,
 } from "@/components/migrated-page";
 import { typography } from "@/theme/typography";
+import { getPersistentString, setPersistentString } from "@/shared/lib/persistent-storage";
 import { useAccountsWithBalances } from "../../features/accounts/hooks";
 import { useHouseholdMemberDetails } from "../../features/households/hooks";
 import {
@@ -246,10 +246,10 @@ export default function SavingsScreen() {
       : t("savings.noAccountsSelected");
 
   useEffect(() => {
-    if (!collapsedGroupsKey || typeof window === "undefined") return;
+    if (!collapsedGroupsKey) return;
     if (hydratedCollapsedGroupsKey.current === collapsedGroupsKey) return;
 
-    const raw = window.localStorage.getItem(collapsedGroupsKey);
+    const raw = getPersistentString(collapsedGroupsKey);
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
@@ -268,8 +268,8 @@ export default function SavingsScreen() {
   }, [collapsedGroupsKey]);
 
   useEffect(() => {
-    if (!collapsedGroupsKey || typeof window === "undefined" || !hasLoadedCollapsedGroups) return;
-    window.localStorage.setItem(collapsedGroupsKey, JSON.stringify(collapsedGroupKeys));
+    if (!collapsedGroupsKey || !hasLoadedCollapsedGroups) return;
+    setPersistentString(collapsedGroupsKey, JSON.stringify(collapsedGroupKeys));
   }, [collapsedGroupKeys, collapsedGroupsKey, hasLoadedCollapsedGroups]);
 
   const toggleCollapsedGroup = (groupKey: string) => {
@@ -638,36 +638,25 @@ export default function SavingsScreen() {
                             <Text style={styles.forecastColumnLabel}>{t("savings.forecastBalanceShort")}</Text>
                           </View>
                           {forecastViewMode === "monthly" ? (
-                            <FlatList
-                              data={forecast.timeline}
-                              keyExtractor={(item) => item.month}
-                              nestedScrollEnabled
-                              style={styles.forecastTimelineScroll}
-                              contentContainerStyle={styles.forecastTimelineContent}
-                              initialNumToRender={12}
-                              windowSize={5}
-                              renderItem={({ item }) => (
-                                <View style={[styles.forecastRow, item.reachedTarget && styles.forecastRowComplete]}>
+                            <View style={styles.forecastTimelineContent}>
+                              {forecast.timeline.map((item) => (
+                                <View key={item.month} style={[styles.forecastRow, item.reachedTarget && styles.forecastRowComplete]}>
                                   <Text style={[styles.forecastRowText, styles.forecastLabelPrimary]}>{formatForecastMonth(item.month)}</Text>
                                   <Text style={styles.forecastRowText}>{formatCurrency(item.contribution)}</Text>
                                   <Text style={styles.forecastRowBalance}>{formatCurrency(item.projectedAmount)}</Text>
                                 </View>
-                              )}
-                            />
+                              ))}
+                            </View>
                           ) : (
-                            <FlatList
-                              data={forecastYears}
-                              keyExtractor={(item) => item.year}
-                              scrollEnabled={false}
-                              contentContainerStyle={styles.forecastYearRows}
-                              renderItem={({ item }) => (
-                                <View style={[styles.forecastRow, item.remainingAmount === 0 && styles.forecastRowComplete]}>
+                            <View style={styles.forecastYearRows}>
+                              {forecastYears.map((item) => (
+                                <View key={item.year} style={[styles.forecastRow, item.remainingAmount === 0 && styles.forecastRowComplete]}>
                                   <Text style={[styles.forecastRowText, styles.forecastLabelPrimary]}>{item.year}</Text>
                                   <Text style={styles.forecastRowText}>{formatCurrency(item.contribution)}</Text>
                                   <Text style={styles.forecastRowBalance}>{formatCurrency(item.projectedAmount)}</Text>
                                 </View>
-                              )}
-                            />
+                              ))}
+                            </View>
                           )}
                         </View>
                       ) : null}
@@ -1286,9 +1275,6 @@ function createStyles(colors: any) {
     forecastLabelPrimary: {
       flex: 1.25,
       textAlign: "left",
-    },
-    forecastTimelineScroll: {
-      maxHeight: spacing(80),
     },
     forecastTimelineContent: {
       gap: spacing(1),

@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 
-import { Page, Section, formatCurrency, formatDate, Button } from '@/components/migrated-page';
+import { Page, Section, formatCurrency, Button } from '@/components/migrated-page';
 import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from '@/components/data-surface';
 import { SelectionOptionRow, SelectionShell, SelectionTrigger } from '@/components/selection-shell';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -66,6 +66,10 @@ function formatLocalDate(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function formatSignedCurrency(value: number) {
+  return `${value > 0 ? '+' : ''}${formatCurrency(value)}`;
 }
 
 type AllocationKey = 'invested' | 'savings' | 'pots';
@@ -410,6 +414,24 @@ export default function DashboardScreen() {
     [accounts],
   );
 
+  const investmentMonthlyChange = useMemo(
+    () =>
+      sumBalances(
+        investmentAccounts,
+        (account) => monthlyBalanceChangesByAccount.get(account.id) ?? 0,
+      ),
+    [investmentAccounts, monthlyBalanceChangesByAccount],
+  );
+
+  const savingsMonthlyChange = useMemo(
+    () =>
+      sumBalances(
+        savingsAccounts,
+        (account) => monthlyBalanceChangesByAccount.get(account.id) ?? 0,
+      ),
+    [monthlyBalanceChangesByAccount, savingsAccounts],
+  );
+
   const investmentTotal = useMemo(
     () => sumBalances(investmentAccounts, (account) => Number(account.current_balance ?? account.balance ?? 0)),
     [investmentAccounts],
@@ -537,8 +559,6 @@ export default function DashboardScreen() {
   const totalInvestmentAccounts = investmentAccounts.length;
   const totalSavingsAccounts = savingsAccounts.length;
   const totalPots = savingPots.length;
-  const totalMonthlySpent = sumBalances([...monthlyExpensesByAccount.values()], (amount) => amount);
-  const totalMonthlyChange = sumBalances([...monthlyBalanceChangesByAccount.values()], (amount) => amount);
 
   return (
     <Page
@@ -599,7 +619,18 @@ export default function DashboardScreen() {
         <MetricCard label={t('dashboard.savingsAccounts')} value={formatCurrency(savingsAccountTotal)} icon="wallet-outline" hint={`${totalSavingsAccounts} ${t('dashboard.account').toLowerCase()}`} />
         <MetricCard label={t('dashboard.invested')} value={formatCurrency(investmentTotal)} icon="trending-up-outline" hint={`${totalInvestmentAccounts} ${t('dashboard.account').toLowerCase()}`} />
         <MetricCard label={t('dashboard.pots')} value={formatCurrency(savingPotsTotal)} icon="flag-outline" hint={`${totalPots} ${t('dashboard.savingPotsTitle').toLowerCase()}`} />
-        <MetricCard label={t('dashboard.changeThisMonth')} value={`${totalMonthlyChange > 0 ? '+' : ''}${formatCurrency(totalMonthlyChange)}`} icon="pulse-outline" hint={`${t('dashboard.spentThisMonth')}: ${formatCurrency(totalMonthlySpent)}`} />
+        <MetricCard
+          label={t('dashboard.investedThisMonth')}
+          value={formatSignedCurrency(investmentMonthlyChange)}
+          icon="trending-up-outline"
+          hint={`${totalInvestmentAccounts} ${t('dashboard.account').toLowerCase()}`}
+        />
+        <MetricCard
+          label={t('dashboard.addedToSavingsThisMonth')}
+          value={formatSignedCurrency(savingsMonthlyChange)}
+          icon="add-circle-outline"
+          hint={`${totalSavingsAccounts} ${t('dashboard.account').toLowerCase()}`}
+        />
       </View>
 
       <Section
@@ -843,6 +874,8 @@ const styles = StyleSheet.create({
     gap: spacing(3),
   },
   metricGridPhone: {
+    flexDirection: 'column',
+    flexWrap: 'nowrap',
     gap: spacing(2),
   },
   legendItem: {

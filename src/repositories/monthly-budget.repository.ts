@@ -8,7 +8,6 @@ type BudgetConfigInsert = Database["public"]["Tables"]["budget_configs"]["Insert
 type BudgetConfigUpdate = Database["public"]["Tables"]["budget_configs"]["Update"];
 type BudgetRule = Database["public"]["Tables"]["budget_rules"]["Row"];
 type BudgetRuleInsert = Database["public"]["Tables"]["budget_rules"]["Insert"];
-type BudgetRuleUpdate = Database["public"]["Tables"]["budget_rules"]["Update"];
 type MonthlyBudgetRun = Database["public"]["Tables"]["monthly_budget_runs"]["Row"];
 type MonthlyBudgetRunInsert =
   Database["public"]["Tables"]["monthly_budget_runs"]["Insert"];

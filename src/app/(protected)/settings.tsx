@@ -4,7 +4,6 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useTranslation } from 'react-i18next';
 import { typography } from '@/theme/typography';
 import { useTheme } from '@/theme/ThemeProvider';
-import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 
 import { Page, Card, Section, Field, Button } from '@/components/migrated-page';

@@ -6,7 +6,6 @@ import type { Database } from "@/types/database.types";
 type BudgetConfig = Database["public"]["Tables"]["budget_configs"]["Row"];
 type BudgetRule = Database["public"]["Tables"]["budget_rules"]["Row"];
 type MonthlyBudgetRun = Database["public"]["Tables"]["monthly_budget_runs"]["Row"];
-type MonthlyIncomeInput = Database["public"]["Tables"]["monthly_income_inputs"]["Row"];
 type Account = Database["public"]["Views"]["account_balances"]["Row"] & {
   owner_profile_id?: string | null;
 };
@@ -486,7 +485,6 @@ export class MonthlyBudgetService {
     const month = normalizeMonth(input.month);
     const accountsById = new Map(input.accounts.map((account) => [account.id, account]));
     const balances = new Map(input.accounts.map((account) => [account.id, Number(account.current_balance ?? 0)]));
-    const memberMap = new Map(input.members.map((member) => [member.userId, member]));
     const incomeByMember = new Map<string, number>();
     const cashAccountIds = getCashAccountIds(input.accounts, input.incomeInputs.map((item) => item.cashAccountId));
 

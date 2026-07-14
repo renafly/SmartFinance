@@ -11,6 +11,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
+import { getPersistentString, setPersistentString } from '@/shared/lib/persistent-storage';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAccounts, useAccountsWithBalances } from '../../features/accounts/hooks';
 import { useHouseholdMemberDetails, useMyHouseholds } from '../../features/households/hooks';
@@ -422,10 +423,10 @@ export default function BudgetScreen() {
   }, [incomeCashAccountIds]);
 
   useEffect(() => {
-    if (!collapsedStateKey || typeof window === 'undefined' || ruleDrafts.length === 0) return;
+    if (!collapsedStateKey || ruleDrafts.length === 0) return;
     if (hydratedCollapsedPreferenceKey.current === collapsedStateKey) return;
 
-    const raw = window.localStorage.getItem(collapsedStateKey);
+    const raw = getPersistentString(collapsedStateKey);
 
     if (raw) {
       try {
@@ -447,9 +448,9 @@ export default function BudgetScreen() {
   }, [collapsedStateKey, ruleDrafts.length]);
 
   useEffect(() => {
-    if (!collapsedStateKey || typeof window === 'undefined' || !hasLoadedCollapsedPreference) return;
-    if (!collapsedPreferenceDirtyRef.current && window.localStorage.getItem(collapsedStateKey) === null) return;
-    window.localStorage.setItem(collapsedStateKey, JSON.stringify(collapsedRuleRowKeys));
+    if (!collapsedStateKey || !hasLoadedCollapsedPreference) return;
+    if (!collapsedPreferenceDirtyRef.current && getPersistentString(collapsedStateKey) === null) return;
+    setPersistentString(collapsedStateKey, JSON.stringify(collapsedRuleRowKeys));
   }, [collapsedRuleRowKeys, collapsedStateKey, hasLoadedCollapsedPreference]);
 
   const preview = useMemo<MonthlyBudgetPreview>(() => {
@@ -544,7 +545,6 @@ export default function BudgetScreen() {
     return keys;
   }, [ruleColumns, ruleDrafts.length]);
   const allRulesCollapsed = ruleDrafts.length > 0 && allRuleRowKeys.every((key) => effectiveCollapsedRuleRowKeys.includes(key));
-  const effectiveAllRulesCollapsed = allRulesCollapsed;
   const configReady = Boolean(householdId && profile?.id && budgetName.trim() && rulesAreValid);
   const draftReady = Boolean(configId && configReady && preview.validationIssues.length === 0);
   const selectedRunDraftReady = Boolean(selectedRun?.id && selectedRun.status === 'draft' && preview.validationIssues.length === 0);

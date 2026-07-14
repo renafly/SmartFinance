@@ -60,6 +60,7 @@ export function MetricCard({ label, value, icon, hint }: MetricCardProps) {
         {
           backgroundColor: colors.surface,
           borderColor: colors.border,
+          width: responsive.isPhone ? '100%' : undefined,
           minWidth: responsive.isPhone ? 0 : 170,
           padding: responsive.isPhone ? spacing(3) : spacing(3.5),
         },
@@ -149,7 +150,6 @@ export function TableRow({ children, onPress }: TableRowProps) {
         return cloneElement(child as any, {
           mobileLabel: columns[index]?.label,
           mobileColumnIndex: index,
-          mobileColumnCount: columns.length,
         });
       })
     : children;
@@ -234,7 +234,6 @@ type TableCellProps = {
   muted?: boolean;
   mobileLabel?: string;
   mobileColumnIndex?: number;
-  mobileColumnCount?: number;
   mobilePinned?: boolean;
 };
 
@@ -245,7 +244,6 @@ export function TableCell({
   muted,
   mobileLabel,
   mobileColumnIndex,
-  mobileColumnCount,
   mobilePinned,
 }: TableCellProps) {
   const { colors } = useTheme();

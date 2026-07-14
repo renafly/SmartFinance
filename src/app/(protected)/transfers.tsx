@@ -208,7 +208,6 @@ export default function TransfersScreen() {
     bank: t('accounts.types.bank'), cash: t('accounts.types.cash'), savings: t('accounts.types.savings'),
     credit_card: t('accounts.types.credit_card'), investment: t('accounts.types.investment'), ppr: t('accounts.types.ppr'),
   }), [t]);
-  const memberLabels = useMemo(() => new Map(members.map((member) => [member.userId, member.fullName?.trim() || member.email || member.userId])), [members]);
   const visibleRules = useMemo(() => (recurringQuery.data ?? []).filter((item: any) => {
     const ruleKind = ruleKindOf(item);
     if (kindFilter !== 'all' && ruleKind !== kindFilter) return false;

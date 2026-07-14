@@ -10,7 +10,7 @@ import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 
 import { Page, Card, Section, Field, Button, Pill, formatCurrency, formatDate } from '@/components/migrated-page';
-import { Badge, EmptyState, Table, TableCell, TableRow } from '@/components/data-surface';
+import { EmptyState, Table, TableCell, TableRow } from '@/components/data-surface';
 import { HouseholdMemberSelect } from '@/components/household-member-select';
 import { DropdownMenu, SelectionOptionRow, SelectionShell, SelectionTrigger } from '@/components/selection-shell';
 import { GroupedAccountSelect } from '@/components/grouped-account-select';
@@ -57,7 +57,6 @@ type DropdownFieldProps = {
 };
 
 function DropdownField({ label, valueLabel, placeholder, hint, selectedKey, options, onChange }: DropdownFieldProps) {
-  const { colors } = useTheme();
   const [open, setOpen] = useState(false);
 
   return (
@@ -334,12 +333,6 @@ export default function TransactionsScreen() {
         member.fullName?.trim() || member.email || member.userId,
       ]),
   );
-  const accountLabelMap = new Map(
-    (accounts as any[]).map((account) => [
-      account.id,
-      account.owner_profile_id ? (memberLabelMap.get(account.owner_profile_id) ?? t('dashboard.shared')) : t('dashboard.shared'),
-    ]),
-  );
   const currentUserLabel = profile?.full_name?.trim() || profile?.email?.trim() || t('settings.you');
   const currentUserId = profile?.id ?? '';
   const firstAccount = accounts[0]?.id ?? '';
@@ -349,10 +342,6 @@ export default function TransactionsScreen() {
     account.owner_profile_id ? (memberLabelMap.get(account.owner_profile_id) ?? t('dashboard.shared')) : t('dashboard.shared');
   const getAccountOptionSubtitle = (account: any) =>
     `${getAccountOwnerLabel(account)} · ${t(`accounts.types.${account.type}`, { defaultValue: account.type })} · ${formatCurrency(account.current_balance ?? account.balance ?? 0)}`;
-  const selectedAccount = accounts.find((account: any) => account.id === effectiveAccountId);
-  const selectedAccountLabel = selectedAccount
-    ? `${selectedAccount.name} · ${t(`accounts.types.${selectedAccount.type}`, { defaultValue: selectedAccount.type })} · ${selectedAccount.owner_profile_id ? (memberLabelMap.get(selectedAccount.owner_profile_id) ?? t('dashboard.shared')) : t('dashboard.shared')}`
-    : t('transactions.selectAccount');
   const selectedCreatorLabel =
     createdByFilter === 'all'
       ? t('all', { defaultValue: 'All' })

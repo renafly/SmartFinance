@@ -71,6 +71,7 @@ type SelectionShellProps = {
   subtitle?: string;
   closeLabel: string;
   onClose: () => void;
+  bodyScrollable?: boolean;
   children: ReactNode;
 };
 
@@ -80,6 +81,7 @@ export function SelectionShell({
   subtitle,
   closeLabel,
   onClose,
+  bodyScrollable = true,
   children,
 }: SelectionShellProps) {
   const { colors } = useTheme();
@@ -118,13 +120,17 @@ export function SelectionShell({
             <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
             {subtitle ? <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
           </View>
-          <ScrollView
-            style={styles.modalBody}
-            contentContainerStyle={styles.modalBodyContent}
-            showsVerticalScrollIndicator
-          >
-            {children}
-          </ScrollView>
+          {bodyScrollable ? (
+            <ScrollView
+              style={styles.modalBody}
+              contentContainerStyle={styles.modalBodyContent}
+              showsVerticalScrollIndicator
+            >
+              {children}
+            </ScrollView>
+          ) : (
+            <View style={styles.modalBodyContent}>{children}</View>
+          )}
           <Pressable
             onPress={onClose}
             style={({ pressed }) => [

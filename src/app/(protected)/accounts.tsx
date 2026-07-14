@@ -6,7 +6,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 
-import { Page, Card, Section, Field, Button, Pill, formatCurrency } from '@/components/migrated-page';
+import { Page, Section, Field, Button, Pill, formatCurrency } from '@/components/migrated-page';
 import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from '@/components/data-surface';
 import { HouseholdMemberSelect } from '@/components/household-member-select';
 import { useAuth } from '../../providers/AuthProvider';
