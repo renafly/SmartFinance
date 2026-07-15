@@ -65,28 +65,9 @@ async function notifyScheduledMovementIssues(supabase: any, scheduledFor: string
   });
   if (!payload.length) return;
 
-  const { data: created } = await supabase
+  await supabase
     .from("app_notifications")
-    .upsert(payload, { onConflict: "source_key", ignoreDuplicates: true })
-    .select("recipient_id,title,body,data");
-  if (!created?.length) return;
-
-  const recipientIds = [...new Set(created.map((item: any) => item.recipient_id))];
-  const { data: devices } = await supabase
-    .from("push_devices")
-    .select("user_id,expo_push_token")
-    .in("user_id", recipientIds);
-  const messages = (devices ?? []).flatMap((device: any) => {
-    const notification = created.find((item: any) => item.recipient_id === device.user_id);
-    return notification ? [{ to: device.expo_push_token, sound: "default", title: notification.title, body: notification.body, data: notification.data }] : [];
-  });
-  if (messages.length) {
-    await fetch("https://exp.host/--/api/v2/push/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(messages),
-    });
-  }
+    .upsert(payload, { onConflict: "source_key", ignoreDuplicates: true });
 }
 
 Deno.serve(async (req) => {

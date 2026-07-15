@@ -3,6 +3,8 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import { Redirect } from 'expo-router';
 
 import { Card, Page, Section } from '@/components/migrated-page';
@@ -10,6 +12,7 @@ import { isSystemAdminEmail } from '@/constants/admin-access';
 import { useAuth } from '@/providers/AuthProvider';
 import { useToast } from '@/providers/ToastProvider';
 import { notificationsService } from '@/features/notifications/services/notifications.service';
+import { registerWebPushDevice } from '@/features/notifications/web-push';
 import { supabase } from '@/shared/lib/supabase/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius } from '@/theme/radius';
@@ -28,7 +31,7 @@ type DiagnosticItem = {
 
 const STORAGE_BUCKET = 'attachments';
 const INVITE_FUNCTION = 'send-household-invitation';
-const DIAGNOSTICS_NOTIFICATION_CHANNEL = 'diagnostics-test';
+const DIAGNOSTICS_NOTIFICATION_CHANNEL = 'default';
 
 function maskSecret(value: string | undefined, configuredLabel: string) {
   if (!value) return '';
@@ -186,17 +189,19 @@ export default function DiagnosticsScreen() {
       label: t('diagnostics.notificationTest'),
       description: t('diagnostics.notificationTestDescription'),
     };
-    const recipientId = session?.user.id ?? profile?.id;
+    const recipientId = profile?.id ?? session?.user.id;
 
     async function createMenuNotification(title: string, body: string) {
-      if (!recipientId) return;
+      if (!recipientId) throw new Error('A signed-in recipient is required.');
 
-      await notificationsService.createTestNotification({
+      const notificationId = await notificationsService.createTestNotification({
         recipientId,
         title,
         body,
       });
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
       await queryClient.invalidateQueries({ queryKey: ['notifications', recipientId] });
+      await notificationsService.waitForPushDispatch(notificationId);
     }
 
     try {
@@ -233,41 +238,30 @@ export default function DiagnosticsScreen() {
           return;
         }
 
-        const wasShown = await new Promise<boolean>((resolve) => {
-          const notification = new Notification(t('diagnostics.notificationTestMessageTitle'), {
-            body: t('diagnostics.notificationTestMessageBody'),
-            tag: DIAGNOSTICS_NOTIFICATION_CHANNEL,
-          });
-          const timeout = setTimeout(() => {
-            notification.close();
-            resolve(false);
-          }, 4_000);
-
-          notification.onshow = () => {
-            clearTimeout(timeout);
-            resolve(true);
-          };
-          notification.onerror = () => {
-            clearTimeout(timeout);
-            resolve(false);
-          };
-        });
-
-        if (!wasShown) {
+        if (!recipientId) {
           setNotificationStatus({
             ...defaultItem,
-            status: 'warning',
-            value: t('diagnostics.notificationNotShown'),
+            status: 'error',
+            value: t('diagnostics.unknownError'),
           });
           return;
         }
+
+        const registration = await registerWebPushDevice(recipientId, true);
+        if (registration !== 'registered') {
+          throw new Error(`Web Push registration failed: ${registration}.`);
+        }
+
+        await createMenuNotification(
+          t('diagnostics.notificationTestMessageTitle'),
+          t('diagnostics.notificationTestMessageBody'),
+        );
 
         setNotificationStatus({
           ...defaultItem,
           status: 'ready',
           value: t('diagnostics.notificationTestSent'),
         });
-        await createMenuNotification(t('diagnostics.notificationTestMessageTitle'), t('diagnostics.notificationTestMessageBody'));
         show(t('diagnostics.notificationTestSent'));
         return;
       }
@@ -277,7 +271,8 @@ export default function DiagnosticsScreen() {
       if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync(DIAGNOSTICS_NOTIFICATION_CHANNEL, {
           name: t('diagnostics.notificationTestChannel'),
-          importance: Notifications.AndroidImportance.DEFAULT,
+          importance: Notifications.AndroidImportance.HIGH,
+          sound: 'default',
         });
       }
 
@@ -296,17 +291,17 @@ export default function DiagnosticsScreen() {
         return;
       }
 
+      if (!recipientId || !Device.isDevice) {
+        throw new Error('Remote push notifications require a signed-in physical device.');
+      }
+
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+      if (!projectId) throw new Error('The EAS project ID is not configured.');
+      const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+      await notificationsService.registerPushDevice(recipientId, token, Platform.OS as 'android' | 'ios');
+
       const title = t('diagnostics.notificationTestMessageTitle');
       const body = t('diagnostics.notificationTestMessageBody');
-
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          data: { source: 'release-diagnostics' },
-        },
-        trigger: null,
-      });
 
       await createMenuNotification(title, body);
 

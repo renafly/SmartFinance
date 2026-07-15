@@ -795,7 +795,10 @@
   "notifications": {
     "title": "Notifications",
     "empty": "You have no notifications.",
-    "approve": "Approve"
+    "approve": "Approve",
+    "pendingApproval": "Pending approval",
+    "softDelete": "Soft delete",
+    "softDeleteShort": "X"
   },
 
   "members": {

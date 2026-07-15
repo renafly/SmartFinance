@@ -31,6 +31,20 @@ Use this checklist before promoting a Vercel deployment to production.
 - Verify an insufficient source balance records a skipped execution, advances the rule, and creates no partial transfer rows.
 - Confirm the cron endpoint is excluded from the Expo SPA rewrite and neither `CRON_SECRET` nor the service-role key appears in web environment variables or client bundles.
 
+## Background Notifications
+
+- Apply migrations `20260714000300_notifications_realtime_and_cleanup.sql` and `20260714000400_notification_push_delivery.sql`.
+- Deploy `dispatch-notification` with `supabase functions deploy dispatch-notification --no-verify-jwt`.
+- Generate one VAPID key pair and set `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY`, and `WEB_PUSH_VAPID_SUBJECT` as Supabase Edge Function secrets.
+- Set `NOTIFICATION_WEBHOOK_SECRET` as a high-entropy Supabase Edge Function secret.
+- Store the dispatcher URL and the same webhook secret in Supabase Vault as `notification_dispatch_url` and `notification_webhook_secret`. The URL must end in `/functions/v1/dispatch-notification`.
+- Set `EXPO_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` to the same public VAPID key in Vercel before exporting the web app.
+- Configure `GOOGLE_SERVICES_JSON` as an EAS secret file containing Android Firebase `google-services.json`; `app.config.ts` maps it to `android.googleServicesFile`. Upload the matching FCM V1 service-account credential to EAS and produce a new development or release build. Remote push does not work in Expo Go.
+- On web Diagnostics, grant notification permission and confirm a row appears in `web_push_subscriptions` before testing with the tab closed.
+- On a physical Android device, confirm a row appears in `push_devices` before testing with the app minimized.
+- Insert one `app_notifications` row and confirm one browser/Android system notification appears and the menu badge updates immediately when the app is open.
+- Never expose the VAPID private key, service-role key, or webhook secret through an `EXPO_PUBLIC_` variable.
+
 ## Auth And Routing
 
 - Open `/login` directly from the production domain.

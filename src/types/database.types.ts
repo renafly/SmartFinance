@@ -88,9 +88,9 @@ export type Database = {
         Relationships: [];
       };
       app_notifications: {
-        Row: { id: string; household_id: string | null; recipient_id: string; type: string; title: string; body: string; data: Json; source_key: string | null; read_at: string | null; created_at: string };
-        Insert: { id?: string; household_id?: string | null; recipient_id: string; type: string; title: string; body: string; data?: Json; source_key?: string | null; read_at?: string | null; created_at?: string };
-        Update: { id?: string; household_id?: string | null; recipient_id?: string; type?: string; title?: string; body?: string; data?: Json; source_key?: string | null; read_at?: string | null; created_at?: string };
+        Row: { id: string; household_id: string | null; recipient_id: string; type: string; title: string; body: string; data: Json; source_key: string | null; read_at: string | null; deleted_at: string | null; push_dispatch_status: "pending" | "processing" | "delivered"; push_dispatch_attempted_at: string | null; native_push_dispatched_at: string | null; web_push_dispatched_at: string | null; push_dispatched_at: string | null; created_at: string };
+        Insert: { id?: string; household_id?: string | null; recipient_id: string; type: string; title: string; body: string; data?: Json; source_key?: string | null; read_at?: string | null; deleted_at?: string | null; push_dispatch_status?: "pending" | "processing" | "delivered"; push_dispatch_attempted_at?: string | null; native_push_dispatched_at?: string | null; web_push_dispatched_at?: string | null; push_dispatched_at?: string | null; created_at?: string };
+        Update: { id?: string; household_id?: string | null; recipient_id?: string; type?: string; title?: string; body?: string; data?: Json; source_key?: string | null; read_at?: string | null; deleted_at?: string | null; push_dispatch_status?: "pending" | "processing" | "delivered"; push_dispatch_attempted_at?: string | null; native_push_dispatched_at?: string | null; web_push_dispatched_at?: string | null; push_dispatched_at?: string | null; created_at?: string };
         Relationships: [];
       };
       categories: {
@@ -484,6 +484,12 @@ export type Database = {
         Row: { id: string; user_id: string; expo_push_token: string; platform: "android" | "ios"; updated_at: string; created_at: string };
         Insert: { id?: string; user_id: string; expo_push_token: string; platform: "android" | "ios"; updated_at?: string; created_at?: string };
         Update: { id?: string; user_id?: string; expo_push_token?: string; platform?: "android" | "ios"; updated_at?: string; created_at?: string };
+        Relationships: [];
+      };
+      web_push_subscriptions: {
+        Row: { id: string; user_id: string; endpoint: string; p256dh: string; auth: string; expiration_time: number | null; user_agent: string | null; updated_at: string; created_at: string };
+        Insert: { id?: string; user_id: string; endpoint: string; p256dh: string; auth: string; expiration_time?: number | null; user_agent?: string | null; updated_at?: string; created_at?: string };
+        Update: { id?: string; user_id?: string; endpoint?: string; p256dh?: string; auth?: string; expiration_time?: number | null; user_agent?: string | null; updated_at?: string; created_at?: string };
         Relationships: [];
       };
       recurring_transactions: {

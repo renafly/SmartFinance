@@ -130,8 +130,8 @@
     "semantic_hash": ""
   },
   "src/app/(protected)/diagnostics.tsx": {
-    "mtime": 1784048199.138415,
-    "ast_hash": "87f695952ac9c55ab3af48338d481c7f",
+    "mtime": 1784053370.3845654,
+    "ast_hash": "50c9abcdc253b49f9661ba51b552c302",
     "semantic_hash": ""
   },
   "src/app/(protected)/index.tsx": {
@@ -680,13 +680,13 @@
     "semantic_hash": ""
   },
   "src/locales/en/common.json": {
-    "mtime": 1784046626.8308108,
-    "ast_hash": "e702caadf6e49b34d3c139077fd8c04a",
+    "mtime": 1784049552.3214836,
+    "ast_hash": "d95c9328ab7d64acc4812c2b648578a8",
     "semantic_hash": ""
   },
   "src/locales/pt/common.json": {
-    "mtime": 1784046632.167247,
-    "ast_hash": "d30a5f5bb0bbdfe9ec028ddeaa4828a8",
+    "mtime": 1784049561.1363528,
+    "ast_hash": "393013116891f86be570ebb03e41d79a",
     "semantic_hash": ""
   },
   "src/navigation/Guest.tsx": {
@@ -945,8 +945,8 @@
     "semantic_hash": ""
   },
   "src/types/database.types.ts": {
-    "mtime": 1783939911.309639,
-    "ast_hash": "ebd3a87fc6545e5e3d05ed6939bd477a",
+    "mtime": 1784053598.2262633,
+    "ast_hash": "784d4e6a2a0a6e71f81dded52e1ceda7",
     "semantic_hash": ""
   },
   "supabase/.temp/linked-project.json": {
@@ -1170,8 +1170,8 @@
     "semantic_hash": ""
   },
   "docs/release-checklist.md": {
-    "mtime": 1783771634.1338544,
-    "ast_hash": "989505620839d556fc1dc9b76721a619",
+    "mtime": 1784053478.99215,
+    "ast_hash": "8a31d6966cd49d2774cc8bd00aacdc87",
     "semantic_hash": ""
   },
   "docs/testing.md": {
@@ -1370,8 +1370,8 @@
     "semantic_hash": ""
   },
   "supabase/functions/execute-recurring-movements/index.ts": {
-    "mtime": 1783771634.4540992,
-    "ast_hash": "26cad3be646fb944bae4e92715fd57fd",
+    "mtime": 1784053041.0220563,
+    "ast_hash": "a39ad9576976bdc3ecfa71821910827d",
     "semantic_hash": ""
   },
   "supabase/migrations/20260710000300_recurring_transfer_contract.sql": {
@@ -1385,8 +1385,8 @@
     "semantic_hash": ""
   },
   "src/components/notification-center.tsx": {
-    "mtime": 1784048188.244626,
-    "ast_hash": "0b695f0e94d30a963103b70a8abac7ee",
+    "mtime": 1784049635.9771867,
+    "ast_hash": "daba196c4406a1f6d254f75411ed63a2",
     "semantic_hash": ""
   },
   "src/features/notifications/hooks/index.ts": {
@@ -1395,13 +1395,13 @@
     "semantic_hash": ""
   },
   "src/features/notifications/services/notifications.service.ts": {
-    "mtime": 1784048137.3463604,
-    "ast_hash": "efafc716023cdb7e65d13fbf7988737d",
+    "mtime": 1784053359.1335804,
+    "ast_hash": "81e5a1e9782815cbb1e977d81c1f9f41",
     "semantic_hash": ""
   },
   "src/providers/NotificationsProvider.tsx": {
-    "mtime": 1783967349.5598097,
-    "ast_hash": "30ad300d56a627236c3947e6672da570",
+    "mtime": 1784052857.8153791,
+    "ast_hash": "306b866f95b263e01bb86e600828ed64",
     "semantic_hash": ""
   },
   "supabase/migrations/20260710000500_notifications.sql": {
@@ -1537,6 +1537,51 @@
   "supabase/migrations/20260714000200_notifications_soft_delete.sql": {
     "mtime": 1784048205.6362028,
     "ast_hash": "6c52cf285eb4e4a6a1f8adfbddb261e3",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260714000300_notifications_realtime_and_cleanup.sql": {
+    "mtime": 1784049528.1338463,
+    "ast_hash": "84ce9dbb141bf00d94cd28254f1d7f00",
+    "semantic_hash": ""
+  },
+  "supabase/functions/purge-read-notifications/index.ts": {
+    "mtime": 1784049616.716518,
+    "ast_hash": "a1ebb1cc0f41980123990466675c8bcd",
+    "semantic_hash": ""
+  },
+  "app.config.ts": {
+    "mtime": 1784053537.8040152,
+    "ast_hash": "ae03d4a5edd851cda3aa0f58954a7737",
+    "semantic_hash": ""
+  },
+  "public/smartfinance-notifications-sw.js": {
+    "mtime": 1784052999.0652428,
+    "ast_hash": "b4d7a9724e1dc07acb02ad18d84a8b1b",
+    "semantic_hash": ""
+  },
+  "src/features/notifications/web-push.ts": {
+    "mtime": 1784053285.2271256,
+    "ast_hash": "b1f3c94b8b30c896928e825dbd0231a0",
+    "semantic_hash": ""
+  },
+  "src/features/notifications/web-push.unit.test.ts": {
+    "mtime": 1784053657.126566,
+    "ast_hash": "aad6e71446c8dbb4f640e4f0a8954dc2",
+    "semantic_hash": ""
+  },
+  "supabase/functions/dispatch-notification/index.ts": {
+    "mtime": 1784053601.7117708,
+    "ast_hash": "991675ce79a1775bccdc93a8510f4c33",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260714000400_notification_push_delivery.sql": {
+    "mtime": 1784053600.0741282,
+    "ast_hash": "199d584b29fdb29bbdf30b7e95c533c6",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260714000500_schedule_notification_jobs.sql": {
+    "mtime": 1784053292.2187397,
+    "ast_hash": "cd68a8d002fc5731104933162257652b",
     "semantic_hash": ""
   }
 }

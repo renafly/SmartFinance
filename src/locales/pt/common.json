@@ -792,7 +792,10 @@
   "notifications": {
     "title": "Notificações",
     "empty": "Não tem notificações.",
-    "approve": "Aprovar"
+    "approve": "Aprovar",
+    "pendingApproval": "A aguardar aprovação",
+    "softDelete": "Eliminar suavemente",
+    "softDeleteShort": "X"
   },
 
   "members": {

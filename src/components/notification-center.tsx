@@ -39,14 +39,19 @@ export function NotificationCenter() {
                     <Pressable
                       onPress={() => void notificationsService.softDelete(item.id).then(() => queryClient.invalidateQueries({ queryKey: ["notifications"] }))}
                       hitSlop={8}
-                      style={styles.iconButton}
+                      style={[styles.iconButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
                       accessibilityRole="button"
-                      accessibilityLabel={t("delete")}
+                      accessibilityLabel={t("notifications.softDelete")}
                     >
-                      <Ionicons name="close" size={16} color={colors.textSecondary} />
+                      <Text style={[styles.softDeleteText, { color: colors.textSecondary }]}>{t("notifications.softDeleteShort")}</Text>
                     </Pressable>
                   </View>
                   <Text style={[styles.itemBody, { color: colors.textSecondary }]}>{item.body}</Text>
+                  {!item.read_at ? (
+                    <Text style={[styles.pendingLabel, { color: colors.primary }]}>
+                      {t("notifications.pendingApproval")}
+                    </Text>
+                  ) : null}
                   {!item.read_at ? (
                     <Pressable
                       onPress={() => void markRead.mutateAsync(item.id)}
@@ -82,7 +87,9 @@ const styles: any = StyleSheet.create({
   itemHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing(2) },
   itemTitle: { flex: 1, fontWeight: typography.fontWeight.bold as any },
   itemBody: { fontSize: typography.fontSize[13], lineHeight: typography.lineHeight[18] },
-  iconButton: { padding: spacing(0.5) },
+  pendingLabel: { fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold as any, textTransform: "uppercase", letterSpacing: 0.4 },
+  iconButton: { minWidth: spacing(8), alignItems: "center", justifyContent: "center", borderWidth: 1, borderRadius: radius.full, paddingHorizontal: spacing(2), paddingVertical: spacing(0.75) },
+  softDeleteText: { fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.bold as any },
   approve: { alignSelf: "flex-start", marginTop: spacing(1), borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing(2.5), paddingVertical: spacing(1.5) },
   close: { alignSelf: "flex-end", borderWidth: 1, borderRadius: radius.lg, paddingHorizontal: spacing(3), paddingVertical: spacing(2) },
 });
