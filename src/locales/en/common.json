@@ -934,6 +934,9 @@
     "googleSignInErrorTitle": "Google sign-in unavailable",
     "googleSignInErrorMessage": "Please try again in a moment.",
     "completingGoogleSignIn": "Completing your Google sign-in...",
+    "preparingDashboard": "Your financial home is taking shape",
+    "preparingDashboardDescription": "Connecting your profile, household, and latest numbers.",
+    "loadingAccessibilityLabel": "Preparing your SmartFinance dashboard",
     "googleCallbackErrorMessage": "We could not complete the Google sign-in. Please try again."
   }
 }

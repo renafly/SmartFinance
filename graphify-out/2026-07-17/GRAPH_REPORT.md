@@ -1,7 +1,7 @@
-# Graph Report - SmartFinance  (2026-07-17)
+# Graph Report - SmartFinance  (2026-07-16)
 
 ## Corpus Check
-- 296 files · ~156,652 words
+- 296 files · ~156,658 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -270,8 +270,8 @@ Cohesion: 0.17
 Nodes (11): BudgetConfig, BudgetConfigInsert, BudgetConfigUpdate, BudgetConfigWithRules, BudgetRule, BudgetRuleInsert, MonthlyBudgetRun, MonthlyBudgetRunInsert (+3 more)
 
 ### Community 40 - "SavingPotsService"
-Cohesion: 0.22
-Nodes (21): buildAccountInserts(), buildBudgetConfigInserts(), buildBudgetRuleInserts(), buildBudgetRunInserts(), buildCategoryInserts(), buildIncomeInputInserts(), buildRecurringRunExecutionInserts(), buildRecurringTransactionInserts() (+13 more)
+Cohesion: 0.26
+Nodes (15): buildAccountInserts(), buildBudgetConfigInserts(), buildBudgetRuleInserts(), buildBudgetRunInserts(), buildCategoryInserts(), buildRecurringRunExecutionInserts(), buildRecurringTransactionInserts(), buildSavingPotAccountInserts() (+7 more)
 
 ### Community 42 - "useHouseholdBackup.ts"
 Cohesion: 0.22
@@ -290,8 +290,8 @@ Cohesion: 0.40
 Nodes (4): NOTE: "transfer" is intentionally excluded here. Transfers are created via, TransactionFormInput, TransactionFormValues, transactionSchema
 
 ### Community 47 - "members.tsx"
-Cohesion: 0.29
-Nodes (3): asBackupFile(), fetchPaged(), HouseholdBackupService
+Cohesion: 0.25
+Nodes (4): asBackupFile(), HouseholdBackupService, safeNamePart(), Json
 
 ### Community 48 - "ThemeProvider.tsx"
 Cohesion: 0.11
@@ -310,8 +310,8 @@ Cohesion: 0.50
 Nodes (3): AccountFormInput, AccountFormValues, accountSchema
 
 ### Community 52 - ".importHouseholdBackup"
-Cohesion: 0.40
-Nodes (4): getMemberFallbackMap(), normalizeEmail(), safeNamePart(), Json
+Cohesion: 0.36
+Nodes (8): buildIncomeInputInserts(), getCurrentProfile(), getMemberFallbackMap(), insertMany(), newId(), newIdMap(), normalizeEmail(), throwIfError()
 
 ### Community 53 - "colors.ts"
 Cohesion: 0.40
@@ -358,8 +358,8 @@ Cohesion: 0.50
 Nodes (3): Expo HAS CHANGED, Graphify, Multi-Agent Workflow
 
 ### Community 89 - "buildCleanBackup"
-Cohesion: 0.40
-Nodes (6): buildCleanBackup(), buildKeyMap(), buildTransferGroupKeyMap(), keyFor(), makeKey(), scrubJsonIds()
+Cohesion: 0.29
+Nodes (7): buildCleanBackup(), buildKeyMap(), buildTransferGroupKeyMap(), fetchPaged(), keyFor(), makeKey(), scrubJsonIds()
 
 ### Community 91 - "grouped-account-select.tsx"
 Cohesion: 0.31

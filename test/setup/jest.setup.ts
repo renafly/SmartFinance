@@ -3,7 +3,11 @@ import 'react-native-gesture-handler/jestSetup';
 process.env.EXPO_PUBLIC_SUPABASE_URL ??= 'http://127.0.0.1:54321';
 process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??= 'test-anon-key';
 
-jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+jest.mock('react-native-reanimated', () => {
+  const reanimatedMock = require('react-native-reanimated/mock');
+  reanimatedMock.useReducedMotion = jest.fn(() => false);
+  return reanimatedMock;
+});
 
 jest.mock('react-native-mmkv', () => {
   const stores = new Map<string, Map<string, string | number | boolean | ArrayBuffer>>();
