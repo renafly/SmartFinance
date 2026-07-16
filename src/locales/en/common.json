@@ -47,6 +47,18 @@
     "inviteFunctionDescription": "Checks whether {{functionName}} responds to a safe preflight request.",
     "runChecks": "Run live checks",
     "checking": "Checking...",
+    "notificationTest": "Notification test",
+    "notificationTestDescription": "Sends an immediate local notification to this device. It does not require remote push configuration.",
+    "triggerNotification": "Trigger notification",
+    "triggeringNotification": "Triggering...",
+    "notificationTestChannel": "Diagnostics",
+    "notificationTestMessageTitle": "Notification test message",
+    "notificationTestMessageBody": "Notification test message.",
+    "notificationTestSent": "Test notification sent. Check your notification banner.",
+    "notificationPermissionDenied": "Notification permission was not granted.",
+    "notificationBrowserUnsupported": "This browser does not support system notifications.",
+    "notificationSecureContextRequired": "Browser notifications require a secure HTTPS connection.",
+    "notificationNotShown": "The browser accepted the test but did not show it. Check this site's notification permission and your system notification settings.",
     "configured": "Configured",
     "notChecked": "Not checked yet",
     "notAvailable": "Not available",
@@ -365,6 +377,8 @@
     "verticalTotal": "Column total",
     "changeSinceInitialBalance": "Change since initial balance",
     "changeThisMonth": "Change this month",
+    "investedThisMonth": "Invested this month",
+    "addedToSavingsThisMonth": "Added to savings this month",
     "spentThisMonth": "Spent this month",
     "investmentAccountsTitle": "Investment accounts",
     "investmentAccountsSubtitle": "{{count}} investment account(s) in the household.",
@@ -780,7 +794,11 @@
 
   "notifications": {
     "title": "Notifications",
-    "empty": "You have no notifications."
+    "empty": "You have no notifications.",
+    "approve": "Approve",
+    "pendingApproval": "Pending approval",
+    "softDelete": "Soft delete",
+    "softDeleteShort": "X"
   },
 
   "members": {
@@ -839,12 +857,83 @@
     "unknownError": "Unknown error"
   },
 
+  "onboarding": {
+    "welcomeTitle": "Make your money clearer",
+    "welcomeDescription": "SmartFinance keeps your household accounts, plans, and goals in one place. This short guide shows you where to start.",
+    "progress": "Step {{current}} of {{total}}",
+    "next": "Next",
+    "back": "Back",
+    "skip": "Skip guide",
+    "done": "Finish guide",
+    "start": "Start guide",
+    "close": "Close",
+    "completionTitle": "You're ready to go",
+    "completionDescription": "You can reopen this guide at any time from Settings, and new features will introduce themselves when they are available.",
+    "restart": "Review app guide",
+    "restartDescription": "See the full SmartFinance guide again.",
+    "sectionGuide": "How this section works",
+    "reviewSectionGuide": "Review guide",
+    "guideSeen": "Guide viewed",
+    "newFeature": "New",
+    "featureGuideTitle": "Learn about {{feature}}",
+    "featureGuideDescription": "This feature is new. Take a quick look at how it works.",
+    "dashboard": {
+      "title": "Your financial overview",
+      "description": "See your tracked wealth, this month's movement, accounts, goals, and recent activity in one view.",
+      "tip": "Use the section headers to collapse details and focus on what matters now."
+    },
+    "accounts": {
+      "title": "Keep every account together",
+      "description": "Create bank, savings, cash, investment, credit, and PPR accounts. Assign an owner or leave an account shared.",
+      "tip": "Balances and ownership make it easy to understand individual and shared money."
+    },
+    "transactions": {
+      "title": "Record money in and out",
+      "description": "Add income and expenses with an account, category, date, and optional notes or invoice attachment.",
+      "tip": "Use filters to quickly review a person's spending, an account, or a transaction type."
+    },
+    "transfers": {
+      "title": "Move money without losing track",
+      "description": "Transfers link the source and destination accounts, keeping both balances consistent. You can also schedule recurring movements.",
+      "tip": "Choose the source and destination carefully: a transfer is recorded as an expense and matching income."
+    },
+    "budget": {
+      "title": "Plan the month before it starts",
+      "description": "Set household income, recurring budget rules, active months, and destinations. Review the preview before confirming the month.",
+      "tip": "Use active months for seasonal rules, such as summer or Christmas contributions."
+    },
+    "savings": {
+      "title": "Turn savings into clear goals",
+      "description": "Create saving pots, set a target, connect the accounts that fund them, and follow progress toward completion.",
+      "tip": "Open a pot's contribution forecast to see the expected monthly or yearly path to its goal."
+    },
+    "categories": {
+      "title": "Organise every movement",
+      "description": "Create income, expense, and account categories so reports and transaction lists stay useful.",
+      "tip": "Use parent categories to keep detailed categories organised."
+    },
+    "members": {
+      "title": "Manage your household together",
+      "description": "Invite people to the household, review memberships, and manage access as your household changes.",
+      "tip": "Owners and admins can send invitations and manage other members."
+    },
+    "settings": {
+      "title": "Control your household setup",
+      "description": "Manage household details, language, theme, currency, invitations, and backups from one place.",
+      "tip": "Return here whenever you want to review the app guide or change your preferences."
+    }
+  },
+
   "auth": {
     "brand": "SmartFinance",
     "loginSubtitle": "Sign in with Google",
     "loginTitle": "Sign in with Google",
     "loginDescription": "Google signs you in through Supabase so the app can load your session.",
     "loginFooter": "By continuing you accept the Terms of Service and Privacy Policy.",
-    "continueWithGoogle": "Continue with Google"
+    "continueWithGoogle": "Continue with Google",
+    "googleSignInErrorTitle": "Google sign-in unavailable",
+    "googleSignInErrorMessage": "Please try again in a moment.",
+    "completingGoogleSignIn": "Completing your Google sign-in...",
+    "googleCallbackErrorMessage": "We could not complete the Google sign-in. Please try again."
   }
 }

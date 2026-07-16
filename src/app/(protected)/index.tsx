@@ -6,8 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 
-import { Page, Section, formatCurrency, formatDate, Button } from '@/components/migrated-page';
-import { Badge, EmptyState, Table, TableCell, TableRow } from '@/components/data-surface';
+import { Page, Section, formatCurrency, Button } from '@/components/migrated-page';
+import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from '@/components/data-surface';
 import { SelectionOptionRow, SelectionShell, SelectionTrigger } from '@/components/selection-shell';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
@@ -66,6 +66,10 @@ function formatLocalDate(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function formatSignedCurrency(value: number) {
+  return `${value > 0 ? '+' : ''}${formatCurrency(value)}`;
 }
 
 type AllocationKey = 'invested' | 'savings' | 'pots';
@@ -226,6 +230,79 @@ function GoalMeter({ balance, target }: { balance: number; target?: number | nul
   );
 }
 
+function AccountOverviewTable({
+  accounts,
+  memberMap,
+  emptyTitle,
+  icon,
+  typeTone,
+  monthlyBalanceChangesByAccount,
+  monthlyExpensesByAccount,
+}: {
+  accounts: DashboardAccount[];
+  memberMap: Map<string, MemberDetails>;
+  emptyTitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  typeTone: 'primary' | 'success';
+  monthlyBalanceChangesByAccount: Map<string, number>;
+  monthlyExpensesByAccount: Map<string, number>;
+}) {
+  const { t } = useTranslation('common');
+  const { colors } = useTheme();
+
+  if (!accounts.length) {
+    return <EmptyState title={emptyTitle} icon={icon} />;
+  }
+
+  return (
+    <Table
+      columns={[
+        { label: t('accounts.name'), flex: 2.2 },
+        { label: t('dashboard.total'), align: 'right' },
+        { label: t('dashboard.changeThisMonth'), align: 'right' },
+        { label: t('dashboard.spentThisMonth'), align: 'right' },
+      ]}
+    >
+      {accounts.map((account) => {
+        const ownerLabel = getAccountOwnerLabel(account, memberMap, t('dashboard.shared'));
+        const currentBalance = Number(account.current_balance ?? account.balance ?? 0);
+        const balanceDifference = monthlyBalanceChangesByAccount.get(account.id) ?? 0;
+        const spentThisMonth = monthlyExpensesByAccount.get(account.id) ?? 0;
+
+        return (
+          <TableRow key={account.id} onPress={() => router.push('/accounts' as any)}>
+            <TableCell flex={2.2}>
+              <View style={styles.accountTitle}>
+                <View style={[styles.accountIcon, { backgroundColor: colors.primarySoft }]}>
+                  <Ionicons name={account.type === 'ppr' ? 'shield-checkmark-outline' : icon} size={17} color={colors.primary} />
+                </View>
+                <View style={styles.accountCopy}>
+                  <Text style={[styles.accountName, { color: colors.text }]} numberOfLines={1}>{account.name}</Text>
+                  <Text style={[styles.accountOwner, { color: colors.textSecondary }]} numberOfLines={1}>{ownerLabel}</Text>
+                  <Badge label={t(`accounts.types.${account.type}`)} tone={typeTone} />
+                </View>
+              </View>
+            </TableCell>
+            <TableCell align="right" mobilePinned>
+              <Text style={[styles.accountBalance, { color: colors.text }]}>{formatCurrency(currentBalance)}</Text>
+            </TableCell>
+            <TableCell align="right">
+              <Text style={{ color: balanceDifference > 0 ? colors.success : balanceDifference < 0 ? colors.destructive : colors.textSecondary, fontWeight: typography.fontWeight.bold as any }}>
+                {balanceDifference > 0 ? '+' : ''}{formatCurrency(balanceDifference)}
+              </Text>
+            </TableCell>
+            <TableCell align="right">
+              <Text style={{ color: spentThisMonth > 0 ? colors.destructive : colors.textSecondary, fontWeight: typography.fontWeight.bold as any }}>
+                {formatCurrency(spentThisMonth)}
+              </Text>
+            </TableCell>
+          </TableRow>
+        );
+      })}
+    </Table>
+  );
+}
+
 export default function DashboardScreen() {
   const { t } = useTranslation('common');
   const { profile, householdId } = useAuth();
@@ -335,6 +412,24 @@ export default function DashboardScreen() {
   const savingsAccounts = useMemo(
     () => accounts.filter((account) => account.type === 'savings'),
     [accounts],
+  );
+
+  const investmentMonthlyChange = useMemo(
+    () =>
+      sumBalances(
+        investmentAccounts,
+        (account) => monthlyBalanceChangesByAccount.get(account.id) ?? 0,
+      ),
+    [investmentAccounts, monthlyBalanceChangesByAccount],
+  );
+
+  const savingsMonthlyChange = useMemo(
+    () =>
+      sumBalances(
+        savingsAccounts,
+        (account) => monthlyBalanceChangesByAccount.get(account.id) ?? 0,
+      ),
+    [monthlyBalanceChangesByAccount, savingsAccounts],
   );
 
   const investmentTotal = useMemo(
@@ -480,17 +575,7 @@ export default function DashboardScreen() {
         />
       }
     >
-      <View
-        style={[
-          styles.heroCard,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-            flexDirection: responsive.isPhone ? 'column' : 'row',
-            padding: responsive.isPhone ? spacing(4) : spacing(5),
-          },
-        ]}
-      >
+      <View style={[styles.heroCard, { backgroundColor: colors.primarySoft, borderColor: colors.primary, flexDirection: responsive.isPhone ? 'column' : 'row', padding: responsive.isPhone ? spacing(4) : spacing(5) }]}>
         <View style={styles.heroCopy}>
           <Badge label={t('dashboard.netWorthScope')} tone="primary" />
           <Text
@@ -519,6 +604,10 @@ export default function DashboardScreen() {
           <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
             {t('dashboard.allocationSubtitle')}
           </Text>
+          <View style={[styles.heroActions, responsive.isPhone && styles.heroActionsPhone]}>
+            <Button label={t('dashboard.viewAllAccounts')} onPress={() => router.push('/accounts' as any)} />
+            <Button label={t('dashboard.savingPotsTitle')} onPress={() => router.push('/savings' as any)} variant="secondary" />
+          </View>
         </View>
         <View style={[styles.allocationPanel, { flexDirection: responsive.isPhone ? 'column' : 'row' }]}>
           <AllocationDonut segments={allocationSegments} total={netWorthTotal} />
@@ -526,248 +615,104 @@ export default function DashboardScreen() {
         </View>
       </View>
 
+      <View style={[styles.metricGrid, responsive.isPhone && styles.metricGridPhone]}>
+        <MetricCard label={t('dashboard.savingsAccounts')} value={formatCurrency(savingsAccountTotal)} icon="wallet-outline" hint={`${totalSavingsAccounts} ${t('dashboard.account').toLowerCase()}`} />
+        <MetricCard label={t('dashboard.invested')} value={formatCurrency(investmentTotal)} icon="trending-up-outline" hint={`${totalInvestmentAccounts} ${t('dashboard.account').toLowerCase()}`} />
+        <MetricCard label={t('dashboard.pots')} value={formatCurrency(savingPotsTotal)} icon="flag-outline" hint={`${totalPots} ${t('dashboard.savingPotsTitle').toLowerCase()}`} />
+        <MetricCard
+          label={t('dashboard.investedThisMonth')}
+          value={formatSignedCurrency(investmentMonthlyChange)}
+          icon="trending-up-outline"
+          hint={`${totalInvestmentAccounts} ${t('dashboard.account').toLowerCase()}`}
+        />
+        <MetricCard
+          label={t('dashboard.addedToSavingsThisMonth')}
+          value={formatSignedCurrency(savingsMonthlyChange)}
+          icon="add-circle-outline"
+          hint={`${totalSavingsAccounts} ${t('dashboard.account').toLowerCase()}`}
+        />
+      </View>
+
       <Section
         title={t('dashboard.byPersonTitle')}
         subtitle={t('dashboard.byPersonSubtitle')}
+        collapsible
       >
         {memberBreakdown.length ? (
           <View style={styles.personBreakdown}>
             {memberBreakdown.map((row) => (
               <PersonBreakdownBar key={row.id} row={row} segments={allocationSegments} />
             ))}
-            <Table
-              columns={[
-                { label: t('dashboard.person'), flex: 2 },
-                { label: t('dashboard.invested'), align: 'right' },
-                { label: t('dashboard.savingsAccounts'), align: 'right' },
-                { label: t('dashboard.pots'), align: 'right' },
-                { label: t('dashboard.accountTotal'), align: 'right' },
-              ]}
-            >
-              {memberBreakdown.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell flex={2}>
-                    <View style={{ gap: spacing(1) }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-                        <Ionicons name="person-circle-outline" size={18} color={colors.primary} />
-                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any, fontSize: typography.fontSize[15] }}>
-                          {row.label}
-                        </Text>
-                      </View>
-                      <Badge label={row.id === '__shared__' ? t('dashboard.shared') : t('dashboard.person')} tone={row.id === '__shared__' ? 'neutral' : 'primary'} />
-                    </View>
-                  </TableCell>
-                  <TableCell align="right">{formatCurrency(row.invested)}</TableCell>
-                  <TableCell align="right">{formatCurrency(row.savings)}</TableCell>
-                  <TableCell align="right">{formatCurrency(row.pots)}</TableCell>
-                  <TableCell align="right">
-                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(row.total)}</Text>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {memberBreakdown.length > 1 ? (
-                <TableRow>
-                  <TableCell flex={2}>
-                    <View style={{ gap: spacing(1) }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-                        <Ionicons name="calculator-outline" size={18} color={colors.primary} />
-                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any, fontSize: typography.fontSize[15] }}>
-                          {t('dashboard.verticalTotal')}
-                        </Text>
-                      </View>
-                      <Badge label={t('dashboard.total')} tone="primary" />
-                    </View>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(memberBreakdownTotals.invested)}</Text>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(memberBreakdownTotals.savings)}</Text>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(memberBreakdownTotals.pots)}</Text>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(memberBreakdownTotals.total)}</Text>
-                  </TableCell>
-                </TableRow>
-              ) : null}
-            </Table>
+            {memberBreakdown.length > 1 ? (
+              <View style={[styles.breakdownTotal, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
+                <View style={styles.breakdownTotalLabel}>
+                  <Ionicons name="people-outline" size={18} color={colors.primary} />
+                  <Text style={[styles.breakdownTotalTitle, { color: colors.text }]}>{t('dashboard.verticalTotal')}</Text>
+                </View>
+                <Text style={[styles.breakdownTotalValue, { color: colors.primary }]}>{formatCurrency(memberBreakdownTotals.total)}</Text>
+              </View>
+            ) : null}
           </View>
         ) : (
           <EmptyState title={t('dashboard.noPeople')} description={t('dashboard.byPersonSubtitle')} icon="people-outline" />
         )}
       </Section>
 
-      <Section
-        title={t('dashboard.investmentAccountsTitle')}
-        subtitle={t('dashboard.investmentAccountsSubtitle', { count: totalInvestmentAccounts })}
-      >
-        {investmentAccounts.length ? (
-          <Table
-            columns={[
-              { label: t('accounts.name'), flex: 2.4 },
-              { label: t('accounts.initialBalance'), align: 'right' },
-              { label: t('dashboard.total'), align: 'right' },
-              { label: t('dashboard.changeThisMonth'), align: 'right' },
-              { label: t('dashboard.spentThisMonth'), align: 'right' },
-            ]}
-          >
-            {investmentAccounts.map((account) => {
-              const ownerLabel = getAccountOwnerLabel(account, memberMap, t('dashboard.shared'));
-              const initialBalance = Number(account.initial_balance ?? 0);
-              const currentBalance = Number(account.current_balance ?? account.balance ?? 0);
-              const balanceDifference = monthlyBalanceChangesByAccount.get(account.id) ?? 0;
-              const spentThisMonth = monthlyExpensesByAccount.get(account.id) ?? 0;
-
-              return (
-                <TableRow key={account.id}>
-                  <TableCell flex={2.4}>
-                    <View style={{ gap: spacing(1) }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-                        <Ionicons name={account.type === 'ppr' ? 'shield-checkmark-outline' : 'trending-up-outline'} size={18} color={colors.primary} />
-                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any, fontSize: typography.fontSize[15] }}>
-                          {account.name} - {ownerLabel}
-                        </Text>
-                      </View>
-                      <Badge label={t(`accounts.types.${account.type}`)} tone="primary" />
-                    </View>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text style={{ color: colors.textSecondary }}>{formatCurrency(initialBalance)}</Text>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(currentBalance)}</Text>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text
-                      style={{
-                        color: balanceDifference > 0 ? colors.success : balanceDifference < 0 ? colors.destructive : colors.textSecondary,
-                        fontWeight: typography.fontWeight.extraBold as any,
-                      }}
-                    >
-                      {balanceDifference > 0 ? '+' : ''}
-                      {formatCurrency(balanceDifference)}
-                    </Text>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text style={{ color: spentThisMonth > 0 ? colors.destructive : colors.textSecondary, fontWeight: typography.fontWeight.extraBold as any }}>
-                      {formatCurrency(spentThisMonth)}
-                    </Text>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </Table>
-        ) : (
-          <EmptyState title={t('dashboard.noInvestmentAccounts')} icon="trending-up-outline" />
-        )}
+      <Section title={t('dashboard.investmentAccountsTitle')} subtitle={t('dashboard.investmentAccountsSubtitle', { count: totalInvestmentAccounts })} collapsible>
+        <AccountOverviewTable
+          accounts={investmentAccounts}
+          memberMap={memberMap}
+          emptyTitle={t('dashboard.noInvestmentAccounts')}
+          icon="trending-up-outline"
+          typeTone="primary"
+          monthlyBalanceChangesByAccount={monthlyBalanceChangesByAccount}
+          monthlyExpensesByAccount={monthlyExpensesByAccount}
+        />
       </Section>
 
-      <Section
-        title={t('dashboard.savingsAccountsTitle')}
-        subtitle={t('dashboard.savingsAccountsSubtitle', { count: totalSavingsAccounts })}
-      >
-        {savingsAccounts.length ? (
-          <Table
-            columns={[
-              { label: t('accounts.name'), flex: 2.4 },
-              { label: t('accounts.initialBalance'), align: 'right' },
-              { label: t('dashboard.total'), align: 'right' },
-              { label: t('dashboard.changeThisMonth'), align: 'right' },
-              { label: t('dashboard.spentThisMonth'), align: 'right' },
-            ]}
-          >
-            {savingsAccounts.map((account) => {
-              const ownerLabel = getAccountOwnerLabel(account, memberMap, t('dashboard.shared'));
-              const initialBalance = Number(account.initial_balance ?? 0);
-              const currentBalance = Number(account.current_balance ?? account.balance ?? 0);
-              const balanceDifference = monthlyBalanceChangesByAccount.get(account.id) ?? 0;
-              const spentThisMonth = monthlyExpensesByAccount.get(account.id) ?? 0;
-
-              return (
-                <TableRow key={account.id}>
-                  <TableCell flex={2.4}>
-                    <View style={{ gap: spacing(1) }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-                        <Ionicons name="file-tray-full-outline" size={18} color={colors.primary} />
-                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any, fontSize: typography.fontSize[15] }}>
-                          {account.name} - {ownerLabel}
-                        </Text>
-                      </View>
-                      <Badge label={t(`accounts.types.${account.type}`)} tone="success" />
-                    </View>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text style={{ color: colors.textSecondary }}>{formatCurrency(initialBalance)}</Text>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(currentBalance)}</Text>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text
-                      style={{
-                        color: balanceDifference > 0 ? colors.success : balanceDifference < 0 ? colors.destructive : colors.textSecondary,
-                        fontWeight: typography.fontWeight.extraBold as any,
-                      }}
-                    >
-                      {balanceDifference > 0 ? '+' : ''}
-                      {formatCurrency(balanceDifference)}
-                    </Text>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text style={{ color: spentThisMonth > 0 ? colors.destructive : colors.textSecondary, fontWeight: typography.fontWeight.extraBold as any }}>
-                      {formatCurrency(spentThisMonth)}
-                    </Text>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </Table>
-        ) : (
-          <EmptyState title={t('dashboard.noSavingsAccounts')} icon="file-tray-full-outline" />
-        )}
+      <Section title={t('dashboard.savingsAccountsTitle')} subtitle={t('dashboard.savingsAccountsSubtitle', { count: totalSavingsAccounts })} collapsible>
+        <AccountOverviewTable
+          accounts={savingsAccounts}
+          memberMap={memberMap}
+          emptyTitle={t('dashboard.noSavingsAccounts')}
+          icon="wallet-outline"
+          typeTone="success"
+          monthlyBalanceChangesByAccount={monthlyBalanceChangesByAccount}
+          monthlyExpensesByAccount={monthlyExpensesByAccount}
+        />
       </Section>
 
       <Section
         title={t('dashboard.savingPotsTitle')}
         subtitle={t('dashboard.savingPotsSubtitle', { count: totalPots })}
+        collapsible
       >
         {savingPotBalances.length ? (
-          <Table
-            columns={[
-              { label: t('dashboard.person'), flex: 2 },
-              { label: t('dashboard.savingPotsTitle'), flex: 2 },
-              { label: t('dashboard.total'), align: 'right' },
-            ]}
-          >
+          <View style={[styles.goalGrid, responsive.isPhone && styles.goalGridPhone]}>
             {savingPotBalances.map((pot) => {
               const potDefinition = savingPots.find((item) => item.id === pot.id);
               const creator = potDefinition?.created_by ? memberMap.get(potDefinition.created_by) : undefined;
 
               return (
-                <TableRow key={pot.id}>
-                  <TableCell flex={2}>
-                    <Text style={{ color: colors.textSecondary }}>{getPersonLabel(creator, t('dashboard.shared'))}</Text>
-                  </TableCell>
-                  <TableCell flex={2}>
-                    <View style={{ gap: spacing(1) }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-                        <Ionicons name="save-outline" size={18} color={colors.primary} />
-                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.extraBold as any, fontSize: typography.fontSize[15] }}>
-                          {pot.name}
-                        </Text>
+                <View key={pot.id} style={[styles.goalCard, { backgroundColor: colors.surface, borderColor: colors.border, padding: responsive.cardPadding, gap: responsive.cardGap }]}>
+                  <View style={styles.goalCardHeader}>
+                    <View style={styles.goalCardTitle}>
+                      <View style={[styles.goalIcon, { backgroundColor: colors.successSoft }]}>
+                        <Ionicons name="flag-outline" size={18} color={colors.success} />
                       </View>
-                      <GoalMeter balance={Number(pot.balance ?? 0)} target={potDefinition?.target_amount} />
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={[styles.goalName, { color: colors.text }]} numberOfLines={1}>{pot.name}</Text>
+                        <Text style={[styles.goalOwner, { color: colors.textSecondary }]} numberOfLines={1}>{getPersonLabel(creator, t('dashboard.shared'))}</Text>
+                      </View>
                     </View>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text style={{ color: colors.primary, fontWeight: typography.fontWeight.extraBold as any }}>{formatCurrency(pot.balance ?? 0)}</Text>
-                  </TableCell>
-                </TableRow>
+                    <Text style={[styles.goalBalance, { color: colors.text }]}>{formatCurrency(pot.balance ?? 0)}</Text>
+                  </View>
+                  <GoalMeter balance={Number(pot.balance ?? 0)} target={potDefinition?.target_amount} />
+                  <Button label={t('dashboard.savingPotsTitle')} onPress={() => router.push('/savings' as any)} variant="secondary" />
+                </View>
               );
             })}
-          </Table>
+          </View>
         ) : (
           <EmptyState title={t('dashboard.noSavingPots')} icon="save-outline" />
         )}
@@ -800,7 +745,12 @@ export default function DashboardScreen() {
         </View>
       </SelectionShell>
 
-      <Section title={t('dashboard.recentTransactions')} subtitle={t('dashboard.recentTransactionsSubtitle')}>
+      <Section
+        title={t('dashboard.recentTransactions')}
+        subtitle={t('dashboard.recentTransactionsSubtitle')}
+        action={<Button label={t('dashboard.recentTransactions')} onPress={() => router.push('/transactions' as any)} variant="secondary" />}
+        collapsible
+      >
         {transactions.length ? (
           <Table
             columns={[
@@ -830,7 +780,7 @@ export default function DashboardScreen() {
                   <TableCell flex={1.2}>
                     <Text style={{ color: colors.textSecondary }}>{item.category?.name ?? t('dashboard.uncategorized')}</Text>
                   </TableCell>
-                  <TableCell align="right">
+                  <TableCell align="right" mobilePinned>
                     <Text style={{ color: item.type === 'expense' ? colors.destructive : colors.success, fontWeight: typography.fontWeight.bold as any }}>
                       {item.type === 'expense' ? '-' : '+'}{formatCurrency(item.amount)}
                     </Text>
@@ -844,7 +794,6 @@ export default function DashboardScreen() {
         )}
       </Section>
 
-      <Button label={t('dashboard.viewAllAccounts')} onPress={() => router.push('/accounts' as any)} variant="secondary" />
     </Page>
   );
 }
@@ -856,6 +805,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.xl,
     gap: spacing(5),
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -876,6 +826,15 @@ const styles = StyleSheet.create({
   heroSubtitle: {
     fontSize: typography.fontSize[14],
     lineHeight: typography.lineHeight[20],
+  },
+  heroActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing(2),
+    marginTop: spacing(1),
+  },
+  heroActionsPhone: {
+    width: '100%',
   },
   allocationPanel: {
     flex: 1,
@@ -906,6 +865,18 @@ const styles = StyleSheet.create({
   legendList: {
     gap: spacing(2),
     minWidth: spacing(48),
+  },
+  metricGrid: {
+    width: '100%',
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing(3),
+  },
+  metricGridPhone: {
+    flexDirection: 'column',
+    flexWrap: 'nowrap',
+    gap: spacing(2),
   },
   legendItem: {
     flexDirection: 'row',
@@ -984,6 +955,112 @@ const styles = StyleSheet.create({
   personBarLegendText: {
     fontSize: typography.fontSize[12],
     lineHeight: typography.lineHeight[16],
+  },
+  breakdownTotal: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing(2),
+    padding: spacing(3),
+    borderRadius: radius.lg,
+    borderWidth: 1,
+  },
+  breakdownTotalLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing(1.5),
+  },
+  breakdownTotalTitle: {
+    fontSize: typography.fontSize[14],
+    fontWeight: typography.fontWeight.extraBold as any,
+  },
+  breakdownTotalValue: {
+    fontSize: typography.fontSize[16],
+    fontWeight: typography.fontWeight.extraBold as any,
+  },
+  accountTitle: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing(2),
+    minWidth: 0,
+  },
+  accountIcon: {
+    width: spacing(8),
+    height: spacing(8),
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: spacing(0.5),
+  },
+  accountName: {
+    fontSize: typography.fontSize[14],
+    lineHeight: typography.lineHeight[20],
+    fontWeight: typography.fontWeight.extraBold as any,
+  },
+  accountOwner: {
+    fontSize: typography.fontSize[12],
+    lineHeight: typography.lineHeight[16],
+  },
+  accountBalance: {
+    fontSize: typography.fontSize[14],
+    fontWeight: typography.fontWeight.extraBold as any,
+  },
+  goalGrid: {
+    width: '100%',
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing(3),
+  },
+  goalGridPhone: {
+    flexDirection: 'column',
+    flexWrap: 'nowrap',
+    gap: spacing(2),
+  },
+  goalCard: {
+    flex: 1,
+    minWidth: 280,
+    alignSelf: 'stretch',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+  },
+  goalCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing(2),
+  },
+  goalCardTitle: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing(2),
+  },
+  goalIcon: {
+    width: spacing(8),
+    height: spacing(8),
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goalName: {
+    fontSize: typography.fontSize[15],
+    fontWeight: typography.fontWeight.extraBold as any,
+  },
+  goalOwner: {
+    marginTop: spacing(0.25),
+    fontSize: typography.fontSize[12],
+    lineHeight: typography.lineHeight[16],
+  },
+  goalBalance: {
+    fontSize: typography.fontSize[15],
+    fontWeight: typography.fontWeight.extraBold as any,
   },
   goalMeter: {
     gap: spacing(1),

@@ -10,7 +10,7 @@ import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 
 import { Page, Card, Section, Field, Button, Pill, formatCurrency, formatDate } from '@/components/migrated-page';
-import { Badge, EmptyState, Table, TableCell, TableRow } from '@/components/data-surface';
+import { EmptyState, Table, TableCell, TableRow } from '@/components/data-surface';
 import { HouseholdMemberSelect } from '@/components/household-member-select';
 import { DropdownMenu, SelectionOptionRow, SelectionShell, SelectionTrigger } from '@/components/selection-shell';
 import { GroupedAccountSelect } from '@/components/grouped-account-select';
@@ -57,7 +57,6 @@ type DropdownFieldProps = {
 };
 
 function DropdownField({ label, valueLabel, placeholder, hint, selectedKey, options, onChange }: DropdownFieldProps) {
-  const { colors } = useTheme();
   const [open, setOpen] = useState(false);
 
   return (
@@ -334,12 +333,6 @@ export default function TransactionsScreen() {
         member.fullName?.trim() || member.email || member.userId,
       ]),
   );
-  const accountLabelMap = new Map(
-    (accounts as any[]).map((account) => [
-      account.id,
-      account.owner_profile_id ? (memberLabelMap.get(account.owner_profile_id) ?? t('dashboard.shared')) : t('dashboard.shared'),
-    ]),
-  );
   const currentUserLabel = profile?.full_name?.trim() || profile?.email?.trim() || t('settings.you');
   const currentUserId = profile?.id ?? '';
   const firstAccount = accounts[0]?.id ?? '';
@@ -349,10 +342,6 @@ export default function TransactionsScreen() {
     account.owner_profile_id ? (memberLabelMap.get(account.owner_profile_id) ?? t('dashboard.shared')) : t('dashboard.shared');
   const getAccountOptionSubtitle = (account: any) =>
     `${getAccountOwnerLabel(account)} · ${t(`accounts.types.${account.type}`, { defaultValue: account.type })} · ${formatCurrency(account.current_balance ?? account.balance ?? 0)}`;
-  const selectedAccount = accounts.find((account: any) => account.id === effectiveAccountId);
-  const selectedAccountLabel = selectedAccount
-    ? `${selectedAccount.name} · ${t(`accounts.types.${selectedAccount.type}`, { defaultValue: selectedAccount.type })} · ${selectedAccount.owner_profile_id ? (memberLabelMap.get(selectedAccount.owner_profile_id) ?? t('dashboard.shared')) : t('dashboard.shared')}`
-    : t('transactions.selectAccount');
   const selectedCreatorLabel =
     createdByFilter === 'all'
       ? t('all', { defaultValue: 'All' })
@@ -718,48 +707,38 @@ export default function TransactionsScreen() {
           <>
             <Table
               columns={[
-                { label: t('transactions.titleLabel'), flex: 2 },
-                { label: t('transactions.account'), flex: 1.2 },
-                { label: t('transactions.categories'), flex: 1.2 },
-                { label: t('transactions.createdBy'), flex: 1.2 },
-                { label: t('transactions.dateLabel'), flex: 1 },
+                { label: t('transactions.titleLabel'), flex: 2.4 },
+                { label: t('transactions.account'), flex: 1.8 },
                 { label: t('transactions.amountLabel'), align: 'right' },
                 { label: '', flex: 0.35, align: 'right' },
               ]}
             >
               {transactions.map((item: any) => (
                 <TableRow key={item.id}>
-                  <TableCell flex={2}>
-                    <View style={{ gap: spacing(1) }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                  <TableCell flex={2.4}>
+                    <View style={styles.transactionIdentity}>
+                      <View style={[styles.transactionIcon, { backgroundColor: item.type === 'expense' ? colors.destructiveSoft : colors.successSoft }]}>
                         <Ionicons name={getTransactionTypeIcon(item.type)} size={18} color={item.type === 'expense' ? colors.destructive : colors.success} />
-                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold as any } as any}>{item.title}</Text>
                       </View>
-                      <Badge label={t(`transactions.types.${item.type}`)} tone={item.type === 'expense' ? 'destructive' : 'success'} />
+                      <View style={styles.transactionDetails}>
+                        <Text style={styles.transactionTitle}>{item.title}</Text>
+                        <Text style={styles.transactionContext}>{item.category?.name ?? t('transactions.uncategorized')} · {formatDate(item.transaction_date)}</Text>
+                      </View>
                     </View>
                   </TableCell>
-                  <TableCell flex={1.2}>
-                    <Text style={{ color: colors.textSecondary } as any}>
-                      {getTransactionAccountLabel(item)}
-                    </Text>
-                  </TableCell>
-                  <TableCell flex={1.2}>
-                    <Text style={{ color: colors.textSecondary } as any}>{item.category?.name ?? t('transactions.uncategorized')}</Text>
-                  </TableCell>
-                  <TableCell flex={1.2}>
-                    <Text style={{ color: colors.textSecondary } as any}>
-                      {
-                        item.created_by_profile?.id === profile?.id
+                  <TableCell flex={1.8}>
+                    <View style={styles.transactionDetails}>
+                      <Text style={styles.transactionAccount}>{getTransactionAccountLabel(item)}</Text>
+                      <Text style={styles.transactionContext}>
+                        {item.created_by_profile?.id === profile?.id
                           ? currentUserLabel
                           : memberLabelMap.get(item.created_by_profile?.id ?? item.created_by) ?? t('settings.unnamedUser')
-                      }
-                    </Text>
-                  </TableCell>
-                  <TableCell flex={1}>
-                    <Text style={{ color: colors.textSecondary } as any}>{formatDate(item.transaction_date)}</Text>
+                        }
+                      </Text>
+                    </View>
                   </TableCell>
                   <TableCell align="right">
-                    <Text style={{ color: item.type === 'expense' ? colors.destructive : colors.success, fontWeight: typography.fontWeight.extraBold as any } as any}>
+                    <Text style={[styles.transactionAmount, { color: item.type === 'expense' ? colors.destructive : colors.success }]}>
                       {item.type === 'expense' ? '-' : '+'}{formatCurrency(item.amount)}
                     </Text>
                   </TableCell>
@@ -931,6 +910,13 @@ function createStyles(colors: any) {
     justifyContent: 'space-between',
     gap: spacing(3),
   },
+  transactionIdentity: { flexDirection: 'row', alignItems: 'center', gap: spacing(2) },
+  transactionIcon: { width: spacing(9), height: spacing(9), borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  transactionDetails: { flex: 1, gap: spacing(0.5) },
+  transactionTitle: { color: colors.text, fontWeight: String(typography.fontWeight.bold) },
+  transactionAccount: { color: colors.text, fontWeight: String(typography.fontWeight.semibold) },
+  transactionContext: { color: colors.textSecondary, fontSize: typography.fontSize[12] },
+  transactionAmount: { fontSize: typography.fontSize[16], fontWeight: String(typography.fontWeight.extraBold) },
   menuButton: {
     width: spacing(10.5),
     height: spacing(10.5),

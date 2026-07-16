@@ -4,7 +4,6 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useTranslation } from 'react-i18next';
 import { typography } from '@/theme/typography';
 import { useTheme } from '@/theme/ThemeProvider';
-import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 
 import { Page, Card, Section, Field, Button } from '@/components/migrated-page';
@@ -20,6 +19,7 @@ import {
 } from '../../features/households/hooks';
 import type { AppLanguage } from '@/shared/i18n/languages';
 import { useUpdatePreferredCurrency } from '@/features/profiles/hooks';
+import { useOnboarding } from '@/features/onboarding';
 import type { ThemeMode } from '@/stores/themeStore';
 import { useThemeStore } from '@/stores/themeStore';
 import {
@@ -53,6 +53,7 @@ export default function SettingsScreen() {
   const { colors } = useTheme();
   const { t } = useTranslation('common');
   const { profile, householdId } = useAuth();
+  const { openGuide } = useOnboarding();
   const language = usePreferencesStore((state) => state.language);
   const setLanguage = usePreferencesStore((state) => state.setLanguage);
   const currency = usePreferencesStore((state) => state.currency);
@@ -273,6 +274,12 @@ export default function SettingsScreen() {
               ? t('settings.currentHousehold', { value: currentHousehold.name.trim() })
               : t('settings.currentHouseholdLabel')}
           </Text>
+        </Section>
+      </Card>
+
+      <Card>
+        <Section title={t('onboarding.restart')} subtitle={t('onboarding.restartDescription')}>
+          <Button label={t('onboarding.restart')} variant="secondary" onPress={() => openGuide('initial')} />
         </Section>
       </Card>
 

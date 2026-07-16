@@ -24,7 +24,7 @@ export function normalizeRedirectTo(value: unknown): string | null {
 
 export function buildCurrentRedirectTo(pathname: string, params: Record<string, unknown> = {}) {
   const windowPath =
-    typeof window !== 'undefined'
+    typeof window !== 'undefined' && window.location
       ? `${window.location.pathname}${window.location.search}${window.location.hash}`
       : null;
 

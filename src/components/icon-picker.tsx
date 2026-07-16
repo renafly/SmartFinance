@@ -131,6 +131,7 @@ export function IconPicker({
         subtitle={hint ?? placeholder}
         closeLabel={closeLabel}
         onClose={() => setOpen(false)}
+        bodyScrollable={false}
       >
         <View style={{ gap: spacing(2) }}>
           <TextInput

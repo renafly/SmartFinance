@@ -4,7 +4,6 @@ import { spacing } from "@/theme/spacing";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  FlatList,
   Modal,
   Pressable,
   ScrollView,
@@ -25,6 +24,7 @@ import {
   Section,
 } from "@/components/migrated-page";
 import { typography } from "@/theme/typography";
+import { getPersistentString, setPersistentString } from "@/shared/lib/persistent-storage";
 import { useAccountsWithBalances } from "../../features/accounts/hooks";
 import { useHouseholdMemberDetails } from "../../features/households/hooks";
 import {
@@ -246,10 +246,10 @@ export default function SavingsScreen() {
       : t("savings.noAccountsSelected");
 
   useEffect(() => {
-    if (!collapsedGroupsKey || typeof window === "undefined") return;
+    if (!collapsedGroupsKey) return;
     if (hydratedCollapsedGroupsKey.current === collapsedGroupsKey) return;
 
-    const raw = window.localStorage.getItem(collapsedGroupsKey);
+    const raw = getPersistentString(collapsedGroupsKey);
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
@@ -268,8 +268,8 @@ export default function SavingsScreen() {
   }, [collapsedGroupsKey]);
 
   useEffect(() => {
-    if (!collapsedGroupsKey || typeof window === "undefined" || !hasLoadedCollapsedGroups) return;
-    window.localStorage.setItem(collapsedGroupsKey, JSON.stringify(collapsedGroupKeys));
+    if (!collapsedGroupsKey || !hasLoadedCollapsedGroups) return;
+    setPersistentString(collapsedGroupsKey, JSON.stringify(collapsedGroupKeys));
   }, [collapsedGroupKeys, collapsedGroupsKey, hasLoadedCollapsedGroups]);
 
   const toggleCollapsedGroup = (groupKey: string) => {
@@ -473,6 +473,11 @@ export default function SavingsScreen() {
             );
             const currentValue = Number(balance?.balance ?? 0);
             const remainingValue = Math.max(0, targetValue - currentValue);
+            const selectedAccounts = accounts.filter((account) =>
+              (selectionMap.get(pot.id) ?? []).includes(account.id),
+            );
+            const sharedAccountCount = selectedAccounts.filter((account) => account.owner_profile_id === null).length;
+            const personalAccountCount = selectedAccounts.length - sharedAccountCount;
             const isForecastExpanded = expandedForecastPotId === pot.id;
             const forecastYears = forecast ? buildForecastYearRows(forecast.timeline) : [];
             const percent =
@@ -514,16 +519,22 @@ export default function SavingsScreen() {
                         : (memberLabelMap.get(pot.created_by) ??
                           t("settings.unnamedUser"))}
                     </Text>
-                    <Text style={styles.potTarget}>
-                      {t("savings.targetAmount")}:{" "}
-                      {balance?.target_amount
-                        ? formatCurrency(balance.target_amount)
-                        : t("savings.noTarget")}
-                    </Text>
-                    <Text style={styles.potBalance}>
-                      {t("savings.balance")}{" "}
-                      {formatCurrency(balance?.balance ?? 0)}
-                    </Text>
+                    <View style={styles.goalAmountGrid}>
+                      <View style={styles.goalAmountCell}>
+                        <Text style={styles.goalAmountLabel}>{t("savings.balance")}</Text>
+                        <Text style={styles.goalBalanceValue}>{formatCurrency(currentValue)}</Text>
+                      </View>
+                      <View style={styles.goalAmountCell}>
+                        <Text style={styles.goalAmountLabel}>{t("savings.targetAmount")}</Text>
+                        <Text style={styles.goalAmountValue}>{targetValue > 0 ? formatCurrency(targetValue) : t("savings.noTarget")}</Text>
+                      </View>
+                      {targetValue > 0 ? (
+                        <View style={styles.goalAmountCell}>
+                          <Text style={styles.goalAmountLabel}>{t("budgets.remaining", { value: "" })}</Text>
+                          <Text style={styles.goalAmountValue}>{formatCurrency(remainingValue)}</Text>
+                        </View>
+                      ) : null}
+                    </View>
                     <Text style={styles.potMeta}>
                       {t("savings.saved")} {formatCurrency(balance?.saved ?? 0)}{" "}
                       · {t("savings.spent")}{" "}
@@ -533,11 +544,6 @@ export default function SavingsScreen() {
                       {t("savings.accountsUsed")}:{" "}
                       {t("savings.scopeAccountSpecific", { count: selectedCount })}
                     </Text>
-                    {percent !== null ? (
-                      <Text style={styles.potMeta}>
-                        {t("savings.progress", { percent })}
-                      </Text>
-                    ) : null}
                   </View>
                   <View style={styles.progressTrack}>
                     <View
@@ -546,6 +552,15 @@ export default function SavingsScreen() {
                         { width: `${percent ?? 0}%` },
                       ]}
                     />
+                  </View>
+                  <View style={styles.progressCaption}>
+                    <Text style={styles.progressText}>{percent !== null ? t("savings.progress", { percent }) : t("savings.noTarget")}</Text>
+                    {targetValue > 0 ? <Text style={styles.progressText}>{t("budgets.remaining", { value: formatCurrency(remainingValue) })}</Text> : null}
+                  </View>
+                  <View style={styles.scopeRow}>
+                    {sharedAccountCount > 0 ? <Text style={styles.scopeChip}>{t("savings.scopeShared")} · {sharedAccountCount}</Text> : null}
+                    {personalAccountCount > 0 ? <Text style={styles.scopeChip}>{t("budget.incomeModes.individual")} · {personalAccountCount}</Text> : null}
+                    <Text style={styles.scopeChip}>{t("savings.scopeAccountSpecific", { count: selectedCount })}</Text>
                   </View>
                   {forecast?.completionDate ? (
                     <Text style={styles.potMeta}>
@@ -623,36 +638,25 @@ export default function SavingsScreen() {
                             <Text style={styles.forecastColumnLabel}>{t("savings.forecastBalanceShort")}</Text>
                           </View>
                           {forecastViewMode === "monthly" ? (
-                            <FlatList
-                              data={forecast.timeline}
-                              keyExtractor={(item) => item.month}
-                              nestedScrollEnabled
-                              style={styles.forecastTimelineScroll}
-                              contentContainerStyle={styles.forecastTimelineContent}
-                              initialNumToRender={12}
-                              windowSize={5}
-                              renderItem={({ item }) => (
-                                <View style={[styles.forecastRow, item.reachedTarget && styles.forecastRowComplete]}>
+                            <View style={styles.forecastTimelineContent}>
+                              {forecast.timeline.map((item) => (
+                                <View key={item.month} style={[styles.forecastRow, item.reachedTarget && styles.forecastRowComplete]}>
                                   <Text style={[styles.forecastRowText, styles.forecastLabelPrimary]}>{formatForecastMonth(item.month)}</Text>
                                   <Text style={styles.forecastRowText}>{formatCurrency(item.contribution)}</Text>
                                   <Text style={styles.forecastRowBalance}>{formatCurrency(item.projectedAmount)}</Text>
                                 </View>
-                              )}
-                            />
+                              ))}
+                            </View>
                           ) : (
-                            <FlatList
-                              data={forecastYears}
-                              keyExtractor={(item) => item.year}
-                              scrollEnabled={false}
-                              contentContainerStyle={styles.forecastYearRows}
-                              renderItem={({ item }) => (
-                                <View style={[styles.forecastRow, item.remainingAmount === 0 && styles.forecastRowComplete]}>
+                            <View style={styles.forecastYearRows}>
+                              {forecastYears.map((item) => (
+                                <View key={item.year} style={[styles.forecastRow, item.remainingAmount === 0 && styles.forecastRowComplete]}>
                                   <Text style={[styles.forecastRowText, styles.forecastLabelPrimary]}>{item.year}</Text>
                                   <Text style={styles.forecastRowText}>{formatCurrency(item.contribution)}</Text>
                                   <Text style={styles.forecastRowBalance}>{formatCurrency(item.projectedAmount)}</Text>
                                 </View>
-                              )}
-                            />
+                              ))}
+                            </View>
                           )}
                         </View>
                       ) : null}
@@ -1094,6 +1098,36 @@ function createStyles(colors: any) {
     potHeader: {
       gap: spacing(2.5),
     },
+    goalAmountGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing(2),
+    },
+    goalAmountCell: {
+      flexGrow: 1,
+      minWidth: spacing(28),
+      gap: spacing(0.5),
+      padding: spacing(2.5),
+      borderRadius: radius.lg,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    goalAmountLabel: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+      fontWeight: typography.fontWeight.semibold,
+    },
+    goalBalanceValue: {
+      color: colors.success,
+      fontSize: typography.fontSize[18],
+      fontWeight: typography.fontWeight.extraBold,
+    },
+    goalAmountValue: {
+      color: colors.text,
+      fontSize: typography.fontSize[16],
+      fontWeight: typography.fontWeight.extraBold,
+    },
     potTitleRow: {
       flexDirection: "row",
       alignItems: "flex-start",
@@ -1134,6 +1168,30 @@ function createStyles(colors: any) {
       height: "100%",
       borderRadius: radius.full,
       backgroundColor: colors.success,
+    },
+    progressCaption: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: spacing(2),
+    },
+    progressText: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+      fontWeight: typography.fontWeight.semibold,
+    },
+    scopeRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing(1.5),
+    },
+    scopeChip: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+      fontWeight: typography.fontWeight.semibold,
+      paddingHorizontal: spacing(2),
+      paddingVertical: spacing(1),
+      borderRadius: radius.full,
+      backgroundColor: colors.surfaceMuted,
     },
     forecastToggle: {
       flexDirection: "row",
@@ -1217,9 +1275,6 @@ function createStyles(colors: any) {
     forecastLabelPrimary: {
       flex: 1.25,
       textAlign: "left",
-    },
-    forecastTimelineScroll: {
-      maxHeight: spacing(80),
     },
     forecastTimelineContent: {
       gap: spacing(1),

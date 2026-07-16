@@ -7,6 +7,7 @@ import { ModalProvider } from "./ModalProvider";
 import { QueryProvider } from "./QueryProvider";
 import { ToastProvider } from "./ToastProvider";
 import { NotificationsProvider } from "./NotificationsProvider";
+import { ProfileOnboardingProvider } from "@/features/onboarding/ProfileOnboardingProvider";
 
 // Composition order matters: Theme and Query are foundational (most
 // other providers may want colors or query hooks), Auth needs Query
@@ -18,13 +19,15 @@ export function RootProvider({ children }: PropsWithChildren) {
     <ThemeProvider>
       <QueryProvider>
         <AuthProvider>
-          <FeatureFlagProvider>
-            <ModalProvider>
-              <ToastProvider>
-                <NotificationsProvider>{children}</NotificationsProvider>
-              </ToastProvider>
-            </ModalProvider>
-          </FeatureFlagProvider>
+          <ProfileOnboardingProvider>
+            <FeatureFlagProvider>
+              <ModalProvider>
+                <ToastProvider>
+                  <NotificationsProvider>{children}</NotificationsProvider>
+                </ToastProvider>
+              </ModalProvider>
+            </FeatureFlagProvider>
+          </ProfileOnboardingProvider>
         </AuthProvider>
       </QueryProvider>
     </ThemeProvider>

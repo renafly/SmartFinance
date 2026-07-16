@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { useMonthlyBudgetWorkspace } from "@/features/monthly-budget/hooks";
 import { useRecurringTransactions } from "@/features/recurring-transactions/hooks";
 import { buildSavingPotForecasts } from "../services/saving-pot-forecast.service";
-import { useSavingPotAccountAssignments, useSavingPotBalances, useSavingPots } from "./index";
+import { useSavingPotAccountAssignments, useSavingPotBalances, useSavingPots } from "./useSavingPotQueries";
 
 export function useSavingPotForecasts() {
   const savingPotsQuery = useSavingPots();
