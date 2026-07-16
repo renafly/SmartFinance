@@ -931,6 +931,9 @@
     "googleSignInErrorTitle": "Não foi possível iniciar sessão com Google",
     "googleSignInErrorMessage": "Tente novamente dentro de alguns instantes.",
     "completingGoogleSignIn": "A concluir o início de sessão com Google...",
+    "preparingDashboard": "A sua casa financeira está a ganhar forma",
+    "preparingDashboardDescription": "A ligar o seu perfil, agregado e números mais recentes.",
+    "loadingAccessibilityLabel": "A preparar o seu painel SmartFinance",
     "googleCallbackErrorMessage": "Não foi possível concluir o início de sessão com Google. Tente novamente."
   }
 }

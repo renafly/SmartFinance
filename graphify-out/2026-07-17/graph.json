@@ -6360,7 +6360,7 @@
       "source_location": "L287",
       "_origin": "ast",
       "id": "src_features_household_backup_services_household_backup_service_newid",
-      "community": 40,
+      "community": 52,
       "norm_label": "newid()"
     },
     {
@@ -6390,7 +6390,7 @@
       "source_location": "L299",
       "_origin": "ast",
       "id": "src_features_household_backup_services_household_backup_service_safenamepart",
-      "community": 52,
+      "community": 47,
       "norm_label": "safenamepart()"
     },
     {
@@ -6440,7 +6440,7 @@
       "source_location": "L326",
       "_origin": "ast",
       "id": "src_features_household_backup_services_household_backup_service_newidmap",
-      "community": 40,
+      "community": 52,
       "norm_label": "newidmap()"
     },
     {
@@ -6490,7 +6490,7 @@
       "source_location": "L357",
       "_origin": "ast",
       "id": "src_features_household_backup_services_household_backup_service_throwiferror",
-      "community": 40,
+      "community": 52,
       "norm_label": "throwiferror()"
     },
     {
@@ -6500,7 +6500,7 @@
       "source_location": "L363",
       "_origin": "ast",
       "id": "src_features_household_backup_services_household_backup_service_fetchpaged",
-      "community": 47,
+      "community": 89,
       "norm_label": "fetchpaged()"
     },
     {
@@ -6510,7 +6510,7 @@
       "source_location": "L380",
       "_origin": "ast",
       "id": "src_features_household_backup_services_household_backup_service_insertmany",
-      "community": 40,
+      "community": 52,
       "norm_label": "insertmany()"
     },
     {
@@ -6520,7 +6520,7 @@
       "source_location": "L400",
       "_origin": "ast",
       "id": "src_features_household_backup_services_household_backup_service_getcurrentprofile",
-      "community": 40,
+      "community": 52,
       "norm_label": "getcurrentprofile()"
     },
     {
@@ -6640,7 +6640,7 @@
       "source_location": "L831",
       "_origin": "ast",
       "id": "src_features_household_backup_services_household_backup_service_buildincomeinputinserts",
-      "community": 40,
+      "community": 52,
       "norm_label": "buildincomeinputinserts()"
     },
     {
@@ -6690,7 +6690,7 @@
       "source_location": "L981",
       "_origin": "ast",
       "id": "src_features_household_backup_services_household_backup_service_householdbackupservice_exporthouseholdbackup",
-      "community": 47,
+      "community": 89,
       "norm_label": ".exporthouseholdbackup()"
     },
     {
@@ -6700,7 +6700,7 @@
       "source_location": "L1145",
       "_origin": "ast",
       "id": "src_features_household_backup_services_household_backup_service_householdbackupservice_getexportfilename",
-      "community": 52,
+      "community": 47,
       "norm_label": ".getexportfilename()"
     },
     {
@@ -6730,7 +6730,7 @@
       "source_location": "L1171",
       "_origin": "ast",
       "id": "src_features_household_backup_services_household_backup_service_householdbackupservice_importhouseholdbackup",
-      "community": 40,
+      "community": 52,
       "norm_label": ".importhouseholdbackup()"
     },
     {
@@ -9847,7 +9847,7 @@
       "label": "Protected()",
       "file_type": "code",
       "source_file": "src/navigation/Protected.tsx",
-      "source_location": "L10",
+      "source_location": "L11",
       "_origin": "ast",
       "id": "src_navigation_protected_protected",
       "community": 8,
@@ -12890,7 +12890,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_types_database_types_json",
-      "community": 52,
+      "community": 47,
       "norm_label": "json"
     },
     {
@@ -30911,7 +30911,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/navigation/Protected.tsx",
-      "source_location": "L17",
+      "source_location": "L18",
       "weight": 1.0,
       "source": "src_navigation_protected_protected",
       "target": "src_features_auth_redirects_buildcurrentredirectto"
@@ -30966,7 +30966,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/navigation/Protected.tsx",
-      "source_location": "L17",
+      "source_location": "L18",
       "weight": 1.0,
       "source": "src_navigation_protected_protected",
       "target": "src_features_auth_redirects_storependingredirectto"
@@ -40676,7 +40676,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/navigation/Protected.tsx",
-      "source_location": "L10",
+      "source_location": "L11",
       "weight": 1.0,
       "source": "src_navigation_protected",
       "target": "src_navigation_protected_protected",
@@ -40721,7 +40721,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/navigation/Protected.tsx",
-      "source_location": "L11",
+      "source_location": "L12",
       "weight": 1.0,
       "source": "src_navigation_protected_protected",
       "target": "src_providers_authprovider_useauth"

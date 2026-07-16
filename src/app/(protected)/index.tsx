@@ -9,6 +9,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { Page, Section, formatCurrency, Button } from '@/components/migrated-page';
 import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from '@/components/data-surface';
 import { SelectionOptionRow, SelectionShell, SelectionTrigger } from '@/components/selection-shell';
+import { AuthLoadingTransition } from '@/features/auth/components/auth-loading-transition';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
@@ -353,6 +354,16 @@ export default function DashboardScreen() {
     enabled: !!householdId,
   });
 
+  const isPreparingDashboard = [
+    accountsQuery,
+    transactionsQuery,
+    monthlyTransactionsQuery,
+    savingPotsQuery,
+    savingPotBalancesQuery,
+    membersQuery,
+    householdsQuery,
+  ].some((query) => query.isPending && query.fetchStatus === 'fetching');
+
   const accounts = (accountsQuery.data ?? []) as DashboardAccount[];
   const transactions = transactionsQuery.data ?? [];
   const savingPots = (savingPotsQuery.data ?? []) as DashboardPot[];
@@ -559,6 +570,8 @@ export default function DashboardScreen() {
   const totalInvestmentAccounts = investmentAccounts.length;
   const totalSavingsAccounts = savingsAccounts.length;
   const totalPots = savingPots.length;
+
+  if (isPreparingDashboard) return <AuthLoadingTransition />;
 
   return (
     <Page
