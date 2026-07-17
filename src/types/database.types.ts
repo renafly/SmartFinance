@@ -93,6 +93,222 @@ export type Database = {
         Update: { id?: string; household_id?: string | null; recipient_id?: string; type?: string; title?: string; body?: string; data?: Json; source_key?: string | null; read_at?: string | null; deleted_at?: string | null; push_dispatch_status?: "pending" | "processing" | "delivered"; push_dispatch_attempted_at?: string | null; native_push_dispatched_at?: string | null; web_push_dispatched_at?: string | null; push_dispatched_at?: string | null; created_at?: string };
         Relationships: [];
       };
+      platform_admins: {
+        Row: {
+          user_id: string;
+          role: Database["public"]["Enums"]["platform_admin_role"];
+          is_active: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          role?: Database["public"]["Enums"]["platform_admin_role"];
+          is_active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          role?: Database["public"]["Enums"]["platform_admin_role"];
+          is_active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      app_feedback: {
+        Row: {
+          id: string;
+          user_id: string;
+          category: Database["public"]["Enums"]["feedback_category"];
+          title: string;
+          description: string;
+          status: Database["public"]["Enums"]["feedback_status"];
+          priority: Database["public"]["Enums"]["feedback_priority"];
+          app_context: Json;
+          idempotency_key: string;
+          assigned_to: string | null;
+          last_activity_at: string;
+          resolved_at: string | null;
+          closed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          category: Database["public"]["Enums"]["feedback_category"];
+          title: string;
+          description: string;
+          status?: Database["public"]["Enums"]["feedback_status"];
+          priority?: Database["public"]["Enums"]["feedback_priority"];
+          app_context?: Json;
+          idempotency_key: string;
+          assigned_to?: string | null;
+          last_activity_at?: string;
+          resolved_at?: string | null;
+          closed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          category?: Database["public"]["Enums"]["feedback_category"];
+          title?: string;
+          description?: string;
+          status?: Database["public"]["Enums"]["feedback_status"];
+          priority?: Database["public"]["Enums"]["feedback_priority"];
+          app_context?: Json;
+          idempotency_key?: string;
+          assigned_to?: string | null;
+          last_activity_at?: string;
+          resolved_at?: string | null;
+          closed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      feedback_attachments: {
+        Row: {
+          id: string;
+          feedback_id: string;
+          message_id: string | null;
+          uploaded_by: string;
+          storage_path: string;
+          file_name: string;
+          mime_type: string;
+          file_size: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          feedback_id: string;
+          message_id?: string | null;
+          uploaded_by: string;
+          storage_path: string;
+          file_name: string;
+          mime_type: string;
+          file_size: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          feedback_id?: string;
+          message_id?: string | null;
+          uploaded_by?: string;
+          storage_path?: string;
+          file_name?: string;
+          mime_type?: string;
+          file_size?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      feedback_messages: {
+        Row: {
+          id: string;
+          feedback_id: string;
+          author_id: string;
+          body: string;
+          is_admin_reply: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          feedback_id: string;
+          author_id: string;
+          body: string;
+          is_admin_reply?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          feedback_id?: string;
+          author_id?: string;
+          body?: string;
+          is_admin_reply?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      feedback_events: {
+        Row: {
+          id: string;
+          feedback_id: string;
+          actor_id: string | null;
+          event_type: Database["public"]["Enums"]["feedback_event_type"];
+          from_value: string | null;
+          to_value: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          feedback_id: string;
+          actor_id?: string | null;
+          event_type: Database["public"]["Enums"]["feedback_event_type"];
+          from_value?: string | null;
+          to_value?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          feedback_id?: string;
+          actor_id?: string | null;
+          event_type?: Database["public"]["Enums"]["feedback_event_type"];
+          from_value?: string | null;
+          to_value?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      app_releases: {
+        Row: {
+          id: string;
+          version: string;
+          build_number: string;
+          platform: Database["public"]["Enums"]["app_release_platform"];
+          release_notes: string | null;
+          is_active: boolean;
+          released_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          version: string;
+          build_number: string;
+          platform: Database["public"]["Enums"]["app_release_platform"];
+          release_notes?: string | null;
+          is_active?: boolean;
+          released_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          version?: string;
+          build_number?: string;
+          platform?: Database["public"]["Enums"]["app_release_platform"];
+          release_notes?: string | null;
+          is_active?: boolean;
+          released_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       categories: {
         Row: {
           id: string;
@@ -902,17 +1118,74 @@ export type Database = {
           message: string;
         }[];
       };
+      is_platform_admin: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      submit_app_feedback: {
+        Args: {
+          p_category: Database["public"]["Enums"]["feedback_category"];
+          p_title: string;
+          p_description: string;
+          p_app_context: Json;
+          p_idempotency_key: string;
+        };
+        Returns: Database["public"]["Tables"]["app_feedback"]["Row"];
+      };
+      register_feedback_attachment: {
+        Args: {
+          p_feedback_id: string;
+          p_storage_path: string;
+          p_file_name: string;
+          p_mime_type: string;
+          p_file_size: number;
+          p_message_id?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["feedback_attachments"]["Row"];
+      };
+      delete_feedback_attachment: {
+        Args: { p_attachment_id: string };
+        Returns: string;
+      };
+      add_feedback_message: {
+        Args: { p_feedback_id: string; p_body: string };
+        Returns: Database["public"]["Tables"]["feedback_messages"]["Row"];
+      };
+      admin_update_feedback_status: {
+        Args: {
+          p_feedback_id: string;
+          p_status: Database["public"]["Enums"]["feedback_status"];
+        };
+        Returns: Database["public"]["Tables"]["app_feedback"]["Row"];
+      };
+      admin_set_feedback_priority: {
+        Args: {
+          p_feedback_id: string;
+          p_priority: Database["public"]["Enums"]["feedback_priority"];
+        };
+        Returns: Database["public"]["Tables"]["app_feedback"]["Row"];
+      };
+      admin_assign_feedback: {
+        Args: { p_feedback_id: string; p_admin_id: string | null };
+        Returns: Database["public"]["Tables"]["app_feedback"]["Row"];
+      };
     };
     Enums: {
       account_type: "cash" | "bank" | "credit_card" | "savings" | "investment" | "ppr";
+      app_release_platform: "ios" | "android" | "web" | "all";
       category_type: "income" | "expense" | "account";
       currency_code: "EUR" | "USD" | "GBP";
       excess_cash_distribution_method: "even_split";
+      feedback_category: "bug" | "feature_request" | "improvement" | "other";
+      feedback_event_type: "submitted" | "status_changed" | "priority_changed" | "assigned" | "message_added" | "attachment_added" | "attachment_deleted";
+      feedback_priority: "low" | "normal" | "high" | "urgent";
+      feedback_status: "submitted" | "under_review" | "planned" | "in_progress" | "resolved" | "closed";
       household_member_status: "pending" | "accepted";
       household_income_mode: "shared" | "individual";
       household_role: "owner" | "admin" | "member";
       monthly_budget_run_status: "draft" | "confirmed" | "cancelled";
       monthly_budget_section: "income" | "savings" | "pots" | "investments" | "ppr" | "remaining_cash";
+      platform_admin_role: "support" | "admin" | "super_admin";
       remaining_cash_strategy: "keep" | "fixed";
       recurring_frequency: "daily" | "weekly" | "monthly" | "yearly" | "custom";
       recurring_execution_status: "pending" | "completed" | "skipped" | "failed";

@@ -100,5 +100,10 @@
   "98": "app.config.ts",
   "99": "postcss.config.mjs",
   "100": "normalizeEmail",
-  "101": "smartfinance-notifications-sw.js"
+  "101": "smartfinance-notifications-sw.js",
+  "102": "SavingPotsService",
+  "103": "SavingPotsRepository",
+  "104": "index.ts",
+  "105": "run-security-check.mjs",
+  "106": "queryClient"
 }

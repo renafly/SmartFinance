@@ -695,8 +695,8 @@
     "semantic_hash": ""
   },
   "src/navigation/Protected.tsx": {
-    "mtime": 1784242121.1830776,
-    "ast_hash": "b6788ed0707a3715281b847ca9a79f2d",
+    "mtime": 1784242884.094393,
+    "ast_hash": "23d566120fc67890b5107004c259ce06",
     "semantic_hash": ""
   },
   "src/providers/AuthProvider.tsx": {
