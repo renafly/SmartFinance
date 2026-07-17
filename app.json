@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.renafly.smartfinance",
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +20,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.renafly.SmartFinance"
+      "package": "com.renafly.SmartFinance",
+      "versionCode": 1
     },
     "web": {
       "output": "static",
@@ -52,6 +54,11 @@
     },
     "extra": {
       "router": {},
+      "release": {
+        "build": "1",
+        "channel": "production",
+        "commit": "unknown"
+      },
       "eas": {
         "projectId": "5653e5f0-be40-4f73-8255-867f9c734a58"
       }
