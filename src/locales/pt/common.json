@@ -1087,6 +1087,251 @@
     "replyErrorMessage": "Tente novamente."
   },
 
+  "landing": {
+    "nav": {
+      "features": "Funcionalidades",
+      "howItWorks": "Como funciona",
+      "news": "Notícias",
+      "about": "Sobre",
+      "signIn": "Iniciar sessão",
+      "getStarted": "Começar",
+      "openMenu": "Abrir menu de navegação",
+      "closeMenu": "Fechar menu de navegação"
+    },
+    "language": {
+      "select": "Selecionar idioma",
+      "close": "Fechar menu de idiomas"
+    },
+    "hero": {
+      "eyebrow": "Finanças mais claras, decisões mais tranquilas",
+      "title": "A sua vida financeira, organizada num só lugar.",
+      "description": "Reúna contas, despesas, orçamentos e objetivos partilhados. O SmartFinance dá ao seu agregado a clareza necessária para planear com confiança.",
+      "primary": "Começar gratuitamente",
+      "secondary": "Explorar funcionalidades",
+      "trust": "Privacidade desde a origem. Os seus dados financeiros continuam a ser seus."
+    },
+    "preview": {
+      "label": "Saldo total",
+      "income": "Receitas este mês",
+      "spending": "Despesas este mês"
+    },
+    "features": {
+      "kicker": "Tudo numa só vista",
+      "title": "Clareza em cada decisão financeira",
+      "description": "Ferramentas simples que transformam a atividade financeira do dia a dia numa visão útil e partilhada.",
+      "items": [
+        {
+          "title": "Todas as suas contas",
+          "description": "Acompanhe saldos bancários, numerário, poupanças, investimentos e crédito num painel organizado."
+        },
+        {
+          "title": "Informação com significado",
+          "description": "Perceba para onde vai o dinheiro através de categorias, tendências e atividade recente."
+        },
+        {
+          "title": "Orçamentos e objetivos",
+          "description": "Planeie o mês, automatize movimentos recorrentes e avance nos objetivos de poupança."
+        },
+        {
+          "title": "Pensado para agregados",
+          "description": "Coordene finanças partilhadas mantendo a propriedade individual visível e controlada."
+        }
+      ]
+    },
+    "steps": {
+      "kicker": "Simples desde o primeiro dia",
+      "title": "Uma visão mais clara em três passos",
+      "items": [
+        {
+          "title": "Crie o seu agregado",
+          "description": "Configure o seu espaço financeiro privado e convide as pessoas em quem confia."
+        },
+        {
+          "title": "Adicione as suas finanças",
+          "description": "Organize contas, transações, categorias, orçamentos e objetivos de poupança."
+        },
+        {
+          "title": "Planeiem em conjunto",
+          "description": "Use uma visão fiável para tomar melhores decisões mensais em agregado."
+        }
+      ]
+    },
+    "news": {
+      "kicker": "Últimas notícias",
+      "title": "Ideias e novidades do SmartFinance",
+      "items": [
+        {
+          "category": "Produto · Painel",
+          "title": "O seu mês financeiro explicado numa só visão",
+          "description": "Veja saldos, atividade recente, distribuição das despesas e progresso das poupanças antes de decidir o próximo passo."
+        },
+        {
+          "category": "Guia · Movimentos recorrentes",
+          "title": "Transforme despesas repetidas num plano",
+          "description": "Torne rendas, subscrições, salários e transferências regulares visíveis antes de preparar o orçamento mensal."
+        },
+        {
+          "category": "Produto · Poupança",
+          "title": "Dê um próximo passo a cada objetivo de poupança",
+          "description": "Ligue os mealheiros às contas que os financiam e use as previsões para ajustar as contribuições."
+        }
+      ]
+    },
+    "final": {
+      "title": "Pronto para simplificar as suas finanças?",
+      "description": "Construa hoje uma visão financeira mais clara para si e para o seu agregado.",
+      "action": "Abrir SmartFinance"
+    },
+    "footer": "© 2026 SmartFinance. Finanças pessoais com mais clareza."
+  },
+
+  "publicPages": {
+    "backHome": "Voltar ao início",
+    "cta": {
+      "title": "Pronto para uma vida financeira mais clara?",
+      "description": "Reúna as finanças do agregado e comece a planear com confiança.",
+      "action": "Abrir SmartFinance"
+    },
+    "features": {
+      "kicker": "Visão completa",
+      "title": "Tudo o que precisa para gerir dinheiro em conjunto",
+      "description": "Das despesas diárias aos objetivos de longo prazo, todas as ferramentas partem da mesma visão fiável do agregado.",
+      "items": [
+        {
+          "title": "Contas e saldos",
+          "description": "Acompanhe contas bancárias, numerário, poupanças, investimentos, crédito e PPR, com propriedade individual ou partilhada clara."
+        },
+        {
+          "title": "Transações e faturas",
+          "description": "Registe receitas e despesas, acrescente categorias e notas e guarde faturas junto de cada movimento."
+        },
+        {
+          "title": "Transferências",
+          "description": "Mova dinheiro entre contas sem perder o rasto: ambos os lados ficam ligados e os saldos mantêm-se consistentes."
+        },
+        {
+          "title": "Movimentos recorrentes",
+          "description": "Agende receitas, despesas e transferências recorrentes, com frequências personalizadas e meses excluídos."
+        },
+        {
+          "title": "Objetivos de poupança",
+          "description": "Crie mealheiros, associe as contas que os financiam e acompanhe o progresso e as previsões de contribuição."
+        },
+        {
+          "title": "Orçamentos mensais",
+          "description": "Modele rendimentos e regras do agregado, reveja a previsão e só depois confirme o plano mensal."
+        },
+        {
+          "title": "Colaboração do agregado",
+          "description": "Convide pessoas de confiança, atribua funções e combine visibilidade partilhada com propriedade pessoal clara."
+        },
+        {
+          "title": "Preferências e cópias de segurança",
+          "description": "Escolha idioma, tema e moeda e exporte ou restaure uma cópia de segurança portátil do agregado."
+        }
+      ]
+    },
+    "howItWorks": {
+      "kicker": "Da configuração à decisão",
+      "title": "Um percurso simples e tranquilo para as suas finanças",
+      "description": "O SmartFinance transforma informação financeira dispersa num plano partilhado que todos conseguem compreender e usar.",
+      "items": [
+        {
+          "title": "1. Crie o seu espaço",
+          "description": "Inicie sessão em segurança, crie um agregado privado e convide apenas quem deve ter acesso."
+        },
+        {
+          "title": "2. Organize as contas",
+          "description": "Adicione os locais onde está o dinheiro e indique se cada conta pertence a uma pessoa ou ao agregado."
+        },
+        {
+          "title": "3. Registe a atividade",
+          "description": "Adicione transações e transferências e use categorias e regras recorrentes para manter a visão útil."
+        },
+        {
+          "title": "4. Planeie o mês",
+          "description": "Adicione rendimentos, prioridades e regras de transferência. Reveja o plano antes de confirmar o mês."
+        },
+        {
+          "title": "5. Acompanhe o progresso",
+          "description": "Use o painel, saldos, tendências e previsões de poupança para perceber o que mudou e o que se segue."
+        },
+        {
+          "title": "6. Decidam em conjunto",
+          "description": "Dê a todos o mesmo contexto fiável, mantendo funções, propriedade e limites de privacidade."
+        }
+      ]
+    },
+    "news": {
+      "kicker": "Jornal SmartFinance",
+      "title": "Novidades do produto e orientação financeira prática",
+      "description": "Histórias práticas inspiradas nas ferramentas que já existem no SmartFinance: planeamento, poupança, movimentos recorrentes, colaboração e proteção de dados.",
+      "items": [
+        {
+          "meta": "Produto · Painel",
+          "title": "O seu mês financeiro explicado numa só visão",
+          "description": "Saldos, movimentos recentes, distribuição das despesas e progresso das poupanças encontram-se no painel, para perceber a situação do agregado antes da próxima decisão."
+        },
+        {
+          "meta": "Guia · Movimentos recorrentes",
+          "title": "Transforme despesas repetidas num plano",
+          "description": "Renda, subscrições, salários e transferências regulares podem ser agendados com a sua própria frequência. Com os movimentos previsíveis visíveis, preparar o orçamento torna-se mais simples."
+        },
+        {
+          "meta": "Produto · Poupança",
+          "title": "Dê um próximo passo a cada objetivo de poupança",
+          "description": "Os mealheiros ligam objetivos às contas que os financiam. O progresso e as previsões mostram se a contribuição atual é suficiente ou precisa de ser ajustada."
+        },
+        {
+          "meta": "Guia · Transferências",
+          "title": "Uma transferência não é outra despesa",
+          "description": "O SmartFinance liga os dois lados do dinheiro movido entre contas, preservando o histórico sem contar o mesmo valor duas vezes como despesa."
+        },
+        {
+          "meta": "Segurança · Agregados",
+          "title": "Visibilidade partilhada com limites claros",
+          "description": "As funções do agregado e a propriedade das contas permitem trabalhar com a mesma informação, mantendo claras as responsabilidades pessoais e partilhadas."
+        },
+        {
+          "meta": "Produto · Cópia de segurança",
+          "title": "Os dados do agregado podem acompanhá-lo",
+          "description": "As ferramentas de cópia de segurança e restauro oferecem uma forma adicional de preservar informação, preferências e registos financeiros do agregado."
+        }
+      ]
+    },
+    "about": {
+      "kicker": "Sobre o SmartFinance",
+      "title": "Criado para tornar as finanças partilhadas mais claras",
+      "description": "O SmartFinance substitui folhas dispersas e conversas pouco claras por uma visão útil e tranquila do agregado.",
+      "items": [
+        {
+          "title": "Clareza em primeiro lugar",
+          "description": "As ferramentas financeiras devem explicar o que acontece sem exigir conhecimentos de contabilidade ou horas de manutenção."
+        },
+        {
+          "title": "Privacidade desde a origem",
+          "description": "Acesso, propriedade e limites do agregado são conceitos centrais do produto, não detalhes acrescentados no fim."
+        },
+        {
+          "title": "Pensado para agregados reais",
+          "description": "Dinheiro individual e partilhado podem coexistir. O SmartFinance torna ambos visíveis sem assumir que todos vivem da mesma forma."
+        },
+        {
+          "title": "Disponível em todo o lado",
+          "description": "Use a experiência focada no Android e iOS ou a versão web completa quando precisar de mais espaço."
+        },
+        {
+          "title": "Uma única visão de confiança",
+          "description": "Contas, transações, transferências, orçamentos e objetivos foram pensados para contar a mesma história financeira, em vez de criarem conjuntos de números desligados."
+        },
+        {
+          "title": "Útil sem julgamentos",
+          "description": "O SmartFinance ajuda os agregados a compreender escolhas e consequências, sem impor um estilo de vida ou assumir que só existe uma forma certa de organizar dinheiro."
+        }
+      ]
+    }
+  },
+
   "auth": {
     "brand": "SmartFinance",
     "loginSubtitle": "Inicie sessão com Google",

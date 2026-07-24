@@ -16,7 +16,7 @@ export function Protected({ children }: PropsWithChildren) {
   if (!session) {
     const redirectTo = storePendingRedirectTo(buildCurrentRedirectTo(pathname, params));
 
-    return <Redirect href={{ pathname: '/(auth)/login', params: redirectTo ? { redirectTo } : undefined }} />;
+    return <Redirect href={{ pathname: '/login', params: redirectTo ? { redirectTo } : undefined }} />;
   }
 
   if (isLoading) return <AuthLoadingTransition />;

@@ -215,7 +215,6 @@
     "openFeedback": "Open feedback",
     "openAdminFeedback": "Open feedback inbox",
     "unnamedUser": "Unnamed user",
-    "noEmail": "No email",
     "currentHousehold": "Current household: {{value}}",
     "none": "none",
     "editDetails": "Edit details",
@@ -404,8 +403,6 @@
     "recentTransactions": "Recent transactions",
     "recentTransactionsSubtitle": "The latest household activity from Supabase.",
     "account": "Account",
-    "uncategorized": "Uncategorized",
-    "noTransactions": "No transactions yet.",
     "viewAllAccounts": "View all accounts",
     "incomeTx": "Income tx",
     "expenseTx": "Expense tx",
@@ -610,11 +607,9 @@
     "title": "Savings",
     "subtitle": "Track saving pots and their balances.",
     "createTitle": "Create saving pot",
-    "name": "Name",
     "namePlaceholder": "Emergency fund",
     "createdBy": "Created by",
     "createdByPlaceholder": "Select who owns this pot",
-    "targetAmount": "Target amount",
     "scopeLabel": "Pot scope",
     "scopeShared": "Shared",
     "scopeAccountSpecific": "Account specific",
@@ -1088,6 +1083,248 @@
     "updateErrorMessage": "Please try again.",
     "replyErrorTitle": "Could not save the message",
     "replyErrorMessage": "Please try again."
+  },
+
+  "landing": {
+    "nav": {
+      "features": "Features",
+      "howItWorks": "How it works",
+      "news": "News",
+      "about": "About",
+      "signIn": "Sign in",
+      "getStarted": "Get started",
+      "openMenu": "Open navigation menu",
+      "closeMenu": "Close navigation menu"
+    },
+    "language": { "select": "Select language", "close": "Close language menu" },
+    "hero": {
+      "eyebrow": "Clearer finances, calmer decisions",
+      "title": "Your financial life, organised in one place.",
+      "description": "Bring accounts, spending, budgets and shared goals together. SmartFinance gives your household the clarity to plan with confidence.",
+      "primary": "Start for free",
+      "secondary": "Explore features",
+      "trust": "Private by design. Your financial data stays yours."
+    },
+    "preview": {
+      "label": "Total balance",
+      "income": "Income this month",
+      "spending": "Spending this month"
+    },
+    "features": {
+      "kicker": "Everything in one view",
+      "title": "Clarity for every money decision",
+      "description": "Simple tools that turn everyday financial activity into a useful, shared picture.",
+      "items": [
+        {
+          "title": "All your accounts",
+          "description": "Track bank, cash, savings, investments and credit balances from one organised dashboard."
+        },
+        {
+          "title": "Meaningful insights",
+          "description": "Understand where money goes with clear categories, trends and recent activity."
+        },
+        {
+          "title": "Budgets and goals",
+          "description": "Plan the month, automate recurring movements and make progress towards savings goals."
+        },
+        {
+          "title": "Built for households",
+          "description": "Coordinate shared finances while keeping individual ownership visible and controlled."
+        }
+      ]
+    },
+    "steps": {
+      "kicker": "Simple from day one",
+      "title": "A clearer picture in three steps",
+      "items": [
+        {
+          "title": "Create your household",
+          "description": "Set up your private financial space and invite the people you trust."
+        },
+        {
+          "title": "Add your finances",
+          "description": "Organise accounts, transactions, categories, budgets and savings goals."
+        },
+        {
+          "title": "Plan together",
+          "description": "Use one reliable overview to make better monthly decisions as a household."
+        }
+      ]
+    },
+    "news": {
+      "kicker": "Latest news",
+      "title": "Ideas and updates from SmartFinance",
+      "items": [
+        {
+          "category": "Product · Dashboard",
+          "title": "Your financial month, explained in one view",
+          "description": "See balances, recent activity, spending distribution and savings progress before deciding what comes next."
+        },
+        {
+          "category": "Guide · Recurring activity",
+          "title": "Turn repeated expenses into a plan",
+          "description": "Make rent, subscriptions, salaries and regular transfers visible before preparing the monthly budget."
+        },
+        {
+          "category": "Product · Savings",
+          "title": "Give every savings goal a next step",
+          "description": "Connect saving pots to their funding accounts and use progress forecasts to adjust contributions."
+        }
+      ]
+    },
+    "final": {
+      "title": "Ready to make money feel simpler?",
+      "description": "Build a clearer financial picture for yourself and your household today.",
+      "action": "Open SmartFinance"
+    },
+    "footer": "© 2026 SmartFinance. Personal finance, made clearer."
+  },
+
+  "publicPages": {
+    "backHome": "Back to home",
+    "cta": {
+      "title": "Ready for a clearer financial life?",
+      "description": "Bring your household finances together and start planning with confidence.",
+      "action": "Open SmartFinance"
+    },
+    "features": {
+      "kicker": "Complete overview",
+      "title": "Everything you need to manage money together",
+      "description": "From daily spending to long-term goals, every tool works from the same reliable household view.",
+      "items": [
+        {
+          "title": "Accounts and balances",
+          "description": "Track bank, cash, savings, investment, credit-card and retirement accounts, with clear individual or shared ownership."
+        },
+        {
+          "title": "Transactions and invoices",
+          "description": "Record income and expenses, add categories and notes, and keep invoice attachments alongside each movement."
+        },
+        {
+          "title": "Transfers",
+          "description": "Move money between accounts without losing the trail: both sides stay linked and balances remain consistent."
+        },
+        {
+          "title": "Recurring movements",
+          "description": "Schedule recurring income, expenses and transfers, including custom frequencies and excluded months."
+        },
+        {
+          "title": "Savings goals",
+          "description": "Create saving pots, connect the accounts funding them and follow progress and contribution forecasts."
+        },
+        {
+          "title": "Monthly budgets",
+          "description": "Model income and household rules, preview the result and confirm a monthly plan only when it feels right."
+        },
+        {
+          "title": "Household collaboration",
+          "description": "Invite trusted people, assign roles and combine shared visibility with clear personal ownership."
+        },
+        {
+          "title": "Preferences and backup",
+          "description": "Choose language, theme and currency, and export or restore a portable household backup."
+        }
+      ]
+    },
+    "howItWorks": {
+      "kicker": "From setup to insight",
+      "title": "A calm, practical workflow for your finances",
+      "description": "SmartFinance turns scattered financial information into a shared plan you can understand and act on.",
+      "items": [
+        {
+          "title": "1. Create your space",
+          "description": "Sign in securely, create a private household and invite only the people who should have access."
+        },
+        {
+          "title": "2. Map your accounts",
+          "description": "Add the places where money lives and identify whether each account belongs to one person or everyone."
+        },
+        {
+          "title": "3. Organize activity",
+          "description": "Record transactions and transfers, then use categories and recurring rules to keep the picture useful."
+        },
+        {
+          "title": "4. Plan the month",
+          "description": "Add income, priorities and transfer rules. Preview the plan before confirming any monthly run."
+        },
+        {
+          "title": "5. Follow progress",
+          "description": "Use the dashboard, balances, trends and savings forecasts to see what changed and what comes next."
+        },
+        {
+          "title": "6. Decide together",
+          "description": "Give everyone the same trustworthy context while maintaining roles, ownership and privacy boundaries."
+        }
+      ]
+    },
+    "news": {
+      "kicker": "SmartFinance journal",
+      "title": "Product updates and practical money guidance",
+      "description": "Practical stories drawn from the tools already available in SmartFinance: planning, saving, recurring activity, collaboration and data protection.",
+      "items": [
+        {
+          "meta": "Product · Dashboard",
+          "title": "Your financial month, explained in one view",
+          "description": "Account balances, recent movements, spending distribution and savings progress come together on the dashboard, helping you understand where the household stands before making the next decision."
+        },
+        {
+          "meta": "Guide · Recurring activity",
+          "title": "Turn repeated expenses into a plan",
+          "description": "Rent, subscriptions, salaries and regular transfers can be scheduled with their own frequency. Once the predictable movements are visible, the monthly budget becomes easier to prepare."
+        },
+        {
+          "meta": "Product · Savings",
+          "title": "Give every savings goal a next step",
+          "description": "Saving pots connect goals to the accounts funding them. Progress and forecasts make it easier to see whether the current contribution is enough or needs adjusting."
+        },
+        {
+          "meta": "Guide · Transfers",
+          "title": "A transfer is not another expense",
+          "description": "SmartFinance links both sides of money moved between your accounts, preserving the trail without counting the same amount as spending twice."
+        },
+        {
+          "meta": "Security · Households",
+          "title": "Shared visibility with clear boundaries",
+          "description": "Household roles and account ownership help everyone work from the same information while keeping personal and shared responsibilities understandable."
+        },
+        {
+          "meta": "Product · Backup",
+          "title": "Your household data can travel with you",
+          "description": "Portable backup and restore tools provide an additional way to preserve household information, preferences and financial records."
+        }
+      ]
+    },
+    "about": {
+      "kicker": "About SmartFinance",
+      "title": "Built to make shared finances easier to understand",
+      "description": "SmartFinance exists to replace scattered spreadsheets and unclear conversations with one calm, useful household view.",
+      "items": [
+        {
+          "title": "Clarity first",
+          "description": "Financial tools should explain what is happening without requiring accounting expertise or hours of maintenance."
+        },
+        {
+          "title": "Privacy by design",
+          "description": "Access, ownership and household boundaries are core product concepts, not details added after the fact."
+        },
+        {
+          "title": "Made for real households",
+          "description": "Individual and shared money can coexist. SmartFinance keeps both visible without pretending every household works the same way."
+        },
+        {
+          "title": "Available everywhere",
+          "description": "Use the focused mobile experience on Android and iOS or the full web experience when you want more space."
+        },
+        {
+          "title": "One trustworthy picture",
+          "description": "Accounts, transactions, transfers, budgets and goals are designed to tell the same financial story instead of becoming disconnected sets of numbers."
+        },
+        {
+          "title": "Useful without judgement",
+          "description": "SmartFinance helps households understand choices and consequences. It does not prescribe one lifestyle or assume there is only one correct way to organize money."
+        }
+      ]
+    }
   },
 
   "auth": {

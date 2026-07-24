@@ -101,6 +101,8 @@
   "100": "normalizeEmail",
   "101": "smartfinance-notifications-sw.js",
   "102": "SavingPotsService",
+  "103": "SavingPotsRepository",
   "104": "index.ts",
+  "110": "error-context.md",
   "117": "run-security-check.mjs"
 }
