@@ -137,9 +137,11 @@ const TableColumnsContext = createContext<TableColumn[]>([]);
 type TableRowProps = {
   children: ReactNode;
   onPress?: () => void;
+  backgroundColor?: string;
+  accentColor?: string;
 };
 
-export function TableRow({ children, onPress }: TableRowProps) {
+export function TableRow({ children, onPress, backgroundColor, accentColor }: TableRowProps) {
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
   const columns = useContext(TableColumnsContext);
@@ -168,9 +170,11 @@ export function TableRow({ children, onPress }: TableRowProps) {
           gap: responsive.tableCellGap,
           paddingHorizontal: responsive.isPhone ? spacing(2.5) : spacing(3),
           paddingVertical: responsive.isPhone ? spacing(2.25) : spacing(2.5),
-          backgroundColor: responsive.isPhone ? colors.surface : undefined,
+          backgroundColor: backgroundColor ?? (responsive.isPhone ? colors.surface : undefined),
           borderColor: responsive.isPhone ? colors.border : undefined,
           borderWidth: responsive.isPhone ? 1 : undefined,
+          borderLeftColor: accentColor,
+          borderLeftWidth: accentColor ? spacing(0.75) : undefined,
           borderRadius: responsive.isPhone ? radius.lg : undefined,
           marginBottom: responsive.isPhone ? spacing(2) : 0,
         },

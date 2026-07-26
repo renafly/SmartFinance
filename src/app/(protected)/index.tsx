@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 
-import { Page, Section, formatCurrency, Button } from '@/components/migrated-page';
+import { Page, Section, formatCurrency, formatDate, Button } from '@/components/migrated-page';
 import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from '@/components/data-surface';
 import { SelectionOptionRow, SelectionShell, SelectionTrigger } from '@/components/selection-shell';
 import { AuthLoadingTransition } from '@/features/auth/components/auth-loading-transition';
@@ -21,14 +21,20 @@ import { useHouseholdMemberDetails } from '../../features/households/hooks/useHo
 import { useDefaultHousehold, useMyHouseholds } from '../../features/households/hooks';
 import { accountsService } from '../../features/accounts/services/accounts.service';
 import { transactionsService } from '../../features/transactions/services/transaction.service';
+import { TRANSACTION_RELATIONS_QUERY_VERSION } from '../../features/transactions/constants';
 import { savingPotsService } from '../../features/saving-pots/services/saving-pots.service';
+import {
+  SHARED_ACCOUNT_OWNER_KEY,
+  getAccountOwnerToneIndex,
+  groupAccountsByOwner,
+} from '../../features/accounts/account-ordering';
 
 type DashboardAccount = {
   id: string;
   name: string;
   type: string;
   currency?: string;
-  owner_profile_id?: string | null;
+  owner_profile_id: string | null;
   initial_balance?: number | null;
   current_balance?: number | null;
   balance?: number | null;
@@ -52,10 +58,6 @@ type MemberDetails = {
 
 function getPersonLabel(member: MemberDetails | undefined, fallback: string) {
   return member?.fullName?.trim() || member?.email?.trim() || fallback;
-}
-
-function getAccountOwnerLabel(account: DashboardAccount, memberMap: Map<string, MemberDetails>, sharedLabel: string) {
-  return account.owner_profile_id ? getPersonLabel(memberMap.get(account.owner_profile_id), sharedLabel) : sharedLabel;
 }
 
 function sumBalances<T>(items: T[], getValue: (item: T) => number) {
@@ -233,74 +235,292 @@ function GoalMeter({ balance, target }: { balance: number; target?: number | nul
 
 function AccountOverviewTable({
   accounts,
+  members,
   memberMap,
+  savingPots,
+  savingPotBalances,
   emptyTitle,
-  icon,
-  typeTone,
   monthlyBalanceChangesByAccount,
   monthlyExpensesByAccount,
 }: {
   accounts: DashboardAccount[];
+  members: MemberDetails[];
   memberMap: Map<string, MemberDetails>;
+  savingPots: DashboardPot[];
+  savingPotBalances: DashboardPot[];
   emptyTitle: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  typeTone: 'primary' | 'success';
   monthlyBalanceChangesByAccount: Map<string, number>;
   monthlyExpensesByAccount: Map<string, number>;
 }) {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
+  const responsive = useResponsiveMetrics();
 
-  if (!accounts.length) {
-    return <EmptyState title={emptyTitle} icon={icon} />;
+  if (!accounts.length && !savingPotBalances.length) {
+    return <EmptyState title={emptyTitle} icon="layers-outline" />;
   }
 
+  const accountGroupWidth =
+    responsive.width >= 1800
+      ? '31.8%'
+      : responsive.width >= 1200
+        ? '48.8%'
+        : '100%';
+  const ownerOrder = [
+    ...members.map((member) => member.userId),
+    SHARED_ACCOUNT_OWNER_KEY,
+  ];
+  const accountGroups = groupAccountsByOwner(accounts, ownerOrder);
+  const groupTones = [
+    { accent: colors.primary, surface: colors.primarySoft },
+    { accent: colors.financialPositive, surface: colors.financialPositiveSoft },
+    { accent: colors.financialNeutral, surface: colors.financialNeutralSoft },
+    {
+      accent: colors.financialAttention,
+      surface: colors.financialAttentionSoft,
+    },
+    { accent: colors.financialGoal, surface: colors.financialGoalSoft },
+  ];
+
   return (
-    <Table
-      columns={[
-        { label: t('accounts.name'), flex: 2.2 },
-        { label: t('dashboard.total'), align: 'right' },
-        { label: t('dashboard.changeThisMonth'), align: 'right' },
-        { label: t('dashboard.spentThisMonth'), align: 'right' },
-      ]}
-    >
-      {accounts.map((account) => {
-        const ownerLabel = getAccountOwnerLabel(account, memberMap, t('dashboard.shared'));
-        const currentBalance = Number(account.current_balance ?? account.balance ?? 0);
-        const balanceDifference = monthlyBalanceChangesByAccount.get(account.id) ?? 0;
-        const spentThisMonth = monthlyExpensesByAccount.get(account.id) ?? 0;
+    <View style={styles.accountGroups}>
+      {accountGroups.map((group) => {
+        const ownerIndex = ownerOrder.indexOf(group.key);
+        const tone = groupTones[
+          (ownerIndex < 0 ? groupTones.length - 1 : ownerIndex) %
+            groupTones.length
+        ];
+        const ownerLabel =
+          group.key === SHARED_ACCOUNT_OWNER_KEY
+            ? t('dashboard.shared')
+            : getPersonLabel(
+                memberMap.get(group.key),
+                t('dashboard.unnamedPerson'),
+              );
+        const groupTotal = sumBalances(group.accounts, (account) =>
+          Number(account.current_balance ?? account.balance ?? 0),
+        );
 
         return (
-          <TableRow key={account.id} onPress={() => router.push('/accounts' as any)}>
-            <TableCell flex={2.2}>
-              <View style={styles.accountTitle}>
-                <View style={[styles.accountIcon, { backgroundColor: colors.primarySoft }]}>
-                  <Ionicons name={account.type === 'ppr' ? 'shield-checkmark-outline' : icon} size={17} color={colors.primary} />
-                </View>
-                <View style={styles.accountCopy}>
-                  <Text style={[styles.accountName, { color: colors.text }]} numberOfLines={1}>{account.name}</Text>
-                  <Text style={[styles.accountOwner, { color: colors.textSecondary }]} numberOfLines={1}>{ownerLabel}</Text>
-                  <Badge label={t(`accounts.types.${account.type}`)} tone={typeTone} />
-                </View>
+          <View
+            key={group.key}
+            style={[
+              styles.accountGroup,
+              {
+                backgroundColor: tone.surface,
+                borderColor: tone.accent,
+                flexBasis: accountGroupWidth,
+                maxWidth: accountGroupWidth,
+              },
+            ]}
+          >
+            <View style={styles.accountGroupHeader}>
+              <View style={styles.accountGroupIdentity}>
+                <View
+                  style={[
+                    styles.accountGroupMarker,
+                    { backgroundColor: tone.accent },
+                  ]}
+                />
+                <Ionicons
+                  name={
+                    group.key === SHARED_ACCOUNT_OWNER_KEY
+                      ? 'people-outline'
+                      : 'person-outline'
+                  }
+                  size={18}
+                  color={tone.accent}
+                />
+                <Text
+                  style={[styles.accountGroupTitle, { color: tone.accent }]}
+                >
+                  {ownerLabel}
+                </Text>
+                <Badge label={String(group.accounts.length)} tone="neutral" />
               </View>
-            </TableCell>
-            <TableCell align="right" mobilePinned>
-              <Text style={[styles.accountBalance, { color: colors.text }]}>{formatCurrency(currentBalance)}</Text>
-            </TableCell>
-            <TableCell align="right">
-              <Text style={{ color: balanceDifference > 0 ? colors.success : balanceDifference < 0 ? colors.destructive : colors.textSecondary, fontWeight: typography.fontWeight.bold as any }}>
-                {balanceDifference > 0 ? '+' : ''}{formatCurrency(balanceDifference)}
+              <Text style={[styles.accountGroupTotal, { color: tone.accent }]}>
+                {formatCurrency(groupTotal)}
               </Text>
-            </TableCell>
-            <TableCell align="right">
-              <Text style={{ color: spentThisMonth > 0 ? colors.destructive : colors.textSecondary, fontWeight: typography.fontWeight.bold as any }}>
-                {formatCurrency(spentThisMonth)}
-              </Text>
-            </TableCell>
-          </TableRow>
+            </View>
+
+            <Table
+              columns={[
+                { label: t('accounts.name'), flex: 2.2 },
+                { label: t('dashboard.total'), align: 'right' },
+                { label: t('dashboard.changeThisMonth'), align: 'right' },
+                { label: t('dashboard.spentThisMonth'), align: 'right' },
+              ]}
+            >
+              {group.accounts.map((account) => {
+                const currentBalance = Number(
+                  account.current_balance ?? account.balance ?? 0,
+                );
+                const isSavingsAccount = account.type === 'savings';
+                const accountAccent = isSavingsAccount
+                  ? colors.success
+                  : colors.primary;
+                const accountAccentSoft = isSavingsAccount
+                  ? colors.successSoft
+                  : colors.primarySoft;
+                const balanceDifference =
+                  monthlyBalanceChangesByAccount.get(account.id) ?? 0;
+                const spentThisMonth =
+                  monthlyExpensesByAccount.get(account.id) ?? 0;
+
+                return (
+                  <TableRow
+                    key={account.id}
+                    onPress={() => router.push('/accounts' as any)}
+                  >
+                    <TableCell flex={2.2}>
+                      <View style={styles.accountTitle}>
+                        <View
+                          style={[
+                            styles.accountIcon,
+                            { backgroundColor: accountAccentSoft },
+                          ]}
+                        >
+                          <Ionicons
+                            name={
+                              account.type === 'ppr'
+                                ? 'shield-checkmark-outline'
+                                : isSavingsAccount
+                                  ? 'wallet-outline'
+                                  : 'trending-up-outline'
+                            }
+                            size={17}
+                            color={accountAccent}
+                          />
+                        </View>
+                        <View style={styles.accountCopy}>
+                          <Text
+                            style={[styles.accountName, { color: colors.text }]}
+                            numberOfLines={1}
+                          >
+                            {account.name}
+                          </Text>
+                          <Badge
+                            label={t(`accounts.types.${account.type}`)}
+                            tone={isSavingsAccount ? 'success' : 'primary'}
+                          />
+                        </View>
+                      </View>
+                    </TableCell>
+                    <TableCell align="right" mobilePinned>
+                      <Text
+                        style={[
+                          styles.accountBalance,
+                          { color: colors.text },
+                        ]}
+                      >
+                        {formatCurrency(currentBalance)}
+                      </Text>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Text
+                        style={{
+                          color:
+                            balanceDifference > 0
+                              ? colors.success
+                              : balanceDifference < 0
+                                ? colors.destructive
+                                : colors.textSecondary,
+                          fontWeight: typography.fontWeight.bold as any,
+                        }}
+                      >
+                        {balanceDifference > 0 ? '+' : ''}
+                        {formatCurrency(balanceDifference)}
+                      </Text>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Text
+                        style={{
+                          color:
+                            spentThisMonth > 0
+                              ? colors.destructive
+                              : colors.textSecondary,
+                          fontWeight: typography.fontWeight.bold as any,
+                        }}
+                      >
+                        {formatCurrency(spentThisMonth)}
+                      </Text>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </Table>
+          </View>
         );
       })}
-    </Table>
+      {savingPotBalances.map((pot) => {
+        const potDefinition = savingPots.find((item) => item.id === pot.id);
+        const creator = potDefinition?.created_by
+          ? memberMap.get(potDefinition.created_by)
+          : undefined;
+
+        return (
+          <View
+            key={`pot-${pot.id}`}
+            style={[
+              styles.goalCard,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.success,
+                flexBasis: accountGroupWidth,
+                maxWidth: accountGroupWidth,
+                padding: responsive.cardPadding,
+                gap: responsive.cardGap,
+              },
+            ]}
+          >
+            <View style={styles.goalCardHeader}>
+              <View style={styles.goalCardTitle}>
+                <View
+                  style={[
+                    styles.goalIcon,
+                    { backgroundColor: colors.successSoft },
+                  ]}
+                >
+                  <Ionicons
+                    name="flag-outline"
+                    size={18}
+                    color={colors.success}
+                  />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text
+                    style={[styles.goalName, { color: colors.text }]}
+                    numberOfLines={1}
+                  >
+                    {pot.name}
+                  </Text>
+                  <Text
+                    style={[styles.goalOwner, { color: colors.textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    {getPersonLabel(creator, t('dashboard.shared'))}
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.goalBalance, { color: colors.text }]}>
+                {formatCurrency(pot.balance ?? 0)}
+              </Text>
+            </View>
+            <GoalMeter
+              balance={Number(pot.balance ?? 0)}
+              target={potDefinition?.target_amount}
+            />
+            <View style={styles.goalCardAction}>
+              <Button
+                label={t('dashboard.savingPotsTitle')}
+                onPress={() => router.push('/savings' as any)}
+                variant="secondary"
+              />
+            </View>
+          </View>
+        );
+      })}
+    </View>
   );
 }
 
@@ -328,8 +548,14 @@ export default function DashboardScreen() {
   });
 
   const transactionsQuery = useQuery({
-    queryKey: ['dashboard', 'transactions', householdId],
-    queryFn: () => transactionsService.getTransactions(householdId!, { limit: 5 }),
+    queryKey: [
+      'dashboard',
+      'transactions',
+      householdId,
+      10,
+      TRANSACTION_RELATIONS_QUERY_VERSION,
+    ],
+    queryFn: () => transactionsService.getTransactions(householdId!, { limit: 10 }),
     enabled: !!householdId,
   });
 
@@ -401,6 +627,20 @@ export default function DashboardScreen() {
     }
     return map;
   }, [members]);
+  const transactionOwnerOrder = [
+    ...members.map((member) => member.userId),
+    SHARED_ACCOUNT_OWNER_KEY,
+  ];
+  const transactionOwnerTones = [
+    { accent: colors.primary, surface: colors.primarySoft },
+    { accent: colors.financialPositive, surface: colors.financialPositiveSoft },
+    { accent: colors.financialNeutral, surface: colors.financialNeutralSoft },
+    {
+      accent: colors.financialAttention,
+      surface: colors.financialAttentionSoft,
+    },
+    { accent: colors.financialGoal, surface: colors.financialGoalSoft },
+  ];
 
   const investmentAccounts = useMemo(
     () =>
@@ -423,6 +663,10 @@ export default function DashboardScreen() {
   const savingsAccounts = useMemo(
     () => accounts.filter((account) => account.type === 'savings'),
     [accounts],
+  );
+  const investmentAndSavingsAccounts = useMemo(
+    () => [...investmentAccounts, ...savingsAccounts],
+    [investmentAccounts, savingsAccounts],
   );
 
   const investmentMonthlyChange = useMemo(
@@ -569,6 +813,8 @@ export default function DashboardScreen() {
 
   const totalInvestmentAccounts = investmentAccounts.length;
   const totalSavingsAccounts = savingsAccounts.length;
+  const totalInvestmentAndSavingsAccounts =
+    investmentAndSavingsAccounts.length;
   const totalPots = savingPots.length;
 
   if (isPreparingDashboard) return <AuthLoadingTransition />;
@@ -671,64 +917,24 @@ export default function DashboardScreen() {
         )}
       </Section>
 
-      <Section title={t('dashboard.investmentAccountsTitle')} subtitle={t('dashboard.investmentAccountsSubtitle', { count: totalInvestmentAccounts })} collapsible>
-        <AccountOverviewTable
-          accounts={investmentAccounts}
-          memberMap={memberMap}
-          emptyTitle={t('dashboard.noInvestmentAccounts')}
-          icon="trending-up-outline"
-          typeTone="primary"
-          monthlyBalanceChangesByAccount={monthlyBalanceChangesByAccount}
-          monthlyExpensesByAccount={monthlyExpensesByAccount}
-        />
-      </Section>
-
-      <Section title={t('dashboard.savingsAccountsTitle')} subtitle={t('dashboard.savingsAccountsSubtitle', { count: totalSavingsAccounts })} collapsible>
-        <AccountOverviewTable
-          accounts={savingsAccounts}
-          memberMap={memberMap}
-          emptyTitle={t('dashboard.noSavingsAccounts')}
-          icon="wallet-outline"
-          typeTone="success"
-          monthlyBalanceChangesByAccount={monthlyBalanceChangesByAccount}
-          monthlyExpensesByAccount={monthlyExpensesByAccount}
-        />
-      </Section>
-
       <Section
-        title={t('dashboard.savingPotsTitle')}
-        subtitle={t('dashboard.savingPotsSubtitle', { count: totalPots })}
+        title={t('dashboard.investmentSavingsAndPotsTitle')}
+        subtitle={t('dashboard.investmentSavingsAndPotsSubtitle', {
+          accountCount: totalInvestmentAndSavingsAccounts,
+          potCount: totalPots,
+        })}
         collapsible
       >
-        {savingPotBalances.length ? (
-          <View style={[styles.goalGrid, responsive.isPhone && styles.goalGridPhone]}>
-            {savingPotBalances.map((pot) => {
-              const potDefinition = savingPots.find((item) => item.id === pot.id);
-              const creator = potDefinition?.created_by ? memberMap.get(potDefinition.created_by) : undefined;
-
-              return (
-                <View key={pot.id} style={[styles.goalCard, { backgroundColor: colors.surface, borderColor: colors.border, padding: responsive.cardPadding, gap: responsive.cardGap }]}>
-                  <View style={styles.goalCardHeader}>
-                    <View style={styles.goalCardTitle}>
-                      <View style={[styles.goalIcon, { backgroundColor: colors.successSoft }]}>
-                        <Ionicons name="flag-outline" size={18} color={colors.success} />
-                      </View>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={[styles.goalName, { color: colors.text }]} numberOfLines={1}>{pot.name}</Text>
-                        <Text style={[styles.goalOwner, { color: colors.textSecondary }]} numberOfLines={1}>{getPersonLabel(creator, t('dashboard.shared'))}</Text>
-                      </View>
-                    </View>
-                    <Text style={[styles.goalBalance, { color: colors.text }]}>{formatCurrency(pot.balance ?? 0)}</Text>
-                  </View>
-                  <GoalMeter balance={Number(pot.balance ?? 0)} target={potDefinition?.target_amount} />
-                  <Button label={t('dashboard.savingPotsTitle')} onPress={() => router.push('/savings' as any)} variant="secondary" />
-                </View>
-              );
-            })}
-          </View>
-        ) : (
-          <EmptyState title={t('dashboard.noSavingPots')} icon="save-outline" />
-        )}
+        <AccountOverviewTable
+          accounts={investmentAndSavingsAccounts}
+          members={members}
+          memberMap={memberMap}
+          savingPots={savingPots}
+          savingPotBalances={savingPotBalances}
+          emptyTitle={t('dashboard.noInvestmentSavingsOrPots')}
+          monthlyBalanceChangesByAccount={monthlyBalanceChangesByAccount}
+          monthlyExpensesByAccount={monthlyExpensesByAccount}
+        />
       </Section>
 
       <SelectionShell
@@ -767,35 +973,145 @@ export default function DashboardScreen() {
         {transactions.length ? (
           <Table
             columns={[
-              { label: t('dashboard.person'), flex: 1.2 },
-              { label: t('dashboard.account'), flex: 1.2 },
-              { label: t('dashboard.category'), flex: 1.2 },
-              { label: t('dashboard.total'), align: 'right' },
+              { label: t('transactions.titleLabel'), flex: 2.2 },
+              { label: t('transactions.account'), flex: 1.3 },
+              { label: t('transactions.accountOwner'), flex: 1.15 },
+              { label: t('transactions.createdBy'), flex: 1.15 },
+              { label: t('transactions.amountLabel'), align: 'right' },
+              { label: t('transactions.balanceAfter'), align: 'right' },
             ]}
           >
             {transactions.map((item: any) => {
-              const amountTone = item.type === 'expense' ? 'destructive' : 'success';
+              const account =
+                item.account ??
+                accounts.find((candidate) => candidate.id === item.account_id);
+              const ownerProfileId = account?.owner_profile_id;
+              const ownerLabel = ownerProfileId
+                ? getPersonLabel(
+                    memberMap.get(ownerProfileId),
+                    t('dashboard.unnamedPerson'),
+                  )
+                : t('dashboard.shared');
+              const creatorId =
+                item.created_by_profile?.id ?? item.created_by;
+              const creatorLabel = getPersonLabel(
+                memberMap.get(creatorId),
+                item.created_by_profile?.full_name ??
+                  t('dashboard.unnamedPerson'),
+              );
+              const ownerTone =
+                transactionOwnerTones[
+                  getAccountOwnerToneIndex(
+                    ownerProfileId,
+                    transactionOwnerOrder,
+                    transactionOwnerTones.length,
+                  )
+                ];
 
               return (
-                <TableRow key={item.id}>
-                  <TableCell flex={1.2}>
-                    <View style={{ gap: spacing(1) }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-                        <Ionicons name={item.type === 'expense' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'} size={18} color={item.type === 'expense' ? colors.destructive : colors.success} />
-                      <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold as any }}>{item.title}</Text>
+                <TableRow
+                  key={item.id}
+                  backgroundColor={ownerTone.surface}
+                  accentColor={ownerTone.accent}
+                >
+                  <TableCell flex={2.2}>
+                    <View style={styles.accountTitle}>
+                      <View
+                        style={[
+                          styles.accountIcon,
+                          {
+                            backgroundColor:
+                              item.type === 'expense'
+                                ? colors.destructiveSoft
+                                : colors.successSoft,
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name={(item.category?.icon ??
+                            'pricetag-outline') as any}
+                          size={18}
+                          color={
+                            item.type === 'expense'
+                              ? colors.destructive
+                              : colors.success
+                          }
+                        />
                       </View>
-                      <Badge label={t(`transactions.types.${item.type}`)} tone={amountTone} />
+                      <View style={styles.accountCopy}>
+                        <Text
+                          style={[styles.accountName, { color: colors.text }]}
+                          numberOfLines={1}
+                        >
+                          {item.title}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.accountOwner,
+                            { color: colors.textSecondary },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item.category?.name ??
+                            t('transactions.uncategorized')}{' '}
+                          · {formatDate(item.transaction_date)}
+                        </Text>
+                      </View>
                     </View>
                   </TableCell>
-                  <TableCell flex={1.2}>
-                    <Text style={{ color: colors.textSecondary }}>{item.account?.name ?? t('dashboard.account')}</Text>
+                  <TableCell flex={1.3}>
+                    <Text style={{ color: colors.text }}>
+                      {account?.name ?? t('transactions.account')}
+                    </Text>
                   </TableCell>
-                  <TableCell flex={1.2}>
-                    <Text style={{ color: colors.textSecondary }}>{item.category?.name ?? t('dashboard.uncategorized')}</Text>
+                  <TableCell flex={1.15}>
+                    <View style={styles.transactionPerson}>
+                      <Ionicons
+                        name={
+                          ownerProfileId
+                            ? 'person-outline'
+                            : 'people-outline'
+                        }
+                        size={15}
+                        color={ownerTone.accent}
+                      />
+                      <Text style={{ color: colors.text }}>{ownerLabel}</Text>
+                    </View>
+                  </TableCell>
+                  <TableCell flex={1.15}>
+                    <View style={styles.transactionPerson}>
+                      <Ionicons
+                        name="create-outline"
+                        size={15}
+                        color={colors.primary}
+                      />
+                      <Text style={{ color: colors.text }}>{creatorLabel}</Text>
+                    </View>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Text
+                      style={{
+                        color:
+                          item.type === 'expense'
+                            ? colors.destructive
+                            : colors.success,
+                        fontWeight: typography.fontWeight.bold as any,
+                      }}
+                    >
+                      {item.type === 'expense' ? '-' : '+'}
+                      {formatCurrency(item.amount)}
+                    </Text>
                   </TableCell>
                   <TableCell align="right" mobilePinned>
-                    <Text style={{ color: item.type === 'expense' ? colors.destructive : colors.success, fontWeight: typography.fontWeight.bold as any }}>
-                      {item.type === 'expense' ? '-' : '+'}{formatCurrency(item.amount)}
+                    <Text
+                      style={{
+                        color: colors.text,
+                        fontWeight: typography.fontWeight.bold as any,
+                      }}
+                    >
+                      {item.balance_after_transaction == null
+                        ? '—'
+                        : formatCurrency(item.balance_after_transaction)}
                     </Text>
                   </TableCell>
                 </TableRow>
@@ -1019,28 +1335,67 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize[12],
     lineHeight: typography.lineHeight[16],
   },
+  transactionPerson: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing(1),
+    minWidth: 0,
+  },
   accountBalance: {
     fontSize: typography.fontSize[14],
     fontWeight: typography.fontWeight.extraBold as any,
   },
-  goalGrid: {
+  accountGroups: {
     width: '100%',
     alignSelf: 'stretch',
     flexDirection: 'row',
     flexWrap: 'wrap',
+    alignItems: 'stretch',
     gap: spacing(3),
   },
-  goalGridPhone: {
-    flexDirection: 'column',
-    flexWrap: 'nowrap',
+  accountGroup: {
+    alignSelf: 'stretch',
+    minWidth: 0,
+    gap: spacing(2.5),
+    padding: spacing(3),
+    borderWidth: 1,
+    borderLeftWidth: spacing(1),
+    borderRadius: radius.lg,
+  },
+  accountGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: spacing(2),
   },
+  accountGroupIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing(1.5),
+  },
+  accountGroupMarker: {
+    width: spacing(1),
+    height: spacing(6),
+    borderRadius: radius.full,
+  },
+  accountGroupTitle: {
+    fontSize: typography.fontSize[14],
+    fontWeight: typography.fontWeight.extraBold as any,
+  },
+  accountGroupTotal: {
+    fontSize: typography.fontSize[15],
+    fontWeight: typography.fontWeight.extraBold as any,
+    fontVariant: ['tabular-nums'],
+  },
   goalCard: {
-    flex: 1,
-    minWidth: 280,
     alignSelf: 'stretch',
     borderRadius: radius.lg,
     borderWidth: 1,
+  },
+  goalCardAction: {
+    marginTop: 'auto',
   },
   goalCardHeader: {
     flexDirection: 'row',

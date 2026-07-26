@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { useEffect } from 'react';
-import { Redirect, useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams, useSegments } from 'expo-router';
 import { useAuth } from '../providers/AuthProvider';
 import { consumePendingRedirectTo, storePendingRedirectTo } from '../features/auth/redirects';
 
@@ -9,13 +9,17 @@ import { consumePendingRedirectTo, storePendingRedirectTo } from '../features/au
 export function Guest({ children }: PropsWithChildren) {
   const { session, restoring } = useAuth();
   const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
+  const segments = useSegments();
+  const isAuthRouteActive = segments[0] === '(auth)';
 
   useEffect(() => {
     storePendingRedirectTo(redirectTo);
   }, [redirectTo]);
 
   if (restoring) return null;
-  if (session) return <Redirect href={consumePendingRedirectTo(redirectTo) as any} />;
+  if (session && isAuthRouteActive) {
+    return <Redirect href={consumePendingRedirectTo(redirectTo) as any} />;
+  }
 
   return <>{children}</>;
 }

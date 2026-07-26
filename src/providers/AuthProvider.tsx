@@ -1,9 +1,10 @@
-import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type PropsWithChildren } from 'react';
 import * as Linking from 'expo-linking';
 import { supabase } from '../shared/lib/supabase/client';
 import { useSession, type Claims, type UserProfile } from '../shared/session';
 import { usePreferencesStore, type AppCurrency } from '@/stores/preferencesStore';
 import { AUTH_CALLBACK_ROUTE } from '@/features/auth/constants';
+import { shouldRefreshClaimsForAuthEvent } from '@/features/auth/auth-state';
 
 function logAuthError(message: string) {
   console.error(message);
@@ -63,6 +64,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [restoring, setRestoring] = useState(true);
   const [claims, setClaims] = useState<Claims>();
   const [refreshKey, setRefreshKey] = useState(0);
+  const activeUserIdRef = useRef<string | null>(null);
+  const claimsRef = useRef<Claims>(undefined);
 
   async function syncAuthState(isActive = true) {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -71,6 +74,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
 
     if (isActive) {
+      activeUserIdRef.current = sessionData.session?.user.id ?? null;
       setSession(sessionData.session);
     }
 
@@ -80,7 +84,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
 
     if (isActive) {
-      setClaims(data?.claims ?? null);
+      const nextClaims = data?.claims ?? null;
+      claimsRef.current = nextClaims;
+      setClaims(nextClaims);
     }
   }
 
@@ -117,16 +123,43 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      const previousUserId = activeUserIdRef.current;
+      const nextUserId = nextSession?.user.id ?? null;
+      activeUserIdRef.current = nextUserId;
+
       if (isMounted) {
         setSession(nextSession);
       }
 
-      const { data } = await supabase.auth.getClaims();
-      if (isMounted) {
-        setClaims(data?.claims ?? null);
-        setRefreshKey((current) => current + 1);
+      if (event === 'SIGNED_OUT') {
+        claimsRef.current = null;
+        if (isMounted) {
+          setClaims(null);
+          setRefreshKey((current) => current + 1);
+        }
+        return;
       }
+
+      if (
+        !shouldRefreshClaimsForAuthEvent({
+          event,
+          previousUserId,
+          nextUserId,
+          hasLoadedClaims: claimsRef.current !== undefined,
+        })
+      ) {
+        return;
+      }
+
+      void supabase.auth.getClaims().then(({ data }) => {
+        if (!isMounted) return;
+
+        const nextClaims = data?.claims ?? null;
+        claimsRef.current = nextClaims;
+        setClaims(nextClaims);
+        setRefreshKey((current) => current + 1);
+      });
     });
 
     return () => {
@@ -166,6 +199,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       throw error;
     }
 
+    activeUserIdRef.current = data.session?.user.id ?? null;
     setSession(data.session);
 
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
@@ -173,7 +207,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       logAuthError('Error fetching claims after sign-in.');
     }
 
-    setClaims(claimsData?.claims ?? null);
+    const nextClaims = claimsData?.claims ?? null;
+    claimsRef.current = nextClaims;
+    setClaims(nextClaims);
     setRestoring(false);
   }
 
@@ -187,6 +223,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       throw error;
     }
 
+    activeUserIdRef.current = null;
+    claimsRef.current = null;
     setSession(null);
     setClaims(null);
     setRestoring(false);

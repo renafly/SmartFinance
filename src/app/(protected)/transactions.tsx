@@ -8,6 +8,7 @@ import { typography } from '@/theme/typography';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
+import { useResponsiveMetrics } from '@/theme/responsive';
 
 import { Page, Card, Section, Field, Button, Pill, formatCurrency, formatDate } from '@/components/migrated-page';
 import { EmptyState, Table, TableCell, TableRow } from '@/components/data-surface';
@@ -24,10 +25,8 @@ import { useCreateTransaction } from '../../features/transactions/hooks/useCreat
 import { useDeleteTransaction } from '../../features/transactions/hooks/useDeleteTransaction';
 import { useUpdateTransaction } from '../../features/transactions/hooks/useUpdateTransaction';
 import { validateTransactionAttachment } from '../../features/transactions/services/transaction.service';
-
-function getTransactionTypeIcon(type: 'income' | 'expense') {
-  return type === 'expense' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline';
-}
+import { compareTransactions, type TransactionListSortKey } from '../../features/transactions/utils/transaction-list';
+import { SHARED_ACCOUNT_OWNER_KEY, getAccountOwnerToneIndex } from '../../features/accounts/account-ordering';
 
 type TransactionEditDraft = {
   id: string;
@@ -47,12 +46,12 @@ type DropdownFieldProps = {
   placeholder: string;
   hint?: string;
   selectedKey?: string;
-  options: Array<{
+  options: {
     key: string;
     label: string;
     subtitle?: string;
     iconName?: keyof typeof Ionicons.glyphMap;
-  }>;
+  }[];
   onChange: (key: string) => void;
 };
 
@@ -61,21 +60,8 @@ function DropdownField({ label, valueLabel, placeholder, hint, selectedKey, opti
 
   return (
     <View style={{ gap: spacing(2) }}>
-      <SelectionTrigger
-        label={label}
-        valueLabel={valueLabel}
-        hint={hint}
-        placeholder={placeholder}
-        iconName="chevron-down-outline"
-        onPress={() => setOpen(true)}
-      />
-      <SelectionShell
-        visible={open}
-        title={label}
-        subtitle={hint ?? placeholder}
-        closeLabel={placeholder}
-        onClose={() => setOpen(false)}
-      >
+      <SelectionTrigger label={label} valueLabel={valueLabel} hint={hint} placeholder={placeholder} iconName="chevron-down-outline" onPress={() => setOpen(true)} />
+      <SelectionShell visible={open} title={label} subtitle={hint ?? placeholder} closeLabel={placeholder} onClose={() => setOpen(false)}>
         <View style={{ gap: spacing(2) }}>
           {options.map((option) => (
             <SelectionOptionRow
@@ -113,27 +99,11 @@ function formatDateInputValue(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function DatePickerField({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (nextValue: string) => void;
-  placeholder: string;
-}) {
+function DatePickerField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (nextValue: string) => void; placeholder: string }) {
   const { colors } = useTheme();
   const { t } = useTranslation('common');
   const [open, setOpen] = useState(false);
   const [draftDate, setDraftDate] = useState(() => parseDateInputValue(value) ?? new Date());
-
-  useMemo(() => {
-    if (!open) {
-      setDraftDate(parseDateInputValue(value) ?? new Date());
-    }
-  }, [open, value]);
 
   if (Platform.OS === 'web') {
     return <SharedDatePickerField label={label} value={value} onChange={onChange} placeholder={placeholder} />;
@@ -141,9 +111,23 @@ function DatePickerField({
 
   return (
     <View style={{ gap: spacing(2) }}>
-      <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold as any } as any}>{label}</Text>
+      <Text
+        style={
+          {
+            color: colors.textSecondary,
+            fontWeight: typography.fontWeight.semibold as any,
+          } as any
+        }
+      >
+        {label}
+      </Text>
       <Pressable
-        onPress={() => setOpen((current) => !current)}
+        onPress={() => {
+          if (!open) {
+            setDraftDate(parseDateInputValue(value) ?? new Date());
+          }
+          setOpen((current) => !current);
+        }}
         style={{
           flexDirection: 'row',
           alignItems: 'center',
@@ -156,13 +140,38 @@ function DatePickerField({
           borderColor: colors.border,
         }}
       >
-        <Text style={{ color: value.trim().length > 0 ? colors.text : colors.textSecondary, fontWeight: typography.fontWeight.bold as any } as any}>
+        <Text
+          style={
+            {
+              color: value.trim().length > 0 ? colors.text : colors.textSecondary,
+              fontWeight: typography.fontWeight.bold as any,
+            } as any
+          }
+        >
           {value.trim().length > 0 ? value : placeholder}
         </Text>
-        <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.bold as any } as any}>{open ? '▴' : '▾'}</Text>
+        <Text
+          style={
+            {
+              color: colors.textSecondary,
+              fontWeight: typography.fontWeight.bold as any,
+            } as any
+          }
+        >
+          {open ? '▴' : '▾'}
+        </Text>
       </Pressable>
       {open ? (
-        <View style={{ gap: spacing(2), padding: spacing(3), borderRadius: radius.lg, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border }}>
+        <View
+          style={{
+            gap: spacing(2),
+            padding: spacing(3),
+            borderRadius: radius.lg,
+            backgroundColor: colors.surfaceMuted,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
           <DateTimePicker
             value={draftDate}
             mode="date"
@@ -178,9 +187,21 @@ function DatePickerField({
             }}
             onDismiss={() => setOpen(false)}
           />
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: spacing(2) }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'flex-end',
+              gap: spacing(2),
+            }}
+          >
             <Button label={t('cancel')} variant="secondary" onPress={() => setOpen(false)} />
-            <Button label={t('done')} onPress={() => { onChange(formatDateInputValue(draftDate)); setOpen(false); }} />
+            <Button
+              label={t('done')}
+              onPress={() => {
+                onChange(formatDateInputValue(draftDate));
+                setOpen(false);
+              }}
+            />
           </View>
         </View>
       ) : null}
@@ -188,22 +209,12 @@ function DatePickerField({
   );
 }
 
-function DateFilterField({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (nextValue: string) => void;
-  placeholder: string;
-}) {
+function DateFilterField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (nextValue: string) => void; placeholder: string }) {
   const { colors } = useTheme();
+  const { t } = useTranslation('common');
 
   return (
     <View style={{ gap: spacing(1.5) }}>
-      <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold as any } as any}>{label}</Text>
       <DatePickerField label={label} value={value} onChange={onChange} placeholder={placeholder} />
       {value ? (
         <Pressable
@@ -221,7 +232,17 @@ function DateFilterField({
             pressed && { opacity: 0.85 },
           ]}
         >
-          <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold as any } as any}>Clear</Text>
+          <Text
+            style={
+              {
+                color: colors.textSecondary,
+                fontSize: typography.fontSize[12],
+                fontWeight: typography.fontWeight.semibold as any,
+              } as any
+            }
+          >
+            {t('clear')}
+          </Text>
         </Pressable>
       ) : null}
     </View>
@@ -235,12 +256,12 @@ type AttachmentDraft = {
   mimeType: string;
 };
 
-type TransactionSortKey = 'newest' | 'oldest' | 'amount_desc' | 'amount_asc';
 const TRANSACTIONS_PAGE_SIZE = 25;
 
 export default function TransactionsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const responsive = useResponsiveMetrics();
   const { t } = useTranslation('common');
   const { householdId, profile } = useAuth();
   const accountsQuery = useAccountsWithBalances();
@@ -262,33 +283,55 @@ export default function TransactionsScreen() {
   const [createdByFilter, setCreatedByFilter] = useState<'all' | string>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [sortBy, setSortBy] = useState<TransactionSortKey>('newest');
+  const [sortBy, setSortBy] = useState<TransactionListSortKey>('newest');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [menuTransaction, setMenuTransaction] = useState<any | null>(null);
   const [editTransaction, setEditTransaction] = useState<TransactionEditDraft | null>(null);
 
-  const transactionsQuery = useTransactionsInfinite({
-    type: filtersType === 'all' ? undefined : filtersType,
-    accountId: accountFilter === 'all' ? undefined : accountFilter,
-    createdBy: createdByFilter === 'all' ? undefined : createdByFilter,
-    from: dateFrom || undefined,
-    to: dateTo || undefined,
-  }, TRANSACTIONS_PAGE_SIZE);
+  const transactionsQuery = useTransactionsInfinite(
+    {
+      type: filtersType === 'all' ? undefined : filtersType,
+      accountId: accountFilter === 'all' ? undefined : accountFilter,
+      createdBy: createdByFilter === 'all' ? undefined : createdByFilter,
+      from: dateFrom || undefined,
+      to: dateTo || undefined,
+    },
+    TRANSACTIONS_PAGE_SIZE,
+  );
   const activeCategoryType = editTransaction?.type ?? type;
   const categoriesQuery = useTopLevelCategories(activeCategoryType);
 
   const accounts = accountsQuery.data ?? [];
-  const categories = categoriesQuery.data ?? [];
+  const categories = useMemo(
+    () => categoriesQuery.data ?? [],
+    [categoriesQuery.data],
+  );
+  const categoryOptions = useMemo(
+    () => [
+      {
+        key: '',
+        label: t('none'),
+        iconName: 'close-circle-outline' as const,
+      },
+      ...categories.map((category: any) => ({
+        key: category.id,
+        label: category.name,
+        iconName:
+          (category.icon as keyof typeof Ionicons.glyphMap | null) ??
+          'pricetag-outline',
+      })),
+    ],
+    [categories, t],
+  );
+  const acceptedMembers = useMemo(() => (membersQuery.data ?? []).filter((member) => member.status === 'accepted'), [membersQuery.data]);
   const accountMemberOptions = useMemo(
     () =>
-      (membersQuery.data ?? [])
-        .filter((member) => member.status === 'accepted')
-        .map((member) => ({
-          id: member.userId,
-          label: member.fullName?.trim() || member.email || member.userId,
-        })),
-    [membersQuery.data],
+      acceptedMembers.map((member) => ({
+        id: member.userId,
+        label: member.fullName?.trim() || member.email || member.userId,
+      })),
+    [acceptedMembers],
   );
   const transactions = useMemo(() => {
     const rowsById = new Map<string, any>();
@@ -302,57 +345,41 @@ export default function TransactionsScreen() {
 
     const rows = [...rowsById.values()];
 
-    rows.sort((a: any, b: any) => {
-      const dateA = new Date(a.transaction_date ?? 0).getTime();
-      const dateB = new Date(b.transaction_date ?? 0).getTime();
-      const amountA = Number(a.amount ?? 0);
-      const amountB = Number(b.amount ?? 0);
-      const idA = String(a.id ?? '');
-      const idB = String(b.id ?? '');
-
-      switch (sortBy) {
-        case 'oldest':
-          return dateA - dateB || a.title.localeCompare(b.title) || idA.localeCompare(idB);
-        case 'amount_desc':
-          return amountB - amountA || dateB - dateA || a.title.localeCompare(b.title) || idA.localeCompare(idB);
-        case 'amount_asc':
-          return amountA - amountB || dateB - dateA || a.title.localeCompare(b.title) || idA.localeCompare(idB);
-        case 'newest':
-        default:
-          return dateB - dateA || a.title.localeCompare(b.title) || idB.localeCompare(idA);
-      }
-    });
+    rows.sort((a: any, b: any) => compareTransactions(a, b, sortBy));
 
     return rows;
   }, [sortBy, transactionsQuery.data]);
-  const memberLabelMap = new Map(
-    (membersQuery.data ?? [])
-      .filter((member) => member.status === 'accepted')
-      .map((member) => [
-        member.userId,
-        member.fullName?.trim() || member.email || member.userId,
-      ]),
-  );
+  const memberLabelMap = new Map(acceptedMembers.map((member) => [member.userId, member.fullName?.trim() || member.email || member.userId]));
+  const ownerOrder = [...acceptedMembers.map((member) => member.userId), SHARED_ACCOUNT_OWNER_KEY];
+  const ownerTones = [
+    { accent: colors.primary, surface: colors.primarySoft },
+    { accent: colors.financialPositive, surface: colors.financialPositiveSoft },
+    { accent: colors.financialNeutral, surface: colors.financialNeutralSoft },
+    {
+      accent: colors.financialAttention,
+      surface: colors.financialAttentionSoft,
+    },
+    { accent: colors.financialGoal, surface: colors.financialGoalSoft },
+  ];
+  const filterItemWidth =
+    responsive.width >= 1500
+      ? '31.8%'
+      : responsive.width >= 700
+        ? '48.8%'
+        : '100%';
   const currentUserLabel = profile?.full_name?.trim() || profile?.email?.trim() || t('settings.you');
   const currentUserId = profile?.id ?? '';
   const firstAccount = accounts[0]?.id ?? '';
   const parsedAmount = Number(amount);
   const effectiveAccountId = accountId || firstAccount;
-  const getAccountOwnerLabel = (account: any) =>
-    account.owner_profile_id ? (memberLabelMap.get(account.owner_profile_id) ?? t('dashboard.shared')) : t('dashboard.shared');
-  const getAccountOptionSubtitle = (account: any) =>
-    `${getAccountOwnerLabel(account)} · ${t(`accounts.types.${account.type}`, { defaultValue: account.type })} · ${formatCurrency(account.current_balance ?? account.balance ?? 0)}`;
   const selectedCreatorLabel =
     createdByFilter === 'all'
       ? t('all', { defaultValue: 'All' })
       : createdByFilter === currentUserId || createdByFilter === ''
         ? currentUserLabel
-        : memberLabelMap.get(createdByFilter) ?? t('settings.unnamedUser');
+        : (memberLabelMap.get(createdByFilter) ?? t('settings.unnamedUser'));
   const effectiveCreatedById = createdById || currentUserId;
-  const selectedCreateCreatorLabel =
-    effectiveCreatedById === currentUserId
-      ? currentUserLabel
-      : memberLabelMap.get(effectiveCreatedById) ?? t('settings.unnamedUser');
+  const selectedCreateCreatorLabel = effectiveCreatedById === currentUserId ? currentUserLabel : (memberLabelMap.get(effectiveCreatedById) ?? t('settings.unnamedUser'));
   const canCreateTransaction =
     !createTransaction.isPending &&
     Boolean(householdId) &&
@@ -362,15 +389,25 @@ export default function TransactionsScreen() {
     Number.isFinite(parsedAmount) &&
     parsedAmount > 0 &&
     /^\d{4}-\d{2}-\d{2}$/.test(date);
-  const getTransactionAccountLabel = (item: any) => {
+  const getTransactionAccount = (item: any) => {
     const account = (accounts as any[]).find((entry) => entry.id === item.account_id) ?? item.account;
-    if (!account) return t('transactions.account');
+    return account ?? null;
+  };
+  const getTransactionAccountLabel = (item: any) => getTransactionAccount(item)?.name ?? t('transactions.account');
+  const getTransactionAccountOwnerLabel = (item: any) => {
+    const ownerId = getTransactionAccount(item)?.owner_profile_id;
+    return ownerId ? (memberLabelMap.get(ownerId) ?? t('settings.unnamedUser')) : t('dashboard.shared');
+  };
+  const getTransactionAccountOwnerTone = (item: any) => {
+    const ownerId = getTransactionAccount(item)?.owner_profile_id;
+    const toneIndex = getAccountOwnerToneIndex(ownerId, ownerOrder, ownerTones.length);
 
-    const ownerLabel = account.owner_profile_id
-      ? (memberLabelMap.get(account.owner_profile_id) ?? t('dashboard.shared'))
-      : t('dashboard.shared');
+    return ownerTones[toneIndex];
+  };
+  const getTransactionCreatorLabel = (item: any) => {
+    const creatorId = item.created_by_profile?.id ?? item.created_by;
 
-    return `${account.name} · ${ownerLabel}`;
+    return creatorId === profile?.id ? currentUserLabel : (memberLabelMap.get(creatorId) ?? item.created_by_profile?.full_name ?? t('settings.unnamedUser'));
   };
   const handleTransactionsScroll = useCallback(
     (event: any) => {
@@ -397,7 +434,7 @@ export default function TransactionsScreen() {
     if (result.canceled || !result.assets?.[0]) return;
 
     const asset = result.assets[0];
-    const file = asset.file ?? await (await fetch(asset.uri)).blob();
+    const file = asset.file ?? (await (await fetch(asset.uri)).blob());
     const draft = {
       file,
       fileName: asset.name ?? `invoice-${Date.now()}`,
@@ -453,13 +490,7 @@ export default function TransactionsScreen() {
     if (!editTransaction || !householdId) return;
 
     const nextAmount = Number(editTransaction.amount);
-    if (
-      !editTransaction.title.trim() ||
-      !editTransaction.accountId ||
-      !Number.isFinite(nextAmount) ||
-      nextAmount <= 0 ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(editTransaction.date)
-    ) {
+    if (!editTransaction.title.trim() || !editTransaction.accountId || !Number.isFinite(nextAmount) || nextAmount <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(editTransaction.date)) {
       return;
     }
 
@@ -489,11 +520,7 @@ export default function TransactionsScreen() {
         scrollEventThrottle: 16,
       }}
       overlay={
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setCreateModalOpen(true)}
-          style={({ pressed }) => [styles.floatingCreateButton, pressed && styles.pressed] as any}
-        >
+        <Pressable accessibilityRole="button" onPress={() => setCreateModalOpen(true)} style={({ pressed }) => [styles.floatingCreateButton, pressed && styles.pressed] as any}>
           <Ionicons name="add-circle-outline" size={20} color={colors.primaryForeground} />
           <Text style={styles.floatingCreateButtonText}>{t('transactions.addTransaction')}</Text>
         </Pressable>
@@ -507,7 +534,13 @@ export default function TransactionsScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={() => setFiltersOpen((current) => !current)}
-              style={[styles.filterToggle, { borderColor: colors.border, backgroundColor: colors.surfaceMuted }]}
+              style={[
+                styles.filterToggle,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.surfaceMuted,
+                },
+              ]}
             >
               <Ionicons name={filtersOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={18} color={colors.text} />
               <Text style={[styles.filterToggleLabel, { color: colors.text }]}>{filtersOpen ? t('transactions.hideFilters') : t('transactions.showFilters')}</Text>
@@ -515,83 +548,186 @@ export default function TransactionsScreen() {
           }
         >
           {filtersOpen ? (
-          <View style={{ gap: spacing(3) }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2), flexWrap: 'wrap' }}>
-            <Ionicons name="funnel-outline" size={16} color={colors.textSecondary} />
-            {(['all', 'income', 'expense'] as const).map((item) => (
-                <Pill key={item} label={t(`transactions.filters.${item}`)} active={filtersType === item} onPress={() => setFiltersType(item)} />
-              ))}
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2), flexWrap: 'wrap' }}>
-              <Ionicons name="swap-vertical-outline" size={16} color={colors.textSecondary} />
-              {(['newest', 'oldest', 'amount_desc', 'amount_asc'] as const).map((item) => (
-                <Pill key={item} label={t(`transactions.sorts.${item}`, { defaultValue: item })} active={sortBy === item} onPress={() => setSortBy(item)} />
-              ))}
-            </View>
-            <View style={{ gap: spacing(2) }}>
-              <DropdownField
-                label={t('transactions.account')}
-                valueLabel={accountFilter === 'all' ? t('all', { defaultValue: 'All' }) : (accounts.find((account: any) => account.id === accountFilter)?.name ?? t('transactions.account'))}
-                placeholder={t('transactions.account')}
-                hint={t('transactions.account')}
-                selectedKey={accountFilter}
-                onChange={setAccountFilter}
-                options={[
-                  { key: 'all', label: t('all', { defaultValue: 'All' }) },
-                  ...accounts.map((account: any) => ({
-                    key: account.id,
-                    label: account.name,
-                    subtitle: getAccountOptionSubtitle(account),
-                    iconName: 'wallet-outline' as const,
-                  })),
+            <View style={styles.filtersGrid}>
+              <View
+                style={[
+                  styles.filterGridItem,
+                  styles.filterChoiceGroup,
+                  {
+                    flexBasis: filterItemWidth,
+                    maxWidth: filterItemWidth,
+                    borderColor: colors.border,
+                    backgroundColor: colors.surfaceMuted,
+                  },
                 ]}
-              />
-            </View>
-            <View style={{ gap: spacing(2) }}>
-              <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold as any } as any}>{t('transactions.dateLabel')}</Text>
-              <View style={{ gap: spacing(2) }}>
+              >
+                <View style={styles.filterGroupLabel}>
+                  <Ionicons
+                    name="funnel-outline"
+                    size={16}
+                    color={colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.filterGroupLabelText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {t('transactions.filterType')}
+                  </Text>
+                </View>
+                <View style={styles.filterPills}>
+                  {(['all', 'income', 'expense'] as const).map((item) => (
+                    <Pill
+                      key={item}
+                      label={t(`transactions.filters.${item}`)}
+                      active={filtersType === item}
+                      onPress={() => setFiltersType(item)}
+                    />
+                  ))}
+                </View>
+              </View>
+              <View
+                style={[
+                  styles.filterGridItem,
+                  styles.filterChoiceGroup,
+                  {
+                    flexBasis: filterItemWidth,
+                    maxWidth: filterItemWidth,
+                    borderColor: colors.border,
+                    backgroundColor: colors.surfaceMuted,
+                  },
+                ]}
+              >
+                <View style={styles.filterGroupLabel}>
+                  <Ionicons
+                    name="swap-vertical-outline"
+                    size={16}
+                    color={colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.filterGroupLabelText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {t('transactions.sortBy')}
+                  </Text>
+                </View>
+                <View style={styles.filterPills}>
+                  {(
+                    [
+                      'newest',
+                      'oldest',
+                      'amount_desc',
+                      'amount_asc',
+                    ] as const
+                  ).map((item) => (
+                    <Pill
+                      key={item}
+                      label={t(`transactions.sorts.${item}`)}
+                      active={sortBy === item}
+                      onPress={() => setSortBy(item)}
+                    />
+                  ))}
+                </View>
+              </View>
+              <View
+                style={[
+                  styles.filterGridItem,
+                  {
+                    flexBasis: filterItemWidth,
+                    maxWidth: filterItemWidth,
+                  },
+                ]}
+              >
+                <GroupedAccountSelect
+                  label={t('transactions.account')}
+                  accounts={accounts as any}
+                  members={acceptedMembers as any}
+                  value={accountFilter}
+                  placeholder={t('transactions.allAccounts')}
+                  hint={t('transactions.selectAccountHint', {
+                    defaultValue: t('transactions.account'),
+                  })}
+                  onChange={setAccountFilter}
+                  closeLabel={t('close', { defaultValue: 'Close' })}
+                  sharedLabel={t('dashboard.shared')}
+                  unassignedLabel={t('settings.unnamedUser')}
+                  allOption={{
+                    value: 'all',
+                    label: t('transactions.allAccounts'),
+                  }}
+                  typeLabels={{
+                    bank: t('accounts.types.bank'),
+                    cash: t('accounts.types.cash'),
+                    savings: t('accounts.types.savings'),
+                    credit_card: t('accounts.types.credit_card'),
+                    investment: t('accounts.types.investment'),
+                    ppr: t('accounts.types.ppr'),
+                  }}
+                />
+              </View>
+              <View
+                style={[
+                  styles.filterGridItem,
+                  {
+                    flexBasis: filterItemWidth,
+                    maxWidth: filterItemWidth,
+                  },
+                ]}
+              >
+                <DropdownField
+                  label={t('transactions.createdBy')}
+                  valueLabel={selectedCreatorLabel}
+                  placeholder={t('transactions.createdBy')}
+                  hint={t('transactions.createdBy')}
+                  selectedKey={createdByFilter}
+                  onChange={setCreatedByFilter}
+                  options={[
+                    { key: 'all', label: t('all', { defaultValue: 'All' }) },
+                    {
+                      key: currentUserId,
+                      label: currentUserLabel,
+                      subtitle: t('settings.you'),
+                    },
+                    ...accountMemberOptions.filter((item) => item.id !== currentUserId).map((item) => ({ key: item.id, label: item.label })),
+                  ]}
+                />
+              </View>
+              <View
+                style={[
+                  styles.filterGridItem,
+                  {
+                    flexBasis: filterItemWidth,
+                    maxWidth: filterItemWidth,
+                  },
+                ]}
+              >
                 <DateFilterField
-                  label={t('transactions.dateFrom', { defaultValue: 'From date' })}
+                  label={t('transactions.dateFrom')}
                   value={dateFrom}
                   onChange={setDateFrom}
-                  placeholder={t('transactions.dateFromPlaceholder', { defaultValue: 'DD-MM-YYYY' })}
+                  placeholder={t('transactions.dateFromPlaceholder')}
                 />
+              </View>
+              <View
+                style={[
+                  styles.filterGridItem,
+                  {
+                    flexBasis: filterItemWidth,
+                    maxWidth: filterItemWidth,
+                  },
+                ]}
+              >
                 <DateFilterField
-                  label={t('transactions.dateTo', { defaultValue: 'To date' })}
+                  label={t('transactions.dateTo')}
                   value={dateTo}
                   onChange={setDateTo}
-                  placeholder={t('transactions.dateToPlaceholder', { defaultValue: 'DD-MM-YYYY' })}
+                  placeholder={t('transactions.dateToPlaceholder')}
                 />
-                {(dateFrom || dateTo) ? (
-                  <Button
-                    label={t('clear', { defaultValue: 'Clear dates' })}
-                    variant="secondary"
-                    onPress={() => {
-                      setDateFrom('');
-                      setDateTo('');
-                    }}
-                  />
-                ) : null}
               </View>
             </View>
-            <View style={{ gap: spacing(2) }}>
-              <DropdownField
-                label={t('transactions.createdBy')}
-                valueLabel={selectedCreatorLabel}
-                placeholder={t('transactions.createdBy')}
-                hint={t('transactions.createdBy')}
-                selectedKey={createdByFilter}
-                onChange={setCreatedByFilter}
-                options={[
-                  { key: 'all', label: t('all', { defaultValue: 'All' }) },
-                  { key: currentUserId, label: currentUserLabel, subtitle: t('settings.you') },
-                  ...accountMemberOptions
-                    .filter((item) => item.id !== currentUserId)
-                    .map((item) => ({ key: item.id, label: item.label })),
-                ]}
-              />
-            </View>
-          </View>
           ) : null}
         </Section>
       </Card>
@@ -602,7 +738,13 @@ export default function TransactionsScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t('transactions.createTitle')}</Text>
             <Text style={styles.modalSubtitle}>{t('transactions.createSubtitle')}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2) }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing(2),
+              }}
+            >
               <Ionicons name="create-outline" size={16} color={colors.textSecondary} />
               {(['income', 'expense'] as const).map((item) => (
                 <Pill key={item} label={t(`transactions.types.${item}`)} active={type === item} onPress={() => setType(item)} />
@@ -614,7 +756,9 @@ export default function TransactionsScreen() {
               label={t('transactions.dateLabel')}
               value={date}
               onChange={setDate}
-              placeholder={t('transactions.datePlaceholder', { defaultValue: 'DD-MM-YYYY' })}
+              placeholder={t('transactions.datePlaceholder', {
+                defaultValue: 'DD-MM-YYYY',
+              })}
             />
             <Field label={t('transactions.notesLabel')} value={notes} onChangeText={setNotes} placeholder={t('transactions.notesPlaceholder')} />
             <DropdownField
@@ -625,10 +769,12 @@ export default function TransactionsScreen() {
               selectedKey={effectiveCreatedById}
               onChange={setCreatedById}
               options={[
-                { key: currentUserId, label: currentUserLabel, subtitle: t('settings.you') },
-                ...accountMemberOptions
-                  .filter((member) => member.id !== currentUserId)
-                  .map((member) => ({ key: member.id, label: member.label })),
+                {
+                  key: currentUserId,
+                  label: currentUserLabel,
+                  subtitle: t('settings.you'),
+                },
+                ...accountMemberOptions.filter((member) => member.id !== currentUserId).map((member) => ({ key: member.id, label: member.label })),
               ]}
             />
             <GroupedAccountSelect
@@ -637,7 +783,9 @@ export default function TransactionsScreen() {
               members={(membersQuery.data ?? []).filter((member) => member.status === 'accepted') as any}
               value={effectiveAccountId}
               placeholder={t('transactions.selectAccount')}
-              hint={t('transactions.selectAccountHint', { defaultValue: t('transactions.account') })}
+              hint={t('transactions.selectAccountHint', {
+                defaultValue: t('transactions.account'),
+              })}
               onChange={setAccountId}
               closeLabel={t('close', { defaultValue: 'Close' })}
               sharedLabel={t('dashboard.shared')}
@@ -658,113 +806,167 @@ export default function TransactionsScreen() {
               hint={t('transactions.categories')}
               selectedKey={categoryId ?? ''}
               onChange={(value) => setCategoryId(value || null)}
-              options={[{ key: '', label: t('none') }, ...categories.map((category: any) => ({ key: category.id, label: category.name, iconName: category.icon } as any))]}
+              options={categoryOptions}
             />
             <View style={{ gap: spacing(2) } as any}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2) }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: spacing(2),
+                }}
+              >
                 <Ionicons name="attach-outline" size={16} color={colors.textSecondary} />
-                <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold as any } as any}>
+                <Text
+                  style={
+                    {
+                      color: colors.textSecondary,
+                      fontWeight: typography.fontWeight.semibold as any,
+                    } as any
+                  }
+                >
                   {t('transactions.attachInvoice')}
                 </Text>
               </View>
-              <Button
-                label={attachment ? t('transactions.changeAttachment') : t('transactions.attachInvoice')}
-                onPress={() => void handlePickAttachment()}
-                variant="secondary"
-              />
+              <Button label={attachment ? t('transactions.changeAttachment') : t('transactions.attachInvoice')} onPress={() => void handlePickAttachment()} variant="secondary" />
               {attachment ? (
                 <View style={{ gap: spacing(1) }}>
-                  <Text style={{ color: colors.text, fontWeight: typography.fontWeight.semibold as any } as any}>
+                  <Text
+                    style={
+                      {
+                        color: colors.text,
+                        fontWeight: typography.fontWeight.semibold as any,
+                      } as any
+                    }
+                  >
                     {t('transactions.attachmentSelected')}
                   </Text>
                   <Text style={{ color: colors.textSecondary } as any}>
                     {attachment.fileName} · {(attachment.fileSize / 1024).toFixed(1)} KB
                   </Text>
-                  <Button
-                    label={t('transactions.removeAttachment')}
-                    onPress={() => setAttachment(null)}
-                    variant="secondary"
-                  />
+                  <Button label={t('transactions.removeAttachment')} onPress={() => setAttachment(null)} variant="secondary" />
                 </View>
               ) : null}
             </View>
             <View style={styles.modalActions}>
               <Button label={t('cancel')} variant="secondary" onPress={() => setCreateModalOpen(false)} />
-              <Button
-                label={createTransaction.isPending ? t('saving') : t('transactions.createAndNew')}
-                variant="secondary"
-                onPress={() => void handleCreate(true)}
-                disabled={!canCreateTransaction}
-              />
+              <Button label={createTransaction.isPending ? t('saving') : t('transactions.createAndNew')} variant="secondary" onPress={() => void handleCreate(true)} disabled={!canCreateTransaction} />
               <Button label={createTransaction.isPending ? t('saving') : t('transactions.create')} onPress={() => void handleCreate()} disabled={!canCreateTransaction} />
             </View>
           </View>
         </View>
       </Modal>
 
-      <Section title={t('transactions.latestTitle')} subtitle={t('transactions.latestSubtitle', { count: transactions.length })}>
+      <Section
+        title={t('transactions.latestTitle')}
+        subtitle={t('transactions.latestSubtitle', {
+          count: transactions.length,
+        })}
+        action={<Button label={t('transactions.addTransaction')} onPress={() => setCreateModalOpen(true)} />}
+      >
         {transactions.length ? (
           <>
             <Table
               columns={[
-                { label: t('transactions.titleLabel'), flex: 2.4 },
-                { label: t('transactions.account'), flex: 1.8 },
+                { label: t('transactions.titleLabel'), flex: 2.2 },
+                { label: t('transactions.account'), flex: 1.3 },
+                { label: t('transactions.accountOwner'), flex: 1.15 },
+                { label: t('transactions.createdBy'), flex: 1.15 },
                 { label: t('transactions.amountLabel'), align: 'right' },
+                { label: t('transactions.balanceAfter'), align: 'right' },
                 { label: '', flex: 0.35, align: 'right' },
               ]}
             >
-              {transactions.map((item: any) => (
-                <TableRow key={item.id}>
-                  <TableCell flex={2.4}>
-                    <View style={styles.transactionIdentity}>
-                      <View style={[styles.transactionIcon, { backgroundColor: item.type === 'expense' ? colors.destructiveSoft : colors.successSoft }]}>
-                        <Ionicons name={getTransactionTypeIcon(item.type)} size={18} color={item.type === 'expense' ? colors.destructive : colors.success} />
+              {transactions.map((item: any) => {
+                const ownerTone = getTransactionAccountOwnerTone(item);
+
+                return (
+                  <TableRow key={item.id} backgroundColor={ownerTone.surface} accentColor={ownerTone.accent}>
+                    <TableCell flex={2.2}>
+                      <View style={styles.transactionIdentity}>
+                        <View
+                          style={[
+                            styles.transactionIcon,
+                            {
+                              backgroundColor: item.type === 'expense' ? colors.destructiveSoft : colors.successSoft,
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name={(item.category?.icon ??
+                              'pricetag-outline') as any}
+                            size={18}
+                            color={
+                              item.type === 'expense'
+                                ? colors.destructive
+                                : colors.success
+                            }
+                          />
+                        </View>
+                        <View style={styles.transactionDetails}>
+                          <Text style={styles.transactionTitle}>{item.title}</Text>
+                          <Text style={styles.transactionContext}>
+                            {item.category?.name ?? t('transactions.uncategorized')} · {formatDate(item.transaction_date)}
+                          </Text>
+                        </View>
                       </View>
-                      <View style={styles.transactionDetails}>
-                        <Text style={styles.transactionTitle}>{item.title}</Text>
-                        <Text style={styles.transactionContext}>{item.category?.name ?? t('transactions.uncategorized')} · {formatDate(item.transaction_date)}</Text>
-                      </View>
-                    </View>
-                  </TableCell>
-                  <TableCell flex={1.8}>
-                    <View style={styles.transactionDetails}>
+                    </TableCell>
+                    <TableCell flex={1.3}>
                       <Text style={styles.transactionAccount}>{getTransactionAccountLabel(item)}</Text>
-                      <Text style={styles.transactionContext}>
-                        {item.created_by_profile?.id === profile?.id
-                          ? currentUserLabel
-                          : memberLabelMap.get(item.created_by_profile?.id ?? item.created_by) ?? t('settings.unnamedUser')
-                        }
+                    </TableCell>
+                    <TableCell flex={1.15}>
+                      <View style={styles.personIdentity}>
+                        <Ionicons name="person-outline" size={15} color={ownerTone.accent} />
+                        <Text style={styles.transactionAccount}>{getTransactionAccountOwnerLabel(item)}</Text>
+                      </View>
+                    </TableCell>
+                    <TableCell flex={1.15}>
+                      <View style={styles.personIdentity}>
+                        <Ionicons name="create-outline" size={15} color={colors.primary} />
+                        <Text style={styles.transactionCreator}>{getTransactionCreatorLabel(item)}</Text>
+                      </View>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Text
+                        style={[
+                          styles.transactionAmount,
+                          {
+                            color: item.type === 'expense' ? colors.destructive : colors.success,
+                          },
+                        ]}
+                      >
+                        {item.type === 'expense' ? '-' : '+'}
+                        {formatCurrency(item.amount)}
                       </Text>
-                    </View>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text style={[styles.transactionAmount, { color: item.type === 'expense' ? colors.destructive : colors.success }]}>
-                      {item.type === 'expense' ? '-' : '+'}{formatCurrency(item.amount)}
-                    </Text>
-                  </TableCell>
-                  <TableCell flex={0.35} align="right" mobilePinned>
-                    <Pressable
-                      onPress={() => setMenuTransaction(item)}
-                      style={({ pressed }) => [styles.menuButton, pressed && styles.pressed] as any}
-                    >
-                      <Ionicons name="ellipsis-vertical" size={18} color={colors.text} />
-                    </Pressable>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Text style={styles.transactionBalance}>{item.balance_after_transaction == null ? '—' : formatCurrency(item.balance_after_transaction)}</Text>
+                    </TableCell>
+                    <TableCell flex={0.35} align="right" mobilePinned>
+                      <Pressable onPress={() => setMenuTransaction(item)} style={({ pressed }) => [styles.menuButton, pressed && styles.pressed] as any}>
+                        <Ionicons name="ellipsis-vertical" size={18} color={colors.text} />
+                      </Pressable>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </Table>
             {transactionsQuery.isFetchingNextPage ? (
               <Text style={{ color: colors.textSecondary, marginTop: spacing(2) } as any}>{t('loading', { defaultValue: 'Loading more...' })}</Text>
             ) : transactionsQuery.hasNextPage ? (
-              <Button
-                label={t('loadMore', { defaultValue: 'Load more' })}
-                variant="secondary"
-                onPress={() => void transactionsQuery.fetchNextPage()}
-              />
+              <Button label={t('loadMore', { defaultValue: 'Load more' })} variant="secondary" onPress={() => void transactionsQuery.fetchNextPage()} />
             ) : null}
           </>
         ) : (
-          <EmptyState title={t('transactions.emptyTitle', { defaultValue: t('transactions.latestTitle') })} description={t('transactions.latestSubtitle', { count: 0 })} icon="receipt-outline" />
+          <EmptyState
+            title={t('transactions.emptyTitle', {
+              defaultValue: t('transactions.latestTitle'),
+            })}
+            description={t('transactions.latestSubtitle', { count: 0 })}
+            icon="receipt-outline"
+            actionLabel={t('transactions.addTransaction')}
+            onAction={() => setCreateModalOpen(true)}
+          />
         )}
       </Section>
 
@@ -805,7 +1007,15 @@ export default function TransactionsScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditTransaction(null)} />
           <View style={styles.modalCard}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2) } as any}>
+            <View
+              style={
+                {
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: spacing(2),
+                } as any
+              }
+            >
               <Ionicons name="pencil-outline" size={18} color={colors.primary} />
               <Text style={styles.modalTitle}>{t('transactions.editTitle')}</Text>
             </View>
@@ -837,7 +1047,9 @@ export default function TransactionsScreen() {
                   label={t('transactions.dateLabel')}
                   value={editTransaction.date}
                   onChange={(value) => setEditTransaction((current) => (current ? { ...current, date: value } : current))}
-                  placeholder={t('transactions.datePlaceholder', { defaultValue: 'DD-MM-YYYY' })}
+                  placeholder={t('transactions.datePlaceholder', {
+                    defaultValue: 'DD-MM-YYYY',
+                  })}
                 />
                 <Field
                   label={t('transactions.notesLabel')}
@@ -859,7 +1071,9 @@ export default function TransactionsScreen() {
                   members={(membersQuery.data ?? []).filter((member) => member.status === 'accepted') as any}
                   value={editTransaction.accountId}
                   placeholder={t('transactions.selectAccount')}
-                  hint={t('transactions.selectAccountHint', { defaultValue: t('transactions.account') })}
+                  hint={t('transactions.selectAccountHint', {
+                    defaultValue: t('transactions.account'),
+                  })}
                   onChange={(value) => setEditTransaction((current) => (current ? { ...current, accountId: value } : current))}
                   closeLabel={t('close', { defaultValue: 'Close' })}
                   sharedLabel={t('dashboard.shared')}
@@ -873,25 +1087,41 @@ export default function TransactionsScreen() {
                     ppr: t('accounts.types.ppr'),
                   }}
                 />
-                <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold as any } as any}>{t('transactions.categories')}</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
-                  <Pill
-                    label={t('none')}
-                    active={!editTransaction.categoryId}
-                    onPress={() => setEditTransaction((current) => (current ? { ...current, categoryId: null } : current))}
-                  />
-                  {categories.map((category: any) => (
-                    <Pill
-                      key={category.id}
-                      label={category.name}
-                      active={editTransaction.categoryId === category.id}
-                      onPress={() => setEditTransaction((current) => (current ? { ...current, categoryId: category.id } : current))}
-                    />
-                  ))}
-                </View>
+                <DropdownField
+                  label={t('transactions.categories')}
+                  valueLabel={
+                    editTransaction.categoryId
+                      ? (categories.find(
+                          (item: any) =>
+                            item.id === editTransaction.categoryId,
+                        )?.name ?? t('transactions.uncategorized'))
+                      : t('none')
+                  }
+                  placeholder={t('transactions.categories')}
+                  hint={t('transactions.categories')}
+                  selectedKey={editTransaction.categoryId ?? ''}
+                  options={categoryOptions}
+                  onChange={(value) =>
+                    setEditTransaction((current) =>
+                      current
+                        ? { ...current, categoryId: value || null }
+                        : current,
+                    )
+                  }
+                />
                 <View style={styles.modalActions}>
                   <Button label={t('cancel')} variant="secondary" onPress={() => setEditTransaction(null)} />
-                  <Button label={updateTransaction.isPending ? t('saving') : t('transactions.saveChanges', { defaultValue: t('settings.saveChanges') })} onPress={() => void handleSaveTransaction()} disabled={updateTransaction.isPending} />
+                  <Button
+                    label={
+                      updateTransaction.isPending
+                        ? t('saving')
+                        : t('transactions.saveChanges', {
+                            defaultValue: t('settings.saveChanges'),
+                          })
+                    }
+                    onPress={() => void handleSaveTransaction()}
+                    disabled={updateTransaction.isPending}
+                  />
                 </View>
               </>
             ) : null}
@@ -904,144 +1134,212 @@ export default function TransactionsScreen() {
 
 function createStyles(colors: any) {
   return StyleSheet.create({
-  transactionHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing(3),
-  },
-  transactionIdentity: { flexDirection: 'row', alignItems: 'center', gap: spacing(2) },
-  transactionIcon: { width: spacing(9), height: spacing(9), borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
-  transactionDetails: { flex: 1, gap: spacing(0.5) },
-  transactionTitle: { color: colors.text, fontWeight: String(typography.fontWeight.bold) },
-  transactionAccount: { color: colors.text, fontWeight: String(typography.fontWeight.semibold) },
-  transactionContext: { color: colors.textSecondary, fontSize: typography.fontSize[12] },
-  transactionAmount: { fontSize: typography.fontSize[16], fontWeight: String(typography.fontWeight.extraBold) },
-  menuButton: {
-    width: spacing(10.5),
-    height: spacing(10.5),
-    borderRadius: radius.mdPlus,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuButtonText: {
-    color: colors.text,
-    fontSize: typography.fontSize[22],
-    fontWeight: String(typography.fontWeight.extraBold),
-    lineHeight: typography.lineHeight[22],
-  },
-  floatingCreateButton: {
-    position: 'absolute',
-    right: spacing(6),
-    bottom: spacing(6),
-    zIndex: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing(2),
-    paddingHorizontal: spacing(4),
-    paddingVertical: spacing(3),
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
-  },
-  floatingCreateButtonText: {
-    color: colors.primaryForeground,
-    fontSize: typography.fontSize[14],
-    fontWeight: String(typography.fontWeight.extraBold),
-  },
-  floatingCreateSpacer: {
-    height: spacing(16),
-  },
-  filterToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing(1.5),
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing(3),
-    paddingVertical: spacing(2),
-  },
-  filterToggleLabel: {
-    fontSize: typography.fontSize[13],
-    fontWeight: typography.fontWeight.semibold as any,
-  },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: spacing(5),
-    backgroundColor: 'rgba(2, 6, 23, 0.82)',
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: spacing(160),
-    alignSelf: 'center',
-    gap: spacing(3.5),
-    padding: spacing(4.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.xl,
-    backgroundColor: colors.surface,
-  },
-  menuCard: {
-    width: '100%',
-    maxWidth: spacing(96),
-    alignSelf: 'center',
-    gap: spacing(3),
-    padding: spacing(4.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.xl,
-    backgroundColor: colors.surface,
-  },
-  modalTitle: {
-    color: colors.text,
-    fontSize: typography.fontSize[20],
-    fontWeight: String(typography.fontWeight.extraBold),
-  },
-  modalSubtitle: {
-    color: colors.textSecondary,
-    fontSize: typography.fontSize[13],
-    lineHeight: typography.lineHeight[18],
-  },
-  modalActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing(2.5),
-    justifyContent: 'flex-end',
-  },
-  menuItem: {
-    paddingVertical: spacing(3.5),
-    paddingHorizontal: spacing(3.5),
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
-  },
-  menuItemDanger: {
-    paddingVertical: spacing(3.5),
-    paddingHorizontal: spacing(3.5),
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.destructiveBorder,
-    backgroundColor: colors.destructiveSoft,
-  },
-  menuItemText: {
-    color: colors.text,
-    fontSize: typography.fontSize[14],
-    fontWeight: String(typography.fontWeight.bold),
-  },
-  menuItemTextDanger: {
-    color: colors.destructive,
-    fontSize: typography.fontSize[14],
-    fontWeight: String(typography.fontWeight.bold),
-  },
-  pressed: {
-    opacity: 0.85,
-  },
+    transactionHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: spacing(3),
+    },
+    transactionIdentity: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing(2),
+    },
+    transactionIcon: {
+      width: spacing(9),
+      height: spacing(9),
+      borderRadius: radius.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    transactionDetails: { flex: 1, gap: spacing(0.5) },
+    transactionTitle: {
+      color: colors.text,
+      fontWeight: String(typography.fontWeight.bold),
+    },
+    transactionAccount: {
+      color: colors.text,
+      fontWeight: String(typography.fontWeight.semibold),
+    },
+    transactionCreator: {
+      color: colors.primary,
+      fontWeight: String(typography.fontWeight.bold),
+    },
+    transactionContext: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+    },
+    transactionAmount: {
+      fontSize: typography.fontSize[16],
+      fontWeight: String(typography.fontWeight.extraBold),
+    },
+    transactionBalance: {
+      color: colors.text,
+      fontSize: typography.fontSize[14],
+      fontWeight: String(typography.fontWeight.bold),
+    },
+    personIdentity: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing(1.5),
+    },
+    menuButton: {
+      width: spacing(10.5),
+      height: spacing(10.5),
+      borderRadius: radius.mdPlus,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    menuButtonText: {
+      color: colors.text,
+      fontSize: typography.fontSize[22],
+      fontWeight: String(typography.fontWeight.extraBold),
+      lineHeight: typography.lineHeight[22],
+    },
+    floatingCreateButton: {
+      position: 'absolute',
+      right: spacing(6),
+      bottom: spacing(6),
+      zIndex: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing(2),
+      paddingHorizontal: spacing(4),
+      paddingVertical: spacing(3),
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      backgroundColor: colors.primary,
+    },
+    floatingCreateButtonText: {
+      color: colors.primaryForeground,
+      fontSize: typography.fontSize[14],
+      fontWeight: String(typography.fontWeight.extraBold),
+    },
+    floatingCreateSpacer: {
+      height: spacing(16),
+    },
+    filterToggle: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing(1.5),
+      borderWidth: 1,
+      borderRadius: radius.lg,
+      paddingHorizontal: spacing(3),
+      paddingVertical: spacing(2),
+    },
+    filterToggleLabel: {
+      fontSize: typography.fontSize[13],
+      fontWeight: typography.fontWeight.semibold as any,
+    },
+    filtersGrid: {
+      width: '100%',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'flex-start',
+      gap: spacing(3),
+    },
+    filterGridItem: {
+      minWidth: 0,
+      alignSelf: 'stretch',
+    },
+    filterChoiceGroup: {
+      gap: spacing(2),
+      padding: spacing(3),
+      borderWidth: 1,
+      borderRadius: radius.lg,
+    },
+    filterGroupLabel: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing(1.5),
+    },
+    filterGroupLabelText: {
+      fontSize: typography.fontSize[13],
+      fontWeight: typography.fontWeight.semibold as any,
+    },
+    filterPills: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: spacing(2),
+    },
+    modalBackdrop: {
+      flex: 1,
+      justifyContent: 'center',
+      padding: spacing(5),
+      backgroundColor: 'rgba(2, 6, 23, 0.82)',
+    },
+    modalCard: {
+      width: '100%',
+      maxWidth: spacing(160),
+      alignSelf: 'center',
+      gap: spacing(3.5),
+      padding: spacing(4.5),
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.xl,
+      backgroundColor: colors.surface,
+    },
+    menuCard: {
+      width: '100%',
+      maxWidth: spacing(96),
+      alignSelf: 'center',
+      gap: spacing(3),
+      padding: spacing(4.5),
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.xl,
+      backgroundColor: colors.surface,
+    },
+    modalTitle: {
+      color: colors.text,
+      fontSize: typography.fontSize[20],
+      fontWeight: String(typography.fontWeight.extraBold),
+    },
+    modalSubtitle: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[13],
+      lineHeight: typography.lineHeight[18],
+    },
+    modalActions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing(2.5),
+      justifyContent: 'flex-end',
+    },
+    menuItem: {
+      paddingVertical: spacing(3.5),
+      paddingHorizontal: spacing(3.5),
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+    },
+    menuItemDanger: {
+      paddingVertical: spacing(3.5),
+      paddingHorizontal: spacing(3.5),
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.destructiveBorder,
+      backgroundColor: colors.destructiveSoft,
+    },
+    menuItemText: {
+      color: colors.text,
+      fontSize: typography.fontSize[14],
+      fontWeight: String(typography.fontWeight.bold),
+    },
+    menuItemTextDanger: {
+      color: colors.destructive,
+      fontSize: typography.fontSize[14],
+      fontWeight: String(typography.fontWeight.bold),
+    },
+    pressed: {
+      opacity: 0.85,
+    },
   } as any);
 }

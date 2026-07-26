@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
 import { transactionsService } from "../services/transaction.service";
+import { TRANSACTION_RELATIONS_QUERY_VERSION } from "../constants";
 import { useAuth } from "@/providers/AuthProvider";
 import type { TransactionFilters } from "@/repositories/transactions.repository";
 
@@ -8,7 +9,12 @@ export function useTransactions(filters: TransactionFilters = {}, options?: { en
   const { householdId, isLoading } = useAuth();
 
   return useQuery({
-    queryKey: ["transactions", householdId, filters],
+    queryKey: [
+      "transactions",
+      householdId,
+      filters,
+      TRANSACTION_RELATIONS_QUERY_VERSION,
+    ],
     queryFn: () => transactionsService.getTransactions(householdId!, filters),
     enabled: (options?.enabled ?? true) && !!householdId && !isLoading,
   });
@@ -18,7 +24,14 @@ export function useTransactionsInfinite(filters: TransactionFilters = {}, pageSi
   const { householdId, isLoading } = useAuth();
 
   return useInfiniteQuery({
-    queryKey: ["transactions", householdId, filters, pageSize, "infinite"],
+    queryKey: [
+      "transactions",
+      householdId,
+      filters,
+      pageSize,
+      "infinite",
+      TRANSACTION_RELATIONS_QUERY_VERSION,
+    ],
     queryFn: ({ pageParam = 0 }) =>
       transactionsService.getTransactions(householdId!, {
         ...filters,
@@ -34,7 +47,7 @@ export function useTransactionsInfinite(filters: TransactionFilters = {}, pageSi
 
 export function useTransaction(id: string) {
   return useQuery({
-    queryKey: ["transactions", id],
+    queryKey: ["transactions", id, TRANSACTION_RELATIONS_QUERY_VERSION],
     queryFn: () => transactionsService.getTransaction(id),
     enabled: !!id,
   });
