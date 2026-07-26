@@ -1,29 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useTranslation } from 'react-i18next';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/theme/ThemeProvider';
-import { radius } from '@/theme/radius';
-import { spacing } from '@/theme/spacing';
+import { useEffect, useMemo, useState } from "react";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "@/theme/ThemeProvider";
+import { radius } from "@/theme/radius";
+import { spacing } from "@/theme/spacing";
 
-import { Page, Section, Field, Button, Pill, formatCurrency } from '@/components/migrated-page';
-import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from '@/components/data-surface';
-import { HouseholdMemberSelect } from '@/components/household-member-select';
-import { useAuth } from '../../providers/AuthProvider';
-import {
-  useAccountsWithBalances,
-  useCreateAccount,
-  useArchiveAccount,
-  useDeleteAccount,
-  useUpdateAccount,
-} from '../../features/accounts/hooks';
-import { useHouseholdMemberDetails, useMyHouseholds } from '../../features/households/hooks';
-import { usePreferencesStore, type AppCurrency } from '@/stores/preferencesStore';
-import { typography } from '@/theme/typography';
-import { useTransactions } from '../../features/transactions/hooks/useTransactions';
+import { Page, Section, Field, Button, Pill, formatCurrency } from "@/components/migrated-page";
+import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from "@/components/data-surface";
+import { HouseholdMemberSelect } from "@/components/household-member-select";
+import { useAuth } from "../../providers/AuthProvider";
+import { useAccountsWithBalances, useCreateAccount, useArchiveAccount, useDeleteAccount, useUpdateAccount } from "../../features/accounts/hooks";
+import { useHouseholdMemberDetails, useMyHouseholds } from "../../features/households/hooks";
+import { usePreferencesStore, type AppCurrency } from "@/stores/preferencesStore";
+import { typography } from "@/theme/typography";
+import { useTransactions } from "../../features/transactions/hooks/useTransactions";
+import { ACCOUNT_TYPE_ORDER, SHARED_ACCOUNT_OWNER_KEY, compareAccountsByOwnerThenType, getAccountOwnerKey } from "../../features/accounts/account-ordering";
 
-const accountTypes = ['bank', 'cash', 'savings', 'credit_card', 'investment', 'ppr'] as const;
-const currencyOptions: AppCurrency[] = ['EUR', 'USD', 'GBP'];
+const accountTypes = ACCOUNT_TYPE_ORDER;
+const currencyOptions: AppCurrency[] = ["EUR", "USD", "GBP"];
 
 type EditMode = {
   id: string;
@@ -38,7 +33,7 @@ type AccountHistoryMode = {
 export default function AccountsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]) as any;
-  const { t } = useTranslation('common');
+  const { t } = useTranslation("common");
   const { householdId, profile } = useAuth();
   const preferredCurrency = usePreferencesStore((state) => state.currency) as AppCurrency;
   const accountsQuery = useAccountsWithBalances();
@@ -60,82 +55,99 @@ export default function AccountsScreen() {
     initialBalance: string;
     ownerProfileId: string;
   } | null>(null);
-  const [name, setName] = useState('');
-  const [type, setType] = useState<(typeof accountTypes)[number]>('bank');
+  const [name, setName] = useState("");
+  const [type, setType] = useState<(typeof accountTypes)[number]>("bank");
   const [currency, setCurrency] = useState<AppCurrency>(preferredCurrency);
-  const [initialBalance, setInitialBalance] = useState('0');
-  const [ownerProfileId, setOwnerProfileId] = useState('');
-  const [ownerFilter, setOwnerFilter] = useState<'all' | 'shared' | string>('all');
-  const [typeFilter, setTypeFilter] = useState<'all' | (typeof accountTypes)[number]>('all');
+  const [initialBalance, setInitialBalance] = useState("0");
+  const [ownerProfileId, setOwnerProfileId] = useState("");
+  const [ownerFilter, setOwnerFilter] = useState<"all" | "shared" | string>("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | (typeof accountTypes)[number]>("all");
   const [formError, setFormError] = useState<string | null>(null);
 
-  const accounts = (accountsQuery.data ?? []) as any[];
-  const members = (membersQuery.data ?? []).filter((member) => member.status === 'accepted');
-  const currentUserLabel = profile?.full_name?.trim() || profile?.email?.trim() || t('settings.you');
-  const memberLabelMap = new Map(
-    members.map((member) => [
-      member.userId,
-      member.fullName?.trim() || member.email || member.userId,
-    ]),
+  const accounts = useMemo(
+    () => (accountsQuery.data ?? []) as any[],
+    [accountsQuery.data],
   );
-  const householdName =
-    (householdsQuery.data ?? []).find((item: any) => item.id === householdId)?.name?.trim() ||
-    t('settings.currentHouseholdLabel');
-  const getOwnerLabel = (ownerProfileId?: string | null) =>
-    ownerProfileId === profile?.id
-      ? currentUserLabel
-      : (memberLabelMap.get(ownerProfileId ?? '') ?? t('dashboard.shared', { defaultValue: householdName }));
+  const members = (membersQuery.data ?? []).filter((member) => member.status === "accepted");
+  const currentUserLabel = profile?.full_name?.trim() || profile?.email?.trim() || t("settings.you");
+  const memberLabelMap = new Map(members.map((member) => [member.userId, member.fullName?.trim() || member.email || member.userId]));
+  const householdName = (householdsQuery.data ?? []).find((item: any) => item.id === householdId)?.name?.trim() || t("settings.currentHouseholdLabel");
+  const getOwnerLabel = (ownerProfileId?: string | null) => (ownerProfileId === profile?.id ? currentUserLabel : (memberLabelMap.get(ownerProfileId ?? "") ?? t("dashboard.shared", { defaultValue: householdName })));
   const getAccountTypeIcon = (accountType: (typeof accountTypes)[number]) => {
     switch (accountType) {
-      case 'bank':
-        return 'business-outline';
-      case 'cash':
-        return 'cash-outline';
-      case 'savings':
-        return 'file-tray-full-outline';
-      case 'credit_card':
-        return 'card-outline';
-      case 'investment':
-        return 'trending-up-outline';
-      case 'ppr':
-        return 'shield-checkmark-outline';
+      case "bank":
+        return "business-outline";
+      case "cash":
+        return "cash-outline";
+      case "savings":
+        return "file-tray-full-outline";
+      case "credit_card":
+        return "card-outline";
+      case "investment":
+        return "trending-up-outline";
+      case "ppr":
+        return "shield-checkmark-outline";
       default:
-        return 'layers-outline';
+        return "layers-outline";
     }
   };
   const getAccountTypeTone = (accountType: (typeof accountTypes)[number]) => {
     switch (accountType) {
-      case 'savings':
-        return 'success';
-      case 'credit_card':
-        return 'warning';
-      case 'investment':
-      case 'ppr':
-        return 'primary';
+      case "savings":
+        return "success";
+      case "credit_card":
+        return "warning";
+      case "investment":
+      case "ppr":
+        return "primary";
       default:
-        return 'neutral';
+        return "neutral";
     }
   };
   const filteredAccounts = useMemo(() => {
     return accounts.filter((account: any) => {
-      const matchesOwner =
-        ownerFilter === 'all'
-          ? true
-          : ownerFilter === 'shared'
-            ? !account.owner_profile_id
-            : account.owner_profile_id === ownerFilter;
-      const matchesType = typeFilter === 'all' ? true : account.type === typeFilter;
+      const matchesOwner = ownerFilter === "all" ? true : ownerFilter === "shared" ? !account.owner_profile_id : account.owner_profile_id === ownerFilter;
+      const matchesType = typeFilter === "all" ? true : account.type === typeFilter;
       return matchesOwner && matchesType;
     });
   }, [accounts, ownerFilter, typeFilter]);
+  const ownerOrder = [...members.map((member) => member.userId), SHARED_ACCOUNT_OWNER_KEY];
+  const orderedFilteredAccounts = [...filteredAccounts].sort((left, right) => compareAccountsByOwnerThenType(left, right, ownerOrder));
+  const accountGroups = orderedFilteredAccounts.reduce<{ key: string; title: string; accounts: any[] }[]>((groups, account) => {
+    const key = getAccountOwnerKey(account);
+    const lastGroup = groups.at(-1);
+
+    if (lastGroup?.key === key) {
+      lastGroup.accounts.push(account);
+    } else {
+      groups.push({
+        key,
+        title: getOwnerLabel(account.owner_profile_id),
+        accounts: [account],
+      });
+    }
+
+    return groups;
+  }, []);
+  const accountGroupTones = [
+    { accent: colors.primary, surface: colors.primarySoft },
+    { accent: colors.financialPositive, surface: colors.financialPositiveSoft },
+    { accent: colors.financialNeutral, surface: colors.financialNeutralSoft },
+    {
+      accent: colors.financialAttention,
+      surface: colors.financialAttentionSoft,
+    },
+    { accent: colors.financialGoal, surface: colors.financialGoalSoft },
+  ];
   const archivedCount = accounts.filter((item: any) => item.is_archived).length;
-  const activeFilterCount = Number(ownerFilter !== 'all') + Number(typeFilter !== 'all');
+  const activeFilterCount = Number(ownerFilter !== "all") + Number(typeFilter !== "all");
   const parsedInitialBalance = Number(initialBalance);
-  const accountTransfersQuery = useTransactions(
-    accountHistory ? { accountId: accountHistory.id } : {},
-    { enabled: Boolean(accountHistory?.id) },
+  const accountTransfersQuery = useTransactions(accountHistory ? { accountId: accountHistory.id } : {}, { enabled: Boolean(accountHistory?.id) });
+  const accountTransactions = useMemo(
+    () => accountTransfersQuery.data ?? [],
+    [accountTransfersQuery.data],
   );
-  const accountTransactions = accountTransfersQuery.data ?? [];
+  const { refetch: refetchAccountTransfers } = accountTransfersQuery;
   const hasTransferRows = accountTransactions.some((item: any) => Boolean(item.transfer_group_id));
   const accountTransfers = useMemo(
     () =>
@@ -144,62 +156,63 @@ export default function AccountsScreen() {
         .sort((a: any, b: any) => {
           const dateA = new Date(a.transaction_date ?? 0).getTime();
           const dateB = new Date(b.transaction_date ?? 0).getTime();
-          return dateB - dateA || String(b.id ?? '').localeCompare(String(a.id ?? ''));
+          return dateB - dateA || String(b.id ?? "").localeCompare(String(a.id ?? ""));
         }),
     [accountTransactions, hasTransferRows],
   );
-  const canCreateAccount =
-    !createAccount.isPending &&
-    name.trim().length > 0 &&
-    Number.isFinite(parsedInitialBalance);
+  const canCreateAccount = !createAccount.isPending && name.trim().length > 0 && Number.isFinite(parsedInitialBalance);
 
   async function handleCreate() {
     if (!householdId || !profile?.id || !name.trim() || !Number.isFinite(parsedInitialBalance) || parsedInitialBalance < 0) {
-      setFormError(t('accounts.createError', { defaultValue: t('accounts.initialBalance') }));
+      setFormError(
+        t("accounts.createError", {
+          defaultValue: t("accounts.initialBalance"),
+        }),
+      );
       return;
     }
 
     setFormError(null);
     await createAccount.mutateAsync({
       household_id: householdId,
-      owner_profile_id: ownerProfileId === '' ? null : ownerProfileId || profile.id,
+      owner_profile_id: ownerProfileId === "" ? null : ownerProfileId || profile.id,
       name: name.trim(),
       type,
       currency: currency,
       initial_balance: parsedInitialBalance,
     });
 
-    setName('');
-    setType('bank');
+    setName("");
+    setType("bank");
     setCurrency(preferredCurrency);
-    setInitialBalance('0');
-    setOwnerProfileId(profile?.id ?? '');
+    setInitialBalance("0");
+    setOwnerProfileId(profile?.id ?? "");
     setCreateDialogOpen(false);
   }
 
   function openCreateDialog() {
     setFormError(null);
-    setName('');
-    setType('bank');
+    setName("");
+    setType("bank");
     setCurrency(preferredCurrency);
-    setInitialBalance('0');
-    setOwnerProfileId(profile?.id ?? '');
+    setInitialBalance("0");
+    setOwnerProfileId(profile?.id ?? "");
     setCreateDialogOpen(true);
   }
 
   function resetFilters() {
-    setOwnerFilter('all');
-    setTypeFilter('all');
+    setOwnerFilter("all");
+    setTypeFilter("all");
   }
 
   function openEditAccount(account: any) {
     setEditAccount({
       id: account.id,
-      name: account.name ?? '',
-      type: account.type ?? 'bank',
+      name: account.name ?? "",
+      type: account.type ?? "bank",
       currency: (account.currency ?? preferredCurrency) as AppCurrency,
       initialBalance: String(account.initial_balance ?? 0),
-      ownerProfileId: account.owner_profile_id ?? '',
+      ownerProfileId: account.owner_profile_id ?? "",
     });
     setMenuAccount(null);
   }
@@ -209,7 +222,7 @@ export default function AccountsScreen() {
 
     const nextInitialBalance = Number(editAccount.initialBalance);
     if (!editAccount.name.trim() || !Number.isFinite(nextInitialBalance) || nextInitialBalance < 0) {
-      setFormError(t('accounts.saveError', { defaultValue: t('accounts.initialBalance') }));
+      setFormError(t("accounts.saveError", { defaultValue: t("accounts.initialBalance") }));
       return;
     }
 
@@ -230,126 +243,163 @@ export default function AccountsScreen() {
 
   useEffect(() => {
     if (accountHistory?.id) {
-      void accountTransfersQuery.refetch();
+      void refetchAccountTransfers();
     }
-  }, [accountHistory?.id]);
+  }, [accountHistory?.id, refetchAccountTransfers]);
 
   return (
-    <Page title={t('accounts.title')} subtitle={t('accounts.subtitle')} actions={<Button label={t('accounts.create')} onPress={openCreateDialog} />}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) }}>
+    <Page title={t("accounts.title")} subtitle={t("accounts.subtitle")} actions={<Button label={t("accounts.create")} onPress={openCreateDialog} />}>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing(3) }}>
         <MetricCard
-          label={t('accounts.currentTitle')}
+          label={t("accounts.currentTitle")}
           value={String(filteredAccounts.length)}
           icon="wallet-outline"
-          hint={t('accounts.currentSubtitle', { count: filteredAccounts.length, archived: archivedCount })}
+          hint={t("accounts.currentSubtitle", {
+            count: filteredAccounts.length,
+            archived: archivedCount,
+          })}
         />
-        <MetricCard label={t('accounts.allTypes')} value={String(accounts.length)} icon="layers-outline" hint={t('accounts.filtersByType')} />
+        <MetricCard label={t("accounts.allTypes")} value={String(accounts.length)} icon="layers-outline" hint={t("accounts.filtersByType")} />
       </View>
 
-      <Section title={t('accounts.currentTitle')} subtitle={t('accounts.currentSubtitle', { count: filteredAccounts.length, archived: archivedCount })}>
+      <Section
+        title={t("accounts.currentTitle")}
+        subtitle={t("accounts.currentSubtitle", {
+          count: filteredAccounts.length,
+          archived: archivedCount,
+        })}
+      >
         <View style={{ gap: spacing(3), marginBottom: spacing(3) }}>
           <View style={{ gap: spacing(2) }}>
             <View style={styles.sectionHeaderRow}>
               <Ionicons name="people-outline" size={18} color={colors.textSecondary} />
-              <Text style={styles.sectionLabel}>{t('accounts.filtersByUser')}</Text>
+              <Text style={styles.sectionLabel}>{t("accounts.filtersByUser")}</Text>
             </View>
             <View style={styles.pillWrap}>
-              <Pill label={t('accounts.allUsers')} active={ownerFilter === 'all'} onPress={() => setOwnerFilter('all')} />
-              <Pill label={t('dashboard.shared')} active={ownerFilter === 'shared'} onPress={() => setOwnerFilter('shared')} />
+              <Pill label={t("accounts.allUsers")} active={ownerFilter === "all"} onPress={() => setOwnerFilter("all")} />
               {members.map((member) => (
-                <Pill
-                  key={member.userId}
-                  label={memberLabelMap.get(member.userId) ?? member.userId}
-                  active={ownerFilter === member.userId}
-                  onPress={() => setOwnerFilter(member.userId)}
-                />
+                <Pill key={member.userId} label={memberLabelMap.get(member.userId) ?? member.userId} active={ownerFilter === member.userId} onPress={() => setOwnerFilter(member.userId)} />
               ))}
+              <Pill label={t("dashboard.shared")} active={ownerFilter === "shared"} onPress={() => setOwnerFilter("shared")} />
             </View>
           </View>
 
           <View style={{ gap: spacing(2) }}>
             <View style={styles.sectionHeaderRow}>
               <Ionicons name="funnel-outline" size={18} color={colors.textSecondary} />
-              <Text style={styles.sectionLabel}>{t('accounts.filtersByType')}</Text>
+              <Text style={styles.sectionLabel}>{t("accounts.filtersByType")}</Text>
             </View>
             <View style={styles.pillWrap}>
-              <Pill label={t('accounts.allTypes')} active={typeFilter === 'all'} onPress={() => setTypeFilter('all')} />
+              <Pill label={t("accounts.allTypes")} active={typeFilter === "all"} onPress={() => setTypeFilter("all")} />
               {accountTypes.map((item) => (
-                <Pill
-                  key={item}
-                  label={t(`accounts.types.${item}`)}
-                  active={typeFilter === item}
-                  onPress={() => setTypeFilter(item)}
-                />
+                <Pill key={item} label={t(`accounts.types.${item}`)} active={typeFilter === item} onPress={() => setTypeFilter(item)} />
               ))}
             </View>
           </View>
 
-          {activeFilterCount > 0 ? (
-            <Button label={t('accounts.clearFilters')} variant="secondary" onPress={resetFilters} />
-          ) : null}
+          {activeFilterCount > 0 ? <Button label={t("accounts.clearFilters")} variant="secondary" onPress={resetFilters} /> : null}
         </View>
 
-        {filteredAccounts.length ? (
-          <Table
-            columns={[
-              { label: t('accounts.name'), flex: 2.6 },
-              { label: t('accounts.typeLabel'), flex: 1 },
-              { label: t('accounts.initialBalance'), align: 'right' },
-              { label: t('dashboard.total'), align: 'right' },
-              { label: '', flex: 0.35, align: 'right' },
-            ]}
-          >
-            {filteredAccounts.map((account: any) => {
-              const balance = account.current_balance ?? account.balance ?? 0;
-              const isArchived = Boolean(account.is_archived);
+        {accountGroups.length ? (
+          <View style={styles.accountGroups}>
+            {accountGroups.map((group, groupIndex) => {
+              const tone = accountGroupTones[groupIndex % accountGroupTones.length];
 
               return (
-                <TableRow key={account.id} onPress={() => setAccountHistory({ id: account.id, name: account.name })}>
-                  <TableCell flex={2.6}>
-                    <View style={styles.accountIdentity}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) }}>
-                        <Ionicons name={getAccountTypeIcon(account.type)} size={18} color={colors.primary} />
-                        <View style={{ flex: 1, gap: spacing(0.5) }}>
-                          <Text style={styles.accountName}>{account.name}</Text>
-                          <Text style={styles.accountMeta}>{getOwnerLabel(account.owner_profile_id)} · {account.currency}</Text>
-                        </View>
-                      </View>
-                      {isArchived ? (
-                        <Badge label={t('accounts.archived')} tone="destructive" />
-                      ) : null}
-                    </View>
-                  </TableCell>
-                  <TableCell flex={1}>
-                    <Badge label={t(`accounts.types.${account.type}`, { defaultValue: account.type })} tone={getAccountTypeTone(account.type)} />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text style={styles.openingBalance}>{formatCurrency(account.initial_balance ?? 0)}</Text>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text style={styles.accountBalance}>{formatCurrency(balance)}</Text>
-                  </TableCell>
-                  <TableCell flex={0.35} align="right" mobilePinned>
-                    <Pressable
-                      onPress={(event: any) => {
-                        event.stopPropagation?.();
-                        setMenuAccount({ id: account.id, name: account.name });
-                      }}
-                      style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
-                    >
-                      <Ionicons name="ellipsis-vertical" size={18} color={colors.text} />
-                    </Pressable>
-                  </TableCell>
-                </TableRow>
+                <View key={group.key} style={[styles.accountGroup, { borderColor: tone.accent, backgroundColor: tone.surface }]}>
+                  <View style={styles.accountGroupHeader}>
+                    <View style={[styles.accountGroupMarker, { backgroundColor: tone.accent }]} />
+                    <Ionicons name="person-outline" size={18} color={tone.accent} />
+                    <Text style={[styles.accountGroupTitle, { color: tone.accent }]}>{group.title}</Text>
+                    <Badge label={String(group.accounts.length)} tone="neutral" />
+                  </View>
+                  <Table
+                    columns={[
+                      { label: t("accounts.name"), flex: 2.6 },
+                      { label: t("accounts.typeLabel"), flex: 1 },
+                      { label: t("accounts.initialBalance"), align: "right" },
+                      { label: t("dashboard.total"), align: "right" },
+                      { label: "", flex: 0.35, align: "right" },
+                    ]}
+                  >
+                    {group.accounts.map((account: any) => {
+                      const balance = account.current_balance ?? account.balance ?? 0;
+                      const isArchived = Boolean(account.is_archived);
+
+                      return (
+                        <TableRow
+                          key={account.id}
+                          onPress={() =>
+                            setAccountHistory({
+                              id: account.id,
+                              name: account.name,
+                            })
+                          }
+                        >
+                          <TableCell flex={2.6}>
+                            <View style={styles.accountIdentity}>
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  gap: spacing(1.5),
+                                }}
+                              >
+                                <Ionicons name={getAccountTypeIcon(account.type)} size={18} color={tone.accent} />
+                                <View style={{ flex: 1, gap: spacing(0.5) }}>
+                                  <Text style={styles.accountName}>{account.name}</Text>
+                                  <Text style={styles.accountMeta}>{account.currency}</Text>
+                                </View>
+                              </View>
+                              {isArchived ? <Badge label={t("accounts.archived")} tone="destructive" /> : null}
+                            </View>
+                          </TableCell>
+                          <TableCell flex={1}>
+                            <Badge
+                              label={t(`accounts.types.${account.type}`, {
+                                defaultValue: account.type,
+                              })}
+                              tone={getAccountTypeTone(account.type)}
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Text style={styles.openingBalance}>{formatCurrency(account.initial_balance ?? 0)}</Text>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Text style={styles.accountBalance}>{formatCurrency(balance)}</Text>
+                          </TableCell>
+                          <TableCell flex={0.35} align="right" mobilePinned>
+                            <Pressable
+                              onPress={(event: any) => {
+                                event.stopPropagation?.();
+                                setMenuAccount({
+                                  id: account.id,
+                                  name: account.name,
+                                });
+                              }}
+                              style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
+                            >
+                              <Ionicons name="ellipsis-vertical" size={18} color={colors.text} />
+                            </Pressable>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </Table>
+                </View>
               );
             })}
-          </Table>
+          </View>
         ) : (
           <EmptyState
-            title={t('accounts.emptyTitle', { defaultValue: t('accounts.currentTitle') })}
-            description={t('accounts.emptySubtitle', { defaultValue: t('accounts.subtitle') })}
+            title={t("accounts.emptyTitle", {
+              defaultValue: t("accounts.currentTitle"),
+            })}
+            description={t("accounts.emptySubtitle", {
+              defaultValue: t("accounts.subtitle"),
+            })}
             icon="wallet-outline"
-            actionLabel={t('accounts.create')}
+            actionLabel={t("accounts.create")}
             onAction={openCreateDialog}
           />
         )}
@@ -359,40 +409,53 @@ export default function AccountsScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.backdropPressable} onPress={() => setCreateDialogOpen(false)} />
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t('accounts.createTitle')}</Text>
+            <Text style={styles.modalTitle}>{t("accounts.createTitle")}</Text>
             <View style={styles.modalTitleRow}>
               <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
-              <Text style={styles.modalSubtitle}>{t('accounts.createSubtitle')}</Text>
+              <Text style={styles.modalSubtitle}>{t("accounts.createSubtitle")}</Text>
             </View>
-            {formError ? <Text style={{ color: colors.destructive, fontWeight: String(typography.fontWeight.semibold) } as any}>{formError}</Text> : null}
-            <Field label={t('accounts.name')} value={name} onChangeText={setName} placeholder={t('accounts.namePlaceholder')} />
-            <Text style={styles.sectionLabel}>{t('accounts.typeLabel')}</Text>
+            {formError ? (
+              <Text
+                style={
+                  {
+                    color: colors.destructive,
+                    fontWeight: String(typography.fontWeight.semibold),
+                  } as any
+                }
+              >
+                {formError}
+              </Text>
+            ) : null}
+            <Field label={t("accounts.name")} value={name} onChangeText={setName} placeholder={t("accounts.namePlaceholder")} />
+            <Text style={styles.sectionLabel}>{t("accounts.typeLabel")}</Text>
             <View style={styles.pillWrap}>
               {accountTypes.map((item) => (
                 <Pill key={item} label={t(`accounts.types.${item}`)} active={type === item} onPress={() => setType(item)} />
               ))}
             </View>
-            <Text style={styles.sectionLabel}>{t('accounts.currency')}</Text>
+            <Text style={styles.sectionLabel}>{t("accounts.currency")}</Text>
             <View style={styles.pillWrap}>
               {currencyOptions.map((item) => (
                 <Pill key={item} label={item} active={currency === item} onPress={() => setCurrency(item)} />
               ))}
             </View>
             <HouseholdMemberSelect
-              label={t('accounts.owner')}
+              label={t("accounts.owner")}
               members={members}
               value={ownerProfileId}
-              placeholder={t('accounts.ownerPlaceholder')}
-              hint={t('accounts.ownerPlaceholder')}
+              placeholder={t("accounts.ownerPlaceholder")}
+              hint={t("accounts.ownerPlaceholder")}
               onChange={setOwnerProfileId}
               showSharedOption
-              sharedLabel={t('dashboard.shared')}
-              sharedDescription={t('accounts.sharedOwnerDescription', { defaultValue: t('dashboard.shared') })}
+              sharedLabel={t("dashboard.shared")}
+              sharedDescription={t("accounts.sharedOwnerDescription", {
+                defaultValue: t("dashboard.shared"),
+              })}
             />
-            <Field label={t('accounts.initialBalance')} value={initialBalance} onChangeText={setInitialBalance} placeholder="0" keyboardType="numeric" />
+            <Field label={t("accounts.initialBalance")} value={initialBalance} onChangeText={setInitialBalance} placeholder="0" keyboardType="numeric" />
             <View style={styles.modalActions}>
-              <Button label={t('cancel')} variant="secondary" onPress={() => setCreateDialogOpen(false)} />
-              <Button label={createAccount.isPending ? t('creating') : t('accounts.create')} onPress={() => void handleCreate()} disabled={!canCreateAccount} />
+              <Button label={t("cancel")} variant="secondary" onPress={() => setCreateDialogOpen(false)} />
+              <Button label={createAccount.isPending ? t("creating") : t("accounts.create")} onPress={() => void handleCreate()} disabled={!canCreateAccount} />
             </View>
           </View>
         </View>
@@ -404,7 +467,7 @@ export default function AccountsScreen() {
           <View style={styles.menuCard}>
             <View style={styles.modalTitleRow}>
               <Ionicons name="settings-outline" size={18} color={colors.primary} />
-              <Text style={styles.modalTitle}>{menuAccount?.name ?? t('accounts.title')}</Text>
+              <Text style={styles.modalTitle}>{menuAccount?.name ?? t("accounts.title")}</Text>
             </View>
             <Pressable
               onPress={() => {
@@ -415,7 +478,7 @@ export default function AccountsScreen() {
               style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
             >
               <Ionicons name="create-outline" size={16} color={colors.text} />
-              <Text style={styles.menuItemText}>{t('settings.editDetails')}</Text>
+              <Text style={styles.menuItemText}>{t("settings.editDetails")}</Text>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -427,12 +490,8 @@ export default function AccountsScreen() {
               }}
               style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
             >
-              <Ionicons name={accounts.find((item: any) => item.id === menuAccount?.id)?.is_archived ? 'refresh-outline' : 'archive-outline'} size={16} color={colors.text} />
-              <Text style={styles.menuItemText}>
-                {accounts.find((item: any) => item.id === menuAccount?.id)?.is_archived
-                  ? t('accounts.unarchive')
-                  : t('accounts.archive')}
-              </Text>
+              <Ionicons name={accounts.find((item: any) => item.id === menuAccount?.id)?.is_archived ? "refresh-outline" : "archive-outline"} size={16} color={colors.text} />
+              <Text style={styles.menuItemText}>{accounts.find((item: any) => item.id === menuAccount?.id)?.is_archived ? t("accounts.unarchive") : t("accounts.archive")}</Text>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -443,9 +502,9 @@ export default function AccountsScreen() {
               style={({ pressed }) => [styles.menuItemDanger, pressed && styles.pressed]}
             >
               <Ionicons name="trash-outline" size={16} color={colors.destructive} />
-              <Text style={styles.menuItemTextDanger}>{t('delete')}</Text>
+              <Text style={styles.menuItemTextDanger}>{t("delete")}</Text>
             </Pressable>
-            <Button label={t('cancel')} variant="secondary" onPress={() => setMenuAccount(null)} />
+            <Button label={t("cancel")} variant="secondary" onPress={() => setMenuAccount(null)} />
           </View>
         </View>
       </Modal>
@@ -454,61 +513,69 @@ export default function AccountsScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.backdropPressable} onPress={() => setEditAccount(null)} />
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t('settings.editDetails')}</Text>
+            <Text style={styles.modalTitle}>{t("settings.editDetails")}</Text>
             <View style={styles.modalTitleRow}>
               <Ionicons name="pencil-outline" size={18} color={colors.primary} />
-              <Text style={styles.modalSubtitle}>{t('settings.selectedAccountsHint', { defaultValue: t('accounts.subtitle') })}</Text>
+              <Text style={styles.modalSubtitle}>
+                {t("settings.selectedAccountsHint", {
+                  defaultValue: t("accounts.subtitle"),
+                })}
+              </Text>
             </View>
-            {formError ? <Text style={{ color: colors.destructive, fontWeight: String(typography.fontWeight.semibold) } as any}>{formError}</Text> : null}
+            {formError ? (
+              <Text
+                style={
+                  {
+                    color: colors.destructive,
+                    fontWeight: String(typography.fontWeight.semibold),
+                  } as any
+                }
+              >
+                {formError}
+              </Text>
+            ) : null}
             {editAccount ? (
               <>
-                <Field
-                  label={t('accounts.name')}
-                  value={editAccount.name}
-                  onChangeText={(value) => setEditAccount((current) => (current ? { ...current, name: value } : current))}
-                />
-                <Text style={styles.sectionLabel}>{t('accounts.typeLabel')}</Text>
+                <Field label={t("accounts.name")} value={editAccount.name} onChangeText={(value) => setEditAccount((current) => (current ? { ...current, name: value } : current))} />
+                <Text style={styles.sectionLabel}>{t("accounts.typeLabel")}</Text>
                 <View style={styles.pillWrap}>
                   {accountTypes.map((item) => (
-                    <Pill
-                      key={item}
-                      label={t(`accounts.types.${item}`)}
-                      active={editAccount.type === item}
-                      onPress={() => setEditAccount((current) => (current ? { ...current, type: item } : current))}
-                    />
+                    <Pill key={item} label={t(`accounts.types.${item}`)} active={editAccount.type === item} onPress={() => setEditAccount((current) => (current ? { ...current, type: item } : current))} />
                   ))}
                 </View>
-                <Text style={styles.sectionLabel}>{t('accounts.currency')}</Text>
+                <Text style={styles.sectionLabel}>{t("accounts.currency")}</Text>
                 <View style={styles.pillWrap}>
                   {currencyOptions.map((item) => (
-                    <Pill
-                      key={item}
-                      label={item}
-                      active={editAccount.currency === item}
-                      onPress={() => setEditAccount((current) => (current ? { ...current, currency: item } : current))}
-                    />
+                    <Pill key={item} label={item} active={editAccount.currency === item} onPress={() => setEditAccount((current) => (current ? { ...current, currency: item } : current))} />
                   ))}
                 </View>
                 <HouseholdMemberSelect
-                  label={t('accounts.owner')}
+                  label={t("accounts.owner")}
                   members={members}
                   value={editAccount.ownerProfileId}
-                  placeholder={t('accounts.ownerPlaceholder')}
-                  hint={t('accounts.ownerPlaceholder')}
+                  placeholder={t("accounts.ownerPlaceholder")}
+                  hint={t("accounts.ownerPlaceholder")}
                   onChange={(value) => setEditAccount((current) => (current ? { ...current, ownerProfileId: value } : current))}
                   showSharedOption
-                  sharedLabel={t('dashboard.shared')}
-                  sharedDescription={t('accounts.sharedOwnerDescription', { defaultValue: t('dashboard.shared') })}
+                  sharedLabel={t("dashboard.shared")}
+                  sharedDescription={t("accounts.sharedOwnerDescription", {
+                    defaultValue: t("dashboard.shared"),
+                  })}
                 />
-                <Field
-                  label={t('accounts.initialBalance')}
-                  value={editAccount.initialBalance}
-                  onChangeText={(value) => setEditAccount((current) => (current ? { ...current, initialBalance: value } : current))}
-                  keyboardType="numeric"
-                />
+                <Field label={t("accounts.initialBalance")} value={editAccount.initialBalance} onChangeText={(value) => setEditAccount((current) => (current ? { ...current, initialBalance: value } : current))} keyboardType="numeric" />
                 <View style={styles.modalActions}>
-                  <Button label={t('cancel')} variant="secondary" onPress={() => setEditAccount(null)} />
-                  <Button label={updateAccount.isPending ? t('saving') : t('accounts.saveChanges', { defaultValue: t('settings.saveChanges') })} onPress={() => void handleSaveAccount()} disabled={updateAccount.isPending} />
+                  <Button label={t("cancel")} variant="secondary" onPress={() => setEditAccount(null)} />
+                  <Button
+                    label={
+                      updateAccount.isPending
+                        ? t("saving")
+                        : t("accounts.saveChanges", {
+                            defaultValue: t("settings.saveChanges"),
+                          })
+                    }
+                    onPress={() => void handleSaveAccount()}
+                    disabled={updateAccount.isPending}
+                  />
                 </View>
               </>
             ) : null}
@@ -520,36 +587,43 @@ export default function AccountsScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.backdropPressable} onPress={() => setAccountHistory(null)} />
           <View style={styles.historyModalCard}>
-            <Text style={styles.modalTitle}>{accountHistory?.name ?? t('accounts.title')}</Text>
+            <Text style={styles.modalTitle}>{accountHistory?.name ?? t("accounts.title")}</Text>
             <View style={styles.modalTitleRow}>
               <Ionicons name="swap-horizontal-outline" size={18} color={colors.primary} />
               <Text style={styles.modalSubtitle}>
-                {t('accounts.accountTransfersSubtitle', {
-                  defaultValue: 'Transfers for this account, newest first.',
+                {t("accounts.accountTransfersSubtitle", {
+                  defaultValue: "Transfers for this account, newest first.",
                 })}
               </Text>
             </View>
             <ScrollView style={styles.historyScroll} contentContainerStyle={{ gap: spacing(3) }}>
-              {(accountTransfersQuery.isPending || accountTransfersQuery.isFetching) ? (
-                <Text style={styles.accountMeta}>{t('accounts.accountTransfersLoading', { defaultValue: 'Loading transfers...' })}</Text>
+              {accountTransfersQuery.isPending || accountTransfersQuery.isFetching ? (
+                <Text style={styles.accountMeta}>
+                  {t("accounts.accountTransfersLoading", {
+                    defaultValue: "Loading transfers...",
+                  })}
+                </Text>
               ) : accountTransfersQuery.error ? (
                 <View style={{ gap: spacing(2) }}>
                   <Text style={styles.transferAmountExpense}>
-                    {t('accounts.accountTransfersError', { defaultValue: 'Could not load transfers for this account.' })}
+                    {t("accounts.accountTransfersError", {
+                      defaultValue: "Could not load transfers for this account.",
+                    })}
                   </Text>
-                  <Button
-                    label={t('retry', { defaultValue: 'Retry' })}
-                    variant="secondary"
-                    onPress={() => void accountTransfersQuery.refetch()}
-                  />
+                  <Button label={t("retry", { defaultValue: "Retry" })} variant="secondary" onPress={() => void accountTransfersQuery.refetch()} />
                 </View>
               ) : accountTransfers.length ? (
                 <Table
                   columns={[
-                    { label: t('transactions.dateLabel'), flex: 1 },
-                    { label: t('transactions.titleLabel'), flex: 2 },
-                    { label: t('transactions.typeLabel', { defaultValue: 'Type' }), flex: 1 },
-                    { label: t('transactions.amountLabel'), align: 'right' },
+                    { label: t("transactions.dateLabel"), flex: 1 },
+                    { label: t("transactions.titleLabel"), flex: 2 },
+                    {
+                      label: t("transactions.typeLabel", {
+                        defaultValue: "Type",
+                      }),
+                      flex: 1,
+                    },
+                    { label: t("transactions.amountLabel"), align: "right" },
                   ]}
                 >
                   {accountTransfers.map((item: any) => (
@@ -561,11 +635,17 @@ export default function AccountsScreen() {
                         <Text style={styles.accountName}>{item.title}</Text>
                       </TableCell>
                       <TableCell flex={1}>
-                        <Badge label={t(`transactions.types.${item.type}`, { defaultValue: item.type })} tone={item.type === 'expense' ? 'destructive' : 'success'} />
+                        <Badge
+                          label={t(`transactions.types.${item.type}`, {
+                            defaultValue: item.type,
+                          })}
+                          tone={item.type === "expense" ? "destructive" : "success"}
+                        />
                       </TableCell>
                       <TableCell align="right">
-                        <Text style={item.type === 'expense' ? styles.transferAmountExpense : styles.transferAmountIncome}>
-                          {item.type === 'expense' ? '-' : '+'}{formatCurrency(item.amount)}
+                        <Text style={item.type === "expense" ? styles.transferAmountExpense : styles.transferAmountIncome}>
+                          {item.type === "expense" ? "-" : "+"}
+                          {formatCurrency(item.amount)}
                         </Text>
                       </TableCell>
                     </TableRow>
@@ -573,15 +653,17 @@ export default function AccountsScreen() {
                 </Table>
               ) : (
                 <EmptyState
-                  title={t('accounts.accountTransfersEmptyTitle', { defaultValue: 'No transfers yet' })}
-                  description={t('accounts.accountTransfersEmptySubtitle', {
-                    defaultValue: 'This account does not have any transfer records yet.',
+                  title={t("accounts.accountTransfersEmptyTitle", {
+                    defaultValue: "No transfers yet",
+                  })}
+                  description={t("accounts.accountTransfersEmptySubtitle", {
+                    defaultValue: "This account does not have any transfer records yet.",
                   })}
                   icon="swap-horizontal-outline"
                 />
               )}
             </ScrollView>
-            <Button label={t('close', { defaultValue: 'Close' })} variant="secondary" onPress={() => setAccountHistory(null)} />
+            <Button label={t("close", { defaultValue: "Close" })} variant="secondary" onPress={() => setAccountHistory(null)} />
           </View>
         </View>
       </Modal>
@@ -591,191 +673,217 @@ export default function AccountsScreen() {
 
 function createStyles(colors: any) {
   return StyleSheet.create({
-  accountHeader: {
-    flexDirection: 'row' as const,
-    alignItems: 'flex-start' as const,
-    justifyContent: 'space-between' as const,
-    gap: spacing(3),
-  },
-  accountName: {
-    color: colors.text,
-    fontWeight: String(typography.fontWeight.bold),
-    fontSize: typography.fontSize[16],
-  },
-  accountMeta: {
-    color: colors.textSecondary,
-    fontSize: typography.fontSize[12],
-  },
-  openingBalance: {
-    color: colors.textSecondary,
-    fontWeight: String(typography.fontWeight.semibold),
-  },
-  accountBalance: {
-    color: colors.primary,
-    fontWeight: String(typography.fontWeight.extraBold),
-    fontSize: typography.fontSize[18],
-  },
-  accountIdentity: {
-    gap: spacing(1),
-  },
-  transferAmountIncome: {
-    color: colors.success,
-    fontWeight: String(typography.fontWeight.extraBold),
-  },
-  transferAmountExpense: {
-    color: colors.destructive,
-    fontWeight: String(typography.fontWeight.extraBold),
-  },
-  menuButton: {
-    width: spacing(10.5),
-    height: spacing(10.5),
-    borderRadius: radius.mdPlus,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  menuButtonText: {
-    color: colors.text,
-    fontSize: typography.fontSize[22],
-    fontWeight: String(typography.fontWeight.extraBold),
-    lineHeight: typography.lineHeight[22],
-  },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center' as const,
-    padding: spacing(5),
-    backgroundColor: 'rgba(2, 6, 23, 0.82)',
-  },
-  backdropPressable: StyleSheet.absoluteFill,
-  modalCard: {
-    width: '100%',
-    maxWidth: spacing(160),
-    alignSelf: 'center' as const,
-    gap: spacing(3.5),
-    padding: spacing(4.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.xl,
-    backgroundColor: colors.surface,
-  },
-  historyModalCard: {
-    width: '100%',
-    maxWidth: spacing(180),
-    maxHeight: '82%',
-    alignSelf: 'center' as const,
-    gap: spacing(3.5),
-    padding: spacing(4.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.xl,
-    backgroundColor: colors.surface,
-  },
-  historyScroll: {
-    maxHeight: spacing(120),
-  },
-  menuCard: {
-    width: '100%',
-    maxWidth: spacing(96),
-    alignSelf: 'center' as const,
-    gap: spacing(3),
-    padding: spacing(4.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.xl,
-    backgroundColor: colors.surface,
-  },
-  modalTitle: {
-    color: colors.text,
-    fontSize: typography.fontSize[20],
-    fontWeight: String(typography.fontWeight.extraBold),
-  },
-  modalTitleRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing(2),
-  },
-  modalSubtitle: {
-    color: colors.textSecondary,
-    fontSize: typography.fontSize[13],
-    lineHeight: typography.lineHeight[18],
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing(1.5),
-  },
-  accountLeading: {
-    flexDirection: 'row' as const,
-    alignItems: 'flex-start' as const,
-    gap: spacing(3),
-    flex: 1,
-  },
-  accountIconBadge: {
-    width: spacing(10.5),
-    height: spacing(10.5),
-    borderRadius: radius.lg,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: colors.primarySoft,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  metaRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing(1.25),
-  },
-  sectionLabel: {
-    color: colors.textSecondary,
-    fontWeight: String(typography.fontWeight.semibold),
-  },
-  pillWrap: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: spacing(2),
-  },
-  modalActions: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: spacing(2.5),
-    justifyContent: 'flex-end' as const,
-  },
-  menuItem: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing(2),
-    paddingVertical: spacing(3.5),
-    paddingHorizontal: spacing(3.5),
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
-  },
-  menuItemDanger: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing(2),
-    paddingVertical: spacing(3.5),
-    paddingHorizontal: spacing(3.5),
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.destructiveBorder,
-    backgroundColor: colors.destructiveSoft,
-  },
-  menuItemText: {
-    color: colors.text,
-    fontSize: typography.fontSize[14],
-    fontWeight: String(typography.fontWeight.bold),
-  },
-  menuItemTextDanger: {
-    color: colors.destructive,
-    fontSize: typography.fontSize[14],
-    fontWeight: String(typography.fontWeight.bold),
-  },
-  pressed: {
-    opacity: 0.85,
-  },
+    accountHeader: {
+      flexDirection: "row" as const,
+      alignItems: "flex-start" as const,
+      justifyContent: "space-between" as const,
+      gap: spacing(3),
+    },
+    accountName: {
+      color: colors.text,
+      fontWeight: String(typography.fontWeight.bold),
+      fontSize: typography.fontSize[16],
+    },
+    accountMeta: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+    },
+    openingBalance: {
+      color: colors.textSecondary,
+      fontWeight: String(typography.fontWeight.semibold),
+    },
+    accountBalance: {
+      color: colors.primary,
+      fontWeight: String(typography.fontWeight.extraBold),
+      fontSize: typography.fontSize[18],
+    },
+    accountIdentity: {
+      gap: spacing(1),
+    },
+    accountGroups: {
+      gap: spacing(4),
+    },
+    accountGroup: {
+      gap: spacing(2.5),
+      padding: spacing(3),
+      borderWidth: 1,
+      borderLeftWidth: spacing(1),
+      borderRadius: radius.lg,
+    },
+    accountGroupHeader: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing(2),
+      paddingHorizontal: spacing(1),
+    },
+    accountGroupMarker: {
+      width: spacing(1.5),
+      height: spacing(6),
+      borderRadius: radius.full,
+    },
+    accountGroupTitle: {
+      flex: 1,
+      fontSize: typography.fontSize[15],
+      fontWeight: String(typography.fontWeight.extraBold),
+    },
+    transferAmountIncome: {
+      color: colors.success,
+      fontWeight: String(typography.fontWeight.extraBold),
+    },
+    transferAmountExpense: {
+      color: colors.destructive,
+      fontWeight: String(typography.fontWeight.extraBold),
+    },
+    menuButton: {
+      width: spacing(10.5),
+      height: spacing(10.5),
+      borderRadius: radius.mdPlus,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    menuButtonText: {
+      color: colors.text,
+      fontSize: typography.fontSize[22],
+      fontWeight: String(typography.fontWeight.extraBold),
+      lineHeight: typography.lineHeight[22],
+    },
+    modalBackdrop: {
+      flex: 1,
+      justifyContent: "center" as const,
+      padding: spacing(5),
+      backgroundColor: "rgba(2, 6, 23, 0.82)",
+    },
+    backdropPressable: StyleSheet.absoluteFill,
+    modalCard: {
+      width: "100%",
+      maxWidth: spacing(160),
+      alignSelf: "center" as const,
+      gap: spacing(3.5),
+      padding: spacing(4.5),
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.xl,
+      backgroundColor: colors.surface,
+    },
+    historyModalCard: {
+      width: "100%",
+      maxWidth: spacing(180),
+      maxHeight: "82%",
+      alignSelf: "center" as const,
+      gap: spacing(3.5),
+      padding: spacing(4.5),
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.xl,
+      backgroundColor: colors.surface,
+    },
+    historyScroll: {
+      maxHeight: spacing(120),
+    },
+    menuCard: {
+      width: "100%",
+      maxWidth: spacing(96),
+      alignSelf: "center" as const,
+      gap: spacing(3),
+      padding: spacing(4.5),
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.xl,
+      backgroundColor: colors.surface,
+    },
+    modalTitle: {
+      color: colors.text,
+      fontSize: typography.fontSize[20],
+      fontWeight: String(typography.fontWeight.extraBold),
+    },
+    modalTitleRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing(2),
+    },
+    modalSubtitle: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[13],
+      lineHeight: typography.lineHeight[18],
+    },
+    sectionHeaderRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing(1.5),
+    },
+    accountLeading: {
+      flexDirection: "row" as const,
+      alignItems: "flex-start" as const,
+      gap: spacing(3),
+      flex: 1,
+    },
+    accountIconBadge: {
+      width: spacing(10.5),
+      height: spacing(10.5),
+      borderRadius: radius.lg,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      backgroundColor: colors.primarySoft,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    metaRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing(1.25),
+    },
+    sectionLabel: {
+      color: colors.textSecondary,
+      fontWeight: String(typography.fontWeight.semibold),
+    },
+    pillWrap: {
+      flexDirection: "row" as const,
+      flexWrap: "wrap" as const,
+      gap: spacing(2),
+    },
+    modalActions: {
+      flexDirection: "row" as const,
+      flexWrap: "wrap" as const,
+      gap: spacing(2.5),
+      justifyContent: "flex-end" as const,
+    },
+    menuItem: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing(2),
+      paddingVertical: spacing(3.5),
+      paddingHorizontal: spacing(3.5),
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+    },
+    menuItemDanger: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing(2),
+      paddingVertical: spacing(3.5),
+      paddingHorizontal: spacing(3.5),
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.destructiveBorder,
+      backgroundColor: colors.destructiveSoft,
+    },
+    menuItemText: {
+      color: colors.text,
+      fontSize: typography.fontSize[14],
+      fontWeight: String(typography.fontWeight.bold),
+    },
+    menuItemTextDanger: {
+      color: colors.destructive,
+      fontSize: typography.fontSize[14],
+      fontWeight: String(typography.fontWeight.bold),
+    },
+    pressed: {
+      opacity: 0.85,
+    },
   } as any);
 }

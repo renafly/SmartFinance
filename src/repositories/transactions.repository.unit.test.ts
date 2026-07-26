@@ -110,6 +110,12 @@ describe("TransactionsRepository", () => {
     ).resolves.toEqual({ data: rows, error: null });
 
     expect(client.from).toHaveBeenCalledWith("transactions");
+    expect(query.select).toHaveBeenCalledWith(
+      expect.stringContaining("balance_after_transaction"),
+    );
+    expect(query.select).toHaveBeenCalledWith(
+      expect.stringContaining("category:categories(id, name, icon)"),
+    );
     expect(query.eq).toHaveBeenCalledWith("household_id", "household-1");
     expect(query.eq).toHaveBeenCalledWith("account_id", "account-1");
     expect(query.eq).toHaveBeenCalledWith("category_id", "category-1");
@@ -118,6 +124,8 @@ describe("TransactionsRepository", () => {
     expect(query.gte).toHaveBeenCalledWith("transaction_date", "2026-07-01");
     expect(query.lte).toHaveBeenCalledWith("transaction_date", "2026-07-31");
     expect(query.order).toHaveBeenCalledWith("transaction_date", { ascending: false });
+    expect(query.order).toHaveBeenCalledWith("created_at", { ascending: false });
+    expect(query.order).toHaveBeenCalledWith("id", { ascending: false });
     expect(query.range).toHaveBeenCalledWith(20, 29);
   });
 

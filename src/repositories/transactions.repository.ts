@@ -14,9 +14,10 @@ type MonthlyCategorySpending =
 
 // Transaction row plus the joined account, creator profile, and category
 export type TransactionWithRelations = Transaction & {
+  balance_after_transaction: number | null;
   account: Pick<
     Database["public"]["Tables"]["accounts"]["Row"],
-    "id" | "name"
+    "id" | "name" | "owner_profile_id"
   > | null;
   created_by_profile: Pick<
     Database["public"]["Tables"]["profiles"]["Row"],
@@ -24,12 +25,12 @@ export type TransactionWithRelations = Transaction & {
   > | null;
   category: Pick<
     Database["public"]["Tables"]["categories"]["Row"],
-    "id" | "name"
+    "id" | "name" | "icon"
   > | null;
 };
 
 const TRANSACTION_WITH_RELATIONS_SELECT =
-  "*, account:accounts(id, name), created_by_profile:profiles!transactions_created_by_fkey(id, full_name), category:categories(id, name)";
+  "*, balance_after_transaction, account:accounts(id, name, owner_profile_id), created_by_profile:profiles!transactions_created_by_fkey(id, full_name), category:categories(id, name, icon)";
 
 export interface TransactionFilters {
   accountId?: string;
@@ -73,6 +74,7 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
       .select(TRANSACTION_WITH_RELATIONS_SELECT)
       .eq("household_id", householdId)
       .order("transaction_date", { ascending: false })
+      .order("created_at", { ascending: false })
       .order("id", { ascending: false });
 
     if (filters.accountId) query = query.eq("account_id", filters.accountId);

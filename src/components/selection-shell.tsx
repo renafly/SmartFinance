@@ -1,13 +1,20 @@
-import { Ionicons } from '@expo/vector-icons';
-import { type ReactNode } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { type ReactNode } from "react";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import { Button } from '@/components/migrated-page';
-import { radius } from '@/theme/radius';
-import { useResponsiveMetrics } from '@/theme/responsive';
-import { spacing } from '@/theme/spacing';
-import { typography } from '@/theme/typography';
-import { useTheme } from '@/theme/ThemeProvider';
+import { Button } from "@/components/migrated-page";
+import { radius } from "@/theme/radius";
+import { useResponsiveMetrics } from "@/theme/responsive";
+import { spacing } from "@/theme/spacing";
+import { typography } from "@/theme/typography";
+import { useTheme } from "@/theme/ThemeProvider";
 
 type SelectionTriggerProps = {
   label: string;
@@ -24,7 +31,7 @@ export function SelectionTrigger({
   valueLabel,
   hint,
   placeholder,
-  iconName = 'chevron-down-outline',
+  iconName = "chevron-down-outline",
   disabled,
   onPress,
 }: SelectionTriggerProps) {
@@ -34,7 +41,9 @@ export function SelectionTrigger({
 
   return (
     <View style={styles.triggerWrapper}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>
+        {label}
+      </Text>
       <Pressable
         disabled={disabled}
         onPress={onPress}
@@ -54,10 +63,19 @@ export function SelectionTrigger({
           <Ionicons name={iconName} size={16} color={colors.textSecondary} />
         </View>
         <View style={{ flex: 1, gap: spacing(1) }}>
-          <Text style={[styles.triggerValue, { color: isEmpty ? colors.textSecondary : colors.text }]}>
+          <Text
+            style={[
+              styles.triggerValue,
+              { color: isEmpty ? colors.textSecondary : colors.text },
+            ]}
+          >
             {valueLabel}
           </Text>
-          {hint ? <Text style={[styles.triggerHint, { color: colors.textSecondary }]}>{hint}</Text> : null}
+          {hint ? (
+            <Text style={[styles.triggerHint, { color: colors.textSecondary }]}>
+              {hint}
+            </Text>
+          ) : null}
         </View>
         <Ionicons name="chevron-down-outline" size={16} color={colors.link} />
       </Pressable>
@@ -88,14 +106,19 @@ export function SelectionShell({
   const responsive = useResponsiveMetrics();
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
       <View
         style={[
           styles.modalBackdrop,
           {
             backgroundColor: colors.overlay,
             padding: responsive.modalPadding,
-            justifyContent: responsive.isPhone ? 'flex-end' : 'center',
+            justifyContent: responsive.isPhone ? "flex-end" : "center",
           },
         ]}
       >
@@ -108,17 +131,25 @@ export function SelectionShell({
               borderColor: colors.border,
               padding: responsive.isPhone ? spacing(3.5) : spacing(4.5),
               borderRadius: responsive.isPhone ? radius.lg : radius.xl,
-              maxHeight: responsive.isPhone ? '86%' : '90%',
-              width: '100%',
+              maxHeight: responsive.isPhone ? "86%" : "90%",
+              width: "100%",
               maxWidth: responsive.isPhone ? undefined : spacing(160),
-              alignSelf: 'center',
-              overflow: 'hidden',
+              alignSelf: "center",
+              overflow: "hidden",
             },
           ]}
         >
           <View style={styles.modalHeader}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
-            {subtitle ? <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {title}
+            </Text>
+            {subtitle ? (
+              <Text
+                style={[styles.modalSubtitle, { color: colors.textSecondary }]}
+              >
+                {subtitle}
+              </Text>
+            ) : null}
           </View>
           {bodyScrollable ? (
             <ScrollView
@@ -135,12 +166,17 @@ export function SelectionShell({
             onPress={onClose}
             style={({ pressed }) => [
               styles.closeButton,
-              { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+              {
+                backgroundColor: colors.surfaceMuted,
+                borderColor: colors.border,
+              },
               pressed && styles.pressed,
             ]}
           >
             <Ionicons name="close-outline" size={16} color={colors.text} />
-            <Text style={[styles.closeButtonText, { color: colors.text }]}>{closeLabel}</Text>
+            <Text style={[styles.closeButtonText, { color: colors.text }]}>
+              {closeLabel}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -151,6 +187,7 @@ export function SelectionShell({
 type OptionRowProps = {
   title: string;
   subtitle?: string;
+  rightLabel?: string;
   active?: boolean;
   onPress: () => void;
   iconName?: keyof typeof Ionicons.glyphMap;
@@ -160,9 +197,10 @@ type OptionRowProps = {
 export function SelectionOptionRow({
   title,
   subtitle,
+  rightLabel,
   active,
   onPress,
-  iconName = 'ellipse-outline',
+  iconName = "ellipse-outline",
   danger,
 }: OptionRowProps) {
   const { colors } = useTheme();
@@ -175,7 +213,11 @@ export function SelectionOptionRow({
         styles.optionRow,
         {
           backgroundColor: active ? colors.primary : colors.surfaceMuted,
-          borderColor: danger ? colors.destructiveBorder : active ? colors.primary : colors.border,
+          borderColor: danger
+            ? colors.destructiveBorder
+            : active
+              ? colors.primary
+              : colors.border,
           padding: responsive.isPhone ? spacing(3) : spacing(3.5),
           gap: responsive.isPhone ? spacing(2) : spacing(3),
         },
@@ -185,21 +227,56 @@ export function SelectionOptionRow({
       <Ionicons
         name={iconName}
         size={18}
-        color={active ? colors.primaryForeground : danger ? colors.destructive : colors.textSecondary}
+        color={
+          active
+            ? colors.primaryForeground
+            : danger
+              ? colors.destructive
+              : colors.textSecondary
+        }
       />
       <View style={{ flex: 1, gap: spacing(1) }}>
-        <Text style={[styles.optionTitle, { color: active ? colors.primaryForeground : colors.text }]}>
+        <Text
+          style={[
+            styles.optionTitle,
+            { color: active ? colors.primaryForeground : colors.text },
+          ]}
+        >
           {title}
         </Text>
         {subtitle ? (
-          <Text style={[styles.optionSubtitle, { color: active ? colors.primaryForeground : colors.textSecondary }]}>
+          <Text
+            style={[
+              styles.optionSubtitle,
+              {
+                color: active ? colors.primaryForeground : colors.textSecondary,
+              },
+            ]}
+          >
             {subtitle}
           </Text>
         ) : null}
       </View>
-      <Text style={[styles.optionCheck, { color: active ? colors.primaryForeground : colors.textSecondary }]}>
-        {active ? '✓' : ''}
-      </Text>
+      <View style={styles.optionTrailing}>
+        {rightLabel ? (
+          <Text
+            style={[
+              styles.optionRightLabel,
+              { color: active ? colors.primaryForeground : colors.text },
+            ]}
+          >
+            {rightLabel}
+          </Text>
+        ) : null}
+        <Text
+          style={[
+            styles.optionCheck,
+            { color: active ? colors.primaryForeground : colors.textSecondary },
+          ]}
+        >
+          {active ? "✓" : ""}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -221,12 +298,23 @@ type DropdownMenuProps = {
   items: DropdownItem[];
 };
 
-export function DropdownMenu({ visible, title, closeLabel, onClose, items }: DropdownMenuProps) {
+export function DropdownMenu({
+  visible,
+  title,
+  closeLabel,
+  onClose,
+  items,
+}: DropdownMenuProps) {
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
 
   return (
-    <SelectionShell visible={visible} title={title} closeLabel={closeLabel} onClose={onClose}>
+    <SelectionShell
+      visible={visible}
+      title={title}
+      closeLabel={closeLabel}
+      onClose={onClose}
+    >
       <View style={{ gap: spacing(2.5) }}>
         {items.map((item) => (
           <Pressable
@@ -235,8 +323,12 @@ export function DropdownMenu({ visible, title, closeLabel, onClose, items }: Dro
             style={({ pressed }) => [
               styles.dropdownItem,
               {
-                backgroundColor: item.danger ? colors.destructiveSoft : colors.surfaceMuted,
-                borderColor: item.danger ? colors.destructiveBorder : colors.border,
+                backgroundColor: item.danger
+                  ? colors.destructiveSoft
+                  : colors.surfaceMuted,
+                borderColor: item.danger
+                  ? colors.destructiveBorder
+                  : colors.border,
                 padding: responsive.isPhone ? spacing(3) : spacing(3.5),
                 gap: responsive.isPhone ? spacing(2) : spacing(3),
               },
@@ -244,14 +336,30 @@ export function DropdownMenu({ visible, title, closeLabel, onClose, items }: Dro
             ]}
           >
             {item.iconName ? (
-              <Ionicons name={item.iconName} size={16} color={item.danger ? colors.destructive : colors.text} />
+              <Ionicons
+                name={item.iconName}
+                size={16}
+                color={item.danger ? colors.destructive : colors.text}
+              />
             ) : null}
             <View style={{ flex: 1, gap: spacing(0.75) }}>
-              <Text style={[styles.dropdownLabel, { color: item.danger ? colors.destructive : colors.text }]}>
+              <Text
+                style={[
+                  styles.dropdownLabel,
+                  { color: item.danger ? colors.destructive : colors.text },
+                ]}
+              >
                 {item.label}
               </Text>
               {item.subtitle ? (
-                <Text style={[styles.dropdownSubtitle, { color: colors.textSecondary }]}>{item.subtitle}</Text>
+                <Text
+                  style={[
+                    styles.dropdownSubtitle,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {item.subtitle}
+                </Text>
               ) : null}
             </View>
           </Pressable>
@@ -287,18 +395,28 @@ export function MultiSelectShell({
   const responsive = useResponsiveMetrics();
 
   return (
-    <SelectionShell visible={visible} title={title} subtitle={subtitle} closeLabel={closeLabel} onClose={onClose}>
+    <SelectionShell
+      visible={visible}
+      title={title}
+      subtitle={subtitle}
+      closeLabel={closeLabel}
+      onClose={onClose}
+    >
       <View style={{ gap: spacing(3) }}>
         {children}
         <View
           style={{
-            flexDirection: responsive.isPhone ? 'column-reverse' : 'row',
-            justifyContent: 'flex-end',
+            flexDirection: responsive.isPhone ? "column-reverse" : "row",
+            justifyContent: "flex-end",
             gap: spacing(2),
           }}
         >
           <Button label={closeLabel} variant="secondary" onPress={onClose} />
-          <Button label={confirmLabel} onPress={onConfirm} disabled={confirmDisabled} />
+          <Button
+            label={confirmLabel}
+            onPress={onConfirm}
+            disabled={confirmDisabled}
+          />
         </View>
       </View>
     </SelectionShell>
@@ -314,8 +432,8 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize[13],
   },
   trigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -323,8 +441,8 @@ const styles = StyleSheet.create({
     width: spacing(9),
     height: spacing(9),
     borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   triggerValue: {
     fontSize: typography.fontSize[14],
@@ -359,8 +477,8 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight[18],
   },
   optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -376,9 +494,19 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize[18],
     fontWeight: typography.fontWeight.extraBold,
   },
+  optionTrailing: {
+    alignItems: "flex-end",
+    justifyContent: "center",
+    gap: spacing(0.5),
+  },
+  optionRightLabel: {
+    fontSize: typography.fontSize[14],
+    fontWeight: typography.fontWeight.extraBold,
+    fontVariant: ["tabular-nums"],
+  },
   dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -391,13 +519,13 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight[16],
   },
   closeButton: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     paddingVertical: spacing(2.5),
     paddingHorizontal: spacing(3.5),
     borderRadius: radius.md,
     borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing(2),
   },
   closeButtonText: {
