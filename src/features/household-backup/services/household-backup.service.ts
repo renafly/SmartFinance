@@ -150,6 +150,7 @@ type CleanMonthlyIncomeInput = {
   memberKey: string | null;
   cashAccountKey: string;
   amount: number;
+  availableMonth?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -657,6 +658,7 @@ function buildCleanBackup(input: {
             memberKey: keyFor(memberKeyMap, row.member_id),
             cashAccountKey,
             amount: row.amount,
+            availableMonth: row.available_month,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
           };
@@ -843,6 +845,7 @@ function buildIncomeInputInserts(
     if (!runId || !cashAccountId) continue;
 
     const memberId = mapCreator(memberMap, input.memberKey, currentUserId);
+    const runMonth = backup.monthlyBudget.runs.find((run) => run.key === input.monthlyBudgetRunKey)?.month;
     const key = `${runId}:${memberId}`;
     const existing = byRunAndMember.get(key);
 
@@ -857,6 +860,7 @@ function buildIncomeInputInserts(
       member_id: memberId,
       cash_account_id: cashAccountId,
       amount: input.amount,
+      available_month: input.availableMonth ?? runMonth ?? new Date().toISOString().slice(0, 7) + "-01",
       created_at: input.createdAt,
       updated_at: input.updatedAt,
     });

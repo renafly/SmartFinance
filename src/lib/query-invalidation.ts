@@ -6,6 +6,7 @@ const HOUSEHOLD_QUERY_KEYS = [
   ["accounts"],
   ["accounts-with-balances"],
   ["transactions"],
+  ["transaction-movements"],
   ["categories"],
   ["attachments"],
   ["recurring-transactions"],

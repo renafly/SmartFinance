@@ -1,8 +1,9 @@
-import '../global.css';
-import { Stack } from 'expo-router';
-import { VercelSpeedInsights } from '@/components/vercel-speed-insights';
-import { RootProvider } from '../providers/RootProvider';
-import { useTheme } from '@/theme/ThemeProvider';
+import "../global.css";
+import { Stack } from "expo-router";
+import { VercelSpeedInsights } from "@/components/vercel-speed-insights";
+import { RootProvider } from "../providers/RootProvider";
+import { useTheme } from "@/theme/ThemeProvider";
+import { CookieConsentBanner } from "@/features/cookie-consent";
 
 // NOTE: Provider composition (Theme, Query, Auth, Localization, Feature
 // Flags, Modal, Toast - see item 31) is wired in providers/RootProvider.tsx
@@ -12,6 +13,7 @@ export default function RootLayout() {
   return (
     <RootProvider>
       <RootStack />
+      <CookieConsentBanner />
       <VercelSpeedInsights />
     </RootProvider>
   );
@@ -21,7 +23,12 @@ function RootStack() {
   const { colors } = useTheme();
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
       <Stack.Screen name="(public)" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(protected)" />

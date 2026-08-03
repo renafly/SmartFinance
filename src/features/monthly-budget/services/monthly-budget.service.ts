@@ -1,5 +1,4 @@
 import { monthlyBudgetRepository } from "@/repositories/monthly-budget.repository";
-import { transactionsRepository } from "@/repositories/transactions.repository";
 import { supabase } from "@/shared/lib/supabase/client";
 import type { Database } from "@/types/database.types";
 
@@ -51,6 +50,7 @@ export type MonthlyBudgetIncomeDraft = {
   memberId: string;
   cashAccountId: string;
   amount: string;
+  availableMonth?: string;
 };
 
 export type MonthlyBudgetTransfer = {
@@ -184,37 +184,17 @@ function getSectionSortRank(section: string) {
 }
 
 function getCashAccountIds(accounts: Account[], explicitIds: string[]) {
-  const ids = new Set<string>();
+  const accountIds = new Set(accounts.map((account) => account.id));
+  const incomeAccountIds = new Set(explicitIds.filter((id) => accountIds.has(id)));
+  if (incomeAccountIds.size > 0) return incomeAccountIds;
 
-  for (const account of accounts) {
-    if (account.type === "cash" || account.type === "bank") {
-      ids.add(account.id);
-    }
-  }
-
-  for (const id of explicitIds) ids.add(id);
-
-  return ids;
-}
-
-function findHighestCashAccount(
-  balances: Map<string, number>,
-  accounts: Account[],
-  cashAccountIds: Set<string>,
-) {
-  let candidate: Account | null = null;
-  let candidateBalance = Number.NEGATIVE_INFINITY;
-
-  for (const account of accounts) {
-    if (!cashAccountIds.has(account.id)) continue;
-    const balance = balances.get(account.id) ?? 0;
-    if (balance > candidateBalance) {
-      candidate = account;
-      candidateBalance = balance;
-    }
-  }
-
-  return candidate;
+  // Missing income inputs are reported separately. This fallback keeps the
+  // preview useful while the user is still selecting salary accounts.
+  return new Set(
+    accounts
+      .filter((account) => account.type === "cash" || account.type === "bank")
+      .map((account) => account.id),
+  );
 }
 
 export class MonthlyBudgetService {
@@ -383,6 +363,7 @@ export class MonthlyBudgetService {
       member_id: item.memberId,
       cash_account_id: item.cashAccountId,
       amount: roundMoney(Number(item.amount)),
+      available_month: `${normalizeMonth(item.availableMonth || normalizedMonth)}-01`,
     }));
 
     const savedInputs = await monthlyBudgetRepository.replaceIncomeInputs(runResult.data.id, incomeInputs);
@@ -410,24 +391,16 @@ export class MonthlyBudgetService {
     return result.data;
   }
 
+  async deleteRunTransactions(runId: string) {
+    const result = await monthlyBudgetRepository.deleteRunTransactions(runId);
+    if (result.error) throw result.error;
+    return result.data ?? 0;
+  }
+
   async confirmRun(input: {
     runId: string;
-    householdId: string;
-    month: string;
     preview: MonthlyBudgetPreview;
-    createdBy: string;
   }) {
-    const runs = await monthlyBudgetRepository.listRuns(input.householdId);
-    if (runs.error) throw runs.error;
-
-    const currentRun = (runs.data ?? []).find((run) => run.id === input.runId);
-    if (!currentRun) {
-      throw new Error("Unable to find the selected monthly budget run.");
-    }
-    if (currentRun.status !== "draft") {
-      throw new Error("Only draft runs can be confirmed.");
-    }
-
     if (input.preview.validationIssues.length > 0) {
       throw new Error(input.preview.validationIssues[0]);
     }
@@ -443,26 +416,13 @@ export class MonthlyBudgetService {
         throw new Error(`Budget transfer "${transfer.title}" must use two different valid accounts.`);
       }
 
-      const result = await transactionsRepository.createTransfer({
-        householdId: input.householdId,
-        fromAccountId: transfer.sourceAccountId,
-        toAccountId: transfer.destinationAccountId,
-        amount: transfer.amount,
-        title: transfer.title,
-        createdBy: input.createdBy,
-        transactionDate: `${normalizeMonth(input.month)}-01T00:00:00.000Z`,
-        monthlyBudgetRunId: input.runId,
-        generatedByRuleId: transfer.generatedByRuleId,
-        budgetSection: transfer.section,
-      });
-
-      if (result.error) throw result.error;
     }
 
-    const runResult = await monthlyBudgetRepository.updateRun(input.runId, {
-      status: "confirmed",
-      preview_snapshot: input.preview as any,
-    } as any);
+    const runResult = await monthlyBudgetRepository.confirmRunAtomically(
+      input.runId,
+      input.preview.transfers as any,
+      input.preview as any,
+    );
 
     if (runResult.error) throw runResult.error;
     return runResult.data;
@@ -484,7 +444,10 @@ export class MonthlyBudgetService {
     const validationIssues: string[] = [];
     const month = normalizeMonth(input.month);
     const accountsById = new Map(input.accounts.map((account) => [account.id, account]));
-    const balances = new Map(input.accounts.map((account) => [account.id, Number(account.current_balance ?? 0)]));
+    // A monthly run allocates this month's available wages and recurring cash
+    // flow. Existing account balances were produced by previous months and
+    // must not be redistributed again by the current run.
+    const balances = new Map(input.accounts.map((account) => [account.id, 0]));
     const incomeByMember = new Map<string, number>();
     const cashAccountIds = getCashAccountIds(input.accounts, input.incomeInputs.map((item) => item.cashAccountId));
 
@@ -514,6 +477,11 @@ export class MonthlyBudgetService {
       const cashAccount = accountsById.get(incomeInput.cashAccountId);
       if (!cashAccount) {
         validationIssues.push(`${getMemberLabel(member)} does not have a valid cash account selected.`);
+        continue;
+      }
+
+      if (normalizeMonth(incomeInput.availableMonth || month) !== month) {
+        incomeByMember.set(member.userId, 0);
         continue;
       }
 
@@ -600,7 +568,11 @@ export class MonthlyBudgetService {
         validationIssues.push("Fixed remaining cash target cannot be negative.");
       }
 
-      excessCash = roundMoney(remainingCash - target);
+      // Configured transfers have already been applied to `balances` above.
+      // Only distribute the cash above the fixed target; configured savings
+      // allocations must not be deducted or distributed a second time.
+      const distributableExcess = roundMoney(Math.max(0, remainingCash - target));
+      excessCash = distributableExcess;
 
       if (excessCash > 0) {
         const eligibleSavingsAccounts: Account[] = [];
@@ -618,32 +590,73 @@ export class MonthlyBudgetService {
         if (uniqueEligibleSavings.length === 0) {
           validationIssues.push("Fixed remaining cash needs at least one eligible savings account.");
         } else {
-          const sourceAccount = findHighestCashAccount(balances, input.accounts, cashAccountIds);
-          if (!sourceAccount) {
+          const incomeAccountIds = [...new Set(
+            input.incomeInputs
+              .filter((item) => (incomeByMember.get(item.memberId) ?? 0) > 0 && accountsById.has(item.cashAccountId))
+              .map((item) => item.cashAccountId),
+          )];
+          const distributionSources = (incomeAccountIds.length > 0
+            ? incomeAccountIds
+            : [...cashAccountIds]
+          )
+            .map((accountId) => accountsById.get(accountId))
+            .filter((account): account is Account => Boolean(account));
+
+          if (distributionSources.length === 0) {
             validationIssues.push("No cash account is available to distribute the remaining cash.");
           } else {
-            const share = roundMoney(excessCash / uniqueEligibleSavings.length);
-            uniqueEligibleSavings.forEach((destination, index) => {
-              const transferAmount = index === uniqueEligibleSavings.length - 1
-                ? roundMoney(excessCash - share * (uniqueEligibleSavings.length - 1))
-                : share;
+            const retainedShare = roundMoney(target / distributionSources.length);
+            const desiredRetainedAmounts = distributionSources.map((source, index) => (
+              index === distributionSources.length - 1
+                ? roundMoney(target - retainedShare * (distributionSources.length - 1))
+                : retainedShare
+            ));
+            const sourceSurpluses = distributionSources.map((source, index) =>
+              Math.max(0, roundMoney((balances.get(source.id) ?? 0) - desiredRetainedAmounts[index])),
+            );
+            const totalSourceSurplus = roundMoney(sourceSurpluses.reduce((sum, amount) => sum + amount, 0));
+            let undistributedExcess = distributableExcess;
 
-              balances.set(sourceAccount.id, roundMoney((balances.get(sourceAccount.id) ?? 0) - transferAmount));
-              balances.set(destination.id, roundMoney((balances.get(destination.id) ?? 0) + transferAmount));
-              transfers.push({
-                ruleId: null,
-                title: "Remaining cash distribution",
-                section: "remaining_cash",
-                sourceAccountId: sourceAccount.id,
-                destinationAccountId: destination.id,
-                destinationPotId: null,
-                destinationKind: "account",
-                amount: transferAmount,
-                generatedByRuleId: null,
-                isSystemGenerated: true,
+            distributionSources.forEach((source, sourceIndex) => {
+              if (undistributedExcess <= 0 || sourceSurpluses[sourceIndex] <= 0) return;
+
+              const isLastSourceWithSurplus = sourceSurpluses
+                .slice(sourceIndex + 1)
+                .every((amount) => amount <= 0);
+              const sourceAmount = isLastSourceWithSurplus
+                ? undistributedExcess
+                : Math.min(
+                    sourceSurpluses[sourceIndex],
+                    roundMoney(distributableExcess * sourceSurpluses[sourceIndex] / totalSourceSurplus),
+                  );
+              let sourceRemaining = sourceAmount;
+              const destinationShare = roundMoney(sourceAmount / uniqueEligibleSavings.length);
+
+              uniqueEligibleSavings.forEach((destination, destinationIndex) => {
+                const transferAmount = destinationIndex === uniqueEligibleSavings.length - 1
+                  ? sourceRemaining
+                  : Math.min(sourceRemaining, destinationShare);
+                if (transferAmount <= 0) return;
+
+                balances.set(source.id, roundMoney((balances.get(source.id) ?? 0) - transferAmount));
+                balances.set(destination.id, roundMoney((balances.get(destination.id) ?? 0) + transferAmount));
+                sourceRemaining = roundMoney(sourceRemaining - transferAmount);
+                undistributedExcess = roundMoney(undistributedExcess - transferAmount);
+                transfers.push({
+                  ruleId: null,
+                  title: "Remaining cash distribution",
+                  section: "remaining_cash",
+                  sourceAccountId: source.id,
+                  destinationAccountId: destination.id,
+                  destinationPotId: null,
+                  destinationKind: "account",
+                  amount: transferAmount,
+                  generatedByRuleId: null,
+                  isSystemGenerated: true,
+                });
               });
             });
-            excessCash = 0;
+            excessCash = undistributedExcess;
           }
         }
       }

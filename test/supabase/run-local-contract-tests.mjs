@@ -105,9 +105,10 @@ async function assertDeniedOrEmpty(name, query) {
     console.log(`ok - ${name} denied with ${error.message}`);
     return;
   }
-  if (Array.isArray(data) && data.length > 0) {
+  const returnedData = Array.isArray(data) ? data.length > 0 : data != null;
+  if (returnedData) {
     console.error(`Local Supabase contract failed: ${name}`);
-    console.error(`Expected denied or empty result, received ${data.length} row(s).`);
+    console.error('Expected denied or empty result, but the request returned data.');
     process.exit(1);
   }
   console.log(`ok - ${name}`);
@@ -160,6 +161,47 @@ await assertDeniedOrEmpty(
 await assertDeniedOrEmpty(
   'anonymous users cannot accept an invitation',
   supabase.rpc('accept_household_invitation', { p_token: 'fake-security-token' }),
+);
+
+await assertDeniedOrEmpty(
+  'anonymous users cannot confirm a monthly budget run',
+  supabase.rpc('confirm_monthly_budget_run', {
+    p_run_id: '00000000-0000-0000-0000-000000000000',
+    p_transfers: [],
+    p_preview: {},
+  }),
+);
+
+await assertDeniedOrEmpty(
+  'anonymous users cannot delete monthly budget run transactions',
+  supabase.rpc('delete_monthly_budget_run_transactions', {
+    p_run_id: '00000000-0000-0000-0000-000000000000',
+  }),
+);
+
+await assertDeniedOrEmpty(
+  'anonymous users cannot list transaction movements',
+  supabase.rpc('list_transaction_movements', {
+    p_household_id: '00000000-0000-0000-0000-000000000000',
+  }),
+);
+
+await assertDeniedOrEmpty(
+  'anonymous users cannot update completed transfers',
+  supabase.rpc('update_completed_transfer', {
+    p_transfer_group_id: '00000000-0000-0000-0000-000000000000',
+    p_source_account_id: '00000000-0000-0000-0000-000000000001',
+    p_destination_account_id: '00000000-0000-0000-0000-000000000002',
+    p_amount: 1,
+    p_title: 'Unauthorized transfer update',
+  }),
+);
+
+await assertDeniedOrEmpty(
+  'anonymous users cannot delete completed transfers',
+  supabase.rpc('delete_completed_transfer', {
+    p_transfer_group_id: '00000000-0000-0000-0000-000000000000',
+  }),
 );
 
 const userAEmail = process.env.SUPABASE_TEST_USER_A_EMAIL;

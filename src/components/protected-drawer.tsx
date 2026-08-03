@@ -27,6 +27,7 @@ const menuIconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
   dashboard: "home-outline",
   accounts: "wallet-outline",
   transactions: "receipt-outline",
+  insights: "analytics-outline",
   transfers: "swap-horizontal-outline",
   monthlyBudget: "calculator-outline",
   savings: "file-tray-full-outline",
@@ -47,10 +48,10 @@ function getGuideKeyForPathname(pathname: string): OnboardingGuideKey | null {
     return "dashboard";
 
   const section = pathname.split("/").filter(Boolean).at(-1);
+  if (section === "transfers") return "transactions";
   return [
     "accounts",
     "transactions",
-    "transfers",
     "budget",
     "savings",
     "categories",
@@ -68,9 +69,9 @@ function SectionGuideButton({
 }) {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
-  const { openGuide } = useOnboarding();
+  const { isLoading, openGuide, shouldShowGuide } = useOnboarding();
 
-  if (!guideKey) return null;
+  if (!guideKey || isLoading || !shouldShowGuide(guideKey)) return null;
 
   return (
     <Pressable
@@ -134,9 +135,13 @@ export function ProtectedDrawerLayout() {
         name="transactions"
         options={{ title: t("drawer.transactions") }}
       />
+      <Drawer.Screen name="insights" options={{ title: t("drawer.insights") }} />
       <Drawer.Screen
         name="transfers"
-        options={{ title: t("drawer.transfers") }}
+        options={{
+          title: t("drawer.transfers"),
+          drawerItemStyle: { display: "none" },
+        }}
       />
       <Drawer.Screen
         name="budget"
@@ -206,9 +211,9 @@ function DrawerContent(props: DrawerContentComponentProps) {
       href: "/(protected)/transactions",
     },
     {
-      key: "transfers",
-      label: t("drawer.transfers"),
-      href: "/(protected)/transfers",
+      key: "insights",
+      label: t("drawer.insights"),
+      href: "/(protected)/insights",
     },
     {
       key: "monthlyBudget",
@@ -288,17 +293,17 @@ function DrawerContent(props: DrawerContentComponentProps) {
           label: t("drawer.transactions"),
           href: "/(protected)/transactions",
         },
+        {
+          key: "insights",
+          label: t("drawer.insights"),
+          href: "/(protected)/insights",
+        },
       ],
     },
     {
       title: t("drawer.moneyMovement"),
       description: t("drawer.moneyMovementDescription"),
       items: [
-        {
-          key: "transfers",
-          label: t("drawer.transfers"),
-          href: "/(protected)/transfers",
-        },
         {
           key: "monthlyBudget",
           label: t("drawer.monthlyBudget"),

@@ -1,8 +1,96 @@
 {
+  "cookieConsent": {
+    "bannerLabel": "Preferências de cookies e armazenamento",
+    "title": "As suas escolhas de privacidade",
+    "description": "O SmartFinance utiliza armazenamento necessário do navegador para manter a sessão e recordar definições essenciais. Com a sua autorização, também utilizamos análise opcional.",
+    "policyLink": "Leia a nossa política de cookies.",
+    "rejectOptional": "Rejeitar opcionais",
+    "manage": "Gerir preferências",
+    "acceptAll": "Aceitar tudo",
+    "preferencesTitle": "Preferências de cookies",
+    "preferencesDescription": "Escolha que tecnologias opcionais o SmartFinance pode utilizar. O armazenamento necessário está sempre ativo porque o serviço depende dele.",
+    "necessaryTitle": "Necessários",
+    "necessaryDescription": "Autenticação, segurança, registo do consentimento e funcionamento essencial do serviço.",
+    "preferenceTitle": "Preferências",
+    "preferenceDescription": "Recordar escolhas como o idioma e o tema visual.",
+    "analyticsTitle": "Análise",
+    "analyticsDescription": "Permitir medição de desempenho com proteção da privacidade através do Vercel Speed Insights.",
+    "readPolicy": "Ler a Política de Cookies e Tecnologias Semelhantes",
+    "cancel": "Cancelar",
+    "save": "Guardar preferências"
+  },
+  "cookiePolicy": {
+    "back": "Voltar ao SmartFinance",
+    "title": "Política de Cookies e Tecnologias Semelhantes",
+    "effective": "Em vigor desde 30 de julho de 2026",
+    "scope": {
+      "title": "Âmbito desta política",
+      "body": "Esta política explica como a aplicação web SmartFinance utiliza cookies e tecnologias semelhantes do navegador, incluindo armazenamento local. As aplicações móveis nativas utilizam armazenamento do dispositivo, e não cookies do navegador."
+    },
+    "necessary": {
+      "title": "Armazenamento necessário",
+      "body": "O SmartFinance necessita de algum armazenamento do navegador para prestar o serviço solicitado. A informação da sessão de autenticação Supabase mantém a sessão iniciada e permite renová-la. Um registo de consentimento memoriza as suas escolhas de privacidade. Estas tecnologias não são utilizadas para publicidade."
+    },
+    "optional": {
+      "title": "Armazenamento e medição opcionais",
+      "body": "As preferências de idioma e tema melhoram a sua experiência. O Vercel Speed Insights ajuda-nos a compreender o desempenho do site e só é ativado após consentimento para análise. O SmartFinance não utiliza atualmente cookies de publicidade ou marketing entre sites."
+    },
+    "storage": {
+      "title": "Tecnologias que utilizamos",
+      "type": "Tecnologia",
+      "purpose": "Finalidade",
+      "duration": "Duração",
+      "category": "Categoria",
+      "rows": [
+        {
+          "name": "Sessão de autenticação Supabase",
+          "type": "Armazenamento local do navegador (não é um cookie HttpOnly)",
+          "purpose": "Guarda dados de acesso e renovação da sessão para manter a sessão iniciada em segurança.",
+          "duration": "Até terminar sessão, a sessão expirar ou os dados do navegador serem apagados",
+          "category": "Necessário"
+        },
+        {
+          "name": "Registo de consentimento SmartFinance",
+          "type": "Armazenamento local do navegador",
+          "purpose": "Memoriza se aceitou ou rejeitou tecnologias opcionais.",
+          "duration": "Até redefinir a preferência, mudar a versão da política ou apagar os dados do navegador",
+          "category": "Necessário"
+        },
+        {
+          "name": "Preferências de idioma e tema",
+          "type": "Armazenamento local do navegador",
+          "purpose": "Memoriza as suas escolhas de idioma e aparência visual.",
+          "duration": "Até serem alteradas ou os dados do navegador serem apagados",
+          "category": "Preferências"
+        },
+        {
+          "name": "Vercel Speed Insights",
+          "type": "Tecnologia de análise de desempenho",
+          "purpose": "Mede de forma agregada a capacidade de resposta e o carregamento do site.",
+          "duration": "Conforme especificado pela Vercel para os dados de medição recolhidos",
+          "category": "Análise — consentimento necessário"
+        }
+      ]
+    },
+    "control": {
+      "title": "Gerir ou retirar o consentimento",
+      "body": "Pode rejeitar tecnologias opcionais e continuar a utilizar as funcionalidades principais do SmartFinance. Pode reabrir as Preferências de cookies a qualquer momento para alterar ou retirar o consentimento. Também pode apagar os dados do site no navegador; isto poderá terminar a sessão e repor as preferências.",
+      "action": "Gerir preferências de cookies"
+    },
+    "thirdParties": {
+      "title": "Prestadores de serviços",
+      "body": "A Supabase fornece autenticação e infraestrutura da aplicação. A Vercel fornece o alojamento do site e, quando é dado consentimento para análise, o Speed Insights. A Google intervém quando escolhe o início de sessão Google e aplica os seus próprios termos de privacidade durante esse processo."
+    },
+    "changes": {
+      "title": "Alterações a esta política",
+      "body": "Podemos atualizar esta política quando a tecnologia ou as obrigações legais mudarem. Atualizaremos a data de entrada em vigor e voltaremos a pedir as suas escolhas quando uma alteração afetar materialmente o consentimento."
+    }
+  },
   "drawer": {
     "dashboard": "Painel",
     "accounts": "Contas",
     "transactions": "Transações",
+    "insights": "Análises",
     "transfers": "Transferências",
     "monthlyBudget": "Orçamento Mensal",
     "categories": "Categorias",
@@ -130,6 +218,10 @@
     "cashAccount": "Conta de cash",
     "selectCashAccount": "Escolha uma conta de cash",
     "cashAccountHint": "Escolha a conta que recebe o salário.",
+    "wageAvailability": "Disponível para alocações",
+    "wageAvailabilityThisMonth": "Este mês",
+    "wageAvailabilityNextMonth": "Próximo mês",
+    "wageAvailabilityHint": "Escolha quando este salário pode ser usado pelas regras do orçamento.",
     "rulesTitle": "Regras do orçamento",
     "rulesSubtitle": "Crie as transferências mensais que serão geradas depois dos salários.",
     "addRule": "Adicionar regra",
@@ -185,11 +277,18 @@
     "overBudget": "Acima do previsto",
     "validationTitle": "Corrija estes problemas",
     "runsTitle": "Execuções mensais",
-    "runsSubtitle": "Abra uma execução para ver as entradas guardadas ou cancele um rascunho.",
+    "runsSubtitle": "Abra uma execução para ver as entradas guardadas, cancelar um rascunho ou remover as transações geradas.",
     "runPreview": "Cash restante previsto",
     "loadDraft": "Carregar rascunho",
     "cancelRun": "Cancelar execução",
     "cancelling": "A cancelar...",
+    "deleteRunTransactions": "Eliminar transações da execução",
+    "deleteRunTransactionsTitle": "Eliminar as transações desta execução?",
+    "deleteRunTransactionsMessage": "Isto elimina todas as transações de salários e alocações geradas por esta execução mensal. Uma execução confirmada voltará a rascunho para poder executá-la novamente.",
+    "deleteRunTransactionsConfirm": "Eliminar transações",
+    "deletingRunTransactions": "A eliminar...",
+    "deleteRunTransactionsSuccess": "Foram eliminadas {{count}} transação(ões). A execução pode ser iniciada novamente.",
+    "deleteRunTransactionsError": "Não foi possível eliminar as transações da execução: {{detail}}",
     "selectedRunInputs": "Entradas de rendimento guardadas",
     "defaults": {
       "tradeRep": "Trade Rep",
@@ -214,6 +313,10 @@
     "feedbackSubtitle": "Envie uma ideia, reporte um erro ou acompanhe uma conversa existente.",
     "openFeedback": "Abrir feedback",
     "openAdminFeedback": "Abrir caixa de feedback",
+    "privacyTitle": "Privacidade",
+    "privacySubtitle": "Consulte como o SmartFinance utiliza o armazenamento do navegador e altere as suas escolhas de consentimento opcional.",
+    "manageCookiePreferences": "Gerir preferências de cookies",
+    "openCookiePolicy": "Ler política de cookies",
     "unnamedUser": "Utilizador sem nome",
     "noEmail": "Sem email",
     "currentHousehold": "Agregado atual: {{value}}",
@@ -464,6 +567,11 @@
     "active": "Ativa",
     "unarchive": "Desarquivar",
     "archive": "Arquivar",
+    "accountTransfersLoadingMore": "A carregar mais transferências...",
+    "balanceChartTitle": "Visão geral dos saldos",
+    "balanceChartSubtitle": "Saldos atuais agrupados por tipo de conta, mantendo cada pote de poupança separado.",
+    "balancePieChart": "Gráfico circular da distribuição dos saldos",
+    "savingPotSlice": "Pote · {{name}}",
     "types": {
       "bank": "Banco",
       "cash": "Numerário",
@@ -476,15 +584,51 @@
     }
   },
 
+  "insights": {
+    "title": "Análise financeira",
+    "subtitle": "Compreenda o fluxo de caixa, compromissos recorrentes e saldos projetados.",
+    "income": "Rendimento este mês",
+    "expenses": "Despesas este mês",
+    "netCashFlow": "Fluxo de caixa líquido",
+    "incomeForPeriod": "Rendimento · {{period}}",
+    "expensesForPeriod": "Despesas · {{period}}",
+    "netCashFlowForPeriod": "Fluxo de caixa líquido · {{period}}",
+    "subscriptionMonthly": "Custo recorrente mensal",
+    "upcoming": "Próximos movimentos",
+    "upcomingSubtitle": "Rendimentos, contas, subscrições e transferências previstas para este e o próximo mês.",
+    "noUpcoming": "Sem movimentos recorrentes futuros.",
+    "merchants": "Principais comerciantes",
+    "merchantsSubtitle": "Os maiores destinos das despesas no mês atual.",
+    "noSpending": "Sem despesas neste período.",
+    "projections": "Saldos projetados",
+    "projectionsSubtitle": "Saldos atuais após os movimentos recorrentes confirmados até ao próximo mês.",
+    "dateRange": "Intervalo temporal das análises",
+    "range3Months": "3 meses",
+    "range6Months": "6 meses",
+    "range12Months": "12 meses",
+    "rangeYtd": "Desde o início do ano",
+    "monthlyCashFlow": "Fluxo de caixa mensal",
+    "monthlyCashFlowSubtitle": "Rendimentos e despesas, com o fluxo líquido apresentado em linha.",
+    "spendingByCategory": "Despesas por categoria",
+    "spendingByCategorySubtitle": "Distribuição das despesas do agregado no período selecionado.",
+    "savingsRate": "Taxa de poupança",
+    "savingsRateSubtitle": "Percentagem do rendimento que sobra depois das despesas em cada mês.",
+    "chartIncome": "Rendimentos",
+    "chartExpenses": "Despesas",
+    "chartNet": "Líquido",
+    "notAvailable": "Indisponível",
+    "unknownCategory": "Categoria desconhecida",
+    "uncategorized": "Sem categoria"
+  },
   "transactions": {
     "title": "Transações",
-    "subtitle": "Crie e reveja as receitas e despesas do agregado.",
+    "subtitle": "Crie e reveja receitas, despesas, transferências e movimentos agendados do agregado.",
     "filtersTitle": "Filtros",
-    "filtersSubtitle": "Combine filtros de tipo, conta, criador, data e ordenação.",
+    "filtersSubtitle": "Combine filtros de tipo, categoria, conta, criador, data e ordenação.",
     "filtersCollapsed": "Abra os filtros para refinar a lista de transações.",
     "showFilters": "Mostrar filtros",
     "hideFilters": "Ocultar filtros",
-    "filterType": "Tipo de transação",
+    "filterType": "Tipo de movimento",
     "sortBy": "Ordenar por",
     "sorts": {
       "newest": "Mais recentes",
@@ -499,12 +643,17 @@
     "filters": {
       "all": "Todas",
       "income": "Receita",
-      "expense": "Despesa"
+      "expense": "Despesa",
+      "transfer": "Transferência"
     },
-    "createTitle": "Criar transação",
-    "createSubtitle": "Isto usa a mutação e o esquema de transação existentes.",
+    "createTitle": "Adicionar movimento",
+    "createSubtitle": "Crie uma receita, despesa ou transferência entre contas.",
     "titleLabel": "Título",
     "titlePlaceholder": "Salário / Compras",
+    "titleSuggestions": "Sugestões de nome da transação",
+    "titleSuggestionHint": "Escreva pelo menos dois caracteres para ver nomes usados antes. Pode sempre introduzir um nome novo.",
+    "titleSuggestionUses_one": "Usado uma vez",
+    "titleSuggestionUses_other": "Usado {{count}} vezes",
     "amountLabel": "Valor",
     "dateLabel": "Data",
     "notesLabel": "Notas",
@@ -516,10 +665,19 @@
     "accounts": "Contas",
     "categories": "Categorias",
     "createdBy": "Criado por",
+    "categorySuggestionLoading": "A procurar uma categoria...",
+    "categorySuggestionHigh": "Sugerida com base em {{count}} transação(ões) semelhante(s).",
+    "categorySuggestionMedium": "Categoria sugerida: {{category}} - com base em {{count}} transação(ões) semelhante(s).",
+    "categorySuggestionUnavailable": "As sugestões de categoria estão temporariamente indisponíveis. Ainda pode criar a transação.",
     "createdByPlaceholder": "Selecionar quem é dono desta transação",
     "create": "Criar transação",
+    "createTransfer": "Criar transferência",
     "createAndNew": "Guardar e criar outra",
-    "addTransaction": "Adicionar transação",
+    "addTransaction": "Adicionar movimento",
+    "movementKinds": {
+      "transaction": "Transação",
+      "transfer": "Transferência"
+    },
     "types": {
       "income": "Receita",
       "expense": "Despesa"
@@ -529,6 +687,15 @@
     "account": "Conta",
     "accountOwner": "Titular da conta",
     "allAccounts": "Todas as contas",
+    "sourceAccount": "Conta de origem",
+    "destinationAccount": "Conta de destino",
+    "allSourceAccounts": "Todas as contas de origem",
+    "allDestinationAccounts": "Todas as contas de destino",
+    "sourceAccountHint": "Apenas transferências que saem desta conta.",
+    "destinationAccountHint": "Apenas transferências que entram nesta conta.",
+    "categoryFilter": "Categoria",
+    "categoryFilterHint": "Mostrar transações de uma categoria.",
+    "allCategories": "Todas as categorias",
     "balanceAfter": "Saldo após",
     "uncategorized": "Sem categoria",
     "activeFilters": "{{count}} filtros ativos - Limpar tudo",
@@ -539,6 +706,11 @@
     "delete": "Eliminar Transação",
     "deleteTitle": "Eliminar transação",
     "deleteMessage": "Esta ação não pode ser revertida.",
+    "deleteTransfer": "Eliminar transferência",
+    "deleteTransferTitle": "Eliminar esta transferência?",
+    "deleteTransferMessage": "Isto elimina os dois lados de “{{title}}” e atualiza os saldos das duas contas.",
+    "editTransfer": "Editar transferência",
+    "saveTransfer": "Guardar transferência",
     "newTitle": "Nova Transação",
     "new": "+ Nova",
     "empty": "Não foram encontradas transações."
@@ -665,6 +837,9 @@
     "spent": "Gasto",
     "balance": "Saldo",
     "accountsUsed": "Contas usadas",
+    "balanceByAccount": "Saldo por conta",
+    "accountColumn": "Conta",
+    "balanceColumn": "Saldo",
     "currentTitle": "Pots de poupança",
     "currentSubtitle": "Eliminar pots usando a mutação existente.",
     "noTarget": "Sem alvo",

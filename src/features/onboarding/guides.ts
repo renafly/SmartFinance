@@ -36,10 +36,12 @@ export const onboardingGuides: Record<OnboardingGuideKey, OnboardingGuide> = {
   },
   transactions: {
     key: 'transactions',
-    version: 1,
+    version: 2,
     steps: [
-      step('record', { title: 'Registe uma transacao', body: 'Escolha a conta, categoria, data e valor. Entradas e saidas ficam visiveis no historico.' }, { title: 'Record a transaction', body: 'Choose the account, category, date, and amount. Income and expenses remain visible in history.' }),
-      step('context', { title: 'Use o contexto', body: 'A categoria, a conta e a data tornam os filtros e os relatorios mais uteis.' }, { title: 'Use context', body: 'Category, account, and date make filters and reports more useful.' }),
+      step('record', { title: 'Registe movimentos', body: 'Adicione entradas, despesas e transferencias no mesmo local, escolhendo contas, categorias, datas e valores.' }, { title: 'Record every movement', body: 'Add income, expenses, and transfers in one place with their accounts, categories, dates, and amounts.' }),
+      step('route', { title: 'Acompanhe transferencias', body: 'Cada transferencia aparece uma vez e mostra sempre a conta de origem e a conta de destino.' }, { title: 'Follow transfer routes', body: 'Each transfer appears once and always shows its source and destination accounts.' }),
+      step('recurring', { title: 'Automatize o recorrente', body: 'Crie e gira movimentos recorrentes na mesma pagina, incluindo pausas e historico de execucao.' }, { title: 'Automate recurring activity', body: 'Create and manage scheduled movements on the same page, including pauses and execution history.' }),
+      step('context', { title: 'Use os filtros', body: 'Filtre por tipo de movimento, conta, categoria, pessoa e data para encontrar exatamente o que procura.' }, { title: 'Use the filters', body: 'Filter by movement type, account, category, person, and date to find exactly what you need.' }),
     ],
   },
   transfers: {

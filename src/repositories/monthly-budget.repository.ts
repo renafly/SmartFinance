@@ -1,6 +1,6 @@
 import { BaseRepository, type RepoResult } from "@/repositories/base.repository";
 import { supabase } from "@/shared/lib/supabase/client";
-import type { Database } from "@/types/database.types";
+import type { Database, Json } from "@/types/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type BudgetConfig = Database["public"]["Tables"]["budget_configs"]["Row"];
@@ -193,6 +193,30 @@ export class MonthlyBudgetRepository extends BaseRepository<"budget_configs"> {
 
     if (error) return { data: null, error };
     return { data, error: null };
+  }
+
+  async confirmRunAtomically(
+    runId: string,
+    transfers: Json,
+    preview: Json,
+  ): Promise<RepoResult<MonthlyBudgetRun>> {
+    const { data, error } = await this.client.rpc("confirm_monthly_budget_run", {
+      p_run_id: runId,
+      p_transfers: transfers,
+      p_preview: preview,
+    });
+
+    if (error) return { data: null, error };
+    return { data: data as MonthlyBudgetRun, error: null };
+  }
+
+  async deleteRunTransactions(runId: string): Promise<RepoResult<number>> {
+    const { data, error } = await this.client.rpc("delete_monthly_budget_run_transactions", {
+      p_run_id: runId,
+    });
+
+    if (error) return { data: null, error };
+    return { data: Number(data ?? 0), error: null };
   }
 
   async listIncomeInputs(

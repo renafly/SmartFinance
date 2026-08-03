@@ -8,6 +8,7 @@ import { QueryProvider } from "./QueryProvider";
 import { ToastProvider } from "./ToastProvider";
 import { NotificationsProvider } from "./NotificationsProvider";
 import { ProfileOnboardingProvider } from "@/features/onboarding/ProfileOnboardingProvider";
+import { CookieConsentProvider } from "@/features/cookie-consent";
 
 // Composition order matters: Theme and Query are foundational (most
 // other providers may want colors or query hooks), Auth needs Query
@@ -17,19 +18,21 @@ import { ProfileOnboardingProvider } from "@/features/onboarding/ProfileOnboardi
 export function RootProvider({ children }: PropsWithChildren) {
   return (
     <ThemeProvider>
-      <QueryProvider>
-        <AuthProvider>
-          <ProfileOnboardingProvider>
-            <FeatureFlagProvider>
-              <ModalProvider>
-                <ToastProvider>
-                  <NotificationsProvider>{children}</NotificationsProvider>
-                </ToastProvider>
-              </ModalProvider>
-            </FeatureFlagProvider>
-          </ProfileOnboardingProvider>
-        </AuthProvider>
-      </QueryProvider>
+      <CookieConsentProvider>
+        <QueryProvider>
+          <AuthProvider>
+            <ProfileOnboardingProvider>
+              <FeatureFlagProvider>
+                <ModalProvider>
+                  <ToastProvider>
+                    <NotificationsProvider>{children}</NotificationsProvider>
+                  </ToastProvider>
+                </ModalProvider>
+              </FeatureFlagProvider>
+            </ProfileOnboardingProvider>
+          </AuthProvider>
+        </QueryProvider>
+      </CookieConsentProvider>
     </ThemeProvider>
   );
 }

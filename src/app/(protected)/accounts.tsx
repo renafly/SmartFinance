@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
+import Svg, { Circle } from "react-native-svg";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
@@ -12,13 +13,15 @@ import { HouseholdMemberSelect } from "@/components/household-member-select";
 import { useAuth } from "../../providers/AuthProvider";
 import { useAccountsWithBalances, useCreateAccount, useArchiveAccount, useDeleteAccount, useUpdateAccount } from "../../features/accounts/hooks";
 import { useHouseholdMemberDetails, useMyHouseholds } from "../../features/households/hooks";
+import { useSavingPotAccountAssignments, useSavingPotBalances } from "../../features/saving-pots/hooks";
 import { usePreferencesStore, type AppCurrency } from "@/stores/preferencesStore";
 import { typography } from "@/theme/typography";
-import { useTransactions } from "../../features/transactions/hooks/useTransactions";
+import { useTransactionsInfinite } from "../../features/transactions/hooks/useTransactions";
 import { ACCOUNT_TYPE_ORDER, SHARED_ACCOUNT_OWNER_KEY, compareAccountsByOwnerThenType, getAccountOwnerKey } from "../../features/accounts/account-ordering";
 
 const accountTypes = ACCOUNT_TYPE_ORDER;
 const currencyOptions: AppCurrency[] = ["EUR", "USD", "GBP"];
+const ACCOUNT_HISTORY_PAGE_SIZE = 20;
 
 type EditMode = {
   id: string;
@@ -39,6 +42,8 @@ export default function AccountsScreen() {
   const accountsQuery = useAccountsWithBalances();
   const membersQuery = useHouseholdMemberDetails();
   const householdsQuery = useMyHouseholds();
+  const savingPotBalancesQuery = useSavingPotBalances();
+  const savingPotAssignmentsQuery = useSavingPotAccountAssignments();
   const createAccount = useCreateAccount();
   const archiveAccount = useArchiveAccount();
   const deleteAccount = useDeleteAccount();
@@ -63,6 +68,8 @@ export default function AccountsScreen() {
   const [ownerFilter, setOwnerFilter] = useState<"all" | "shared" | string>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | (typeof accountTypes)[number]>("all");
   const [formError, setFormError] = useState<string | null>(null);
+  const [expandedAccountGroupKeys, setExpandedAccountGroupKeys] = useState<string[]>([]);
+  const [selectedBalanceSliceKey, setSelectedBalanceSliceKey] = useState<string | null>(null);
 
   const accounts = useMemo(
     () => (accountsQuery.data ?? []) as any[],
@@ -139,28 +146,114 @@ export default function AccountsScreen() {
     },
     { accent: colors.financialGoal, surface: colors.financialGoalSoft },
   ];
+  const accountChartColors = [
+    colors.primary,
+    colors.financialPositive,
+    colors.financialNeutral,
+    colors.financialGoal,
+    colors.financialAttention,
+    colors.info,
+    colors.warning,
+    colors.destructive,
+  ];
   const archivedCount = accounts.filter((item: any) => item.is_archived).length;
   const activeFilterCount = Number(ownerFilter !== "all") + Number(typeFilter !== "all");
+  const visibleAccountsById = new Map(orderedFilteredAccounts.map((account: any) => [account.id, account]));
+  const savingPotAssignments = (savingPotAssignmentsQuery.data ?? []) as any[];
+  const visibleSavingPots = ((savingPotBalancesQuery.data ?? []) as any[]).filter((pot) =>
+    savingPotAssignments.some((assignment) => assignment.pot_id === pot.id && visibleAccountsById.has(assignment.account_id)),
+  );
+  const visibleSavingPotIds = new Set(visibleSavingPots.map((pot) => pot.id));
+  const savingPotAccountIds = new Set(
+    savingPotAssignments
+      .filter((assignment) => visibleSavingPotIds.has(assignment.pot_id))
+      .map((assignment) => assignment.account_id),
+  );
+  const unassignedVisibleAccounts = orderedFilteredAccounts.filter(
+    (account: any) => !savingPotAccountIds.has(account.id),
+  );
+  const accountTypeTotals = new Map<string, number>();
+  unassignedVisibleAccounts.forEach((account: any) => {
+    const balance = Math.max(0, Number(account.current_balance ?? account.balance ?? 0));
+    accountTypeTotals.set(account.type, (accountTypeTotals.get(account.type) ?? 0) + balance);
+  });
+
+  const accountBalanceSlices = [
+    ...accountTypes.flatMap((accountType) => {
+      const value = accountTypeTotals.get(accountType) ?? 0;
+      return value > 0
+        ? [{
+            key: `type-${accountType}`,
+            label: t(`accounts.types.${accountType}`),
+            value,
+            details: unassignedVisibleAccounts
+              .filter((account: any) => account.type === accountType)
+              .map((account: any) => ({
+                key: account.id,
+                name: account.name,
+                owner: getOwnerLabel(account.owner_profile_id),
+                value: Number(account.current_balance ?? account.balance ?? 0),
+              })),
+          }]
+        : [];
+    }),
+    ...visibleSavingPots.flatMap((pot) => {
+      const visibleAssignedAccounts = savingPotAssignments
+        .filter((assignment) => assignment.pot_id === pot.id)
+        .flatMap((assignment) => {
+          const account: any = visibleAccountsById.get(assignment.account_id);
+          return account ? [account] : [];
+        });
+      const value = visibleAssignedAccounts.reduce(
+        (sum, account) => sum + Math.max(0, Number(account.current_balance ?? account.balance ?? 0)),
+        0,
+      );
+      return value > 0
+        ? [{
+            key: `pot-${pot.id}`,
+            label: t("accounts.savingPotSlice", { defaultValue: "Pot · {{name}}", name: pot.name }),
+            value,
+            details: visibleAssignedAccounts.map((account) => ({
+              key: account.id,
+              name: account.name,
+              owner: getOwnerLabel(account.owner_profile_id),
+              value: Number(account.current_balance ?? account.balance ?? 0),
+            })),
+          }]
+        : [];
+    }),
+  ];
+  const accountBalanceSliceTotal = accountBalanceSlices.reduce((sum, slice) => sum + slice.value, 0);
+  const selectedBalanceSlice = accountBalanceSlices.find((slice) => slice.key === selectedBalanceSliceKey) ?? null;
   const parsedInitialBalance = Number(initialBalance);
-  const accountTransfersQuery = useTransactions(accountHistory ? { accountId: accountHistory.id } : {}, { enabled: Boolean(accountHistory?.id) });
+  const accountTransfersQuery = useTransactionsInfinite(
+    accountHistory ? { accountId: accountHistory.id } : {},
+    ACCOUNT_HISTORY_PAGE_SIZE,
+    { enabled: Boolean(accountHistory?.id) },
+  );
   const accountTransactions = useMemo(
-    () => accountTransfersQuery.data ?? [],
+    () => accountTransfersQuery.data?.pages.flat() ?? [],
     [accountTransfersQuery.data],
   );
-  const { refetch: refetchAccountTransfers } = accountTransfersQuery;
-  const hasTransferRows = accountTransactions.some((item: any) => Boolean(item.transfer_group_id));
   const accountTransfers = useMemo(
     () =>
       accountTransactions
-        .filter((item: any) => (hasTransferRows ? Boolean(item.transfer_group_id) : true))
         .sort((a: any, b: any) => {
           const dateA = new Date(a.transaction_date ?? 0).getTime();
           const dateB = new Date(b.transaction_date ?? 0).getTime();
           return dateB - dateA || String(b.id ?? "").localeCompare(String(a.id ?? ""));
         }),
-    [accountTransactions, hasTransferRows],
+    [accountTransactions],
   );
   const canCreateAccount = !createAccount.isPending && name.trim().length > 0 && Number.isFinite(parsedInitialBalance);
+
+  function toggleAccountGroup(groupKey: string) {
+    setExpandedAccountGroupKeys((current) =>
+      current.includes(groupKey)
+        ? current.filter((key) => key !== groupKey)
+        : [...current, groupKey],
+    );
+  }
 
   async function handleCreate() {
     if (!householdId || !profile?.id || !name.trim() || !Number.isFinite(parsedInitialBalance) || parsedInitialBalance < 0) {
@@ -241,11 +334,20 @@ export default function AccountsScreen() {
     setEditAccount(null);
   }
 
-  useEffect(() => {
-    if (accountHistory?.id) {
-      void refetchAccountTransfers();
-    }
-  }, [accountHistory?.id, refetchAccountTransfers]);
+  const loadMoreAccountTransfers = useCallback(
+    (event: any) => {
+      if (!accountTransfersQuery.hasNextPage || accountTransfersQuery.isFetchingNextPage) return;
+
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const distanceFromBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
+      const preloadDistance = layoutMeasurement.height * 0.25;
+
+      if (distanceFromBottom <= preloadDistance) {
+        void accountTransfersQuery.fetchNextPage();
+      }
+    },
+    [accountTransfersQuery],
+  );
 
   return (
     <Page title={t("accounts.title")} subtitle={t("accounts.subtitle")} actions={<Button label={t("accounts.create")} onPress={openCreateDialog} />}>
@@ -261,6 +363,106 @@ export default function AccountsScreen() {
         />
         <MetricCard label={t("accounts.allTypes")} value={String(accounts.length)} icon="layers-outline" hint={t("accounts.filtersByType")} />
       </View>
+
+      {accountBalanceSlices.length ? (
+        <Section
+          title={t("accounts.balanceChartTitle", { defaultValue: "Account balance overview" })}
+          subtitle={t("accounts.balanceChartSubtitle", {
+            defaultValue: "Current balances grouped by account type, with each saving pot kept separate.",
+          })}
+        >
+          <View style={styles.balanceChartLayout}>
+            <View accessibilityRole="image" accessibilityLabel={t("accounts.balancePieChart", { defaultValue: "Account balance distribution pie chart" })}>
+              <Svg width={200} height={200} viewBox="0 0 200 200">
+                <Circle cx="100" cy="100" r="70" fill="none" stroke={colors.surfaceMuted} strokeWidth="36" />
+                {accountBalanceSlices.map((slice, index) => {
+                  const circumference = 2 * Math.PI * 70;
+                  const previousValue = accountBalanceSlices.slice(0, index).reduce((sum, item) => sum + item.value, 0);
+                  const sliceLength = accountBalanceSliceTotal > 0 ? (slice.value / accountBalanceSliceTotal) * circumference : 0;
+                  const offset = accountBalanceSliceTotal > 0 ? (previousValue / accountBalanceSliceTotal) * circumference : 0;
+                  const sliceColor = accountChartColors[index % accountChartColors.length];
+
+                  return (
+                    <Circle
+                      key={slice.key}
+                      cx="100"
+                      cy="100"
+                      r="70"
+                      fill="none"
+                      stroke={sliceColor}
+                      strokeWidth="36"
+                      strokeDasharray={`${sliceLength} ${circumference - sliceLength}`}
+                      strokeDashoffset={-offset}
+                      rotation={-90}
+                      origin="100, 100"
+                      onPress={() => setSelectedBalanceSliceKey(slice.key)}
+                    />
+                  );
+                })}
+              </Svg>
+              <View pointerEvents="none" style={styles.balanceChartCenter}>
+                <Text style={styles.balanceChartCenterLabel}>{t("dashboard.total")}</Text>
+                <Text style={styles.balanceChartCenterValue}>{formatCurrency(accountBalanceSliceTotal)}</Text>
+              </View>
+            </View>
+            <View style={styles.balanceChartLegend}>
+              {accountBalanceSlices.map((slice, index) => {
+                const sliceColor = accountChartColors[index % accountChartColors.length];
+                const percentage = accountBalanceSliceTotal > 0 ? (slice.value / accountBalanceSliceTotal) * 100 : 0;
+
+                return (
+                  <Pressable
+                    key={slice.key}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selectedBalanceSliceKey === slice.key }}
+                    accessibilityLabel={`${slice.label}: ${formatCurrency(slice.value)}`}
+                    onPress={() => setSelectedBalanceSliceKey(slice.key)}
+                    style={({ pressed }) => [
+                      styles.balanceChartLegendRow,
+                      selectedBalanceSliceKey === slice.key && { backgroundColor: colors.surfaceSelected },
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <View style={[styles.balanceChartSwatch, { backgroundColor: sliceColor }]} />
+                    <View style={styles.balanceChartLegendCopy}>
+                      <Text style={styles.balanceChartName} numberOfLines={1}>{slice.label}</Text>
+                      <Text style={styles.balanceChartPercentage}>{percentage.toFixed(1)}%</Text>
+                    </View>
+                    <Text style={[styles.balanceChartValue, { color: sliceColor }]}>{formatCurrency(slice.value)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+          {selectedBalanceSlice ? (
+            <View style={[styles.balanceChartTooltip, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.balanceChartTooltipHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.balanceChartTooltipTitle}>{selectedBalanceSlice.label}</Text>
+                  <Text style={styles.balanceChartTooltipTotal}>{formatCurrency(selectedBalanceSlice.value)}</Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("close", { defaultValue: "Close" })}
+                  onPress={() => setSelectedBalanceSliceKey(null)}
+                  style={({ pressed }) => [styles.balanceChartTooltipClose, pressed && styles.pressed]}
+                >
+                  <Ionicons name="close" size={18} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+              {selectedBalanceSlice.details.map((detail) => (
+                <View key={detail.key} style={styles.balanceChartTooltipRow}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.balanceChartTooltipAccount} numberOfLines={1}>{detail.name}</Text>
+                    <Text style={styles.balanceChartTooltipOwner} numberOfLines={1}>{detail.owner}</Text>
+                  </View>
+                  <Text style={styles.balanceChartTooltipValue}>{formatCurrency(detail.value)}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </Section>
+      ) : null}
 
       <Section
         title={t("accounts.currentTitle")}
@@ -304,16 +506,24 @@ export default function AccountsScreen() {
           <View style={styles.accountGroups}>
             {accountGroups.map((group, groupIndex) => {
               const tone = accountGroupTones[groupIndex % accountGroupTones.length];
+              const isCollapsed = !expandedAccountGroupKeys.includes(group.key);
 
               return (
                 <View key={group.key} style={[styles.accountGroup, { borderColor: tone.accent, backgroundColor: tone.surface }]}>
-                  <View style={styles.accountGroupHeader}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: !isCollapsed }}
+                    accessibilityLabel={`${group.title}: ${isCollapsed ? t("expand", { defaultValue: "Expand" }) : t("collapse", { defaultValue: "Collapse" })}`}
+                    onPress={() => toggleAccountGroup(group.key)}
+                    style={({ pressed }) => [styles.accountGroupHeader, pressed && styles.pressed]}
+                  >
                     <View style={[styles.accountGroupMarker, { backgroundColor: tone.accent }]} />
                     <Ionicons name="person-outline" size={18} color={tone.accent} />
                     <Text style={[styles.accountGroupTitle, { color: tone.accent }]}>{group.title}</Text>
                     <Badge label={String(group.accounts.length)} tone="neutral" />
-                  </View>
-                  <Table
+                    <Ionicons name={isCollapsed ? "chevron-down" : "chevron-up"} size={18} color={tone.accent} />
+                  </Pressable>
+                  {!isCollapsed ? <Table
                     columns={[
                       { label: t("accounts.name"), flex: 2.6 },
                       { label: t("accounts.typeLabel"), flex: 1 },
@@ -385,7 +595,7 @@ export default function AccountsScreen() {
                         </TableRow>
                       );
                     })}
-                  </Table>
+                  </Table> : null}
                 </View>
               );
             })}
@@ -596,19 +806,20 @@ export default function AccountsScreen() {
                 })}
               </Text>
             </View>
-            <ScrollView style={styles.historyScroll} contentContainerStyle={{ gap: spacing(3) }}>
-              {accountTransfersQuery.isPending || accountTransfersQuery.isFetching ? (
+            <ScrollView
+              style={styles.historyScroll}
+              contentContainerStyle={{ gap: spacing(3) }}
+              onScroll={loadMoreAccountTransfers}
+              scrollEventThrottle={16}
+            >
+              {accountTransfersQuery.isPending ? (
                 <Text style={styles.accountMeta}>
-                  {t("accounts.accountTransfersLoading", {
-                    defaultValue: "Loading transfers...",
-                  })}
+                  {t("accounts.accountTransfersLoading", { defaultValue: "Loading transfers..." })}
                 </Text>
               ) : accountTransfersQuery.error ? (
                 <View style={{ gap: spacing(2) }}>
                   <Text style={styles.transferAmountExpense}>
-                    {t("accounts.accountTransfersError", {
-                      defaultValue: "Could not load transfers for this account.",
-                    })}
+                    {t("accounts.accountTransfersError", { defaultValue: "Could not load transfers for this account." })}
                   </Text>
                   <Button label={t("retry", { defaultValue: "Retry" })} variant="secondary" onPress={() => void accountTransfersQuery.refetch()} />
                 </View>
@@ -628,24 +839,12 @@ export default function AccountsScreen() {
                 >
                   {accountTransfers.map((item: any) => (
                     <TableRow key={item.id}>
-                      <TableCell flex={1}>
-                        <Text style={styles.accountMeta}>{new Date(item.transaction_date).toLocaleDateString()}</Text>
-                      </TableCell>
-                      <TableCell flex={2}>
-                        <Text style={styles.accountName}>{item.title}</Text>
-                      </TableCell>
-                      <TableCell flex={1}>
-                        <Badge
-                          label={t(`transactions.types.${item.type}`, {
-                            defaultValue: item.type,
-                          })}
-                          tone={item.type === "expense" ? "destructive" : "success"}
-                        />
-                      </TableCell>
+                      <TableCell flex={1}><Text style={styles.accountMeta}>{new Date(item.transaction_date).toLocaleDateString()}</Text></TableCell>
+                      <TableCell flex={2}><Text style={styles.accountName}>{item.title}</Text></TableCell>
+                      <TableCell flex={1}><Badge label={t(`transactions.types.${item.type}`, { defaultValue: item.type })} tone={item.type === "expense" ? "destructive" : "success"} /></TableCell>
                       <TableCell align="right">
                         <Text style={item.type === "expense" ? styles.transferAmountExpense : styles.transferAmountIncome}>
-                          {item.type === "expense" ? "-" : "+"}
-                          {formatCurrency(item.amount)}
+                          {item.type === "expense" ? "-" : "+"}{formatCurrency(item.amount)}
                         </Text>
                       </TableCell>
                     </TableRow>
@@ -662,6 +861,15 @@ export default function AccountsScreen() {
                   icon="swap-horizontal-outline"
                 />
               )}
+              {accountTransfersQuery.isFetchingNextPage ? (
+                <Text style={styles.accountMeta}>{t("accounts.accountTransfersLoadingMore")}</Text>
+              ) : accountTransfersQuery.hasNextPage ? (
+                <Button
+                  label={t("transactions.loadMore", { defaultValue: "Load more" })}
+                  variant="secondary"
+                  onPress={() => void accountTransfersQuery.fetchNextPage()}
+                />
+              ) : null}
             </ScrollView>
             <Button label={t("close", { defaultValue: "Close" })} variant="secondary" onPress={() => setAccountHistory(null)} />
           </View>
@@ -702,6 +910,115 @@ function createStyles(colors: any) {
     },
     accountGroups: {
       gap: spacing(4),
+    },
+    balanceChartLayout: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      flexWrap: "wrap" as const,
+      gap: spacing(6),
+    },
+    balanceChartCenter: {
+      ...StyleSheet.absoluteFill,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      padding: spacing(8),
+    },
+    balanceChartCenterLabel: {
+      color: colors.textSecondary,
+      fontSize: 11,
+      fontWeight: String(typography.fontWeight.semibold),
+    },
+    balanceChartCenterValue: {
+      color: colors.text,
+      fontSize: typography.fontSize[14],
+      fontWeight: String(typography.fontWeight.extraBold),
+      textAlign: "center" as const,
+    },
+    balanceChartLegend: {
+      flex: 1,
+      minWidth: spacing(55),
+      gap: spacing(2.5),
+    },
+    balanceChartLegendRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing(2),
+      padding: spacing(2),
+      borderRadius: radius.md,
+    },
+    balanceChartSwatch: {
+      width: spacing(3),
+      height: spacing(3),
+      borderRadius: radius.full,
+    },
+    balanceChartLegendCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    balanceChartName: {
+      color: colors.text,
+      fontSize: typography.fontSize[13],
+      fontWeight: String(typography.fontWeight.semibold),
+    },
+    balanceChartPercentage: {
+      color: colors.textSecondary,
+      fontSize: 11,
+    },
+    balanceChartValue: {
+      fontSize: typography.fontSize[13],
+      fontWeight: String(typography.fontWeight.extraBold),
+      fontVariant: ["tabular-nums"],
+    },
+    balanceChartTooltip: {
+      marginTop: spacing(4),
+      padding: spacing(3),
+      gap: spacing(2),
+      borderWidth: 1,
+      borderRadius: radius.lg,
+    },
+    balanceChartTooltipHeader: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing(3),
+    },
+    balanceChartTooltipTitle: {
+      color: colors.text,
+      fontSize: typography.fontSize[15],
+      fontWeight: String(typography.fontWeight.extraBold),
+    },
+    balanceChartTooltipTotal: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+    },
+    balanceChartTooltipClose: {
+      width: spacing(8),
+      height: spacing(8),
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      borderRadius: radius.full,
+    },
+    balanceChartTooltipRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing(3),
+      paddingTop: spacing(2),
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    balanceChartTooltipAccount: {
+      color: colors.text,
+      fontSize: typography.fontSize[13],
+      fontWeight: String(typography.fontWeight.bold),
+    },
+    balanceChartTooltipOwner: {
+      color: colors.textSecondary,
+      fontSize: 11,
+    },
+    balanceChartTooltipValue: {
+      color: colors.text,
+      fontSize: typography.fontSize[13],
+      fontWeight: String(typography.fontWeight.extraBold),
+      fontVariant: ["tabular-nums"],
     },
     accountGroup: {
       gap: spacing(2.5),
@@ -771,7 +1088,7 @@ function createStyles(colors: any) {
     historyModalCard: {
       width: "100%",
       maxWidth: spacing(180),
-      maxHeight: "82%",
+      height: "82%",
       alignSelf: "center" as const,
       gap: spacing(3.5),
       padding: spacing(4.5),
@@ -781,7 +1098,8 @@ function createStyles(colors: any) {
       backgroundColor: colors.surface,
     },
     historyScroll: {
-      maxHeight: spacing(120),
+      flex: 1,
+      minHeight: 0,
     },
     menuCard: {
       width: "100%",

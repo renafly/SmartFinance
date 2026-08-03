@@ -1,8 +1,96 @@
 {
+  "cookieConsent": {
+    "bannerLabel": "Cookie and storage preferences",
+    "title": "Your privacy choices",
+    "description": "SmartFinance uses necessary browser storage to keep you signed in and remember essential settings. With your permission, we also use optional analytics.",
+    "policyLink": "Read our cookie policy.",
+    "rejectOptional": "Reject optional",
+    "manage": "Manage preferences",
+    "acceptAll": "Accept all",
+    "preferencesTitle": "Cookie preferences",
+    "preferencesDescription": "Choose which optional technologies SmartFinance may use. Necessary storage is always active because the service depends on it.",
+    "necessaryTitle": "Necessary",
+    "necessaryDescription": "Authentication, security, consent records, and essential service operation.",
+    "preferenceTitle": "Preferences",
+    "preferenceDescription": "Remember choices such as language and visual theme.",
+    "analyticsTitle": "Analytics",
+    "analyticsDescription": "Allow privacy-conscious performance measurement through Vercel Speed Insights.",
+    "readPolicy": "Read the Cookie and Similar Technologies Policy",
+    "cancel": "Cancel",
+    "save": "Save preferences"
+  },
+  "cookiePolicy": {
+    "back": "Back to SmartFinance",
+    "title": "Cookie and Similar Technologies Policy",
+    "effective": "Effective 30 July 2026",
+    "scope": {
+      "title": "What this policy covers",
+      "body": "This policy explains how the SmartFinance web app uses cookies and similar browser technologies, including local storage. The native mobile apps use device storage rather than browser cookies."
+    },
+    "necessary": {
+      "title": "Necessary storage",
+      "body": "SmartFinance needs some browser storage to provide the service you request. Supabase authentication session information keeps you signed in and refreshes your session. A consent record remembers your privacy choices. These technologies are not used for advertising."
+    },
+    "optional": {
+      "title": "Optional storage and measurement",
+      "body": "Language and theme preferences improve your experience. Vercel Speed Insights helps us understand website performance and is enabled only after you consent to analytics. SmartFinance does not currently use advertising or cross-site marketing cookies."
+    },
+    "storage": {
+      "title": "Technologies we use",
+      "type": "Technology",
+      "purpose": "Purpose",
+      "duration": "Duration",
+      "category": "Category",
+      "rows": [
+        {
+          "name": "Supabase authentication session",
+          "type": "Browser local storage (not an HttpOnly cookie)",
+          "purpose": "Stores access and refresh session data so you can remain signed in securely.",
+          "duration": "Until sign-out, session expiry, or browser data deletion",
+          "category": "Necessary"
+        },
+        {
+          "name": "SmartFinance consent record",
+          "type": "Browser local storage",
+          "purpose": "Remembers whether you accepted or rejected optional technologies.",
+          "duration": "Until the preference is reset, policy version changes, or browser data is deleted",
+          "category": "Necessary"
+        },
+        {
+          "name": "Language and theme preferences",
+          "type": "Browser local storage",
+          "purpose": "Remembers your language and visual appearance choices.",
+          "duration": "Until changed or browser data is deleted",
+          "category": "Preferences"
+        },
+        {
+          "name": "Vercel Speed Insights",
+          "type": "Performance analytics technology",
+          "purpose": "Measures aggregate website responsiveness and loading performance.",
+          "duration": "As specified by Vercel for the measurement data it collects",
+          "category": "Analytics — consent required"
+        }
+      ]
+    },
+    "control": {
+      "title": "Manage or withdraw consent",
+      "body": "You can reject optional technologies and continue using core SmartFinance features. You can reopen Cookie preferences at any time to change or withdraw consent. You can also clear site data in your browser; doing so may sign you out and reset saved preferences.",
+      "action": "Manage cookie preferences"
+    },
+    "thirdParties": {
+      "title": "Service providers",
+      "body": "Supabase provides authentication and application infrastructure. Vercel provides website hosting and, when analytics consent is granted, Speed Insights. Google participates when you choose Google sign-in and applies its own privacy terms during that process."
+    },
+    "changes": {
+      "title": "Changes to this policy",
+      "body": "We may update this policy when our technology or legal obligations change. We will update the effective date and ask for your choices again when a change materially affects consent."
+    }
+  },
   "drawer": {
     "dashboard": "Dashboard",
     "accounts": "Accounts",
     "transactions": "Transactions",
+    "insights": "Insights",
     "transfers": "Transfers",
     "monthlyBudget": "Monthly Budget",
     "categories": "Categories",
@@ -130,6 +218,10 @@
     "cashAccount": "Cash account",
     "selectCashAccount": "Select a cash account",
     "cashAccountHint": "Choose the account that receives the salary.",
+    "wageAvailability": "Available for allocations",
+    "wageAvailabilityThisMonth": "This month",
+    "wageAvailabilityNextMonth": "Next month",
+    "wageAvailabilityHint": "Choose when this wage can be used by the budget rules.",
     "rulesTitle": "Budget rules",
     "rulesSubtitle": "Create the monthly transfers that will be generated after salaries arrive.",
     "addRule": "Add rule",
@@ -185,11 +277,18 @@
     "overBudget": "Over budget",
     "validationTitle": "Please fix these issues",
     "runsTitle": "Monthly runs",
-    "runsSubtitle": "Open a run to inspect its saved inputs or cancel a draft.",
+    "runsSubtitle": "Open a run to inspect its saved inputs, cancel a draft, or remove its generated transactions.",
     "runPreview": "Preview remaining cash",
     "loadDraft": "Load draft",
     "cancelRun": "Cancel run",
     "cancelling": "Cancelling...",
+    "deleteRunTransactions": "Delete run transactions",
+    "deleteRunTransactionsTitle": "Delete this run's transactions?",
+    "deleteRunTransactionsMessage": "This deletes every wage and allocation transaction generated by this monthly run. A confirmed run will return to draft so you can run it again.",
+    "deleteRunTransactionsConfirm": "Delete transactions",
+    "deletingRunTransactions": "Deleting...",
+    "deleteRunTransactionsSuccess": "Deleted {{count}} transaction(s). The run is ready to be run again.",
+    "deleteRunTransactionsError": "Could not delete the run transactions: {{detail}}",
     "selectedRunInputs": "Saved income inputs",
     "defaults": {
       "tradeRep": "Trade Rep",
@@ -214,6 +313,10 @@
     "feedbackSubtitle": "Send an idea, report a bug, or follow an existing conversation.",
     "openFeedback": "Open feedback",
     "openAdminFeedback": "Open feedback inbox",
+    "privacyTitle": "Privacy",
+    "privacySubtitle": "Review how SmartFinance uses browser storage and change your optional consent choices.",
+    "manageCookiePreferences": "Manage cookie preferences",
+    "openCookiePolicy": "Read cookie policy",
     "unnamedUser": "Unnamed user",
     "currentHousehold": "Current household: {{value}}",
     "none": "none",
@@ -461,6 +564,11 @@
     "active": "Active",
     "unarchive": "Unarchive",
     "archive": "Archive",
+    "accountTransfersLoadingMore": "Loading more transfers...",
+    "balanceChartTitle": "Account balance overview",
+    "balanceChartSubtitle": "Current balances grouped by account type, with each saving pot kept separate.",
+    "balancePieChart": "Account balance distribution pie chart",
+    "savingPotSlice": "Pot · {{name}}",
     "types": {
       "bank": "Bank",
       "cash": "Cash",
@@ -473,15 +581,51 @@
     }
   },
 
+  "insights": {
+    "title": "Financial insights",
+    "subtitle": "Understand cash flow, recurring commitments and projected balances.",
+    "income": "Income this month",
+    "expenses": "Expenses this month",
+    "netCashFlow": "Net cash flow",
+    "incomeForPeriod": "Income · {{period}}",
+    "expensesForPeriod": "Expenses · {{period}}",
+    "netCashFlowForPeriod": "Net cash flow · {{period}}",
+    "subscriptionMonthly": "Recurring monthly cost",
+    "upcoming": "Upcoming money",
+    "upcomingSubtitle": "Expected income, bills, subscriptions and transfers for this and next month.",
+    "noUpcoming": "No upcoming recurring movements.",
+    "merchants": "Top merchants",
+    "merchantsSubtitle": "Your largest spending destinations in the current month.",
+    "noSpending": "No spending in this period.",
+    "projections": "Projected balances",
+    "projectionsSubtitle": "Current balances after confirmed recurring movements through next month.",
+    "dateRange": "Insights date range",
+    "range3Months": "3 months",
+    "range6Months": "6 months",
+    "range12Months": "12 months",
+    "rangeYtd": "Year to date",
+    "monthlyCashFlow": "Monthly cash flow",
+    "monthlyCashFlowSubtitle": "Income and spending, with net cash flow shown as a line.",
+    "spendingByCategory": "Spending by category",
+    "spendingByCategorySubtitle": "Where household spending went in the selected period.",
+    "savingsRate": "Savings rate",
+    "savingsRateSubtitle": "The share of income left after expenses each month.",
+    "chartIncome": "Income",
+    "chartExpenses": "Expenses",
+    "chartNet": "Net",
+    "notAvailable": "Not available",
+    "unknownCategory": "Unknown category",
+    "uncategorized": "Uncategorized"
+  },
   "transactions": {
     "title": "Transactions",
-    "subtitle": "Create and review household income and expenses.",
+    "subtitle": "Create and review household income, expenses, transfers, and scheduled movements.",
     "filtersTitle": "Filters",
-    "filtersSubtitle": "Combine type, account, creator, date, and sorting filters.",
+    "filtersSubtitle": "Combine type, category, account, creator, date, and sorting filters.",
     "filtersCollapsed": "Open filters to refine the transaction list.",
     "showFilters": "Show filters",
     "hideFilters": "Hide filters",
-    "filterType": "Transaction type",
+    "filterType": "Movement type",
     "sortBy": "Sort by",
     "sorts": {
       "newest": "Newest",
@@ -496,12 +640,17 @@
     "filters": {
       "all": "All",
       "income": "Income",
-      "expense": "Expense"
+      "expense": "Expense",
+      "transfer": "Transfer"
     },
-    "createTitle": "Create transaction",
-    "createSubtitle": "This uses the existing transaction mutation and schema.",
+    "createTitle": "Add movement",
+    "createSubtitle": "Create an income, expense, or transfer between accounts.",
     "titleLabel": "Title",
     "titlePlaceholder": "Salary / Groceries",
+    "titleSuggestions": "Transaction name suggestions",
+    "titleSuggestionHint": "Type at least two characters to see names used before. You can always enter a new name.",
+    "titleSuggestionUses_one": "Used once",
+    "titleSuggestionUses_other": "Used {{count}} times",
     "amountLabel": "Amount",
     "dateLabel": "Date",
     "notesLabel": "Notes",
@@ -513,10 +662,19 @@
     "accounts": "Accounts",
     "categories": "Categories",
     "createdBy": "Created by",
+    "categorySuggestionLoading": "Finding a category...",
+    "categorySuggestionHigh": "Suggested from {{count}} similar transaction(s).",
+    "categorySuggestionMedium": "Suggested category: {{category}} - based on {{count}} similar transaction(s).",
+    "categorySuggestionUnavailable": "Category suggestions are temporarily unavailable. You can still create the transaction.",
     "createdByPlaceholder": "Select who owns this transaction",
     "create": "Create transaction",
+    "createTransfer": "Create transfer",
     "createAndNew": "Save and add another",
-    "addTransaction": "Add transaction",
+    "addTransaction": "Add movement",
+    "movementKinds": {
+      "transaction": "Transaction",
+      "transfer": "Transfer"
+    },
     "types": {
       "income": "Income",
       "expense": "Expense"
@@ -526,6 +684,15 @@
     "account": "Account",
     "accountOwner": "Account owner",
     "allAccounts": "All accounts",
+    "sourceAccount": "Source account",
+    "destinationAccount": "Destination account",
+    "allSourceAccounts": "All source accounts",
+    "allDestinationAccounts": "All destination accounts",
+    "sourceAccountHint": "Only transfers leaving this account.",
+    "destinationAccountHint": "Only transfers arriving in this account.",
+    "categoryFilter": "Category",
+    "categoryFilterHint": "Show transactions from one category.",
+    "allCategories": "All categories",
     "balanceAfter": "Balance after",
     "uncategorized": "Uncategorized",
     "activeFilters": "{{count}} filters active - Clear all",
@@ -536,6 +703,11 @@
     "delete": "Delete Transaction",
     "deleteTitle": "Delete transaction",
     "deleteMessage": "This action cannot be undone.",
+    "deleteTransfer": "Delete transfer",
+    "deleteTransferTitle": "Delete this transfer?",
+    "deleteTransferMessage": "This deletes both sides of “{{title}}” and updates both account balances.",
+    "editTransfer": "Edit transfer",
+    "saveTransfer": "Save transfer",
     "newTitle": "New Transaction",
     "new": "+ New",
     "empty": "No transactions found."
@@ -660,6 +832,9 @@
     "spent": "Spent",
     "balance": "Balance",
     "accountsUsed": "Accounts used",
+    "balanceByAccount": "Balance by account",
+    "accountColumn": "Account",
+    "balanceColumn": "Balance",
     "currentTitle": "Saving pots",
     "currentSubtitle": "Delete pots using the existing mutation.",
     "name": "Name",

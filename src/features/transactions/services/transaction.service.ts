@@ -1,5 +1,6 @@
 import { repositories } from "@/repositories";
 import { TransactionFilters, transactionsRepository } from "@/repositories/transactions.repository";
+import type { TransactionMovementFilters, UpdateCompletedTransferInput } from "@/repositories/transactions.repository";
 import type {
   CreateTransactionDTO,
   UpdateTransactionDTO,
@@ -81,6 +82,24 @@ export function buildTransactionAttachmentPath(params: {
 }
 
 class TransactionsService {
+  async getMovements(householdId: string, filters: TransactionMovementFilters = {}) {
+    const { data, error } = await transactionsRepository.listMovements(householdId, filters);
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  async updateCompletedTransfer(input: UpdateCompletedTransferInput) {
+    const { data, error } = await transactionsRepository.updateCompletedTransfer(input);
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteCompletedTransfer(transferGroupId: string) {
+    const { data, error } = await transactionsRepository.deleteCompletedTransfer(transferGroupId);
+    if (error) throw error;
+    return data;
+  }
+
   async getTransactions(householdId: string, filters: TransactionFilters = {}) {
     const { data, error } =
       await transactionsRepository.listForHousehold(householdId, filters);

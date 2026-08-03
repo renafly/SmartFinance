@@ -9,20 +9,114 @@ function createQuery(result: QueryResult) {
   const query: Record<string, jest.Mock> = {};
   const chain = () => query;
 
-  ["select", "eq", "gte", "lte", "order", "range"].forEach((method) => {
+  [
+    "select",
+    "eq",
+    "gte",
+    "lte",
+    "order",
+    "range",
+    "not",
+    "is",
+    "limit",
+    "in",
+  ].forEach((method) => {
     query[method] = jest.fn(chain);
   });
 
   query.then = jest.fn((resolve: (value: QueryResult) => unknown) =>
-    Promise.resolve(resolve({ data: result.data ?? null, error: result.error ?? null })),
+    Promise.resolve(
+      resolve({ data: result.data ?? null, error: result.error ?? null }),
+    ),
   );
 
   return query;
 }
 
 describe("TransactionsRepository", () => {
+  it("sends movement filters to the pagination-safe RPC", async () => {
+    const rows = [{ movement_id: "group-1", movement_kind: "transfer" }];
+    const rpc = jest.fn(async () => ({ data: rows, error: null }));
+    const repository = new TransactionsRepository({ rpc } as any);
+
+    await expect(repository.listMovements("household-1", {
+      kind: "transfer",
+      accountId: "account-any",
+      sourceAccountId: "account-from",
+      destinationAccountId: "account-to",
+      categoryId: "category-1",
+      createdBy: "profile-1",
+      from: "2026-08-01",
+      to: "2026-08-31",
+      sortBy: "oldest",
+      limit: 20,
+      offset: 40,
+    })).resolves.toEqual({
+      data: [expect.objectContaining({ ...rows[0], balance_after_transaction: null })],
+      error: null,
+    });
+
+    expect(rpc).toHaveBeenCalledWith("list_transaction_movements", {
+      p_household_id: "household-1", p_kind: "transfer", p_account_id: "account-any",
+      p_source_account_id: "account-from", p_destination_account_id: "account-to",
+      p_category_id: "category-1", p_uncategorized: false, p_created_by: "profile-1",
+      p_from: "2026-08-01", p_to: "2026-08-31", p_sort: "oldest", p_limit: 20, p_offset: 40,
+    });
+  });
+
+  it("enriches regular movements with their running balance", async () => {
+    const rows = [
+      {
+        movement_id: "transaction-1",
+        movement_kind: "expense",
+        transaction_id: "transaction-1",
+      },
+    ];
+    const rpc = jest.fn(async () => ({ data: rows, error: null }));
+    const balanceQuery = createQuery({
+      data: [
+        { id: "transaction-1", balance_after_transaction: 875.5 },
+      ],
+    });
+    const repository = new TransactionsRepository({
+      rpc,
+      from: jest.fn(() => balanceQuery),
+    } as any);
+
+    await expect(repository.listMovements("household-1")).resolves.toEqual({
+      data: [
+        expect.objectContaining({
+          movement_id: "transaction-1",
+          balance_after_transaction: 875.5,
+        }),
+      ],
+      error: null,
+    });
+    expect(balanceQuery.select).toHaveBeenCalledWith(
+      "id, balance_after_transaction",
+    );
+    expect(balanceQuery.in).toHaveBeenCalledWith("id", ["transaction-1"]);
+  });
+
+  it("updates both completed transfer legs through one RPC", async () => {
+    const rpc = jest.fn(async () => ({ data: "group-1", error: null }));
+    const repository = new TransactionsRepository({ rpc } as any);
+    await repository.updateCompletedTransfer({ transferGroupId: "group-1", sourceAccountId: "from", destinationAccountId: "to", amount: 42, title: "Move", transactionDate: "2026-08-03", categoryId: null });
+    expect(rpc).toHaveBeenCalledWith("update_completed_transfer", expect.objectContaining({ p_transfer_group_id: "group-1", p_source_account_id: "from", p_destination_account_id: "to", p_amount: 42 }));
+  });
+
+  it("deletes both completed transfer legs through one RPC", async () => {
+    const rpc = jest.fn(async () => ({ data: 2, error: null }));
+    const repository = new TransactionsRepository({ rpc } as any);
+    await expect(repository.deleteCompletedTransfer("group-1")).resolves.toEqual({ data: 2, error: null });
+    expect(rpc).toHaveBeenCalledWith("delete_completed_transfer", { p_transfer_group_id: "group-1" });
+  });
+
   it("creates transfers with the expected RPC payload and provided transaction date", async () => {
-    const rpc = jest.fn(async () => ({ data: "transfer-group-1", error: null }));
+    const rpc = jest.fn(async () => ({
+      data: "transfer-group-1",
+      error: null,
+    }));
     const repository = new TransactionsRepository({ rpc } as any);
 
     await expect(
@@ -60,7 +154,10 @@ describe("TransactionsRepository", () => {
 
   it("defaults optional transfer fields and transactionDate in the RPC payload", async () => {
     jest.useFakeTimers().setSystemTime(new Date("2026-07-09T12:00:00.000Z"));
-    const rpc = jest.fn(async () => ({ data: "transfer-group-1", error: null }));
+    const rpc = jest.fn(async () => ({
+      data: "transfer-group-1",
+      error: null,
+    }));
     const repository = new TransactionsRepository({ rpc } as any);
 
     await repository.createTransfer({
@@ -123,8 +220,12 @@ describe("TransactionsRepository", () => {
     expect(query.eq).toHaveBeenCalledWith("type", "expense");
     expect(query.gte).toHaveBeenCalledWith("transaction_date", "2026-07-01");
     expect(query.lte).toHaveBeenCalledWith("transaction_date", "2026-07-31");
-    expect(query.order).toHaveBeenCalledWith("transaction_date", { ascending: false });
-    expect(query.order).toHaveBeenCalledWith("created_at", { ascending: false });
+    expect(query.order).toHaveBeenCalledWith("transaction_date", {
+      ascending: false,
+    });
+    expect(query.order).toHaveBeenCalledWith("created_at", {
+      ascending: false,
+    });
     expect(query.order).toHaveBeenCalledWith("id", { ascending: false });
     expect(query.range).toHaveBeenCalledWith(20, 29);
   });
@@ -132,11 +233,96 @@ describe("TransactionsRepository", () => {
   it("normalizes list errors", async () => {
     const error = new Error("list failed");
     const query = createQuery({ error });
-    const repository = new TransactionsRepository({ from: jest.fn(() => query) } as any);
+    const repository = new TransactionsRepository({
+      from: jest.fn(() => query),
+    } as any);
 
     await expect(repository.listForHousehold("household-1")).resolves.toEqual({
       data: null,
       error,
     });
+  });
+
+  it("applies oldest-first ordering before pagination", async () => {
+    const query = createQuery({ data: [] });
+    const repository = new TransactionsRepository({
+      from: jest.fn(() => query),
+    } as any);
+
+    await repository.listForHousehold("household-1", {
+      sortBy: "oldest",
+      limit: 20,
+      offset: 0,
+    });
+
+    expect(query.order.mock.calls).toEqual([
+      ["transaction_date", { ascending: true }],
+      ["created_at", { ascending: false }],
+      ["id", { ascending: false }],
+    ]);
+    expect(query.range).toHaveBeenCalledWith(0, 19);
+  });
+
+  it.each([
+    ["amount_desc", false],
+    ["amount_asc", true],
+  ] as const)("applies %s ordering before pagination", async (sortBy, ascending) => {
+    const query = createQuery({ data: [] });
+    const repository = new TransactionsRepository({
+      from: jest.fn(() => query),
+    } as any);
+
+    await repository.listForHousehold("household-1", {
+      sortBy,
+      limit: 20,
+    });
+
+    expect(query.order.mock.calls[0]).toEqual(["amount", { ascending }]);
+    expect(query.range).toHaveBeenCalledWith(0, 19);
+  });
+
+  it("filters uncategorized transactions with an IS NULL query", async () => {
+    const query = createQuery({ data: [] });
+    const repository = new TransactionsRepository({
+      from: jest.fn(() => query),
+    } as any);
+
+    await repository.listForHousehold("household-1", { categoryId: null });
+
+    expect(query.is).toHaveBeenCalledWith("category_id", null);
+    expect(query.eq).not.toHaveBeenCalledWith("category_id", expect.anything());
+  });
+
+  it("loads bounded categorized non-transfer history for suggestions", async () => {
+    const rows = [
+      { id: "transaction-1", category: { id: "food", name: "Food" } },
+    ];
+    const query = createQuery({ data: rows });
+    const client = { from: jest.fn(() => query) };
+    const repository = new TransactionsRepository(client as any);
+
+    await expect(
+      repository.listCategorySuggestionHistory("household-1", "expense", 900),
+    ).resolves.toEqual({ data: rows, error: null });
+    expect(query.eq).toHaveBeenCalledWith("household_id", "household-1");
+    expect(query.eq).toHaveBeenCalledWith("type", "expense");
+    expect(query.not).toHaveBeenCalledWith("category_id", "is", null);
+    expect(query.is).toHaveBeenCalledWith("transfer_group_id", null);
+    expect(query.limit).toHaveBeenCalledWith(500);
+  });
+
+  it("loads bounded household title history by transaction type", async () => {
+    const rows = [{ id: "transaction-1", title: "Groceries" }];
+    const query = createQuery({ data: rows });
+    const client = { from: jest.fn(() => query) };
+    const repository = new TransactionsRepository(client as any);
+
+    await expect(
+      repository.listTitleSuggestionHistory("household-1", "expense", 900),
+    ).resolves.toEqual({ data: rows, error: null });
+    expect(query.eq).toHaveBeenCalledWith("household_id", "household-1");
+    expect(query.eq).toHaveBeenCalledWith("type", "expense");
+    expect(query.is).toHaveBeenCalledWith("transfer_group_id", null);
+    expect(query.limit).toHaveBeenCalledWith(500);
   });
 });

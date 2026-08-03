@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, useWindowDimensions, View } from 'react-native';
+import { Alert, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -20,6 +20,7 @@ import { useSavingPotAccountAssignments, useSavingPots } from '../../features/sa
 import {
   useCancelMonthlyBudgetRun,
   useConfirmMonthlyBudgetRun,
+  useDeleteMonthlyBudgetRunTransactions,
   useMonthlyBudgetIncomeInputs,
   useMonthlyBudgetRuns,
   useMonthlyBudgetWorkspace,
@@ -199,6 +200,7 @@ function createDefaultIncomeDrafts(
   members: MemberLike[],
   accounts: AccountLike[],
   incomeMode: 'shared' | 'individual',
+  budgetMonth: string,
 ) {
   const sharedCashAccount = pickDefaultAccountId(accounts, null, ['cash', 'bank']);
 
@@ -209,6 +211,7 @@ function createDefaultIncomeDrafts(
         ? sharedCashAccount
         : pickDefaultAccountId(accounts, member.userId, ['cash', 'bank']) || sharedCashAccount,
       amount: '',
+      availableMonth: monthKey(budgetMonth),
     }));
 }
 
@@ -238,8 +241,15 @@ function mapIncomeInputsToDrafts(inputs: any[], members: MemberLike[], accounts:
       memberId: member.userId,
       cashAccountId: match?.cash_account_id ?? match?.cashAccountId ?? pickDefaultAccountId(accounts, member.userId, ['cash', 'bank']),
       amount: match ? String(match.amount ?? '') : '',
+      availableMonth: monthKey(String(match?.available_month ?? match?.availableMonth ?? '')),
     };
   });
+}
+
+function shiftMonth(month: string, offset: number) {
+  const [year, monthNumber] = month.slice(0, 7).split('-').map(Number);
+  const shifted = new Date(Date.UTC(year, monthNumber - 1 + offset, 1));
+  return shifted.toISOString().slice(0, 7);
 }
 
 export default function BudgetScreen() {
@@ -261,6 +271,7 @@ export default function BudgetScreen() {
   const saveDraft = useSaveMonthlyBudgetDraft();
   const cancelRun = useCancelMonthlyBudgetRun();
   const confirmRun = useConfirmMonthlyBudgetRun();
+  const deleteRunTransactions = useDeleteMonthlyBudgetRunTransactions();
 
   const households = householdsQuery.data ?? [];
   const household = households.find((item: any) => item.id === householdId) ?? null;
@@ -285,10 +296,11 @@ export default function BudgetScreen() {
   const [budgetName, setBudgetName] = useState('');
   const [incomeMode, setIncomeMode] = useState<'shared' | 'individual'>('shared');
   const [remainingCashStrategy, setRemainingCashStrategy] = useState<'keep' | 'fixed'>('keep');
-  const [fixedRemainingCashAmount, setFixedRemainingCashAmount] = useState('500');
+  const [fixedRemainingCashAmount, setFixedRemainingCashAmount] = useState('0');
   const [excessCashDistributionMethod, setExcessCashDistributionMethod] = useState<'even_split'>('even_split');
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [deleteRunFeedback, setDeleteRunFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [ruleDrafts, setRuleDrafts] = useState<MonthlyBudgetRuleDraft[]>([]);
   const [incomeDrafts, setIncomeDrafts] = useState<MonthlyBudgetIncomeDraft[]>([]);
   const [collapsedRuleRowKeys, setCollapsedRuleRowKeys] = useState<string[]>([]);
@@ -297,6 +309,7 @@ export default function BudgetScreen() {
   const hydratedConfigId = useRef<string | null>(null);
   const hydratedWorkspaceSignature = useRef<string | null>(null);
   const hydratedRunId = useRef<string | null>(null);
+  const hydratedIncomeMonth = useRef<string | null>(null);
   const hydratedCollapsedPreferenceKey = useRef<string | null>(null);
   const collapsedPreferenceDirtyRef = useRef(false);
   const collapsedStateKey = householdId ? `smartfinance:monthly-budget:collapsed-rows:${householdId}` : null;
@@ -340,9 +353,19 @@ export default function BudgetScreen() {
     () =>
       workspace?.config?.id
         ? JSON.stringify({
-            configId: workspace.config.id,
-            configName: workspace.config.name ?? '',
-            rules: (workspace.rules ?? []).map((rule: any) => ({
+          configId: workspace.config.id,
+          configName: workspace.config.name ?? '',
+          householdSettings: household
+            ? {
+                id: household.id,
+                updatedAt: household.updated_at ?? '',
+                incomeMode: household.income_mode ?? 'shared',
+                remainingCashStrategy: household.remaining_cash_strategy ?? 'keep',
+                fixedRemainingCashAmount: household.fixed_remaining_cash_amount ?? 0,
+                excessCashDistributionMethod: household.excess_cash_distribution_method ?? 'even_split',
+              }
+            : null,
+          rules: (workspace.rules ?? []).map((rule: any) => ({
               id: rule.id,
               updatedAt: rule.updated_at ?? '',
               priority: rule.priority ?? null,
@@ -356,7 +379,7 @@ export default function BudgetScreen() {
             })),
           })
         : null,
-    [workspace?.config?.id, workspace?.config?.name, workspace?.rules],
+    [household, workspace?.config?.id, workspace?.config?.name, workspace?.rules],
   );
 
   useEffect(() => {
@@ -391,6 +414,7 @@ export default function BudgetScreen() {
 
     if (runIncomeInputsQuery.data) {
       hydratedRunId.current = selectedRun.id;
+      hydratedIncomeMonth.current = monthKey(selectedRun.month);
       setIncomeDrafts(mapIncomeInputsToDrafts(runIncomeInputsQuery.data as any[], members, accounts));
       if (selectedRun.month) setMonth(monthKey(selectedRun.month));
       return;
@@ -398,17 +422,19 @@ export default function BudgetScreen() {
 
     if (members.length > 0 && accounts.length > 0 && !runIncomeInputsQuery.isFetching) {
       hydratedRunId.current = selectedRun.id;
-      setIncomeDrafts(createDefaultIncomeDrafts(members, accounts, incomeMode));
+      hydratedIncomeMonth.current = monthKey(selectedRun.month);
+      setIncomeDrafts(createDefaultIncomeDrafts(members, accounts, incomeMode, selectedRun.month));
       if (selectedRun.month) setMonth(monthKey(selectedRun.month));
     }
   }, [accounts, householdId, incomeMode, members, runIncomeInputsQuery.data, runIncomeInputsQuery.isFetching, selectedRun?.id, selectedRun?.month]);
 
   useEffect(() => {
     if (selectedRun?.id) return;
-    if (members.length > 0 && accounts.length > 0 && incomeDrafts.length === 0) {
-      setIncomeDrafts(createDefaultIncomeDrafts(members, accounts, incomeMode));
+    if (members.length > 0 && accounts.length > 0 && hydratedIncomeMonth.current !== month) {
+      hydratedIncomeMonth.current = month;
+      setIncomeDrafts(createDefaultIncomeDrafts(members, accounts, incomeMode, month));
     }
-  }, [accounts, householdId, incomeDrafts.length, incomeMode, members, selectedRun?.id]);
+  }, [accounts, householdId, incomeMode, members, month, selectedRun?.id]);
 
   useEffect(() => {
     if (incomeCashAccountIds.length === 0) return;
@@ -547,7 +573,7 @@ export default function BudgetScreen() {
   const allRulesCollapsed = ruleDrafts.length > 0 && allRuleRowKeys.every((key) => effectiveCollapsedRuleRowKeys.includes(key));
   const configReady = Boolean(householdId && profile?.id && budgetName.trim() && rulesAreValid);
   const draftReady = Boolean(configId && configReady && preview.validationIssues.length === 0);
-  const selectedRunDraftReady = Boolean(selectedRun?.id && selectedRun.status === 'draft' && preview.validationIssues.length === 0);
+  const confirmReady = Boolean(draftReady && currentMonthRun?.status !== 'confirmed');
 
   function updateRuleDraft(id: string, patch: Partial<MonthlyBudgetRuleDraft>) {
     setRuleDrafts((current) => current.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule)));
@@ -678,15 +704,72 @@ export default function BudgetScreen() {
   }
 
   async function handleConfirmRun() {
-    if (!householdId || !profile?.id || !selectedRun?.id) return;
+    if (!householdId || !profile?.id || !configId) return;
+
+    // Always persist the values currently shown in the preview before confirming.
+    // This makes confirmation a single action and avoids running a stale draft.
+    const result = await saveDraft.mutateAsync({
+      householdId,
+      configId,
+      month,
+      incomeModeSnapshot: incomeMode,
+      remainingCashStrategySnapshot: remainingCashStrategy,
+      previewSnapshot: preview,
+      incomeInputs: incomeDrafts,
+    });
+
+    setSelectedRunId(result.run.id);
+    hydratedRunId.current = result.run.id;
 
     await confirmRun.mutateAsync({
-      runId: selectedRun.id,
-      householdId,
-      month,
+      runId: result.run.id,
       preview,
-      createdBy: profile.id,
     });
+  }
+
+  async function executeDeleteRunTransactions(runId: string) {
+    setDeleteRunFeedback(null);
+
+    try {
+      const deletedCount = await deleteRunTransactions.mutateAsync(runId);
+      setDeleteRunFeedback({
+        type: 'success',
+        message: t('budget.deleteRunTransactionsSuccess', { count: deletedCount }),
+      });
+    } catch (error: any) {
+      const detail = error?.message ?? String(error);
+      setDeleteRunFeedback({
+        type: 'error',
+        message: t('budget.deleteRunTransactionsError', { detail }),
+      });
+    }
+  }
+
+  function handleDeleteRunTransactions() {
+    if (!selectedRun?.id) return;
+
+    const runId = selectedRun.id;
+    const message = t('budget.deleteRunTransactionsMessage');
+
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm(`${t('budget.deleteRunTransactionsTitle')}\n\n${message}`)) {
+        void executeDeleteRunTransactions(runId);
+      }
+      return;
+    }
+
+    Alert.alert(
+      t('budget.deleteRunTransactionsTitle'),
+      message,
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('budget.deleteRunTransactionsConfirm'),
+          style: 'destructive',
+          onPress: () => void executeDeleteRunTransactions(runId),
+        },
+      ],
+    );
   }
 
   function handleSelectRun(run: any) {
@@ -801,7 +884,7 @@ export default function BudgetScreen() {
         <View style={{ gap: spacing(2) }}>
           <Button label={saveConfiguration.isPending ? t('saving') : t('budget.saveConfiguration')} onPress={() => void handleSaveConfiguration()} disabled={!configReady || saveConfiguration.isPending} />
           <Button label={saveDraft.isPending ? t('saving') : t('budget.saveDraft')} onPress={() => void handleSaveDraft()} variant="secondary" disabled={!draftReady || saveDraft.isPending} />
-          <Button label={confirmRun.isPending ? t('budget.generating') : t('budget.confirmMonth')} onPress={() => void handleConfirmRun()} disabled={!selectedRunDraftReady || confirmRun.isPending} />
+          <Button label={confirmRun.isPending || saveDraft.isPending ? t('budget.generating') : t('budget.confirmMonth')} onPress={() => void handleConfirmRun()} disabled={!confirmReady || confirmRun.isPending || saveDraft.isPending} />
         </View>
       }
     >
@@ -959,6 +1042,8 @@ export default function BudgetScreen() {
           <View style={{ gap: spacing(3) }}>
             {members.map((member) => {
               const draft = incomeDrafts.find((item) => item.memberId === member.userId);
+              const currentBudgetMonth = monthKey(month);
+              const availableMonth = draft?.availableMonth || currentBudgetMonth;
 
               return (
                 <View key={member.userId} style={{ gap: spacing(2), paddingBottom: spacing(3), borderBottomWidth: 1, borderBottomColor: colors.border } as any}>
@@ -986,6 +1071,26 @@ export default function BudgetScreen() {
                     closeLabel={t('cancel')}
                     onChange={(accountId) => updateIncomeDraft(member.userId, { cashAccountId: accountId })}
                   />
+                  <View style={{ gap: spacing(1.5) }}>
+                    <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
+                      {t('budget.wageAvailability')}
+                    </Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
+                      <Pill
+                        label={t('budget.wageAvailabilityThisMonth')}
+                        active={availableMonth === currentBudgetMonth}
+                        onPress={() => updateIncomeDraft(member.userId, { availableMonth: currentBudgetMonth })}
+                      />
+                      <Pill
+                        label={t('budget.wageAvailabilityNextMonth')}
+                        active={availableMonth === shiftMonth(currentBudgetMonth, 1)}
+                        onPress={() => updateIncomeDraft(member.userId, { availableMonth: shiftMonth(currentBudgetMonth, 1) })}
+                      />
+                    </View>
+                    <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize.sm } as any}>
+                      {t('budget.wageAvailabilityHint')}
+                    </Text>
+                  </View>
                 </View>
               );
             })}
@@ -1301,6 +1406,12 @@ export default function BudgetScreen() {
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2), alignItems: 'center' }}>
               <Button label={t('budget.loadDraft')} onPress={() => setSelectedRunId(selectedRun.id)} variant="secondary" />
               <Button label={cancelRun.isPending ? t('budget.cancelling') : t('budget.cancelRun')} onPress={() => void cancelRun.mutateAsync(selectedRun.id)} variant="danger" disabled={cancelRun.isPending || selectedRun.status !== 'draft'} />
+              <Button label={deleteRunTransactions.isPending ? t('budget.deletingRunTransactions') : t('budget.deleteRunTransactions')} onPress={handleDeleteRunTransactions} variant="danger" disabled={deleteRunTransactions.isPending} />
+              {deleteRunFeedback ? (
+                <Text style={{ color: deleteRunFeedback.type === 'error' ? colors.destructive : colors.success }}>
+                  {deleteRunFeedback.message}
+                </Text>
+              ) : null}
               <Text style={{ color: colors.textSecondary }}>
                 {t('budget.selectedRunInputs')}: {runInputs.length}
               </Text>

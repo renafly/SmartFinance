@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { Redirect } from 'expo-router';
 
 import { Badge, EmptyState, Table, TableCell, TableRow } from '@/components/data-surface';
 import { GroupedAccountSelect } from '@/components/grouped-account-select';
@@ -15,7 +16,6 @@ import { useTopLevelCategories } from '@/features/categories/hooks';
 import { useHouseholdMemberDetails } from '@/features/households/hooks';
 import { useCreateRecurringTransaction, useDeleteRecurringTransaction, useRecurringExecutionHistory, useRecurringTransactions, useToggleRecurringTransaction, useUpdateRecurringTransaction } from '@/features/recurring-transactions/hooks';
 import { useSavingPotAccountAssignments, useSavingPots } from '@/features/saving-pots/hooks';
-import { useCreateTransfer } from '@/features/transfers/hooks';
 import { useAuth } from '@/providers/AuthProvider';
 import { radius } from '@/theme/radius';
 import { useResponsiveMetrics } from '@/theme/responsive';
@@ -101,10 +101,6 @@ function DatePickerField({ label, value, onChange, placeholder }: { label: strin
   const [open, setOpen] = useState(false);
   const [draftDate, setDraftDate] = useState(() => parseDate(value) ?? new Date());
 
-  useEffect(() => {
-    if (!open) setDraftDate(parseDate(value) ?? new Date());
-  }, [open, value]);
-
   if (Platform.OS === 'web') {
     return <SharedDatePickerField label={label} value={value} onChange={onChange} placeholder={placeholder} />;
   }
@@ -113,7 +109,10 @@ function DatePickerField({ label, value, onChange, placeholder }: { label: strin
     <View style={styles.fieldGroup}>
       <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{label}</Text>
       <Pressable
-        onPress={() => setOpen((current) => !current)}
+        onPress={() => {
+          if (!open) setDraftDate(parseDate(value) ?? new Date());
+          setOpen((current) => !current);
+        }}
         style={[styles.dateButton, { borderColor: colors.border, backgroundColor: colors.surfaceMuted }]}
       >
         <Text style={{ color: value ? colors.text : colors.textSecondary }}>{value || placeholder}</Text>
@@ -154,7 +153,7 @@ function KindPills({ value, onChange }: { value: MovementKind; onChange: (kind: 
     <View style={styles.fieldGroup}>
       <Text style={styles.fieldLabel}>{t('transfers.movementType')}</Text>
       <View style={styles.pillRow}>
-        {(['one-off', 'recurring-transfer', 'recurring-transaction'] as MovementKind[]).map((kind) => (
+        {(['recurring-transfer', 'recurring-transaction'] as MovementKind[]).map((kind) => (
           <Pill
             key={kind}
             label={t(`transfers.types.${kind === 'one-off' ? 'oneOff' : kind === 'recurring-transfer' ? 'recurringTransfer' : 'recurringTransaction'}`)}
@@ -167,7 +166,7 @@ function KindPills({ value, onChange }: { value: MovementKind; onChange: (kind: 
   );
 }
 
-export default function TransfersScreen() {
+export function TransfersContent({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
@@ -177,13 +176,12 @@ export default function TransfersScreen() {
   const savingPotsQuery = useSavingPots();
   const savingPotAssignmentsQuery = useSavingPotAccountAssignments();
   const recurringQuery = useRecurringTransactions();
-  const createTransfer = useCreateTransfer();
   const createRecurring = useCreateRecurringTransaction();
   const updateRecurring = useUpdateRecurringTransaction();
   const toggleRecurring = useToggleRecurringTransaction();
   const deleteRecurring = useDeleteRecurringTransaction();
 
-  const [draft, setDraft] = useState<MovementDraft>(() => emptyDraft('one-off', profile?.id));
+  const [draft, setDraft] = useState<MovementDraft>(() => emptyDraft('recurring-transfer', profile?.id));
   const [error, setError] = useState<string | null>(null);
   const [kindFilter, setKindFilter] = useState<'all' | RuleKind>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused'>('all');
@@ -218,9 +216,7 @@ export default function TransfersScreen() {
 
   const updateDraft = (patch: Partial<MovementDraft>) => setDraft((current) => ({ ...current, ...patch }));
   const updateEditing = (patch: Partial<MovementDraft>) => setEditing((current) => current ? ({ ...current, ...patch }) : current);
-  const currentTitle = draft.kind === 'one-off'
-    ? t('transfers.createTitle')
-    : draft.kind === 'recurring-transfer' ? t('transfers.recurringTransferTitle') : t('transfers.recurringTransactionTitle');
+  const currentTitle = draft.kind === 'recurring-transfer' ? t('transfers.recurringTransferTitle') : t('transfers.recurringTransactionTitle');
 
   function validMovement(value: MovementDraft) {
     const amount = Number(value.amount);
@@ -254,11 +250,7 @@ export default function TransfersScreen() {
       return;
     }
     setError(null);
-    if (draft.kind === 'one-off') {
-      await createTransfer.mutateAsync({ householdId: householdId!, fromAccountId: draft.sourceAccountId, toAccountId: draft.destination!.id, amount: Number(draft.amount), title: draft.title.trim(), notes: draft.notes.trim(), transactionDate: draft.nextRun, createdBy: profile!.id });
-    } else {
-      await createRecurring.mutateAsync(recurringPayload(draft) as any);
-    }
+    await createRecurring.mutateAsync(recurringPayload(draft) as any);
     setDraft(emptyDraft(draft.kind, profile?.id));
   }
 
@@ -276,10 +268,10 @@ export default function TransfersScreen() {
     setEditing(null);
   }
 
-  const selectedPending = createTransfer.isPending || createRecurring.isPending;
+  const selectedPending = createRecurring.isPending;
 
-  return (
-    <Page title={t('transfers.title')} subtitle={t('transfers.subtitle')}>
+  const content = (
+    <>
       <Card>
         <Section title={currentTitle}>
           {error ? <Text style={{ color: colors.destructive }}>{error}</Text> : null}
@@ -294,7 +286,7 @@ export default function TransfersScreen() {
             typeLabels={typeLabels}
             t={t}
           />
-          <Button label={selectedPending ? t('transfers.formCreating') : draft.kind === 'one-off' ? t('transfers.formCreate') : t('transfers.createRecurring')} onPress={() => void saveDraft()} disabled={!validMovement(draft) || selectedPending} />
+          <Button label={selectedPending ? t('transfers.formCreating') : t('transfers.createRecurring')} onPress={() => void saveDraft()} disabled={!validMovement(draft) || selectedPending} />
         </Section>
       </Card>
 
@@ -381,8 +373,16 @@ export default function TransfersScreen() {
           </View>
         </View>
       </Modal>
-    </Page>
+    </>
   );
+
+  if (embedded) return content;
+
+  return <Page title={t('transfers.title')} subtitle={t('transfers.subtitle')}>{content}</Page>;
+}
+
+export default function TransfersRedirect() {
+  return <Redirect href="/(protected)/transactions" />;
 }
 
 function MovementFields({ value, onChange, accounts, potNameByAccountId, members, categories, typeLabels, t, lockKind = false }: { value: MovementDraft; onChange: (patch: Partial<MovementDraft>) => void; accounts: any[]; potNameByAccountId: Record<string, string>; members: any[]; categories: any[]; typeLabels: Record<string, string>; t: any; lockKind?: boolean }) {

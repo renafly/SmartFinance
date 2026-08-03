@@ -77,11 +77,19 @@ export function useConfirmMonthlyBudgetRun() {
   return useMutation({
     mutationFn: (input: {
       runId: string;
-      householdId: string;
-      month: string;
       preview: MonthlyBudgetPreview;
-      createdBy: string;
     }) => monthlyBudgetService.confirmRun(input),
+    onSuccess: () => {
+      invalidateHouseholdData(queryClient);
+    },
+  });
+}
+
+export function useDeleteMonthlyBudgetRunTransactions() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (runId: string) => monthlyBudgetService.deleteRunTransactions(runId),
     onSuccess: () => {
       invalidateHouseholdData(queryClient);
     },

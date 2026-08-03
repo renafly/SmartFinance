@@ -88,9 +88,60 @@ export type Database = {
         Relationships: [];
       };
       app_notifications: {
-        Row: { id: string; household_id: string | null; recipient_id: string; type: string; title: string; body: string; data: Json; source_key: string | null; read_at: string | null; deleted_at: string | null; push_dispatch_status: "pending" | "processing" | "delivered"; push_dispatch_attempted_at: string | null; native_push_dispatched_at: string | null; web_push_dispatched_at: string | null; push_dispatched_at: string | null; created_at: string };
-        Insert: { id?: string; household_id?: string | null; recipient_id: string; type: string; title: string; body: string; data?: Json; source_key?: string | null; read_at?: string | null; deleted_at?: string | null; push_dispatch_status?: "pending" | "processing" | "delivered"; push_dispatch_attempted_at?: string | null; native_push_dispatched_at?: string | null; web_push_dispatched_at?: string | null; push_dispatched_at?: string | null; created_at?: string };
-        Update: { id?: string; household_id?: string | null; recipient_id?: string; type?: string; title?: string; body?: string; data?: Json; source_key?: string | null; read_at?: string | null; deleted_at?: string | null; push_dispatch_status?: "pending" | "processing" | "delivered"; push_dispatch_attempted_at?: string | null; native_push_dispatched_at?: string | null; web_push_dispatched_at?: string | null; push_dispatched_at?: string | null; created_at?: string };
+        Row: {
+          id: string;
+          household_id: string | null;
+          recipient_id: string;
+          type: string;
+          title: string;
+          body: string;
+          data: Json;
+          source_key: string | null;
+          read_at: string | null;
+          deleted_at: string | null;
+          push_dispatch_status: "pending" | "processing" | "delivered";
+          push_dispatch_attempted_at: string | null;
+          native_push_dispatched_at: string | null;
+          web_push_dispatched_at: string | null;
+          push_dispatched_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id?: string | null;
+          recipient_id: string;
+          type: string;
+          title: string;
+          body: string;
+          data?: Json;
+          source_key?: string | null;
+          read_at?: string | null;
+          deleted_at?: string | null;
+          push_dispatch_status?: "pending" | "processing" | "delivered";
+          push_dispatch_attempted_at?: string | null;
+          native_push_dispatched_at?: string | null;
+          web_push_dispatched_at?: string | null;
+          push_dispatched_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          household_id?: string | null;
+          recipient_id?: string;
+          type?: string;
+          title?: string;
+          body?: string;
+          data?: Json;
+          source_key?: string | null;
+          read_at?: string | null;
+          deleted_at?: string | null;
+          push_dispatch_status?: "pending" | "processing" | "delivered";
+          push_dispatch_attempted_at?: string | null;
+          native_push_dispatched_at?: string | null;
+          web_push_dispatched_at?: string | null;
+          push_dispatched_at?: string | null;
+          created_at?: string;
+        };
         Relationships: [];
       };
       platform_admins: {
@@ -586,6 +637,7 @@ export type Database = {
           member_id: string;
           cash_account_id: string;
           amount: number;
+          available_month: string;
           created_at: string;
           updated_at: string;
         };
@@ -595,6 +647,7 @@ export type Database = {
           member_id: string;
           cash_account_id: string;
           amount?: number;
+          available_month: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -604,6 +657,7 @@ export type Database = {
           member_id?: string;
           cash_account_id?: string;
           amount?: number;
+          available_month?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -697,15 +751,66 @@ export type Database = {
         Relationships: [];
       };
       push_devices: {
-        Row: { id: string; user_id: string; expo_push_token: string; platform: "android" | "ios"; updated_at: string; created_at: string };
-        Insert: { id?: string; user_id: string; expo_push_token: string; platform: "android" | "ios"; updated_at?: string; created_at?: string };
-        Update: { id?: string; user_id?: string; expo_push_token?: string; platform?: "android" | "ios"; updated_at?: string; created_at?: string };
+        Row: {
+          id: string;
+          user_id: string;
+          expo_push_token: string;
+          platform: "android" | "ios";
+          updated_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          expo_push_token: string;
+          platform: "android" | "ios";
+          updated_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          expo_push_token?: string;
+          platform?: "android" | "ios";
+          updated_at?: string;
+          created_at?: string;
+        };
         Relationships: [];
       };
       web_push_subscriptions: {
-        Row: { id: string; user_id: string; endpoint: string; p256dh: string; auth: string; expiration_time: number | null; user_agent: string | null; updated_at: string; created_at: string };
-        Insert: { id?: string; user_id: string; endpoint: string; p256dh: string; auth: string; expiration_time?: number | null; user_agent?: string | null; updated_at?: string; created_at?: string };
-        Update: { id?: string; user_id?: string; endpoint?: string; p256dh?: string; auth?: string; expiration_time?: number | null; user_agent?: string | null; updated_at?: string; created_at?: string };
+        Row: {
+          id: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          expiration_time: number | null;
+          user_agent: string | null;
+          updated_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          expiration_time?: number | null;
+          user_agent?: string | null;
+          updated_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          endpoint?: string;
+          p256dh?: string;
+          auth?: string;
+          expiration_time?: number | null;
+          user_agent?: string | null;
+          updated_at?: string;
+          created_at?: string;
+        };
         Relationships: [];
       };
       recurring_transactions: {
@@ -882,6 +987,183 @@ export type Database = {
         };
         Relationships: [];
       };
+      transaction_rules: {
+        Row: {
+          id: string;
+          household_id: string;
+          name: string;
+          match_type: "exact" | "contains" | "prefix";
+          pattern: string;
+          normalized_pattern: string;
+          transaction_type:
+            Database["public"]["Enums"]["transaction_type"] | null;
+          account_id: string | null;
+          category_id: string | null;
+          merchant_name: string | null;
+          priority: number;
+          is_active: boolean;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          name: string;
+          match_type: "exact" | "contains" | "prefix";
+          pattern: string;
+          normalized_pattern: string;
+          transaction_type?:
+            Database["public"]["Enums"]["transaction_type"] | null;
+          account_id?: string | null;
+          category_id?: string | null;
+          merchant_name?: string | null;
+          priority?: number;
+          is_active?: boolean;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          household_id?: string;
+          name?: string;
+          match_type?: "exact" | "contains" | "prefix";
+          pattern?: string;
+          normalized_pattern?: string;
+          transaction_type?:
+            Database["public"]["Enums"]["transaction_type"] | null;
+          account_id?: string | null;
+          category_id?: string | null;
+          merchant_name?: string | null;
+          priority?: number;
+          is_active?: boolean;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      merchant_aliases: {
+        Row: {
+          id: string;
+          household_id: string;
+          alias: string;
+          normalized_alias: string;
+          merchant_name: string;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          alias: string;
+          normalized_alias: string;
+          merchant_name: string;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          household_id?: string;
+          alias?: string;
+          normalized_alias?: string;
+          merchant_name?: string;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      transaction_tags: {
+        Row: {
+          id: string;
+          household_id: string;
+          name: string;
+          color: string | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          name: string;
+          color?: string | null;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          household_id?: string;
+          name?: string;
+          color?: string | null;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      transaction_tag_assignments: {
+        Row: {
+          household_id: string;
+          transaction_id: string;
+          tag_id: string;
+          created_at: string;
+        };
+        Insert: {
+          household_id: string;
+          transaction_id: string;
+          tag_id: string;
+          created_at?: string;
+        };
+        Update: {
+          household_id?: string;
+          transaction_id?: string;
+          tag_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      transaction_splits: {
+        Row: {
+          id: string;
+          household_id: string;
+          transaction_id: string;
+          category_id: string | null;
+          amount: number;
+          notes: string | null;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          transaction_id: string;
+          category_id?: string | null;
+          amount: number;
+          notes?: string | null;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          household_id?: string;
+          transaction_id?: string;
+          category_id?: string | null;
+          amount?: number;
+          notes?: string | null;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       transactions: {
         Row: {
           id: string;
@@ -893,7 +1175,9 @@ export type Database = {
           monthly_budget_run_id: string | null;
           generated_by_rule_id: string | null;
           recurring_execution_id: string | null;
-          budget_section: Database["public"]["Enums"]["monthly_budget_section"] | null;
+          budget_section:
+            Database["public"]["Enums"]["monthly_budget_section"] | null;
+          merchant_name: string | null;
           title: string;
           notes: string | null;
           amount: number;
@@ -913,7 +1197,9 @@ export type Database = {
           monthly_budget_run_id?: string | null;
           generated_by_rule_id?: string | null;
           recurring_execution_id?: string | null;
-          budget_section?: Database["public"]["Enums"]["monthly_budget_section"] | null;
+          budget_section?:
+            Database["public"]["Enums"]["monthly_budget_section"] | null;
+          merchant_name?: string | null;
           title: string;
           notes?: string | null;
           amount: number;
@@ -933,7 +1219,9 @@ export type Database = {
           monthly_budget_run_id?: string | null;
           generated_by_rule_id?: string | null;
           recurring_execution_id?: string | null;
-          budget_section?: Database["public"]["Enums"]["monthly_budget_section"] | null;
+          budget_section?:
+            Database["public"]["Enums"]["monthly_budget_section"] | null;
+          merchant_name?: string | null;
           title?: string;
           notes?: string | null;
           amount?: number;
@@ -1003,6 +1291,69 @@ export type Database = {
       };
     };
     Functions: {
+      list_transaction_movements: {
+        Args: {
+          p_household_id: string;
+          p_kind?: string | null;
+          p_account_id?: string | null;
+          p_source_account_id?: string | null;
+          p_destination_account_id?: string | null;
+          p_category_id?: string | null;
+          p_uncategorized?: boolean;
+          p_created_by?: string | null;
+          p_from?: string | null;
+          p_to?: string | null;
+          p_sort?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: {
+          movement_id: string;
+          movement_kind: string;
+          household_id: string;
+          transaction_id: string | null;
+          transfer_group_id: string | null;
+          source_transaction_id: string | null;
+          destination_transaction_id: string | null;
+          account_id: string | null;
+          source_account_id: string | null;
+          destination_account_id: string | null;
+          category_id: string | null;
+          created_by: string;
+          title: string;
+          notes: string | null;
+          amount: number;
+          transaction_date: string;
+          created_at: string;
+          updated_at: string;
+          monthly_budget_run_id: string | null;
+          generated_by_rule_id: string | null;
+          recurring_execution_id: string | null;
+          budget_section: Database["public"]["Enums"]["monthly_budget_section"] | null;
+          account: Json | null;
+          source_account: Json | null;
+          destination_account: Json | null;
+          category: Json | null;
+          created_by_profile: Json | null;
+        }[];
+      };
+      update_completed_transfer: {
+        Args: {
+          p_transfer_group_id: string;
+          p_source_account_id: string;
+          p_destination_account_id: string;
+          p_amount: number;
+          p_title: string;
+          p_notes?: string | null;
+          p_transaction_date?: string;
+          p_category_id?: string | null;
+        };
+        Returns: string;
+      };
+      delete_completed_transfer: {
+        Args: { p_transfer_group_id: string };
+        Returns: number;
+      };
       accept_household_invitation: {
         Args: { p_token: string };
         Returns: {
@@ -1022,6 +1373,18 @@ export type Database = {
         Args: { p_name: string };
         Returns: Database["public"]["Tables"]["households"]["Row"];
       };
+      confirm_monthly_budget_run: {
+        Args: {
+          p_run_id: string;
+          p_transfers: Json;
+          p_preview: Json;
+        };
+        Returns: Database["public"]["Tables"]["monthly_budget_runs"]["Row"];
+      };
+      delete_monthly_budget_run_transactions: {
+        Args: { p_run_id: string };
+        Returns: number;
+      };
       create_transfer: {
         Args: {
           p_household_id: string;
@@ -1035,7 +1398,8 @@ export type Database = {
           p_category_id?: string | null;
           p_monthly_budget_run_id?: string | null;
           p_generated_by_rule_id?: string | null;
-          p_budget_section?: Database["public"]["Enums"]["monthly_budget_section"] | null;
+          p_budget_section?:
+            Database["public"]["Enums"]["monthly_budget_section"] | null;
         };
         Returns: string;
       };
@@ -1171,24 +1535,45 @@ export type Database = {
       };
     };
     Enums: {
-      account_type: "cash" | "bank" | "credit_card" | "savings" | "investment" | "ppr";
+      account_type:
+        "cash" | "bank" | "credit_card" | "savings" | "investment" | "ppr";
       app_release_platform: "ios" | "android" | "web" | "all";
       category_type: "income" | "expense" | "account";
       currency_code: "EUR" | "USD" | "GBP";
       excess_cash_distribution_method: "even_split";
       feedback_category: "bug" | "feature_request" | "improvement" | "other";
-      feedback_event_type: "submitted" | "status_changed" | "priority_changed" | "assigned" | "message_added" | "attachment_added" | "attachment_deleted";
+      feedback_event_type:
+        | "submitted"
+        | "status_changed"
+        | "priority_changed"
+        | "assigned"
+        | "message_added"
+        | "attachment_added"
+        | "attachment_deleted";
       feedback_priority: "low" | "normal" | "high" | "urgent";
-      feedback_status: "submitted" | "under_review" | "planned" | "in_progress" | "resolved" | "closed";
+      feedback_status:
+        | "submitted"
+        | "under_review"
+        | "planned"
+        | "in_progress"
+        | "resolved"
+        | "closed";
       household_member_status: "pending" | "accepted";
       household_income_mode: "shared" | "individual";
       household_role: "owner" | "admin" | "member";
       monthly_budget_run_status: "draft" | "confirmed" | "cancelled";
-      monthly_budget_section: "income" | "savings" | "pots" | "investments" | "ppr" | "remaining_cash";
+      monthly_budget_section:
+        | "income"
+        | "savings"
+        | "pots"
+        | "investments"
+        | "ppr"
+        | "remaining_cash";
       platform_admin_role: "support" | "admin" | "super_admin";
       remaining_cash_strategy: "keep" | "fixed";
       recurring_frequency: "daily" | "weekly" | "monthly" | "yearly" | "custom";
-      recurring_execution_status: "pending" | "completed" | "skipped" | "failed";
+      recurring_execution_status:
+        "pending" | "completed" | "skipped" | "failed";
       recurring_rule_kind: "transaction" | "transfer";
       transaction_type: "income" | "expense";
     };

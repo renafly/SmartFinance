@@ -562,6 +562,34 @@ export default function SavingsScreen() {
                     {personalAccountCount > 0 ? <Text style={styles.scopeChip}>{t("budget.incomeModes.individual")} · {personalAccountCount}</Text> : null}
                     <Text style={styles.scopeChip}>{t("savings.scopeAccountSpecific", { count: selectedCount })}</Text>
                   </View>
+                  {!accountsQuery.isPending && !assignmentsQuery.isPending && selectedAccounts.length > 0 ? (
+                    <View style={styles.accountBalancePanel}>
+                      <Text style={styles.accountBalanceTitle}>
+                        {t("savings.balanceByAccount")}
+                      </Text>
+                      <View style={styles.accountBalanceColumnLabels}>
+                        <Text style={[styles.accountBalanceColumnLabel, styles.accountBalanceNameColumn]}>
+                          {t("savings.accountColumn")}
+                        </Text>
+                        <Text style={styles.accountBalanceColumnLabel}>
+                          {t("savings.balanceColumn")}
+                        </Text>
+                      </View>
+                      {selectedAccounts.map((account) => (
+                        <View key={account.id} style={styles.accountBalanceRow}>
+                          <View style={styles.accountBalanceNameColumn}>
+                            <Text style={styles.accountBalanceName}>{account.name}</Text>
+                            <Text style={styles.accountBalanceMeta}>
+                              {getAccountSummary(account, memberLabelMap, t("savings.scopeShared"))}
+                            </Text>
+                          </View>
+                          <Text style={styles.accountBalanceValue}>
+                            {formatCurrency(account.current_balance)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
                   {forecast?.completionDate ? (
                     <Text style={styles.potMeta}>
                       {t("savings.estimatedFinish", {
@@ -1192,6 +1220,61 @@ function createStyles(colors: any) {
       paddingVertical: spacing(1),
       borderRadius: radius.full,
       backgroundColor: colors.surfaceMuted,
+    },
+    accountBalancePanel: {
+      gap: spacing(2),
+      padding: spacing(3),
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    accountBalanceTitle: {
+      color: colors.text,
+      fontSize: typography.fontSize[13],
+      fontWeight: typography.fontWeight.extraBold,
+    },
+    accountBalanceColumnLabels: {
+      flexDirection: "row",
+      gap: spacing(2),
+      paddingHorizontal: spacing(2),
+    },
+    accountBalanceColumnLabel: {
+      flex: 1,
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+      fontWeight: typography.fontWeight.bold,
+      textAlign: "right",
+      textTransform: "uppercase",
+    },
+    accountBalanceNameColumn: {
+      flex: 2,
+      textAlign: "left",
+    },
+    accountBalanceRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing(2),
+      paddingHorizontal: spacing(2),
+      paddingVertical: spacing(2),
+      borderRadius: radius.md,
+      backgroundColor: colors.surfaceMuted,
+    },
+    accountBalanceName: {
+      color: colors.text,
+      fontSize: typography.fontSize[13],
+      fontWeight: typography.fontWeight.bold,
+    },
+    accountBalanceMeta: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+    },
+    accountBalanceValue: {
+      flex: 1,
+      color: colors.success,
+      fontSize: typography.fontSize[14],
+      fontWeight: typography.fontWeight.extraBold,
+      textAlign: "right",
     },
     forecastToggle: {
       flexDirection: "row",

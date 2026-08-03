@@ -1,14 +1,15 @@
-import { Platform } from 'react-native';
-import { create } from 'zustand';
+import { Platform } from "react-native";
+import { create } from "zustand";
+import { isPreferenceStorageAllowed } from "@/features/cookie-consent/core/storage";
 
-export type ThemeMode = 'light' | 'dark' | 'blue' | 'system';
+export type ThemeMode = "light" | "dark" | "blue" | "system";
 
 type ThemeState = {
   mode: ThemeMode;
   setMode: (mode: ThemeMode) => void;
 };
 
-const THEME_STORAGE_KEY = 'smartfinance.theme';
+const THEME_STORAGE_KEY = "smartfinance.theme";
 
 type ThemeStorage = {
   getString: (key: string) => string | undefined;
@@ -20,7 +21,7 @@ let themeStorage: ThemeStorage | null = null;
 function getNativeStorage() {
   if (!themeStorage) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { MMKV } = require('react-native-mmkv') as {
+    const { MMKV } = require("react-native-mmkv") as {
       MMKV: new () => ThemeStorage;
     };
 
@@ -31,7 +32,12 @@ function getNativeStorage() {
 }
 
 function normalizeTheme(value: string | null | undefined): ThemeMode | null {
-  if (value === 'light' || value === 'dark' || value === 'blue' || value === 'system') {
+  if (
+    value === "light" ||
+    value === "dark" ||
+    value === "blue" ||
+    value === "system"
+  ) {
     return value;
   }
 
@@ -40,11 +46,14 @@ function normalizeTheme(value: string | null | undefined): ThemeMode | null {
 
 function getStoredTheme(): ThemeMode | null {
   try {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
+      if (!isPreferenceStorageAllowed()) return null;
       return normalizeTheme(window.localStorage.getItem(THEME_STORAGE_KEY));
     }
 
-    return normalizeTheme(getNativeStorage()?.getString(THEME_STORAGE_KEY) ?? null);
+    return normalizeTheme(
+      getNativeStorage()?.getString(THEME_STORAGE_KEY) ?? null,
+    );
   } catch {
     return null;
   }
@@ -52,7 +61,8 @@ function getStoredTheme(): ThemeMode | null {
 
 function setStoredTheme(mode: ThemeMode) {
   try {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
+      if (!isPreferenceStorageAllowed()) return;
       window.localStorage.setItem(THEME_STORAGE_KEY, mode);
       return;
     }
@@ -63,7 +73,7 @@ function setStoredTheme(mode: ThemeMode) {
   }
 }
 
-const fallbackTheme: ThemeMode = getStoredTheme() ?? 'dark';
+const fallbackTheme: ThemeMode = getStoredTheme() ?? "dark";
 
 export const useThemeStore = create<ThemeState>((set) => ({
   mode: fallbackTheme,

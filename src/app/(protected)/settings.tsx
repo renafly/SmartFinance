@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Alert, Platform, Text, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { typography } from "@/theme/typography";
 import { useTheme } from "@/theme/ThemeProvider";
@@ -39,6 +39,7 @@ import {
   useImportHouseholdBackup,
 } from "@/features/household-backup/hooks";
 import { usePlatformAdminAccess } from "@/features/feedback";
+import { useCookieConsent } from "@/features/cookie-consent/core";
 
 const languageOptions: { value: AppLanguage; labelKey: string }[] = [
   { value: "en", labelKey: "settings.languageEnglish" },
@@ -78,6 +79,7 @@ export default function SettingsScreen() {
   const exportHouseholdBackup = useExportHouseholdBackup();
   const importHouseholdBackup = useImportHouseholdBackup();
   const platformAdminQuery = usePlatformAdminAccess();
+  const { openPreferences } = useCookieConsent();
   const [householdName, setHouseholdName] = useState("");
   const [draftNames, setDraftNames] = useState<Record<string, string>>({});
   const [activeMenu, setActiveMenu] = useState<
@@ -371,12 +373,41 @@ export default function SettingsScreen() {
               <Button
                 label={t("settings.openAdminFeedback")}
                 variant="secondary"
-                onPress={() => router.push("/(protected)/admin-feedback" as any)}
+                onPress={() =>
+                  router.push("/(protected)/admin-feedback" as any)
+                }
               />
             ) : null}
           </View>
         </Section>
       </Card>
+
+      {Platform.OS === "web" ? (
+        <Card>
+          <Section
+            title={t("settings.privacyTitle")}
+            subtitle={t("settings.privacySubtitle")}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                gap: spacing(2.5),
+              }}
+            >
+              <Button
+                label={t("settings.manageCookiePreferences")}
+                onPress={openPreferences}
+              />
+              <Button
+                label={t("settings.openCookiePolicy")}
+                variant="secondary"
+                onPress={() => router.push("/cookie-policy" as Href)}
+              />
+            </View>
+          </Section>
+        </Card>
+      ) : null}
 
       <Card>
         <Section
