@@ -972,7 +972,18 @@
     "types": {
       "oneOff": "Transferência única",
       "recurringTransfer": "Transferência recorrente",
-      "recurringTransaction": "Receita ou despesa recorrente"
+      "recurringTransaction": "Receita ou despesa recorrente",
+      "subscription": "Subscrições",
+      "bill": "Contas e outras despesas",
+      "recurringIncome": "Receitas recorrentes",
+      "income": "Receita recorrente",
+      "transfer": "Transferência recorrente"
+    },
+    "expenseKind": "Tipo de despesa",
+    "expenseKinds": {
+      "subscription": "Subscrição",
+      "bill": "Conta",
+      "other": "Outra despesa"
     },
     "scheduledTitle": "Movimentos agendados",
     "scheduledSubtitle": "{{count}} movimentos agendados neste agregado.",

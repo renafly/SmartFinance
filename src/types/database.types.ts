@@ -821,6 +821,8 @@ export type Database = {
           category_id: string | null;
           pot_id: string | null;
           rule_kind: Database["public"]["Enums"]["recurring_rule_kind"];
+          expense_kind:
+            Database["public"]["Enums"]["recurring_expense_kind"] | null;
           destination_account_id: string | null;
           destination_pot_id: string | null;
           title: string;
@@ -843,6 +845,8 @@ export type Database = {
           category_id?: string | null;
           pot_id?: string | null;
           rule_kind?: Database["public"]["Enums"]["recurring_rule_kind"];
+          expense_kind?:
+            Database["public"]["Enums"]["recurring_expense_kind"] | null;
           destination_account_id?: string | null;
           destination_pot_id?: string | null;
           title: string;
@@ -865,6 +869,8 @@ export type Database = {
           category_id?: string | null;
           pot_id?: string | null;
           rule_kind?: Database["public"]["Enums"]["recurring_rule_kind"];
+          expense_kind?:
+            Database["public"]["Enums"]["recurring_expense_kind"] | null;
           destination_account_id?: string | null;
           destination_pot_id?: string | null;
           title?: string;
@@ -1338,7 +1344,8 @@ export type Database = {
           monthly_budget_run_id: string | null;
           generated_by_rule_id: string | null;
           recurring_execution_id: string | null;
-          budget_section: Database["public"]["Enums"]["monthly_budget_section"] | null;
+          budget_section:
+            Database["public"]["Enums"]["monthly_budget_section"] | null;
           account: Json | null;
           source_account: Json | null;
           destination_account: Json | null;
@@ -1583,6 +1590,7 @@ export type Database = {
       recurring_frequency: "daily" | "weekly" | "monthly" | "yearly" | "custom";
       recurring_execution_status:
         "pending" | "completed" | "skipped" | "failed";
+      recurring_expense_kind: "subscription" | "bill" | "other";
       recurring_rule_kind: "transaction" | "transfer";
       transaction_type: "income" | "expense";
     };

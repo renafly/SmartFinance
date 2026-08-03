@@ -1,8 +1,12 @@
 import type { Database } from "@/types/database.types";
 
 export type TransactionKind = Database["public"]["Enums"]["transaction_type"];
-export type RecurringFrequency = Database["public"]["Enums"]["recurring_frequency"];
-export type RecurringRuleKind = Database["public"]["Enums"]["recurring_rule_kind"];
+export type RecurringFrequency =
+  Database["public"]["Enums"]["recurring_frequency"];
+export type RecurringRuleKind =
+  Database["public"]["Enums"]["recurring_rule_kind"];
+export type RecurringExpenseKind =
+  Database["public"]["Enums"]["recurring_expense_kind"];
 
 export type InsightTransaction = {
   id: string;
@@ -22,6 +26,7 @@ export type InsightRecurringRule = {
   type: TransactionKind;
   frequency: RecurringFrequency;
   rule_kind: RecurringRuleKind;
+  expense_kind?: RecurringExpenseKind | null;
   account_id: string;
   category_id?: string | null;
   destination_account_id?: string | null;

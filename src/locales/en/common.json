@@ -970,7 +970,18 @@
     "types": {
       "oneOff": "One-off transfer",
       "recurringTransfer": "Recurring transfer",
-      "recurringTransaction": "Recurring income or expense"
+      "recurringTransaction": "Recurring income or expense",
+      "subscription": "Subscriptions",
+      "bill": "Bills & other expenses",
+      "recurringIncome": "Recurring income",
+      "income": "Recurring income",
+      "transfer": "Recurring transfer"
+    },
+    "expenseKind": "Expense kind",
+    "expenseKinds": {
+      "subscription": "Subscription",
+      "bill": "Bill",
+      "other": "Other expense"
     },
     "scheduledTitle": "Scheduled movements",
     "scheduledSubtitle": "{{count}} scheduled movements in this household.",
