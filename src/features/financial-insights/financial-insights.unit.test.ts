@@ -32,6 +32,7 @@ const recurring = (
   type: "expense",
   frequency: "monthly",
   rule_kind: "transaction",
+  expense_kind: "subscription",
   account_id: "checking",
   next_run: "2026-07-31",
   excluded_months: [],
@@ -147,11 +148,59 @@ describe("financial insight calculations", () => {
     ).toEqual(["2026-07-31", "2026-08-31"]);
   });
 
-  it("summarizes subscriptions and projects transactions plus transfers", () => {
-    expect(summarizeSubscriptions([recurring()])).toMatchObject({
+  it("summarizes only explicitly classified active subscriptions", () => {
+    expect(
+      summarizeSubscriptions([
+        recurring(),
+        recurring({
+          id: "bill",
+          title: "Electricity",
+          expense_kind: "bill",
+          amount: 80,
+        }),
+        recurring({
+          id: "other",
+          title: "Allowance",
+          expense_kind: "other",
+          amount: 25,
+        }),
+        recurring({
+          id: "legacy",
+          title: "Unclassified",
+          expense_kind: null,
+          amount: 30,
+        }),
+        recurring({ id: "inactive", is_active: false, amount: 40 }),
+        recurring({
+          id: "income",
+          type: "income",
+          expense_kind: null,
+          amount: 2_000,
+        }),
+        recurring({
+          id: "transfer",
+          rule_kind: "transfer",
+          expense_kind: null,
+          destination_account_id: "savings",
+          amount: 100,
+        }),
+      ]),
+    ).toEqual({
+      subscriptions: [
+        {
+          ruleId: "rule",
+          title: "Netflix",
+          monthlyEquivalent: 12,
+          yearlyEquivalent: 144,
+          nextRun: "2026-07-31",
+        },
+      ],
       monthlyTotal: 12,
       yearlyTotal: 144,
     });
+  });
+
+  it("projects recurring transfers between accounts without changing household wealth", () => {
     const result = projectAccountBalances(
       [
         { id: "checking", current_balance: 100 },
@@ -163,6 +212,7 @@ describe("financial insight calculations", () => {
         recurring({
           id: "move",
           rule_kind: "transfer",
+          expense_kind: null,
           amount: 20,
           destination_account_id: "savings",
         }),
@@ -184,5 +234,25 @@ describe("financial insight calculations", () => {
         projectedBalance: 40,
       },
     ]);
+    const transferOnly = projectAccountBalances(
+      [
+        { id: "checking", current_balance: 100 },
+        { id: "savings", current_balance: 20 },
+      ],
+      [
+        recurring({
+          id: "move",
+          rule_kind: "transfer",
+          expense_kind: null,
+          amount: 20,
+          destination_account_id: "savings",
+        }),
+      ],
+      "2026-07-01",
+      "2026-07-31",
+    );
+    expect(transferOnly.reduce((sum, account) => sum + account.change, 0)).toBe(
+      0,
+    );
   });
 });

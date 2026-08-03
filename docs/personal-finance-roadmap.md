@@ -308,6 +308,19 @@ Goal: extend SmartFinance from cash management to household wealth planning.
 - [ ] Add allocation by asset class, region, sector, currency, and account.
 - [ ] Add manual price entry before external market-data integrations.
 
+### Read-only broker integrations
+
+- [ ] Assess the official APIs, export formats, authentication requirements, geographic availability, costs, and permitted data usage for XTB, Trading 212, and Trade Republic before selecting an integration method for each provider.
+- [ ] Add read-only connections for XTB, Trading 212, and Trade Republic where supported, with explicit user consent and revocable access.
+- [ ] Synchronize investment accounts, cash balances, holdings, instrument identifiers, quantities, and available cost-basis data.
+- [ ] Import investment activity, including buys, sells, dividends, interest, fees, taxes, deposits, withdrawals, and internal cash movements.
+- [ ] Import broker card payments and other payment transactions when a provider exposes them, preserving their original description, currency, timestamp, status, and external identifier.
+- [ ] Reconcile broker cash activity with SmartFinance transactions without double-counting transfers between a bank account and a broker account.
+- [ ] Handle pending, completed, cancelled, and corrected transactions and make synchronization history and failures visible.
+- [ ] Support provider statement or CSV import as a fallback when a suitable read-only API is unavailable.
+- [ ] Keep imported source data auditable and allow users to disconnect a provider, resynchronize, or delete imported broker data.
+- [ ] Restrict these integrations to viewing investments and importing transactions; do not support order placement, trading, withdrawals, payments, or any other money movement.
+
 ### Retirement and FIRE planning
 
 - [ ] Model contributions, inflation, returns, retirement age, and expected spending.
@@ -321,6 +334,8 @@ Goal: extend SmartFinance from cash management to household wealth planning.
 - [ ] Portfolio performance distinguishes cash flow from market return.
 - [ ] Forecasts show assumptions, ranges, and limitations.
 - [ ] Market-data failures do not corrupt recorded holdings or transactions.
+- [ ] Broker integrations are read-only, revocable, auditable, and cannot initiate trades or move money.
+- [ ] Broker deposits, withdrawals, card payments, trades, income, fees, and taxes reconcile without duplicate cash-flow or performance reporting.
 
 ## Phase 8 — Smart assistance and data ownership
 
@@ -408,4 +423,3 @@ When development resumes, start with these epics in order:
 - [Emma product and security overview](https://emma-app.com/)
 - [Empower planning tools](https://www.empower.com/tools)
 - [Tiller automated feeds and user-owned spreadsheets](https://tiller.com/how-tiller-works/tiller-money-feeds/)
-

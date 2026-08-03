@@ -70,8 +70,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1785743481.491167,
-    "ast_hash": "d7ea00412a8db9e6ca8eff2ded08f3a1",
+    "mtime": 1785780868.211282,
+    "ast_hash": "6c03101dfe32de0f6728538f429a33d1",
     "semantic_hash": ""
   },
   "playwright.config.ts": {
@@ -150,13 +150,13 @@
     "semantic_hash": ""
   },
   "src/app/(protected)/transactions.tsx": {
-    "mtime": 1785776972.1779933,
-    "ast_hash": "77617db93dc56173522fc5387226b2af",
+    "mtime": 1785782189.0174453,
+    "ast_hash": "eff967bd7f57703e56adda495606f28f",
     "semantic_hash": ""
   },
   "src/app/(protected)/transfers.tsx": {
-    "mtime": 1785775884.582681,
-    "ast_hash": "c923c17950fc086d2c3ec945eaef6daa",
+    "mtime": 1785781571.2819507,
+    "ast_hash": "bf4cd0927ddf5954d724e4c5b3b9b63c",
     "semantic_hash": ""
   },
   "src/app/(public)/_layout.tsx": {
@@ -470,8 +470,8 @@
     "semantic_hash": ""
   },
   "src/features/household-backup/services/household-backup.service.ts": {
-    "mtime": 1785521457.1504807,
-    "ast_hash": "6c316b4d0447e17c54ccee94eec5d26b",
+    "mtime": 1785781527.1048565,
+    "ast_hash": "5f196c933e751f8d7cefdcc5c21d6687",
     "semantic_hash": ""
   },
   "src/features/household-backup/services/household-backup.service.unit.test.ts": {
@@ -565,8 +565,8 @@
     "semantic_hash": ""
   },
   "src/features/recurring-transactions/services/recurring-transactions.service.ts": {
-    "mtime": 1785775850.0599813,
-    "ast_hash": "863bb6ead4fa8c6ffe121951ec6656d3",
+    "mtime": 1785781526.9237626,
+    "ast_hash": "3e538ad2ace062674a7f466a57342bbc",
     "semantic_hash": ""
   },
   "src/features/saving-pots/hooks/index.ts": {
@@ -675,13 +675,13 @@
     "semantic_hash": ""
   },
   "src/locales/en/common.json": {
-    "mtime": 1785776928.0186844,
-    "ast_hash": "ff05600ed0ec47b90a048a21228576c8",
+    "mtime": 1785781473.4458141,
+    "ast_hash": "ed93a1968597be1aeeea62b725e8ace2",
     "semantic_hash": ""
   },
   "src/locales/pt/common.json": {
-    "mtime": 1785776930.9985979,
-    "ast_hash": "9a6c3a7b3bb1c9543ef75cb7582136d2",
+    "mtime": 1785781491.78542,
+    "ast_hash": "0dd403bb97aa116872e445053b059491",
     "semantic_hash": ""
   },
   "src/navigation/Guest.tsx": {
@@ -940,8 +940,8 @@
     "semantic_hash": ""
   },
   "src/types/database.types.ts": {
-    "mtime": 1785778004.8732107,
-    "ast_hash": "0ced238e58411516f292f0fe994a07ab",
+    "mtime": 1785781527.1956697,
+    "ast_hash": "669024d06526fb858b647a3ca34ae2c0",
     "semantic_hash": ""
   },
   "supabase/migrations/001_extensions_enums.sql": {
@@ -1945,8 +1945,8 @@
     "semantic_hash": ""
   },
   "src/features/financial-insights/financial-insights.unit.test.ts": {
-    "mtime": 1785667145.1772633,
-    "ast_hash": "8a85d008926e87d0e46458eb90d45f47",
+    "mtime": 1785781518.4281044,
+    "ast_hash": "57efe63eed5c80e1843eeca4411bb893",
     "semantic_hash": ""
   },
   "src/features/financial-insights/index.ts": {
@@ -1960,8 +1960,8 @@
     "semantic_hash": ""
   },
   "src/features/financial-insights/recurring-insights.ts": {
-    "mtime": 1785519897.4400332,
-    "ast_hash": "ba8b838a4bbcd21c215a0d2eb2fc4ef7",
+    "mtime": 1785781571.3136845,
+    "ast_hash": "615f42c38adc0c395fec097d7aa11d16",
     "semantic_hash": ""
   },
   "src/features/financial-insights/recurring-patterns.ts": {
@@ -1975,8 +1975,8 @@
     "semantic_hash": ""
   },
   "src/features/financial-insights/types.ts": {
-    "mtime": 1785519812.3430498,
-    "ast_hash": "81177dc6ba8005f2468513a82dddd074",
+    "mtime": 1785781571.298263,
+    "ast_hash": "4c3795df94893298ab483a95b6c89542",
     "semantic_hash": ""
   },
   "src/features/transaction-import/csv.ts": {
@@ -2070,8 +2070,8 @@
     "semantic_hash": ""
   },
   "docs/personal-finance-roadmap.md": {
-    "mtime": 1785519630.6675062,
-    "ast_hash": "178bab588f48112675c6c0bab5f73c25",
+    "mtime": 1785781500.5750237,
+    "ast_hash": "5f9be50b4433c671d38cfa3cc7af2f47",
     "semantic_hash": ""
   },
   "src/app/(protected)/insights.tsx": {
@@ -2182,6 +2182,21 @@
   "supabase/migrations/20260803172713_add_balance_to_transaction_movements.sql": {
     "mtime": 1785778084.0194218,
     "ast_hash": "9177684736605716a7239f122216e9f1",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260803183000_derive_recurring_execution_household.sql": {
+    "mtime": 1785781483.7767985,
+    "ast_hash": "ec852a4510148cab2925acc5edef2bb1",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260803190000_add_recurring_expense_classification.sql": {
+    "mtime": 1785781464.3768854,
+    "ast_hash": "d0608b24132c31e5221439152866e8d3",
+    "semantic_hash": ""
+  },
+  "supabase/tests/database/recurring_execution_household.sql": {
+    "mtime": 1785781491.6798673,
+    "ast_hash": "5b629b3929cb39ab1b11f2eafd74ff1c",
     "semantic_hash": ""
   }
 }
