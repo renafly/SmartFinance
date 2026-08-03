@@ -15,6 +15,7 @@ import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { typography } from "@/theme/typography";
 import { useTheme } from "@/theme/ThemeProvider";
+import { useToast } from "@/providers/ToastProvider";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
 import { useResponsiveMetrics } from "@/theme/responsive";
@@ -47,6 +48,7 @@ import {
   type DestinationSelection,
 } from "@/components/grouped-destination-select";
 import { DatePickerField as SharedDatePickerField } from "@/components/date-picker-field";
+import { AttachmentPreview } from "@/components/attachment-preview";
 import { useAuth } from "../../providers/AuthProvider";
 import { useAccountsWithBalances } from "../../features/accounts/hooks";
 import { useTopLevelCategories } from "../../features/categories/hooks";
@@ -58,6 +60,8 @@ import { useDeleteCompletedTransfer } from "../../features/transactions/hooks/us
 import { useUpdateCompletedTransfer } from "../../features/transactions/hooks/useUpdateCompletedTransfer";
 import { useCreateTransfer } from "../../features/transfers/hooks";
 import { useUpdateTransaction } from "../../features/transactions/hooks/useUpdateTransaction";
+import { useBulkUpdateTransactionCategories } from "../../features/transactions/hooks/useBulkUpdateTransactionCategories";
+import { useTransactionAttachments } from "../../features/transactions/attachments/useTransactionAttachments";
 import { useTransactionCategorySuggestion } from "../../features/transactions/category-suggestions";
 import { useTransactionTitleSuggestions } from "../../features/transactions/title-suggestions";
 import { resolveCategorySelection } from "../../features/transactions/category-suggestions/selection";
@@ -76,7 +80,10 @@ import {
   SHARED_ACCOUNT_OWNER_KEY,
   getAccountOwnerToneIndex,
 } from "../../features/accounts/account-ordering";
-import { TransfersContent } from "./transfers";
+import {
+  RecurringTransferCreateForm,
+  TransfersContent,
+} from "./transfers";
 
 type TransactionEditDraft = {
   id: string;
@@ -379,6 +386,7 @@ type AttachmentDraft = {
   fileName: string;
   fileSize: number;
   mimeType: string;
+  previewUri: string;
 };
 
 const TRANSACTIONS_PAGE_SIZE = 25;
@@ -388,18 +396,20 @@ export default function TransactionsScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const responsive = useResponsiveMetrics();
   const { t } = useTranslation("common");
+  const { show } = useToast();
   const { householdId, profile } = useAuth();
   const accountsQuery = useAccountsWithBalances();
   const membersQuery = useHouseholdMemberDetails();
   const createTransaction = useCreateTransaction();
   const createTransfer = useCreateTransfer();
   const updateTransaction = useUpdateTransaction();
+  const bulkUpdateCategories = useBulkUpdateTransactionCategories();
   const deleteTransaction = useDeleteTransaction();
   const deleteCompletedTransfer = useDeleteCompletedTransfer();
   const updateCompletedTransfer = useUpdateCompletedTransfer();
   const [type, setType] = useState<"income" | "expense">("expense");
   const [createMovementKind, setCreateMovementKind] = useState<
-    "transaction" | "transfer"
+    "transaction" | "transfer" | "recurring-transfer"
   >("transaction");
   const [transferDestination, setTransferDestination] =
     useState<DestinationSelection | null>(null);
@@ -414,6 +424,9 @@ export default function TransactionsScreen() {
   const [date, setDate] = useState(() => getLocalCalendarDate());
   const [notes, setNotes] = useState("");
   const [attachment, setAttachment] = useState<AttachmentDraft | null>(null);
+  const [activeView, setActiveView] = useState<"activity" | "scheduled">(
+    "activity",
+  );
   const [filtersType, setFiltersType] = useState<
     "all" | "income" | "expense" | "transfer"
   >("all");
@@ -435,9 +448,20 @@ export default function TransactionsScreen() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editTransaction, setEditTransaction] =
     useState<TransactionEditDraft | null>(null);
+  const editAttachmentsQuery = useTransactionAttachments(
+    editTransaction?.id,
+  );
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [transferToDelete, setTransferToDelete] = useState<any | null>(null);
   const [transferEdit, setTransferEdit] = useState<TransferEditDraft | null>(null);
+  const [bulkSelectionOpen, setBulkSelectionOpen] = useState(false);
+  const [bulkSelectionType, setBulkSelectionType] = useState<
+    "income" | "expense" | null
+  >(null);
+  const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [bulkCategoryId, setBulkCategoryId] = useState("");
 
   const transactionsQuery = useTransactionMovementsInfinite(
     {
@@ -470,6 +494,7 @@ export default function TransactionsScreen() {
       : filtersType,
   );
   const transferCategoriesQuery = useTopLevelCategories("account");
+  const bulkCategoriesQuery = useTopLevelCategories(bulkSelectionType ?? undefined);
 
   const accounts = accountsQuery.data ?? [];
   const categories = useMemo(
@@ -555,6 +580,22 @@ export default function TransactionsScreen() {
 
     return rows;
   }, [sortBy, transactionsQuery.data]);
+  const bulkCategories = useMemo(
+    () => (bulkCategoriesQuery.data ?? []).filter(
+      (category: any) => category.type === bulkSelectionType,
+    ),
+    [bulkCategoriesQuery.data, bulkSelectionType],
+  );
+  const bulkCategoryOptions = useMemo(
+    () => bulkCategories.map((category: any) => ({
+      key: category.id,
+      label: category.name,
+      iconName:
+        (category.icon as keyof typeof Ionicons.glyphMap | null) ??
+        "pricetag-outline",
+    })),
+    [bulkCategories],
+  );
   const memberLabelMap = new Map(
     acceptedMembers.map((member) => [
       member.userId,
@@ -675,6 +716,7 @@ export default function TransactionsScreen() {
   const handleTransactionsScroll = useCallback(
     (event: any) => {
       if (
+        activeView !== "activity" ||
         !transactionsQuery.hasNextPage ||
         transactionsQuery.isFetchingNextPage
       )
@@ -689,8 +731,78 @@ export default function TransactionsScreen() {
         void transactionsQuery.fetchNextPage();
       }
     },
-    [transactionsQuery],
+    [activeView, transactionsQuery],
   );
+
+  function closeBulkSelection() {
+    setBulkSelectionOpen(false);
+    setBulkSelectionType(null);
+    setSelectedTransactionIds(new Set());
+    setBulkCategoryId("");
+  }
+
+  function openBulkSelection() {
+    setBulkSelectionOpen(true);
+    setBulkSelectionType(
+      filtersType === "income" || filtersType === "expense" ? filtersType : null,
+    );
+    setSelectedTransactionIds(new Set());
+    setBulkCategoryId("");
+  }
+
+  function toggleBulkTransaction(item: any) {
+    if (item.movement_kind === "transfer") return;
+    const itemType = item.type as "income" | "expense";
+    if (bulkSelectionType && bulkSelectionType !== itemType) return;
+
+    setBulkSelectionType((current) => current ?? itemType);
+    setSelectedTransactionIds((current) => {
+      const next = new Set(current);
+      if (next.has(item.id)) next.delete(item.id);
+      else next.add(item.id);
+      if (next.size === 0) {
+        setBulkSelectionType(
+          filtersType === "income" || filtersType === "expense"
+            ? filtersType
+            : null,
+        );
+        setBulkCategoryId("");
+      }
+      return next;
+    });
+  }
+
+  function selectLoadedBulkTransactions() {
+    if (!bulkSelectionType) return;
+    setSelectedTransactionIds(new Set(
+      transactions
+        .filter(
+          (item: any) =>
+            item.movement_kind !== "transfer" && item.type === bulkSelectionType,
+        )
+        .map((item: any) => item.id),
+    ));
+  }
+
+  async function applyBulkCategory(categoryId: string | null) {
+    if (!householdId || selectedTransactionIds.size === 0) return;
+    const selectedCount = selectedTransactionIds.size;
+    try {
+      const updatedCount = await bulkUpdateCategories.mutateAsync({
+        householdId,
+        transactionIds: [...selectedTransactionIds],
+        categoryId,
+      });
+      closeBulkSelection();
+      show(t("transactions.bulk.success", {
+        count: updatedCount ?? selectedCount,
+      }));
+    } catch (error) {
+      show(t("transactions.bulk.error", {
+        detail: error instanceof Error ? error.message : t("unknownError"),
+      }));
+    }
+  }
 
   async function handlePickAttachment() {
     const result = await DocumentPicker.getDocumentAsync({
@@ -711,6 +823,7 @@ export default function TransactionsScreen() {
       mimeType:
         asset.mimeType ??
         ("type" in file ? file.type : "application/octet-stream"),
+      previewUri: asset.uri,
     };
 
     validateTransactionAttachment(draft);
@@ -909,6 +1022,20 @@ export default function TransactionsScreen() {
         </Pressable>
       }
     >
+      <View style={styles.viewTabs}>
+        <Pill
+          label={t("transactions.views.activity")}
+          active={activeView === "activity"}
+          onPress={() => setActiveView("activity")}
+        />
+        <Pill
+          label={t("transactions.views.scheduled")}
+          active={activeView === "scheduled"}
+          onPress={() => setActiveView("scheduled")}
+        />
+      </View>
+
+      {activeView === "activity" ? <>
       <Card>
         <Section
           title={t("transactions.filtersTitle")}
@@ -1264,33 +1391,50 @@ export default function TransactionsScreen() {
                     size={16}
                     color={colors.textSecondary}
                   />
-                  {(["income", "expense", "transfer"] as const).map((item) => (
+                  {(["income", "expense", "transfer", "recurring-transfer"] as const).map((item) => (
                     <Pill
                       key={item}
                       label={t(
-                        item === "transfer"
+                        item === "recurring-transfer"
+                          ? "transfers.types.recurringTransfer"
+                          : item === "transfer"
                           ? "transactions.movementKinds.transfer"
                           : `transactions.types.${item}`,
                       )}
                       active={
-                        item === "transfer"
+                        item === "recurring-transfer"
+                          ? createMovementKind === "recurring-transfer"
+                          : item === "transfer"
                           ? createMovementKind === "transfer"
                           : createMovementKind === "transaction" && type === item
                       }
                       onPress={() => {
                         const isTransfer = item === "transfer";
+                        const isRecurringTransfer = item === "recurring-transfer";
                         setCreateMovementKind(
-                          isTransfer ? "transfer" : "transaction",
+                          isRecurringTransfer
+                            ? "recurring-transfer"
+                            : isTransfer
+                              ? "transfer"
+                              : "transaction",
                         );
-                        if (!isTransfer) setType(item);
+                        if (item === "income" || item === "expense") setType(item);
                         setCategoryId(null);
-                        setCategoryIsAutomatic(!isTransfer);
-                        if (isTransfer) setAttachment(null);
+                        setCategoryIsAutomatic(!isTransfer && !isRecurringTransfer);
+                        if (isTransfer || isRecurringTransfer) setAttachment(null);
                         else setTransferDestination(null);
                       }}
                     />
                   ))}
                 </View>
+                {createMovementKind === "recurring-transfer" ? (
+                  <RecurringTransferCreateForm
+                    onCreated={() => {
+                      setCreateModalOpen(false);
+                      setActiveView("scheduled");
+                    }}
+                  />
+                ) : <>
                 <View>
                   <Field
                     label={t("transactions.titleLabel")}
@@ -1589,6 +1733,13 @@ export default function TransactionsScreen() {
                         {attachment.fileName} ·{" "}
                         {(attachment.fileSize / 1024).toFixed(1)} KB
                       </Text>
+                      <AttachmentPreview
+                        uri={attachment.previewUri}
+                        mimeType={attachment.mimeType}
+                        fileName={attachment.fileName}
+                        previewLabel={t("transactions.attachmentPreview")}
+                        openLabel={t("transactions.openAttachment")}
+                      />
                       <Button
                         label={t("transactions.removeAttachment")}
                         onPress={() => setAttachment(null)}
@@ -1597,8 +1748,9 @@ export default function TransactionsScreen() {
                     </View>
                   ) : null}
                 </View> : null}
+                </>}
               </ScrollView>
-              <View
+              {createMovementKind !== "recurring-transfer" ? <View
                 style={[
                   styles.createModalFooter,
                   { borderColor: colors.border },
@@ -1632,7 +1784,7 @@ export default function TransactionsScreen() {
                     disabled={!canCreateMovement}
                   />
                 </View>
-              </View>
+              </View> : null}
             </View>
           </KeyboardAvoidingView>
         </View>
@@ -1644,14 +1796,86 @@ export default function TransactionsScreen() {
           count: transactions.length,
         })}
         action={
-          <Button
-            label={t("transactions.addTransaction")}
-            onPress={openCreateTransaction}
-          />
+          <View style={styles.sectionActions}>
+            <Button
+              label={
+                bulkSelectionOpen
+                  ? t("transactions.bulk.cancelSelection")
+                  : t("transactions.bulk.selectTransactions")
+              }
+              variant="secondary"
+              onPress={bulkSelectionOpen ? closeBulkSelection : openBulkSelection}
+            />
+            <Button
+              label={t("transactions.addTransaction")}
+              onPress={openCreateTransaction}
+            />
+          </View>
         }
       >
         {transactions.length ? (
           <>
+            {bulkSelectionOpen ? (
+              <View style={styles.bulkActionBar}>
+                <View style={styles.bulkActionSummary}>
+                  <Text style={styles.bulkActionTitle}>
+                    {t("transactions.bulk.selected", {
+                      count: selectedTransactionIds.size,
+                    })}
+                  </Text>
+                  <Text style={styles.bulkActionHint}>
+                    {bulkSelectionType
+                      ? t("transactions.bulk.sameTypeHint", {
+                          type: t(`transactions.types.${bulkSelectionType}`),
+                        })
+                      : t("transactions.bulk.chooseTypeHint")}
+                  </Text>
+                </View>
+                <Button
+                  label={t("transactions.bulk.selectLoaded")}
+                  variant="secondary"
+                  disabled={!bulkSelectionType}
+                  onPress={selectLoadedBulkTransactions}
+                />
+                <View style={styles.bulkCategoryField}>
+                  <DropdownField
+                    label={t("transactions.bulk.category")}
+                    valueLabel={
+                      bulkCategories.find(
+                        (category: any) => category.id === bulkCategoryId,
+                      )?.name ?? t("transactions.bulk.chooseCategory")
+                    }
+                    placeholder={t("transactions.bulk.chooseCategory")}
+                    hint={t("transactions.bulk.categoryHint")}
+                    selectedKey={bulkCategoryId}
+                    options={bulkCategoryOptions}
+                    onChange={setBulkCategoryId}
+                  />
+                </View>
+                <Button
+                  label={
+                    bulkUpdateCategories.isPending
+                      ? t("saving")
+                      : t("transactions.bulk.applyCategory")
+                  }
+                  disabled={
+                    selectedTransactionIds.size === 0 ||
+                    !bulkCategoryId ||
+                    bulkUpdateCategories.isPending
+                  }
+                  onPress={() => void applyBulkCategory(bulkCategoryId)}
+                />
+                <Button
+                  label={t("transactions.bulk.clearCategory")}
+                  variant="secondary"
+                  disabled={
+                    selectedTransactionIds.size === 0 ||
+                    bulkUpdateCategories.isPending
+                  }
+                  onPress={() => void applyBulkCategory(null)}
+                />
+              </View>
+            ) : null}
             <Table
               columns={[
                 { label: t("transactions.titleLabel"), flex: 2.2 },
@@ -1786,7 +2010,56 @@ export default function TransactionsScreen() {
                       </Text>
                     </TableCell>
                     <TableCell flex={0.35} align="right" mobilePinned>
-                      {item.movement_kind !== "transfer" ? <Pressable
+                      {bulkSelectionOpen ? (
+                        <Pressable
+                          accessibilityRole="checkbox"
+                          accessibilityState={{
+                            checked: selectedTransactionIds.has(item.id),
+                            disabled:
+                              item.movement_kind === "transfer" ||
+                              (bulkSelectionType !== null &&
+                                item.type !== bulkSelectionType),
+                          }}
+                          accessibilityLabel={
+                            item.movement_kind === "transfer"
+                              ? t("transactions.bulk.transferUnavailable")
+                              : t("transactions.bulk.selectTransaction", {
+                                  title: item.title,
+                                })
+                          }
+                          disabled={
+                            item.movement_kind === "transfer" ||
+                            (bulkSelectionType !== null &&
+                              item.type !== bulkSelectionType)
+                          }
+                          onPress={() => toggleBulkTransaction(item)}
+                          style={[
+                            styles.bulkCheckbox,
+                            selectedTransactionIds.has(item.id) &&
+                              styles.bulkCheckboxSelected,
+                            (item.movement_kind === "transfer" ||
+                              (bulkSelectionType !== null &&
+                                item.type !== bulkSelectionType)) &&
+                              styles.bulkCheckboxDisabled,
+                          ]}
+                        >
+                          <Ionicons
+                            name={
+                              item.movement_kind === "transfer"
+                                ? "remove-outline"
+                                : selectedTransactionIds.has(item.id)
+                                  ? "checkmark"
+                                  : "ellipse-outline"
+                            }
+                            size={18}
+                            color={
+                              selectedTransactionIds.has(item.id)
+                                ? colors.primaryForeground
+                                : colors.textSecondary
+                            }
+                          />
+                        </Pressable>
+                      ) : item.movement_kind !== "transfer" ? <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={t("transactions.editTitle")}
                         onPress={() => openEditTransaction(item)}
@@ -1861,8 +2134,9 @@ export default function TransactionsScreen() {
           />
         )}
       </Section>
-
-      <TransfersContent embedded />
+      </> : (
+        <TransfersContent embedded showCreate={false} />
+      )}
 
       <Modal
         visible={transferEdit !== null}
@@ -1959,7 +2233,12 @@ export default function TransactionsScreen() {
             style={StyleSheet.absoluteFill}
             onPress={closeEditTransaction}
           />
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, styles.editModalCard]}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.editModalContent}
+              showsVerticalScrollIndicator
+            >
             <View
               style={
                 {
@@ -2105,6 +2384,58 @@ export default function TransactionsScreen() {
                     )
                   }
                 />
+                <View style={styles.editAttachmentsSection}>
+                  <View style={styles.editAttachmentsHeading}>
+                    <Ionicons
+                      name="attach-outline"
+                      size={18}
+                      color={colors.primary}
+                    />
+                    <Text style={styles.editAttachmentsTitle}>
+                      {t("transactions.attachmentsTitle")}
+                    </Text>
+                  </View>
+                  {editAttachmentsQuery.isPending ? (
+                    <Text style={styles.editAttachmentsStatus}>
+                      {t("transactions.loadingAttachments")}
+                    </Text>
+                  ) : editAttachmentsQuery.isError ? (
+                    <View style={styles.editAttachmentsError}>
+                      <Text style={styles.editAttachmentsStatus}>
+                        {t("transactions.attachmentsLoadError")}
+                      </Text>
+                      <Button
+                        label={t("retry")}
+                        variant="secondary"
+                        onPress={() => void editAttachmentsQuery.refetch()}
+                      />
+                    </View>
+                  ) : editAttachmentsQuery.data?.length ? (
+                    <View style={styles.editAttachmentsList}>
+                      {editAttachmentsQuery.data.map((savedAttachment) => (
+                        <View
+                          key={savedAttachment.id}
+                          style={styles.editAttachmentItem}
+                        >
+                          <AttachmentPreview
+                            uri={savedAttachment.signedUrl}
+                            mimeType={savedAttachment.mime_type}
+                            fileName={savedAttachment.file_name}
+                            previewLabel={t("transactions.attachmentPreview")}
+                            openLabel={t("transactions.openAttachment")}
+                          />
+                          <Text style={styles.editAttachmentMeta}>
+                            {(savedAttachment.file_size / 1024).toFixed(1)} KB
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={styles.editAttachmentsStatus}>
+                      {t("transactions.noAttachments")}
+                    </Text>
+                  )}
+                </View>
                 {deleteConfirmationOpen ? (
                   <View
                     style={{
@@ -2182,6 +2513,7 @@ export default function TransactionsScreen() {
                 ) : null}
               </>
             ) : null}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -2191,6 +2523,71 @@ export default function TransactionsScreen() {
 
 function createStyles(colors: any) {
   return StyleSheet.create({
+    viewTabs: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      gap: spacing(2),
+      padding: spacing(2),
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surfaceMuted,
+    },
+    sectionActions: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      gap: spacing(2),
+    },
+    bulkActionBar: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "flex-end",
+      gap: spacing(3),
+      padding: spacing(3),
+      marginBottom: spacing(3),
+      borderWidth: 1,
+      borderColor: colors.primary,
+      borderRadius: radius.lg,
+      backgroundColor: colors.primarySoft,
+    },
+    bulkActionSummary: {
+      minWidth: spacing(44),
+      flex: 1,
+      gap: spacing(1),
+      alignSelf: "center",
+    },
+    bulkActionTitle: {
+      color: colors.text,
+      fontSize: typography.fontSize[16],
+      fontWeight: String(typography.fontWeight.extraBold),
+    },
+    bulkActionHint: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+    },
+    bulkCategoryField: {
+      minWidth: spacing(52),
+      flexGrow: 1,
+    },
+    bulkCheckbox: {
+      width: spacing(9),
+      height: spacing(9),
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.full,
+      backgroundColor: colors.surface,
+    },
+    bulkCheckboxSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary,
+    },
+    bulkCheckboxDisabled: {
+      opacity: 0.38,
+    },
     transactionHeader: {
       flexDirection: "row",
       alignItems: "flex-start",
@@ -2434,6 +2831,15 @@ function createStyles(colors: any) {
       borderRadius: radius.xl,
       backgroundColor: colors.surface,
     },
+    editModalCard: {
+      maxHeight: "92%",
+      padding: 0,
+      overflow: "hidden",
+    },
+    editModalContent: {
+      gap: spacing(3.5),
+      padding: spacing(4.5),
+    },
     menuCard: {
       width: "100%",
       maxWidth: spacing(96),
@@ -2454,6 +2860,41 @@ function createStyles(colors: any) {
       color: colors.textSecondary,
       fontSize: typography.fontSize[13],
       lineHeight: typography.lineHeight[18],
+    },
+    editAttachmentsSection: {
+      gap: spacing(2),
+      padding: spacing(3),
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surfaceMuted,
+    },
+    editAttachmentsHeading: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing(1.5),
+    },
+    editAttachmentsTitle: {
+      color: colors.text,
+      fontSize: typography.fontSize[14],
+      fontWeight: String(typography.fontWeight.bold),
+    },
+    editAttachmentsStatus: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[13],
+    },
+    editAttachmentsError: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: spacing(2),
+    },
+    editAttachmentsList: { gap: spacing(3) },
+    editAttachmentItem: { gap: spacing(1) },
+    editAttachmentMeta: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
     },
     categorySuggestionStatus: {
       minHeight: spacing(4.5),

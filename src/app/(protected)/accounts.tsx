@@ -393,8 +393,7 @@ export default function AccountsScreen() {
                       strokeWidth="36"
                       strokeDasharray={`${sliceLength} ${circumference - sliceLength}`}
                       strokeDashoffset={-offset}
-                      rotation={-90}
-                      origin="100, 100"
+                      transform="rotate(-90 100 100)"
                       onPress={() => setSelectedBalanceSliceKey(slice.key)}
                     />
                   );

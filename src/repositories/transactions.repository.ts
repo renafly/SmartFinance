@@ -144,9 +144,30 @@ export interface CreateTransferInput {
   budgetSection?: Database["public"]["Enums"]["monthly_budget_section"] | null;
 }
 
+export interface BulkUpdateTransactionCategoryInput {
+  householdId: string;
+  transactionIds: string[];
+  categoryId: string | null;
+}
+
 export class TransactionsRepository extends BaseRepository<"transactions"> {
   constructor(client: SupabaseClient<Database>) {
     super(client, "transactions");
+  }
+
+  async bulkUpdateCategory(
+    input: BulkUpdateTransactionCategoryInput,
+  ): Promise<RepoResult<number>> {
+    const { data, error } = await this.client.rpc(
+      "bulk_update_transaction_category",
+      {
+        p_household_id: input.householdId,
+        p_transaction_ids: input.transactionIds,
+        p_category_id: input.categoryId,
+      },
+    );
+    if (error) return { data: null, error };
+    return { data: data as number, error: null };
   }
 
   async listMovements(
@@ -170,39 +191,7 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
     });
     if (error) return { data: null, error };
 
-    const movements: TransactionMovement[] = (
-      (data as TransactionMovement[]) ?? []
-    ).map((item) => ({ ...item, balance_after_transaction: null }));
-    const transactionIds = movements
-      .map((item) => item.transaction_id)
-      .filter((id): id is string => Boolean(id));
-
-    if (transactionIds.length) {
-      const { data: balances, error: balancesError } = await this.client
-        .from("transactions")
-        .select("id, balance_after_transaction")
-        .in("id", transactionIds);
-      if (balancesError) return { data: null, error: balancesError };
-
-      const balanceRows = (balances as unknown as {
-        id: string;
-        balance_after_transaction: number | null;
-      }[]) ?? [];
-      const balanceByTransactionId = new Map(
-        balanceRows.map((item) => [
-          item.id,
-          item.balance_after_transaction,
-        ]),
-      );
-      for (const movement of movements) {
-        if (movement.transaction_id) {
-          movement.balance_after_transaction =
-            balanceByTransactionId.get(movement.transaction_id) ?? null;
-        }
-      }
-    }
-
-    return { data: movements, error: null };
+    return { data: (data as TransactionMovement[]) ?? [], error: null };
   }
 
   async updateCompletedTransfer(input: UpdateCompletedTransferInput): Promise<RepoResult<string>> {

@@ -1291,6 +1291,14 @@ export type Database = {
       };
     };
     Functions: {
+      bulk_update_transaction_category: {
+        Args: {
+          p_household_id: string;
+          p_transaction_ids: string[];
+          p_category_id?: string | null;
+        };
+        Returns: number;
+      };
       list_transaction_movements: {
         Args: {
           p_household_id: string;
@@ -1323,6 +1331,7 @@ export type Database = {
           title: string;
           notes: string | null;
           amount: number;
+          balance_after_transaction: number | null;
           transaction_date: string;
           created_at: string;
           updated_at: string;

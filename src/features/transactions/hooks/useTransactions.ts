@@ -22,7 +22,13 @@ export function useTransactionMovementsInfinite(
     getNextPageParam: (lastPage, pages) =>
       lastPage.length < pageSize ? undefined : pages.length * pageSize,
     staleTime: 0,
-    refetchOnMount: "always",
+    // Do not keep every page a user has ever scrolled through. Otherwise an
+    // infinite query refetches all cached pages when this screen is opened
+    // again, which defeats server-side lazy loading.
+    gcTime: 0,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     enabled: (options?.enabled ?? true) && !!householdId && !isLoading,
   });
 }

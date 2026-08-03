@@ -35,7 +35,11 @@ function createQuery(result: QueryResult) {
 
 describe("TransactionsRepository", () => {
   it("sends movement filters to the pagination-safe RPC", async () => {
-    const rows = [{ movement_id: "group-1", movement_kind: "transfer" }];
+    const rows = [{
+      movement_id: "group-1",
+      movement_kind: "transfer",
+      balance_after_transaction: null,
+    }];
     const rpc = jest.fn(async () => ({ data: rows, error: null }));
     const repository = new TransactionsRepository({ rpc } as any);
 
@@ -64,23 +68,37 @@ describe("TransactionsRepository", () => {
     });
   });
 
-  it("enriches regular movements with their running balance", async () => {
+  it("requests the transaction-only uncategorized mode from the movement RPC", async () => {
+    const rpc = jest.fn(async () => ({ data: [], error: null }));
+    const repository = new TransactionsRepository({ rpc } as any);
+
+    await repository.listMovements("household-1", { categoryId: null });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "list_transaction_movements",
+      expect.objectContaining({
+        p_household_id: "household-1",
+        p_kind: null,
+        p_category_id: null,
+        p_uncategorized: true,
+      }),
+    );
+  });
+
+  it("uses the running balance returned by the movement RPC without a second query", async () => {
     const rows = [
       {
         movement_id: "transaction-1",
         movement_kind: "expense",
         transaction_id: "transaction-1",
+        balance_after_transaction: 875.5,
       },
     ];
     const rpc = jest.fn(async () => ({ data: rows, error: null }));
-    const balanceQuery = createQuery({
-      data: [
-        { id: "transaction-1", balance_after_transaction: 875.5 },
-      ],
-    });
+    const from = jest.fn();
     const repository = new TransactionsRepository({
       rpc,
-      from: jest.fn(() => balanceQuery),
+      from,
     } as any);
 
     await expect(repository.listMovements("household-1")).resolves.toEqual({
@@ -92,10 +110,8 @@ describe("TransactionsRepository", () => {
       ],
       error: null,
     });
-    expect(balanceQuery.select).toHaveBeenCalledWith(
-      "id, balance_after_transaction",
-    );
-    expect(balanceQuery.in).toHaveBeenCalledWith("id", ["transaction-1"]);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(from).not.toHaveBeenCalled();
   });
 
   it("updates both completed transfer legs through one RPC", async () => {

@@ -28,6 +28,7 @@ export class RecurringTransactionsRepository extends BaseRepository<"recurring_t
   async listForHousehold(
     householdId: string,
     activeOnly = true,
+    pagination?: { limit: number; offset: number },
   ): Promise<RepoResult<RecurringTransactionWithRelations[]>> {
     let query = this.client
       .from("recurring_transactions")
@@ -36,6 +37,12 @@ export class RecurringTransactionsRepository extends BaseRepository<"recurring_t
       .order("next_run", { ascending: true });
 
     if (activeOnly) query = query.eq("is_active", true);
+    if (pagination) {
+      query = query.range(
+        pagination.offset,
+        pagination.offset + pagination.limit - 1,
+      );
+    }
 
     const { data, error } = await query;
     if (error) return { data: null, error };

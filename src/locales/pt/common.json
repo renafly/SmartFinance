@@ -621,6 +621,10 @@
     "uncategorized": "Sem categoria"
   },
   "transactions": {
+    "views": {
+      "activity": "Atividade",
+      "scheduled": "Agendados"
+    },
     "title": "Transações",
     "subtitle": "Crie e reveja receitas, despesas, transferências e movimentos agendados do agregado.",
     "filtersTitle": "Filtros",
@@ -661,7 +665,13 @@
     "attachInvoice": "Anexar fatura",
     "changeAttachment": "Alterar anexo",
     "attachmentSelected": "Anexo selecionado",
+    "attachmentPreview": "Pré-visualização do anexo",
+    "openAttachment": "Abrir",
     "removeAttachment": "Remover anexo",
+    "attachmentsTitle": "Anexos",
+    "loadingAttachments": "A carregar anexos...",
+    "attachmentsLoadError": "Não foi possível carregar os anexos.",
+    "noAttachments": "Esta transação não tem anexos.",
     "accounts": "Contas",
     "categories": "Categorias",
     "createdBy": "Criado por",
@@ -711,6 +721,25 @@
     "deleteTransferMessage": "Isto elimina os dois lados de “{{title}}” e atualiza os saldos das duas contas.",
     "editTransfer": "Editar transferência",
     "saveTransfer": "Guardar transferência",
+    "bulk": {
+      "selectTransactions": "Selecionar transações",
+      "cancelSelection": "Cancelar seleção",
+      "selected_one": "{{count}} transação selecionada",
+      "selected_other": "{{count}} transações selecionadas",
+      "chooseTypeHint": "Selecione uma receita ou despesa para começar.",
+      "sameTypeHint": "Apenas transações de {{type}} podem ser selecionadas em conjunto.",
+      "selectLoaded": "Selecionar carregadas",
+      "category": "Nova categoria",
+      "chooseCategory": "Escolher uma categoria",
+      "categoryHint": "Só são apresentadas categorias do tipo das transações selecionadas.",
+      "applyCategory": "Aplicar categoria",
+      "clearCategory": "Limpar categoria",
+      "success_one": "Categoria atualizada em {{count}} transação.",
+      "success_other": "Categoria atualizada em {{count}} transações.",
+      "error": "Não foi possível atualizar as transações selecionadas: {{detail}}",
+      "transferUnavailable": "As transferências não podem ter categoria",
+      "selectTransaction": "Selecionar {{title}}"
+    },
     "newTitle": "Nova Transação",
     "new": "+ Nova",
     "empty": "Não foram encontradas transações."

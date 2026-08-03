@@ -618,6 +618,10 @@
     "uncategorized": "Uncategorized"
   },
   "transactions": {
+    "views": {
+      "activity": "Activity",
+      "scheduled": "Scheduled"
+    },
     "title": "Transactions",
     "subtitle": "Create and review household income, expenses, transfers, and scheduled movements.",
     "filtersTitle": "Filters",
@@ -658,7 +662,13 @@
     "attachInvoice": "Attach invoice",
     "changeAttachment": "Change attachment",
     "attachmentSelected": "Attachment selected",
+    "attachmentPreview": "Attachment preview",
+    "openAttachment": "Open",
     "removeAttachment": "Remove attachment",
+    "attachmentsTitle": "Attachments",
+    "loadingAttachments": "Loading attachments...",
+    "attachmentsLoadError": "Attachments could not be loaded.",
+    "noAttachments": "No attachments for this transaction.",
     "accounts": "Accounts",
     "categories": "Categories",
     "createdBy": "Created by",
@@ -708,6 +718,25 @@
     "deleteTransferMessage": "This deletes both sides of “{{title}}” and updates both account balances.",
     "editTransfer": "Edit transfer",
     "saveTransfer": "Save transfer",
+    "bulk": {
+      "selectTransactions": "Select transactions",
+      "cancelSelection": "Cancel selection",
+      "selected_one": "{{count}} transaction selected",
+      "selected_other": "{{count}} transactions selected",
+      "chooseTypeHint": "Select an income or expense transaction to begin.",
+      "sameTypeHint": "Only {{type}} transactions can be selected together.",
+      "selectLoaded": "Select loaded",
+      "category": "New category",
+      "chooseCategory": "Choose a category",
+      "categoryHint": "Only categories matching the selected transaction type are shown.",
+      "applyCategory": "Apply category",
+      "clearCategory": "Clear category",
+      "success_one": "Category updated for {{count}} transaction.",
+      "success_other": "Category updated for {{count}} transactions.",
+      "error": "Could not update the selected transactions: {{detail}}",
+      "transferUnavailable": "Transfers cannot be categorized",
+      "selectTransaction": "Select {{title}}"
+    },
     "newTitle": "New Transaction",
     "new": "+ New",
     "empty": "No transactions found."

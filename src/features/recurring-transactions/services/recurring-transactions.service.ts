@@ -42,8 +42,15 @@ export type UpdateRecurringTransactionInput = {
 };
 
 class RecurringTransactionsService {
-  async getRecurringTransactions(householdId: string) {
-    const { data, error } = await repositories.recurringTransactions.listForHousehold(householdId, false);
+  async getRecurringTransactions(
+    householdId: string,
+    pagination?: { limit: number; offset: number },
+  ) {
+    const { data, error } = await repositories.recurringTransactions.listForHousehold(
+      householdId,
+      false,
+      pagination,
+    );
 
     if (error) throw error;
 

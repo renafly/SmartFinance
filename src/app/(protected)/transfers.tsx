@@ -14,7 +14,7 @@ import { Button, Card, Field, Page, Pill, Section, formatCurrency, formatDate } 
 import { useAccountsWithBalances } from '@/features/accounts/hooks';
 import { useTopLevelCategories } from '@/features/categories/hooks';
 import { useHouseholdMemberDetails } from '@/features/households/hooks';
-import { useCreateRecurringTransaction, useDeleteRecurringTransaction, useRecurringExecutionHistory, useRecurringTransactions, useToggleRecurringTransaction, useUpdateRecurringTransaction } from '@/features/recurring-transactions/hooks';
+import { useCreateRecurringTransaction, useDeleteRecurringTransaction, useRecurringExecutionHistory, useRecurringTransactionsInfinite, useToggleRecurringTransaction, useUpdateRecurringTransaction } from '@/features/recurring-transactions/hooks';
 import { useSavingPotAccountAssignments, useSavingPots } from '@/features/saving-pots/hooks';
 import { useAuth } from '@/providers/AuthProvider';
 import { radius } from '@/theme/radius';
@@ -166,7 +166,131 @@ function KindPills({ value, onChange }: { value: MovementKind; onChange: (kind: 
   );
 }
 
-export function TransfersContent({ embedded = false }: { embedded?: boolean }) {
+export function RecurringTransferCreateForm({
+  onCreated,
+}: {
+  onCreated?: () => void;
+}) {
+  const { t } = useTranslation('common');
+  const { colors } = useTheme();
+  const { householdId, profile } = useAuth();
+  const accountsQuery = useAccountsWithBalances();
+  const membersQuery = useHouseholdMemberDetails();
+  const savingPotsQuery = useSavingPots();
+  const savingPotAssignmentsQuery = useSavingPotAccountAssignments();
+  const createRecurring = useCreateRecurringTransaction();
+  const [draft, setDraft] = useState<MovementDraft>(() =>
+    emptyDraft('recurring-transfer', profile?.id),
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  const accounts = accountsQuery.data ?? [];
+  const members = (membersQuery.data ?? []).filter(
+    (member) => member.status === 'accepted',
+  );
+  const potNameByAccountId = useMemo(() => {
+    const potNames = new Map(
+      (savingPotsQuery.data ?? []).map((pot: any) => [pot.id, pot.name]),
+    );
+    return (savingPotAssignmentsQuery.data ?? []).reduce<Record<string, string>>(
+      (result, assignment: any) => {
+        const potName = potNames.get(assignment.pot_id);
+        if (potName) result[assignment.account_id] = potName;
+        return result;
+      },
+      {},
+    );
+  }, [savingPotAssignmentsQuery.data, savingPotsQuery.data]);
+  const typeLabels = useMemo(
+    () => ({
+      bank: t('accounts.types.bank'),
+      cash: t('accounts.types.cash'),
+      savings: t('accounts.types.savings'),
+      credit_card: t('accounts.types.credit_card'),
+      investment: t('accounts.types.investment'),
+      ppr: t('accounts.types.ppr'),
+    }),
+    [t],
+  );
+  const isValid = Boolean(
+    householdId &&
+      profile?.id &&
+      draft.sourceAccountId &&
+      draft.destination &&
+      draft.title.trim() &&
+      Number.isFinite(Number(draft.amount)) &&
+      Number(draft.amount) > 0 &&
+      /^\d{4}-\d{2}-\d{2}$/.test(draft.nextRun),
+  );
+
+  async function save() {
+    if (!isValid || !householdId || !profile?.id || !draft.destination) {
+      setError(
+        !draft.destination
+          ? t('transfers.requiresDestination')
+          : t('transfers.invalidMovement'),
+      );
+      return;
+    }
+
+    setError(null);
+    await createRecurring.mutateAsync({
+      household_id: householdId,
+      account_id: draft.sourceAccountId,
+      destination_account_id: draft.destination.id,
+      destination_pot_id: null,
+      rule_kind: 'transfer',
+      category_id: null,
+      title: draft.title.trim(),
+      notes: draft.notes.trim() || null,
+      amount: Number(draft.amount),
+      type: 'expense',
+      frequency: draft.frequency,
+      excluded_months:
+        draft.frequency === 'custom'
+          ? normalizeMonths(draft.excludedMonths)
+          : [],
+      next_run: draft.nextRun,
+      created_by: draft.createdById || profile.id,
+    } as any);
+    setDraft(emptyDraft('recurring-transfer', profile.id));
+    onCreated?.();
+  }
+
+  return (
+    <View style={styles.formFields}>
+      {error ? <Text style={{ color: colors.destructive }}>{error}</Text> : null}
+      <MovementFields
+        value={draft}
+        onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))}
+        accounts={accounts as any}
+        potNameByAccountId={potNameByAccountId}
+        members={members as any}
+        categories={[]}
+        typeLabels={typeLabels}
+        t={t}
+        lockKind
+      />
+      <Button
+        label={
+          createRecurring.isPending
+            ? t('transfers.formCreating')
+            : t('transfers.createRecurring')
+        }
+        onPress={() => void save()}
+        disabled={!isValid || createRecurring.isPending}
+      />
+    </View>
+  );
+}
+
+export function TransfersContent({
+  embedded = false,
+  showCreate = true,
+}: {
+  embedded?: boolean;
+  showCreate?: boolean;
+}) {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
@@ -175,7 +299,7 @@ export function TransfersContent({ embedded = false }: { embedded?: boolean }) {
   const membersQuery = useHouseholdMemberDetails();
   const savingPotsQuery = useSavingPots();
   const savingPotAssignmentsQuery = useSavingPotAccountAssignments();
-  const recurringQuery = useRecurringTransactions();
+  const recurringQuery = useRecurringTransactionsInfinite(20);
   const createRecurring = useCreateRecurringTransaction();
   const updateRecurring = useUpdateRecurringTransaction();
   const toggleRecurring = useToggleRecurringTransaction();
@@ -206,13 +330,17 @@ export function TransfersContent({ embedded = false }: { embedded?: boolean }) {
     bank: t('accounts.types.bank'), cash: t('accounts.types.cash'), savings: t('accounts.types.savings'),
     credit_card: t('accounts.types.credit_card'), investment: t('accounts.types.investment'), ppr: t('accounts.types.ppr'),
   }), [t]);
-  const visibleRules = useMemo(() => (recurringQuery.data ?? []).filter((item: any) => {
+  const recurringRules = useMemo(
+    () => recurringQuery.data?.pages.flatMap((page) => page) ?? [],
+    [recurringQuery.data],
+  );
+  const visibleRules = useMemo(() => recurringRules.filter((item: any) => {
     const ruleKind = ruleKindOf(item);
     if (kindFilter !== 'all' && ruleKind !== kindFilter) return false;
     if (statusFilter === 'active' && !item.is_active) return false;
     if (statusFilter === 'paused' && item.is_active) return false;
     return true;
-  }), [kindFilter, recurringQuery.data, statusFilter]);
+  }), [kindFilter, recurringRules, statusFilter]);
 
   const updateDraft = (patch: Partial<MovementDraft>) => setDraft((current) => ({ ...current, ...patch }));
   const updateEditing = (patch: Partial<MovementDraft>) => setEditing((current) => current ? ({ ...current, ...patch }) : current);
@@ -272,7 +400,7 @@ export function TransfersContent({ embedded = false }: { embedded?: boolean }) {
 
   const content = (
     <>
-      <Card>
+      {showCreate ? <Card>
         <Section title={currentTitle}>
           {error ? <Text style={{ color: colors.destructive }}>{error}</Text> : null}
           <KindPills value={draft.kind} onChange={(kind) => { setError(null); setDraft(emptyDraft(kind, profile?.id)); }} />
@@ -288,9 +416,9 @@ export function TransfersContent({ embedded = false }: { embedded?: boolean }) {
           />
           <Button label={selectedPending ? t('transfers.formCreating') : t('transfers.createRecurring')} onPress={() => void saveDraft()} disabled={!validMovement(draft) || selectedPending} />
         </Section>
-      </Card>
+      </Card> : null}
 
-      <Section title={t('transfers.scheduledTitle')} subtitle={t('transfers.scheduledSubtitle', { count: (recurringQuery.data ?? []).length })}>
+      <Section title={t('transfers.scheduledTitle')} subtitle={t('transfers.scheduledSubtitle', { count: recurringRules.length })}>
         <View style={styles.filters}>
           <View style={styles.pillRow}>
             <Pill label={t('transfers.filterAll')} active={kindFilter === 'all'} onPress={() => setKindFilter('all')} />
@@ -329,6 +457,15 @@ export function TransfersContent({ embedded = false }: { embedded?: boolean }) {
             })}
           </Table>
         ) : <EmptyState title={t('transfers.emptyScheduled')} icon="repeat-outline" />}
+        {recurringQuery.isFetchingNextPage ? (
+          <Text style={{ color: colors.textSecondary }}>{t('loading')}</Text>
+        ) : recurringQuery.hasNextPage ? (
+          <Button
+            label={t('loadMore', { defaultValue: 'Load more' })}
+            variant="secondary"
+            onPress={() => void recurringQuery.fetchNextPage()}
+          />
+        ) : null}
       </Section>
 
       <RuleMenu

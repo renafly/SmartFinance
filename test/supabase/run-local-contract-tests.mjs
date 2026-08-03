@@ -114,6 +114,71 @@ async function assertDeniedOrEmpty(name, query) {
   console.log(`ok - ${name}`);
 }
 
+async function assertMovementBalanceContract(client) {
+  const { data: memberships, error: membershipError } = await client
+    .from('household_members')
+    .select('household_id')
+    .eq('status', 'active')
+    .limit(1);
+  if (membershipError) {
+    console.error('Local Supabase contract failed: resolve seed user household for movement balances');
+    console.error(membershipError.message);
+    process.exit(1);
+  }
+
+  const householdId = memberships?.[0]?.household_id;
+  if (!householdId) {
+    console.log('Skipping movement balance shape check because the seed user has no active household.');
+    return;
+  }
+
+  const { data: movements, error: movementsError } = await client.rpc('list_transaction_movements', {
+    p_household_id: householdId,
+    p_limit: 25,
+  });
+  if (movementsError) {
+    console.error('Local Supabase contract failed: authenticated movement list includes balances');
+    console.error(movementsError.message);
+    process.exit(1);
+  }
+  if (!movements?.length) {
+    console.log('Skipping movement balance value check because the seed household has no movements.');
+    return;
+  }
+
+  const missingBalanceColumn = movements.some(
+    (movement) => !Object.prototype.hasOwnProperty.call(movement, 'balance_after_transaction'),
+  );
+  if (missingBalanceColumn) {
+    console.error('Local Supabase contract failed: movement RPC omitted balance_after_transaction.');
+    process.exit(1);
+  }
+
+  const movement = movements.find((candidate) =>
+    candidate.movement_kind === 'transfer' ? candidate.source_transaction_id : candidate.transaction_id,
+  );
+  if (movement) {
+    const sourceTransactionId =
+      movement.movement_kind === 'transfer' ? movement.source_transaction_id : movement.transaction_id;
+    const { data: sourceTransaction, error: sourceError } = await client
+      .from('transactions')
+      .select('id,balance_after_transaction')
+      .eq('id', sourceTransactionId)
+      .single();
+    if (sourceError) {
+      console.error('Local Supabase contract failed: resolve source transaction balance');
+      console.error(sourceError.message);
+      process.exit(1);
+    }
+    if (Number(movement.balance_after_transaction) !== Number(sourceTransaction.balance_after_transaction)) {
+      console.error('Local Supabase contract failed: movement balance does not match its source transaction.');
+      process.exit(1);
+    }
+  }
+
+  console.log('ok - authenticated movement list includes source-side running balances');
+}
+
 async function signInLocalUser(email, password) {
   const client = createClient(url, anonKey);
   const { error } = await client.auth.signInWithPassword({ email, password });
@@ -204,6 +269,15 @@ await assertDeniedOrEmpty(
   }),
 );
 
+await assertDeniedOrEmpty(
+  'anonymous users cannot bulk update transaction categories',
+  supabase.rpc('bulk_update_transaction_category', {
+    p_household_id: '00000000-0000-0000-0000-000000000000',
+    p_transaction_ids: ['00000000-0000-0000-0000-000000000001'],
+    p_category_id: null,
+  }),
+);
+
 const userAEmail = process.env.SUPABASE_TEST_USER_A_EMAIL;
 const userAPassword = process.env.SUPABASE_TEST_USER_A_PASSWORD;
 const householdBId = process.env.SUPABASE_TEST_HOUSEHOLD_B_ID;
@@ -211,6 +285,8 @@ const hasCrossHouseholdSeed = Boolean(userAEmail && userAPassword && householdBI
 
 if (hasCrossHouseholdSeed) {
   const userAClient = await signInLocalUser(userAEmail, userAPassword);
+
+  await assertMovementBalanceContract(userAClient);
 
   for (const table of householdScopedTables) {
     await assertNoRows(
@@ -222,6 +298,15 @@ if (hasCrossHouseholdSeed) {
   await assertDeniedOrEmpty(
     'seed user A cannot list household B attachment folder',
     userAClient.storage.from('attachments').list(`${householdBId}/transactions`, { limit: 1 }),
+  );
+
+  await assertDeniedOrEmpty(
+    'seed user A cannot bulk update household B transaction categories',
+    userAClient.rpc('bulk_update_transaction_category', {
+      p_household_id: householdBId,
+      p_transaction_ids: ['00000000-0000-0000-0000-000000000001'],
+      p_category_id: null,
+    }),
   );
 } else {
   const message =

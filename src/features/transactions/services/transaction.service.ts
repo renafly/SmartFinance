@@ -1,6 +1,6 @@
 import { repositories } from "@/repositories";
 import { TransactionFilters, transactionsRepository } from "@/repositories/transactions.repository";
-import type { TransactionMovementFilters, UpdateCompletedTransferInput } from "@/repositories/transactions.repository";
+import type { BulkUpdateTransactionCategoryInput, TransactionMovementFilters, UpdateCompletedTransferInput } from "@/repositories/transactions.repository";
 import type {
   CreateTransactionDTO,
   UpdateTransactionDTO,
@@ -82,6 +82,12 @@ export function buildTransactionAttachmentPath(params: {
 }
 
 class TransactionsService {
+  async bulkUpdateCategory(input: BulkUpdateTransactionCategoryInput) {
+    const { data, error } = await transactionsRepository.bulkUpdateCategory(input);
+    if (error) throw error;
+    return data;
+  }
+
   async getMovements(householdId: string, filters: TransactionMovementFilters = {}) {
     const { data, error } = await transactionsRepository.listMovements(householdId, filters);
     if (error) throw error;

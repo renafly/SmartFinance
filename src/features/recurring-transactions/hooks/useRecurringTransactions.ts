@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import { recurringTransactionsService } from "../services/recurring-transactions.service";
 import { useAuth } from "@/providers/AuthProvider";
@@ -10,6 +15,23 @@ export function useRecurringTransactions() {
   return useQuery({
     queryKey: ["recurring-transactions", householdId],
     queryFn: () => recurringTransactionsService.getRecurringTransactions(householdId!),
+    enabled: !!householdId && !isLoading,
+  });
+}
+
+export function useRecurringTransactionsInfinite(pageSize = 20) {
+  const { householdId, isLoading } = useAuth();
+
+  return useInfiniteQuery({
+    queryKey: ["recurring-transactions", householdId, "infinite", pageSize],
+    queryFn: ({ pageParam }) =>
+      recurringTransactionsService.getRecurringTransactions(householdId!, {
+        limit: pageSize,
+        offset: pageParam,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) =>
+      lastPage.length < pageSize ? undefined : pages.length * pageSize,
     enabled: !!householdId && !isLoading,
   });
 }

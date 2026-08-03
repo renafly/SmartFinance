@@ -6,7 +6,7 @@ function createQuery(result: QueryResult) {
   const query: Record<string, jest.Mock> = {};
   const chain = () => query;
 
-  ["select", "eq", "order"].forEach((method) => {
+  ["select", "eq", "order", "range"].forEach((method) => {
     query[method] = jest.fn(chain);
   });
   query.then = jest.fn((resolve: (value: QueryResult) => unknown) =>
@@ -17,6 +17,20 @@ function createQuery(result: QueryResult) {
 }
 
 describe("RecurringTransactionsRepository", () => {
+  it("paginates recurring rules without loading the entire household", async () => {
+    const query = createQuery({ data: [] });
+    const repository = new RecurringTransactionsRepository({
+      from: jest.fn(() => query),
+    } as any);
+
+    await repository.listForHousehold("household-1", false, {
+      limit: 20,
+      offset: 40,
+    });
+
+    expect(query.range).toHaveBeenCalledWith(40, 59);
+  });
+
   it("loads recurring rules with account and explicit transfer destinations", async () => {
     const rows = [{ id: "rule-1", rule_kind: "transfer" }];
     const query = createQuery({ data: rows });

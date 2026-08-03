@@ -2,6 +2,7 @@ jest.mock("@/repositories/transactions.repository", () => ({
   transactionsRepository: {
     create: jest.fn(),
     delete: jest.fn(),
+    bulkUpdateCategory: jest.fn(),
   },
 }));
 
@@ -20,6 +21,7 @@ import { transactionsRepository } from "@/repositories/transactions.repository";
 const mockCreate = jest.mocked(transactionsRepository.create);
 const mockDelete = jest.mocked(transactionsRepository.delete);
 const mockUploadAndCreate = jest.mocked(repositories.attachments.uploadAndCreate);
+const mockBulkUpdateCategory = jest.mocked(transactionsRepository.bulkUpdateCategory);
 
 const createdTransaction = {
   id: "transaction-1",
@@ -160,5 +162,47 @@ describe("transactionsService.createTransaction", () => {
 
     expect(mockCreate).not.toHaveBeenCalled();
     expect(mockUploadAndCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("transactionsService.bulkUpdateCategory", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("returns the number of transactions categorized by the atomic repository operation", async () => {
+    const input = {
+      householdId: "household-1",
+      transactionIds: ["transaction-1", "transaction-2"],
+      categoryId: "category-1",
+    };
+    mockBulkUpdateCategory.mockResolvedValue({ data: 2, error: null });
+
+    await expect(transactionsService.bulkUpdateCategory(input)).resolves.toBe(2);
+    expect(mockBulkUpdateCategory).toHaveBeenCalledWith(input);
+  });
+
+  it("supports clearing categories", async () => {
+    const input = {
+      householdId: "household-1",
+      transactionIds: ["transaction-1"],
+      categoryId: null,
+    };
+    mockBulkUpdateCategory.mockResolvedValue({ data: 1, error: null });
+
+    await expect(transactionsService.bulkUpdateCategory(input)).resolves.toBe(1);
+  });
+
+  it("propagates validation and authorization errors", async () => {
+    const error = new Error("Selected transactions must have the same type.");
+    mockBulkUpdateCategory.mockResolvedValue({ data: null, error });
+
+    await expect(
+      transactionsService.bulkUpdateCategory({
+        householdId: "household-1",
+        transactionIds: ["transaction-1", "transaction-2"],
+        categoryId: "category-1",
+      }),
+    ).rejects.toBe(error);
   });
 });

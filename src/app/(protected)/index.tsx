@@ -21,7 +21,6 @@ import { useHouseholdMemberDetails } from '../../features/households/hooks/useHo
 import { useDefaultHousehold, useMyHouseholds } from '../../features/households/hooks';
 import { accountsService } from '../../features/accounts/services/accounts.service';
 import { transactionsService } from '../../features/transactions/services/transaction.service';
-import { TRANSACTION_RELATIONS_QUERY_VERSION } from '../../features/transactions/constants';
 import { savingPotsService } from '../../features/saving-pots/services/saving-pots.service';
 import {
   SHARED_ACCOUNT_OWNER_KEY,
@@ -548,14 +547,8 @@ export default function DashboardScreen() {
   });
 
   const transactionsQuery = useQuery({
-    queryKey: [
-      'dashboard',
-      'transactions',
-      householdId,
-      10,
-      TRANSACTION_RELATIONS_QUERY_VERSION,
-    ],
-    queryFn: () => transactionsService.getTransactions(householdId!, { limit: 10 }),
+    queryKey: ['dashboard', 'transaction-movements', householdId, 10],
+    queryFn: () => transactionsService.getMovements(householdId!, { limit: 10 }),
     enabled: !!householdId,
   });
 
@@ -982,8 +975,9 @@ export default function DashboardScreen() {
             ]}
           >
             {transactions.map((item: any) => {
+              const isTransfer = item.movement_kind === 'transfer';
               const account =
-                item.account ??
+                (isTransfer ? item.source_account : item.account) ??
                 accounts.find((candidate) => candidate.id === item.account_id);
               const ownerProfileId = account?.owner_profile_id;
               const ownerLabel = ownerProfileId
@@ -1000,17 +994,22 @@ export default function DashboardScreen() {
                   t('dashboard.unnamedPerson'),
               );
               const ownerTone =
-                transactionOwnerTones[
-                  getAccountOwnerToneIndex(
-                    ownerProfileId,
-                    transactionOwnerOrder,
-                    transactionOwnerTones.length,
-                  )
-                ];
+                isTransfer
+                  ? {
+                      accent: colors.financialNeutral,
+                      surface: colors.transferRow,
+                    }
+                  : transactionOwnerTones[
+                      getAccountOwnerToneIndex(
+                        ownerProfileId,
+                        transactionOwnerOrder,
+                        transactionOwnerTones.length,
+                      )
+                    ];
 
               return (
                 <TableRow
-                  key={item.id}
+                  key={item.movement_id ?? item.id}
                   backgroundColor={ownerTone.surface}
                   accentColor={ownerTone.accent}
                 >
@@ -1021,18 +1020,23 @@ export default function DashboardScreen() {
                           styles.accountIcon,
                           {
                             backgroundColor:
-                              item.type === 'expense'
+                              isTransfer
+                                ? colors.surface
+                                : item.type === 'expense'
                                 ? colors.destructiveSoft
                                 : colors.successSoft,
                           },
                         ]}
                       >
                         <Ionicons
-                          name={(item.category?.icon ??
-                            'pricetag-outline') as any}
+                          name={isTransfer
+                            ? 'swap-horizontal-outline'
+                            : (item.category?.icon ?? 'pricetag-outline') as any}
                           size={18}
                           color={
-                            item.type === 'expense'
+                            isTransfer
+                              ? colors.financialNeutral
+                              : item.type === 'expense'
                               ? colors.destructive
                               : colors.success
                           }
@@ -1052,8 +1056,10 @@ export default function DashboardScreen() {
                           ]}
                           numberOfLines={1}
                         >
-                          {item.category?.name ??
-                            t('transactions.uncategorized')}{' '}
+                          {isTransfer
+                            ? t('transactions.filters.transfer')
+                            : item.category?.name ??
+                              t('transactions.uncategorized')}{' '}
                           · {formatDate(item.transaction_date)}
                         </Text>
                       </View>
@@ -1061,7 +1067,9 @@ export default function DashboardScreen() {
                   </TableCell>
                   <TableCell flex={1.3}>
                     <Text style={{ color: colors.text }}>
-                      {account?.name ?? t('transactions.account')}
+                      {isTransfer
+                        ? `${item.source_account?.name ?? t('transactions.sourceAccount')} → ${item.destination_account?.name ?? t('transactions.destinationAccount')}`
+                        : account?.name ?? t('transactions.account')}
                     </Text>
                   </TableCell>
                   <TableCell flex={1.15}>
@@ -1092,13 +1100,15 @@ export default function DashboardScreen() {
                     <Text
                       style={{
                         color:
-                          item.type === 'expense'
+                          isTransfer
+                            ? colors.financialNeutral
+                            : item.type === 'expense'
                             ? colors.destructive
                             : colors.success,
                         fontWeight: typography.fontWeight.bold as any,
                       }}
                     >
-                      {item.type === 'expense' ? '-' : '+'}
+                      {isTransfer ? '' : item.type === 'expense' ? '-' : '+'}
                       {formatCurrency(item.amount)}
                     </Text>
                   </TableCell>
@@ -1109,7 +1119,7 @@ export default function DashboardScreen() {
                         fontWeight: typography.fontWeight.bold as any,
                       }}
                     >
-                      {item.balance_after_transaction == null
+                      {isTransfer || item.balance_after_transaction == null
                         ? '—'
                         : formatCurrency(item.balance_after_transaction)}
                     </Text>
