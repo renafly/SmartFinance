@@ -82,6 +82,7 @@ describe("TransactionsRepository", () => {
       p_source_account_id: "account-from", p_destination_account_id: "account-to",
       p_category_id: "category-1", p_uncategorized: false, p_created_by: "profile-1",
       p_from: "2026-08-01", p_to: "2026-08-31", p_sort: "oldest", p_limit: 20, p_offset: 40,
+      p_exclude_transfers: false, p_search: null, p_min_amount: null, p_max_amount: null,
     });
   });
 
