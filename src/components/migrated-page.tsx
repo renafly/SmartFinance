@@ -276,7 +276,7 @@ export function Button({ label, onPress, variant = 'primary', disabled }: Button
           colors={[colors.gradientFrom, colors.gradientTo]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
         />
       ) : null}
       <Text style={[styles.buttonText, { color: variant === 'primary' ? colors.primaryForeground : variant === 'secondary' ? colors.text : colors.destructiveForeground }]}>
