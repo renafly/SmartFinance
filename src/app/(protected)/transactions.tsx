@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import * as DocumentPicker from "expo-document-picker";
-import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { typography } from "@/theme/typography";
 import { useTheme } from "@/theme/ThemeProvider";
@@ -37,11 +36,6 @@ import {
   TableRow,
 } from "@/components/data-surface";
 import { HouseholdMemberSelect } from "@/components/household-member-select";
-import {
-  SelectionOptionRow,
-  SelectionShell,
-  SelectionTrigger,
-} from "@/components/selection-shell";
 import { GroupedAccountSelect } from "@/components/grouped-account-select";
 import {
   GroupedDestinationSelect,
@@ -51,9 +45,10 @@ import { DatePickerField as SharedDatePickerField } from "@/components/date-pick
 import { AttachmentPreview } from "@/components/attachment-preview";
 import { useAuth } from "../../providers/AuthProvider";
 import { useAccountsWithBalances } from "../../features/accounts/hooks";
-import { useTopLevelCategories } from "../../features/categories/hooks";
+import { useCategories } from "../../features/categories/hooks";
+import { CategoryPicker } from "@/components/category-picker";
 import { useHouseholdMemberDetails } from "../../features/households/hooks";
-import { useTransactionMovementsInfinite } from "../../features/transactions/hooks/useTransactions";
+import { useTransactionMovementsInfinite, useTransactionMovementsSummary } from "../../features/transactions/hooks/useTransactions";
 import { useCreateTransaction } from "../../features/transactions/hooks/useCreateTransaction";
 import { useDeleteTransaction } from "../../features/transactions/hooks/useDeleteTransaction";
 import { useDeleteCompletedTransfer } from "../../features/transactions/hooks/useDeleteCompletedTransfer";
@@ -71,6 +66,12 @@ import {
   type TransactionListSortKey,
 } from "../../features/transactions/utils/transaction-list";
 import {
+  movementAmountColor,
+  movementAmountSign,
+  movementIconBackground,
+  resolveMovementKind,
+} from "../../features/transactions/utils/transaction-amount";
+import {
   getAddAnotherTransactionReset,
   getFreshTransactionCreateReset,
   getLocalCalendarDate,
@@ -81,6 +82,9 @@ import {
   getAccountOwnerToneIndex,
 } from "../../features/accounts/account-ordering";
 import { RecurringTransferCreateForm, TransfersContent } from "./transfers";
+import { createStyles } from "@/features/transactions/ui-styles";
+import { DropdownField, type DropdownFieldProps } from "@/features/transactions/components/dropdown-field";
+import { DateFilterField, DatePickerField, formatDateInputValue, parseDateInputValue } from "@/features/transactions/components/transaction-date-field";
 
 type TransactionEditDraft = {
   id: string;
@@ -105,279 +109,6 @@ type TransferEditDraft = {
   categoryId: string | null;
 };
 
-type DropdownFieldProps = {
-  label: string;
-  valueLabel: string;
-  placeholder: string;
-  hint?: string;
-  selectedKey?: string;
-  options: {
-    key: string;
-    label: string;
-    subtitle?: string;
-    iconName?: keyof typeof Ionicons.glyphMap;
-  }[];
-  onChange: (key: string) => void;
-};
-
-function DropdownField({
-  label,
-  valueLabel,
-  placeholder,
-  hint,
-  selectedKey,
-  options,
-  onChange,
-}: DropdownFieldProps) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <View style={{ gap: spacing(2) }}>
-      <SelectionTrigger
-        label={label}
-        valueLabel={valueLabel}
-        hint={hint}
-        placeholder={placeholder}
-        iconName="chevron-down-outline"
-        onPress={() => setOpen(true)}
-      />
-      <SelectionShell
-        visible={open}
-        title={label}
-        subtitle={hint ?? placeholder}
-        closeLabel={placeholder}
-        onClose={() => setOpen(false)}
-      >
-        <View style={{ gap: spacing(2) }}>
-          {options.map((option) => (
-            <SelectionOptionRow
-              key={option.key}
-              title={option.label}
-              subtitle={option.subtitle}
-              iconName={option.iconName ?? "ellipse-outline"}
-              active={
-                selectedKey
-                  ? option.key === selectedKey
-                  : option.label === valueLabel
-              }
-              onPress={() => {
-                onChange(option.key);
-                setOpen(false);
-              }}
-            />
-          ))}
-        </View>
-      </SelectionShell>
-    </View>
-  );
-}
-
-function parseDateInputValue(value: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]) - 1;
-  const day = Number(match[3]);
-  const nextDate = new Date(year, month, day);
-  return Number.isNaN(nextDate.getTime()) ? null : nextDate;
-}
-
-function formatDateInputValue(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function DatePickerField({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (nextValue: string) => void;
-  placeholder: string;
-}) {
-  const { colors } = useTheme();
-  const { t } = useTranslation("common");
-  const [open, setOpen] = useState(false);
-  const [draftDate, setDraftDate] = useState(
-    () => parseDateInputValue(value) ?? new Date(),
-  );
-
-  if (Platform.OS === "web") {
-    return (
-      <SharedDatePickerField
-        label={label}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-      />
-    );
-  }
-
-  return (
-    <View style={{ gap: spacing(2) }}>
-      <Text
-        style={
-          {
-            color: colors.textSecondary,
-            fontWeight: typography.fontWeight.semibold as any,
-          } as any
-        }
-      >
-        {label}
-      </Text>
-      <Pressable
-        onPress={() => {
-          if (!open) {
-            setDraftDate(parseDateInputValue(value) ?? new Date());
-          }
-          setOpen((current) => !current);
-        }}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: spacing(3.5),
-          paddingVertical: spacing(3),
-          borderRadius: radius.mdPlus,
-          backgroundColor: colors.surfaceMuted,
-          borderWidth: 1,
-          borderColor: colors.border,
-        }}
-      >
-        <Text
-          style={
-            {
-              color:
-                value.trim().length > 0 ? colors.text : colors.textSecondary,
-              fontWeight: typography.fontWeight.bold as any,
-            } as any
-          }
-        >
-          {value.trim().length > 0 ? value : placeholder}
-        </Text>
-        <Text
-          style={
-            {
-              color: colors.textSecondary,
-              fontWeight: typography.fontWeight.bold as any,
-            } as any
-          }
-        >
-          {open ? "▴" : "▾"}
-        </Text>
-      </Pressable>
-      {open ? (
-        <View
-          style={{
-            gap: spacing(2),
-            padding: spacing(3),
-            borderRadius: radius.lg,
-            backgroundColor: colors.surfaceMuted,
-            borderWidth: 1,
-            borderColor: colors.border,
-          }}
-        >
-          <DateTimePicker
-            value={draftDate}
-            mode="date"
-            display={Platform.OS === "ios" ? "inline" : "default"}
-            presentation={Platform.OS === "android" ? "dialog" : "inline"}
-            onValueChange={(_, date) => {
-              if (!date) return;
-              setDraftDate(date);
-              if (Platform.OS === "android") {
-                onChange(formatDateInputValue(date));
-                setOpen(false);
-              }
-            }}
-            onDismiss={() => setOpen(false)}
-          />
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "flex-end",
-              gap: spacing(2),
-            }}
-          >
-            <Button
-              label={t("cancel")}
-              variant="secondary"
-              onPress={() => setOpen(false)}
-            />
-            <Button
-              label={t("done")}
-              onPress={() => {
-                onChange(formatDateInputValue(draftDate));
-                setOpen(false);
-              }}
-            />
-          </View>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function DateFilterField({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (nextValue: string) => void;
-  placeholder: string;
-}) {
-  const { colors } = useTheme();
-  const { t } = useTranslation("common");
-
-  return (
-    <View style={{ gap: spacing(1.5) }}>
-      <DatePickerField
-        label={label}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-      />
-      {value ? (
-        <Pressable
-          onPress={() => onChange("")}
-          style={({ pressed }) => [
-            {
-              alignSelf: "flex-start",
-              paddingHorizontal: spacing(2.5),
-              paddingVertical: spacing(1.5),
-              borderRadius: radius.full,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.surfaceMuted,
-            },
-            pressed && { opacity: 0.85 },
-          ]}
-        >
-          <Text
-            style={
-              {
-                color: colors.textSecondary,
-                fontSize: typography.fontSize[12],
-                fontWeight: typography.fontWeight.semibold as any,
-              } as any
-            }
-          >
-            {t("clear")}
-          </Text>
-        </Pressable>
-      ) : null}
-    </View>
-  );
-}
-
 type AttachmentDraft = {
   file: Blob | ArrayBuffer | File;
   fileName: string;
@@ -387,6 +118,28 @@ type AttachmentDraft = {
 };
 
 const TRANSACTIONS_PAGE_SIZE = 25;
+
+type WizardStepKey = "type" | "accounts" | "extras";
+
+// "type" now covers both what used to be separate "type" and "details"
+// (or "form", for recurring transfers) steps: choosing income/expense/
+// transfer and filling in the title/amount/date/notes (or the recurring
+// form) happen on the same first step, since picking a type with nothing
+// else to look at felt like a wasted extra tap.
+const WIZARD_STEP_COPY: Record<WizardStepKey, { titleKey: string; subtitleKey: string }> = {
+  type: {
+    titleKey: "transactions.wizard.stepTypeTitle",
+    subtitleKey: "transactions.wizard.stepTypeSubtitle",
+  },
+  accounts: {
+    titleKey: "transactions.wizard.stepAccountsTitle",
+    subtitleKey: "transactions.wizard.stepAccountsSubtitle",
+  },
+  extras: {
+    titleKey: "transactions.wizard.stepExtrasTitle",
+    subtitleKey: "transactions.wizard.stepExtrasSubtitle",
+  },
+};
 
 export default function TransactionsScreen() {
   const { colors } = useTheme();
@@ -424,9 +177,13 @@ export default function TransactionsScreen() {
   const [activeView, setActiveView] = useState<"activity" | "scheduled">(
     "activity",
   );
+  // Defaults to "movements" (income + expense, transfers hidden) rather than
+  // "all", since transfers between your own accounts usually just clutter
+  // the activity list. "all" is still one tap away for anyone who wants
+  // transfers back in the mix.
   const [filtersType, setFiltersType] = useState<
-    "all" | "income" | "expense" | "transfer"
-  >("all");
+    "movements" | "all" | "income" | "expense" | "transfer"
+  >("movements");
   const [accountFilter, setAccountFilter] = useState<"all" | string>("all");
   const [sourceAccountFilter, setSourceAccountFilter] = useState<
     "all" | string
@@ -440,9 +197,13 @@ export default function TransactionsScreen() {
   const [createdByFilter, setCreatedByFilter] = useState<"all" | string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [searchFilter, setSearchFilter] = useState("");
+  const [minAmountFilter, setMinAmountFilter] = useState("");
+  const [maxAmountFilter, setMaxAmountFilter] = useState("");
   const [sortBy, setSortBy] = useState<TransactionListSortKey>("newest");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState(0);
   const [editTransaction, setEditTransaction] =
     useState<TransactionEditDraft | null>(null);
   const editAttachmentsQuery = useTransactionAttachments(editTransaction?.id);
@@ -460,9 +221,56 @@ export default function TransactionsScreen() {
   >(() => new Set());
   const [bulkCategoryId, setBulkCategoryId] = useState("");
 
-  const transactionsQuery = useTransactionMovementsInfinite(
-    {
-      kind: filtersType === "all" ? undefined : filtersType,
+  // Debounce free-text search and amount inputs so every keystroke doesn't
+  // fire its own network request -- the input fields themselves stay
+  // immediate (searchFilter/minAmountFilter/maxAmountFilter), only the value
+  // handed to the query is delayed.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchFilter.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchFilter]);
+  const [debouncedMinAmount, setDebouncedMinAmount] = useState("");
+  const [debouncedMaxAmount, setDebouncedMaxAmount] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedMinAmount(minAmountFilter), 300);
+    return () => clearTimeout(timer);
+  }, [minAmountFilter]);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedMaxAmount(maxAmountFilter), 300);
+    return () => clearTimeout(timer);
+  }, [maxAmountFilter]);
+
+  const parsedMinAmount = useMemo(() => {
+    const trimmed = debouncedMinAmount.trim();
+    if (!trimmed) return undefined;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, [debouncedMinAmount]);
+  const parsedMaxAmount = useMemo(() => {
+    const trimmed = debouncedMaxAmount.trim();
+    if (!trimmed) return undefined;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, [debouncedMaxAmount]);
+
+  // Shared by the infinite list query and the full-set summary query below --
+  // both must see identical filters so the summary bar's totals always match
+  // what's actually being listed.
+  const movementFilters = useMemo(
+    () => ({
+      // The backend's "kind" filter only understands a single exact
+      // movement_kind ("income" | "expense" | "transfer"), so there's no
+      // server-side way to ask for "income and expense but not transfer" via
+      // p_kind alone. For "movements" we instead fetch every kind (p_kind
+      // left null) and set excludeTransfers so the RPC drops transfer rows
+      // in its WHERE clause -- unlike the previous client-side post-filter,
+      // this keeps every returned page correctly sized for infinite scroll.
+      kind:
+        filtersType === "all" || filtersType === "movements"
+          ? undefined
+          : filtersType,
+      excludeTransfers: filtersType === "movements",
       accountId: accountFilter === "all" ? undefined : accountFilter,
       sourceAccountId:
         sourceAccountFilter === "all" ? undefined : sourceAccountFilter,
@@ -479,68 +287,76 @@ export default function TransactionsScreen() {
       createdBy: createdByFilter === "all" ? undefined : createdByFilter,
       from: dateFrom || undefined,
       to: dateTo || undefined,
-      sortBy,
-    },
-    TRANSACTIONS_PAGE_SIZE,
-  );
-  const activeCategoryType = editTransaction?.type ?? type;
-  const categoriesQuery = useTopLevelCategories(activeCategoryType);
-  const filterCategoriesQuery = useTopLevelCategories(
-    filtersType === "all" || filtersType === "transfer"
-      ? undefined
-      : filtersType,
-  );
-  const transferCategoriesQuery = useTopLevelCategories("account");
-  const bulkCategoriesQuery = useTopLevelCategories(
-    bulkSelectionType ?? undefined,
+      search: debouncedSearch || undefined,
+      minAmount: parsedMinAmount,
+      maxAmount: parsedMaxAmount,
+    }),
+    [
+      filtersType,
+      accountFilter,
+      sourceAccountFilter,
+      destinationAccountFilter,
+      categoryFilter,
+      createdByFilter,
+      dateFrom,
+      dateTo,
+      debouncedSearch,
+      parsedMinAmount,
+      parsedMaxAmount,
+    ],
   );
 
-  const accounts = accountsQuery.data ?? [];
+  const transactionsQuery = useTransactionMovementsInfinite(
+    { ...movementFilters, sortBy },
+    TRANSACTIONS_PAGE_SIZE,
+  );
+  const movementsSummaryQuery = useTransactionMovementsSummary(movementFilters);
+  const activeCategoryType = editTransaction?.type ?? type;
+  // A single fetch-all-types query, with every view-specific list (create
+  // form, filter dropdown, transfer categories, bulk-edit) derived from it
+  // client-side. Previously each of those was its own useCategories() call
+  // (4 separate network round trips fetching heavily overlapping data) --
+  // one query is enough since categories are cheap to hold in memory and
+  // rarely change.
+  const allCategoriesQuery = useCategories();
+  const allCategories = useMemo(
+    () => allCategoriesQuery.data ?? [],
+    [allCategoriesQuery.data],
+  );
+  // Full flat lists (main categories + their subcategories) rather than
+  // top-level-only — the shared CategoryPicker groups them into
+  // expand/collapse sections itself, so every call site just hands it
+  // whichever flat list makes sense for that context.
   const categories = useMemo(
-    () => categoriesQuery.data ?? [],
-    [categoriesQuery.data],
+    () => allCategories.filter((category: any) => category.type === activeCategoryType),
+    [allCategories, activeCategoryType],
   );
-  const categoryOptions = useMemo(
-    () => [
-      {
-        key: "",
-        label: t("none"),
-        iconName: "close-circle-outline" as const,
-      },
-      ...categories.map((category: any) => ({
-        key: category.id,
-        label: category.name,
-        iconName:
-          (category.icon as keyof typeof Ionicons.glyphMap | null) ??
-          "pricetag-outline",
-      })),
-    ],
-    [categories, t],
+  const bulkCategories = useMemo(
+    () => allCategories.filter((category: any) => category.type === bulkSelectionType),
+    [allCategories, bulkSelectionType],
   );
-  const filterCategoryOptions = useMemo(() => {
-    const filterCategories =
+  // Filter category list shown in the "Category" filter dropdown, with a
+  // synthetic "uncategorized" entry prepended so it can live inside the
+  // same unified picker as a selectable pseudo-category.
+  const filterCategories = useMemo(() => {
+    const source =
       filtersType === "transfer"
-        ? (transferCategoriesQuery.data ?? [])
-        : (filterCategoriesQuery.data ?? []).filter(
-            (category: any) => category.type !== "account",
-          );
+        ? allCategories.filter((category: any) => category.type === "account")
+        : filtersType === "income" || filtersType === "expense"
+          ? allCategories.filter((category: any) => category.type === filtersType)
+          : allCategories.filter((category: any) => category.type !== "account");
     return [
-      { key: "all", label: t("transactions.allCategories") },
-      { key: "uncategorized", label: t("transactions.uncategorized") },
-      ...filterCategories.map((category: any) => ({
-        key: category.id,
-        label: category.name,
-        iconName:
-          (category.icon as keyof typeof Ionicons.glyphMap | null) ??
-          "pricetag-outline",
-      })),
+      {
+        id: "uncategorized",
+        name: t("transactions.uncategorized"),
+        icon: "help-circle-outline",
+        parent_id: null,
+      },
+      ...source,
     ];
-  }, [
-    filterCategoriesQuery.data,
-    filtersType,
-    t,
-    transferCategoriesQuery.data,
-  ]);
+  }, [allCategories, filtersType, t]);
+
+  const accounts = accountsQuery.data ?? [];
   const acceptedMembers = useMemo(
     () =>
       (membersQuery.data ?? []).filter(
@@ -570,30 +386,20 @@ export default function TransactionsScreen() {
       }
     }
 
-    const rows = [...rowsById.values()];
+    // The RPC already excludes transfers server-side for "movements" (via
+    // excludeTransfers), so this is now a defensive no-op rather than the
+    // primary filter -- kept in case a stale cached page ever slips through.
+    const rows =
+      filtersType === "movements"
+        ? [...rowsById.values()].filter(
+            (row) => row.movement_kind !== "transfer",
+          )
+        : [...rowsById.values()];
 
     rows.sort((a: any, b: any) => compareTransactions(a, b, sortBy));
 
     return rows;
-  }, [sortBy, transactionsQuery.data]);
-  const bulkCategories = useMemo(
-    () =>
-      (bulkCategoriesQuery.data ?? []).filter(
-        (category: any) => category.type === bulkSelectionType,
-      ),
-    [bulkCategoriesQuery.data, bulkSelectionType],
-  );
-  const bulkCategoryOptions = useMemo(
-    () =>
-      bulkCategories.map((category: any) => ({
-        key: category.id,
-        label: category.name,
-        iconName:
-          (category.icon as keyof typeof Ionicons.glyphMap | null) ??
-          "pricetag-outline",
-      })),
-    [bulkCategories],
-  );
+  }, [filtersType, sortBy, transactionsQuery.data]);
   const memberLabelMap = new Map(
     acceptedMembers.map((member) => [
       member.userId,
@@ -639,9 +445,134 @@ export default function TransactionsScreen() {
       : createdByFilter === currentUserId || createdByFilter === ""
         ? currentUserLabel
         : (memberLabelMap.get(createdByFilter) ?? t("settings.unnamedUser"));
-  const selectedFilterCategoryLabel =
-    filterCategoryOptions.find((item) => item.key === categoryFilter)?.label ??
-    t("transactions.allCategories");
+
+  // Every non-default filter gets a removable chip so it stays visible even
+  // once the filter panel is collapsed, plus a single "Clear all" action --
+  // otherwise a forgotten narrow filter (e.g. a stale date range) silently
+  // hides transactions with no visible explanation.
+  const activeFilterChips = useMemo(() => {
+    const chips: { key: string; label: string; onClear: () => void }[] = [];
+    if (filtersType !== "movements") {
+      chips.push({
+        key: "filtersType",
+        label: t(`transactions.filters.${filtersType}`),
+        onClear: () => setFiltersType("movements"),
+      });
+    }
+    if (accountFilter !== "all") {
+      const account = (accounts as any[]).find(
+        (entry) => entry.id === accountFilter,
+      );
+      chips.push({
+        key: "account",
+        label: `${t("transactions.account")}: ${account?.name ?? accountFilter}`,
+        onClear: () => setAccountFilter("all"),
+      });
+    }
+    if (filtersType === "transfer" && sourceAccountFilter !== "all") {
+      const account = (accounts as any[]).find(
+        (entry) => entry.id === sourceAccountFilter,
+      );
+      chips.push({
+        key: "sourceAccount",
+        label: `${t("transactions.sourceAccount")}: ${account?.name ?? sourceAccountFilter}`,
+        onClear: () => setSourceAccountFilter("all"),
+      });
+    }
+    if (filtersType === "transfer" && destinationAccountFilter !== "all") {
+      const account = (accounts as any[]).find(
+        (entry) => entry.id === destinationAccountFilter,
+      );
+      chips.push({
+        key: "destinationAccount",
+        label: `${t("transactions.destinationAccount")}: ${account?.name ?? destinationAccountFilter}`,
+        onClear: () => setDestinationAccountFilter("all"),
+      });
+    }
+    if (categoryFilter !== "all") {
+      const category = (filterCategories as any[]).find(
+        (entry) => entry.id === categoryFilter,
+      );
+      chips.push({
+        key: "category",
+        label: `${t("transactions.categoryFilter")}: ${category?.name ?? t("transactions.uncategorized")}`,
+        onClear: () => setCategoryFilter("all"),
+      });
+    }
+    if (createdByFilter !== "all") {
+      chips.push({
+        key: "createdBy",
+        label: `${t("transactions.createdBy")}: ${selectedCreatorLabel}`,
+        onClear: () => setCreatedByFilter("all"),
+      });
+    }
+    if (dateFrom) {
+      chips.push({
+        key: "dateFrom",
+        label: `${t("transactions.dateFrom")}: ${dateFrom}`,
+        onClear: () => setDateFrom(""),
+      });
+    }
+    if (dateTo) {
+      chips.push({
+        key: "dateTo",
+        label: `${t("transactions.dateTo")}: ${dateTo}`,
+        onClear: () => setDateTo(""),
+      });
+    }
+    if (searchFilter.trim()) {
+      chips.push({
+        key: "search",
+        label: `${t("transactions.searchLabel")}: ${searchFilter.trim()}`,
+        onClear: () => setSearchFilter(""),
+      });
+    }
+    if (minAmountFilter.trim()) {
+      chips.push({
+        key: "minAmount",
+        label: `${t("transactions.minAmountLabel")}: ${minAmountFilter.trim()}`,
+        onClear: () => setMinAmountFilter(""),
+      });
+    }
+    if (maxAmountFilter.trim()) {
+      chips.push({
+        key: "maxAmount",
+        label: `${t("transactions.maxAmountLabel")}: ${maxAmountFilter.trim()}`,
+        onClear: () => setMaxAmountFilter(""),
+      });
+    }
+    return chips;
+  }, [
+    filtersType,
+    accountFilter,
+    sourceAccountFilter,
+    destinationAccountFilter,
+    categoryFilter,
+    createdByFilter,
+    dateFrom,
+    dateTo,
+    searchFilter,
+    minAmountFilter,
+    maxAmountFilter,
+    accounts,
+    filterCategories,
+    selectedCreatorLabel,
+    t,
+  ]);
+
+  function clearAllFilters() {
+    setFiltersType("movements");
+    setAccountFilter("all");
+    setSourceAccountFilter("all");
+    setDestinationAccountFilter("all");
+    setCategoryFilter("all");
+    setCreatedByFilter("all");
+    setDateFrom("");
+    setDateTo("");
+    setSearchFilter("");
+    setMinAmountFilter("");
+    setMaxAmountFilter("");
+  }
   const effectiveCreatedById = createdById || currentUserId;
   const categorySuggestion = useTransactionCategorySuggestion({
     title,
@@ -672,6 +603,42 @@ export default function TransactionsScreen() {
     (createMovementKind === "transaction" ||
       (Boolean(transferDestination?.id) &&
         transferDestination?.id !== effectiveAccountId));
+
+  // The "Add movement" modal is a short step-by-step wizard rather than one
+  // long scrolling form. Which steps exist depends on what kind of movement
+  // is being created: a recurring transfer hands off entirely to its own
+  // form (it already has its own save button and validation) with no
+  // further steps, a one-off transfer skips the category/attachment step
+  // since neither applies to transfers, and a plain transaction gets the
+  // full set.
+  const wizardSteps = useMemo<WizardStepKey[]>(() => {
+    if (createMovementKind === "recurring-transfer") return ["type"];
+    if (createMovementKind === "transfer") return ["type", "accounts"];
+    return ["type", "accounts", "extras"];
+  }, [createMovementKind]);
+  const currentWizardStep = Math.min(wizardStep, wizardSteps.length - 1);
+  const currentWizardStepKey = wizardSteps[currentWizardStep];
+  const isLastWizardStep = currentWizardStep === wizardSteps.length - 1;
+  const canProceedFromDetailsStep =
+    title.trim().length > 0 &&
+    Number.isFinite(parsedAmount) &&
+    parsedAmount > 0 &&
+    /^\d{4}-\d{2}-\d{2}$/.test(date);
+  const canProceedFromAccountsStep =
+    Boolean(effectiveAccountId) &&
+    (createMovementKind !== "transfer" ||
+      (Boolean(transferDestination?.id) &&
+        transferDestination?.id !== effectiveAccountId));
+  const canProceedFromCurrentStep =
+    currentWizardStepKey === "type"
+      ? createMovementKind === "recurring-transfer" || canProceedFromDetailsStep
+      : currentWizardStepKey === "accounts"
+        ? canProceedFromAccountsStep
+        : true;
+
+  function goToWizardStep(nextStep: number) {
+    setWizardStep(Math.max(0, Math.min(nextStep, wizardSteps.length - 1)));
+  }
 
   const getTransactionAccount = (item: any) => {
     const account =
@@ -854,7 +821,13 @@ export default function TransactionsScreen() {
     applyCreateFormReset(getFreshTransactionCreateReset());
     setCreateMovementKind("transaction");
     setTransferDestination(null);
+    setWizardStep(0);
     setCreateModalOpen(true);
+  }
+
+  function closeCreateModal() {
+    setCreateModalOpen(false);
+    setWizardStep(0);
   }
 
   async function handleCreate(keepOpen = false) {
@@ -906,12 +879,13 @@ export default function TransactionsScreen() {
         }),
       );
       setTransferDestination(null);
+      setWizardStep(0);
       return;
     }
 
     applyCreateFormReset(getFreshTransactionCreateReset());
     setTransferDestination(null);
-    setCreateModalOpen(false);
+    closeCreateModal();
   }
 
   function closeEditTransaction() {
@@ -1084,6 +1058,36 @@ export default function TransactionsScreen() {
                 </Pressable>
               }
             >
+              {activeFilterChips.length > 0 ? (
+                <View style={styles.activeFiltersRow}>
+                  {activeFilterChips.map((chip) => (
+                    <Pressable
+                      key={chip.key}
+                      accessibilityRole="button"
+                      onPress={chip.onClear}
+                      style={styles.activeFilterChip}
+                    >
+                      <Text style={styles.activeFilterChipText}>
+                        {chip.label}
+                      </Text>
+                      <Ionicons
+                        name="close-circle"
+                        size={14}
+                        color={colors.textSecondary}
+                      />
+                    </Pressable>
+                  ))}
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={clearAllFilters}
+                    style={styles.clearAllButton}
+                  >
+                    <Text style={styles.clearAllButtonText}>
+                      {t("transactions.clearAllFilters")}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
               {filtersOpen ? (
                 <View style={styles.filtersGrid}>
                   <View
@@ -1114,7 +1118,15 @@ export default function TransactionsScreen() {
                       </Text>
                     </View>
                     <View style={styles.filterPills}>
-                      {(["all", "income", "expense", "transfer"] as const).map(
+                      {(
+                        [
+                          "movements",
+                          "all",
+                          "income",
+                          "expense",
+                          "transfer",
+                        ] as const
+                      ).map(
                         (item) => (
                           <Pill
                             key={item}
@@ -1239,6 +1251,8 @@ export default function TransactionsScreen() {
                           "oldest",
                           "amount_desc",
                           "amount_asc",
+                          "title_asc",
+                          "title_desc",
                         ] as const
                       ).map((item) => (
                         <Pill
@@ -1295,14 +1309,14 @@ export default function TransactionsScreen() {
                       },
                     ]}
                   >
-                    <DropdownField
+                    <CategoryPicker
                       label={t("transactions.categoryFilter")}
-                      valueLabel={selectedFilterCategoryLabel}
                       placeholder={t("transactions.allCategories")}
                       hint={t("transactions.categoryFilterHint")}
-                      selectedKey={categoryFilter}
-                      onChange={(value) => setCategoryFilter(value || "all")}
-                      options={filterCategoryOptions}
+                      categories={filterCategories as any}
+                      selectedId={categoryFilter === "all" ? null : categoryFilter}
+                      clearLabel={t("transactions.allCategories")}
+                      onChange={(value) => setCategoryFilter(value ?? "all")}
                     />
                   </View>
                   <View
@@ -1369,6 +1383,56 @@ export default function TransactionsScreen() {
                       placeholder={t("transactions.dateToPlaceholder")}
                     />
                   </View>
+                  <View
+                    style={[
+                      styles.filterGridItem,
+                      {
+                        flexBasis: filterItemWidth,
+                        maxWidth: filterItemWidth,
+                      },
+                    ]}
+                  >
+                    <Field
+                      label={t("transactions.searchLabel")}
+                      value={searchFilter}
+                      onChangeText={setSearchFilter}
+                      placeholder={t("transactions.searchPlaceholder")}
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles.filterGridItem,
+                      {
+                        flexBasis: filterItemWidth,
+                        maxWidth: filterItemWidth,
+                      },
+                    ]}
+                  >
+                    <Field
+                      label={t("transactions.minAmountLabel")}
+                      value={minAmountFilter}
+                      onChangeText={setMinAmountFilter}
+                      placeholder={t("transactions.minAmountPlaceholder")}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles.filterGridItem,
+                      {
+                        flexBasis: filterItemWidth,
+                        maxWidth: filterItemWidth,
+                      },
+                    ]}
+                  >
+                    <Field
+                      label={t("transactions.maxAmountLabel")}
+                      value={maxAmountFilter}
+                      onChangeText={setMaxAmountFilter}
+                      placeholder={t("transactions.maxAmountPlaceholder")}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
                 </View>
               ) : null}
             </Section>
@@ -1378,12 +1442,12 @@ export default function TransactionsScreen() {
             visible={createModalOpen}
             transparent
             animationType="fade"
-            onRequestClose={() => setCreateModalOpen(false)}
+            onRequestClose={closeCreateModal}
           >
             <View style={styles.modalBackdrop}>
               <Pressable
                 style={StyleSheet.absoluteFill}
-                onPress={() => setCreateModalOpen(false)}
+                onPress={closeCreateModal}
                 accessibilityRole="button"
                 accessibilityLabel={t("cancel")}
               />
@@ -1419,7 +1483,7 @@ export default function TransactionsScreen() {
                       </Text>
                     </View>
                     <Pressable
-                      onPress={() => setCreateModalOpen(false)}
+                      onPress={closeCreateModal}
                       accessibilityRole="button"
                       accessibilityLabel={t("close", { defaultValue: "Close" })}
                       style={({ pressed }) => [
@@ -1438,12 +1502,70 @@ export default function TransactionsScreen() {
                       />
                     </Pressable>
                   </View>
+                  <View
+                    style={{
+                      gap: spacing(2),
+                      paddingHorizontal: spacing(5),
+                      paddingTop: spacing(3.5),
+                    }}
+                  >
+                    <View style={styles.wizardProgressTrack}>
+                      {wizardSteps.map((step, index) => (
+                        <View
+                          key={step}
+                          style={[
+                            styles.wizardProgressSegment,
+                            {
+                              backgroundColor:
+                                index <= currentWizardStep
+                                  ? colors.primary
+                                  : colors.border,
+                            },
+                          ]}
+                        />
+                      ))}
+                    </View>
+                    <View style={styles.wizardStepHeader}>
+                      <Text style={styles.wizardStepIndicator}>
+                        {t("transactions.wizard.stepOf", {
+                          current: currentWizardStep + 1,
+                          total: wizardSteps.length,
+                        })}
+                      </Text>
+                      {currentWizardStep > 0 ? (
+                        <Pressable
+                          onPress={() => goToWizardStep(currentWizardStep - 1)}
+                          accessibilityRole="button"
+                          accessibilityLabel={t("transactions.wizard.back")}
+                          style={styles.wizardBackButton}
+                        >
+                          <Ionicons
+                            name="chevron-back"
+                            size={16}
+                            color={colors.textSecondary}
+                          />
+                          <Text style={styles.wizardBackLabel}>
+                            {t("transactions.wizard.back")}
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                    <Text style={styles.wizardStepTitle}>
+                      {t(WIZARD_STEP_COPY[currentWizardStepKey].titleKey)}
+                    </Text>
+                    <Text style={styles.wizardStepSubtitle}>
+                      {t(WIZARD_STEP_COPY[currentWizardStepKey].subtitleKey)}
+                    </Text>
+                  </View>
                   <ScrollView
                     style={styles.createModalScroll}
                     contentContainerStyle={styles.createModalBody}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                   >
+                    <View style={styles.wizardStepBody}>
+                    {currentWizardStepKey === "type" ? (
+                    <>
                     <View style={styles.typeSelector}>
                       <Ionicons
                         name="swap-horizontal-outline"
@@ -1508,7 +1630,7 @@ export default function TransactionsScreen() {
                     {createMovementKind === "recurring-transfer" ? (
                       <RecurringTransferCreateForm
                         onCreated={() => {
-                          setCreateModalOpen(false);
+                          closeCreateModal();
                           setActiveView("scheduled");
                         }}
                       />
@@ -1649,6 +1771,12 @@ export default function TransactionsScreen() {
                           onChangeText={setNotes}
                           placeholder={t("transactions.notesPlaceholder")}
                         />
+                      </>
+                    )}
+                    </>
+                    ) : null}
+                    {currentWizardStepKey === "accounts" ? (
+                      <>
                         <DropdownField
                           label={t("transactions.createdBy")}
                           valueLabel={selectedCreateCreatorLabel}
@@ -1732,29 +1860,22 @@ export default function TransactionsScreen() {
                             }}
                           />
                         ) : null}
-                        {createMovementKind === "transaction" ? (
-                          <DropdownField
-                            label={t("transactions.categories")}
-                            valueLabel={
-                              effectiveCategoryId
-                                ? (categories?.find(
-                                    (item: any) =>
-                                      item.id === effectiveCategoryId,
-                                  )?.name ??
-                                  categorySuggestion.data?.categoryName ??
-                                  t("transactions.uncategorized"))
-                                : t("none")
-                            }
-                            placeholder={t("transactions.categories")}
-                            hint={t("transactions.categories")}
-                            selectedKey={effectiveCategoryId ?? ""}
-                            onChange={(value) => {
-                              setCategoryId(value || null);
-                              setCategoryIsAutomatic(false);
-                            }}
-                            options={categoryOptions}
-                          />
-                        ) : null}
+                      </>
+                    ) : null}
+                    {currentWizardStepKey === "extras" ? (
+                      <>
+                        <CategoryPicker
+                          label={t("transactions.categories")}
+                          placeholder={t("transactions.categories")}
+                          hint={t("transactions.categories")}
+                          categories={categories as any}
+                          selectedId={effectiveCategoryId ?? null}
+                          clearLabel={t("none")}
+                          onChange={(value) => {
+                            setCategoryId(value);
+                            setCategoryIsAutomatic(false);
+                          }}
+                        />
                         {createMovementKind === "transaction" ? (
                           <View
                             style={styles.categorySuggestionStatus}
@@ -1865,7 +1986,8 @@ export default function TransactionsScreen() {
                           </View>
                         ) : null}
                       </>
-                    )}
+                    ) : null}
+                    </View>
                   </ScrollView>
                   {createMovementKind !== "recurring-transfer" ? (
                     <View
@@ -1875,41 +1997,116 @@ export default function TransactionsScreen() {
                       ]}
                     >
                       <Button
-                        label={t("cancel")}
+                        label={
+                          currentWizardStep > 0
+                            ? t("transactions.wizard.back")
+                            : t("cancel")
+                        }
                         variant="secondary"
-                        onPress={() => setCreateModalOpen(false)}
+                        onPress={() =>
+                          currentWizardStep > 0
+                            ? goToWizardStep(currentWizardStep - 1)
+                            : closeCreateModal()
+                        }
                       />
-                      <View style={styles.createModalPrimaryActions}>
+                      {isLastWizardStep ? (
+                        <View style={styles.createModalPrimaryActions}>
+                          <Button
+                            label={
+                              createTransaction.isPending ||
+                              createTransfer.isPending
+                                ? t("saving")
+                                : t("transactions.createAndNew")
+                            }
+                            variant="secondary"
+                            onPress={() => void handleCreate(true)}
+                            disabled={!canCreateMovement}
+                          />
+                          <Button
+                            label={
+                              createTransaction.isPending ||
+                              createTransfer.isPending
+                                ? t("saving")
+                                : createMovementKind === "transfer"
+                                  ? t("transactions.createTransfer")
+                                  : t("transactions.create")
+                            }
+                            onPress={() => void handleCreate()}
+                            disabled={!canCreateMovement}
+                          />
+                        </View>
+                      ) : (
                         <Button
-                          label={
-                            createTransaction.isPending ||
-                            createTransfer.isPending
-                              ? t("saving")
-                              : t("transactions.createAndNew")
-                          }
-                          variant="secondary"
-                          onPress={() => void handleCreate(true)}
-                          disabled={!canCreateMovement}
+                          label={t("transactions.wizard.next")}
+                          onPress={() => goToWizardStep(currentWizardStep + 1)}
+                          disabled={!canProceedFromCurrentStep}
                         />
-                        <Button
-                          label={
-                            createTransaction.isPending ||
-                            createTransfer.isPending
-                              ? t("saving")
-                              : createMovementKind === "transfer"
-                                ? t("transactions.createTransfer")
-                                : t("transactions.create")
-                          }
-                          onPress={() => void handleCreate()}
-                          disabled={!canCreateMovement}
-                        />
-                      </View>
+                      )}
                     </View>
                   ) : null}
                 </View>
               </KeyboardAvoidingView>
             </View>
           </Modal>
+
+          {movementsSummaryQuery.data ? (
+            <View style={styles.summaryBar}>
+              <View style={styles.summaryBarItem}>
+                <Text style={styles.summaryBarLabel}>
+                  {t("transactions.summary.count", {
+                    count: movementsSummaryQuery.data.movement_count,
+                  })}
+                </Text>
+                <Text style={[styles.summaryBarValue, { color: colors.text }]}>
+                  {movementsSummaryQuery.data.movement_count}
+                </Text>
+              </View>
+              <View style={styles.summaryBarItem}>
+                <Text style={styles.summaryBarLabel}>
+                  {t("transactions.summary.income")}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryBarValue,
+                    { color: colors.financialPositive },
+                  ]}
+                >
+                  {formatCurrency(movementsSummaryQuery.data.income_total)}
+                </Text>
+              </View>
+              <View style={styles.summaryBarItem}>
+                <Text style={styles.summaryBarLabel}>
+                  {t("transactions.summary.expense")}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryBarValue,
+                    { color: colors.destructive },
+                  ]}
+                >
+                  {formatCurrency(movementsSummaryQuery.data.expense_total)}
+                </Text>
+              </View>
+              <View style={styles.summaryBarItem}>
+                <Text style={styles.summaryBarLabel}>
+                  {t("transactions.summary.net")}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryBarValue,
+                    {
+                      color:
+                        movementsSummaryQuery.data.net_total < 0
+                          ? colors.destructive
+                          : colors.financialPositive,
+                    },
+                  ]}
+                >
+                  {formatCurrency(movementsSummaryQuery.data.net_total)}
+                </Text>
+              </View>
+            </View>
+          ) : null}
 
           <Section
             title={t("transactions.latestTitle")}
@@ -1963,18 +2160,13 @@ export default function TransactionsScreen() {
                       onPress={selectLoadedBulkTransactions}
                     />
                     <View style={styles.bulkCategoryField}>
-                      <DropdownField
+                      <CategoryPicker
                         label={t("transactions.bulk.category")}
-                        valueLabel={
-                          bulkCategories.find(
-                            (category: any) => category.id === bulkCategoryId,
-                          )?.name ?? t("transactions.bulk.chooseCategory")
-                        }
                         placeholder={t("transactions.bulk.chooseCategory")}
                         hint={t("transactions.bulk.categoryHint")}
-                        selectedKey={bulkCategoryId}
-                        options={bulkCategoryOptions}
-                        onChange={setBulkCategoryId}
+                        categories={bulkCategories as any}
+                        selectedId={bulkCategoryId || null}
+                        onChange={(value) => setBulkCategoryId(value ?? "")}
                       />
                     </View>
                     <Button
@@ -2003,7 +2195,8 @@ export default function TransactionsScreen() {
                 ) : null}
                 <Table
                   columns={[
-                    { label: t("transactions.titleLabel"), flex: 2.2 },
+                    { label: t("transactions.titleLabel"), flex: 1.9 },
+                    { label: t("transactions.transactionDate"), flex: 1.1 },
                     { label: t("transactions.account"), flex: 1.3 },
                     { label: t("transactions.accountOwner"), flex: 1.15 },
                     { label: t("transactions.createdBy"), flex: 1.15 },
@@ -2013,9 +2206,13 @@ export default function TransactionsScreen() {
                   ]}
                 >
                   {transactions.map((item: any) => {
+                    // Use the movement's own kind, not the stored amount's
+                    // sign (transactions.amount is always stored positive),
+                    // to decide expense vs. income styling and the +/- sign.
+                    const movementKind = resolveMovementKind(item);
                     const ownerTone = getTransactionAccountOwnerTone(item);
                     const rowTone =
-                      item.movement_kind === "transfer"
+                      movementKind === "transfer"
                         ? {
                             surface: colors.transferRow,
                             accent: colors.financialNeutral,
@@ -2028,36 +2225,31 @@ export default function TransactionsScreen() {
                         backgroundColor={rowTone.surface}
                         accentColor={rowTone.accent}
                       >
-                        <TableCell flex={2.2}>
+                        <TableCell flex={1.9}>
                           <View style={styles.transactionIdentity}>
                             <View
                               style={[
                                 styles.transactionIcon,
                                 {
-                                  backgroundColor:
-                                    item.movement_kind === "transfer"
-                                      ? colors.surface
-                                      : item.type === "expense"
-                                        ? colors.destructiveSoft
-                                        : colors.successSoft,
+                                  backgroundColor: movementIconBackground(
+                                    movementKind,
+                                    colors,
+                                  ),
                                 },
                               ]}
                             >
                               <Ionicons
                                 name={
-                                  item.movement_kind === "transfer"
+                                  movementKind === "transfer"
                                     ? "swap-horizontal-outline"
                                     : ((item.category?.icon ??
                                         "pricetag-outline") as any)
                                 }
                                 size={18}
-                                color={
-                                  item.movement_kind === "transfer"
-                                    ? colors.financialNeutral
-                                    : item.type === "expense"
-                                      ? colors.destructive
-                                      : colors.success
-                                }
+                                color={movementAmountColor(
+                                  movementKind,
+                                  colors,
+                                )}
                               />
                             </View>
                             <View style={styles.transactionDetails}>
@@ -2065,18 +2257,22 @@ export default function TransactionsScreen() {
                                 {item.title}
                               </Text>
                               <Text style={styles.transactionContext}>
-                                {item.movement_kind === "transfer"
+                                {movementKind === "transfer"
                                   ? t("transactions.filters.transfer")
                                   : (item.category?.name ??
-                                    t("transactions.uncategorized"))}{" "}
-                                · {formatDate(item.transaction_date)}
+                                    t("transactions.uncategorized"))}
                               </Text>
                             </View>
                           </View>
                         </TableCell>
+                        <TableCell flex={1.1}>
+                          <Text style={styles.transactionAccount}>
+                            {formatDate(item.transaction_date)}
+                          </Text>
+                        </TableCell>
                         <TableCell flex={1.3}>
                           <Text style={styles.transactionAccount}>
-                            {item.movement_kind === "transfer"
+                            {movementKind === "transfer"
                               ? `${item.source_account?.name ?? t("transactions.sourceAccount")} → ${item.destination_account?.name ?? t("transactions.destinationAccount")}`
                               : getTransactionAccountLabel(item)}
                           </Text>
@@ -2109,21 +2305,10 @@ export default function TransactionsScreen() {
                           <Text
                             style={[
                               styles.transactionAmount,
-                              {
-                                color:
-                                  item.movement_kind === "transfer"
-                                    ? colors.financialNeutral
-                                    : item.type === "expense"
-                                      ? colors.destructive
-                                      : colors.success,
-                              },
+                              { color: movementAmountColor(movementKind, colors) },
                             ]}
                           >
-                            {item.movement_kind === "transfer"
-                              ? ""
-                              : item.type === "expense"
-                                ? "-"
-                                : "+"}
+                            {movementAmountSign(movementKind)}
                             {formatCurrency(item.amount)}
                           </Text>
                         </TableCell>
@@ -2315,6 +2500,8 @@ export default function TransactionsScreen() {
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={() => setTransferEdit(null)}
+            accessibilityRole="button"
+            accessibilityLabel={t("cancel")}
           />
           <ScrollView contentContainerStyle={styles.modalScroll}>
             <View
@@ -2413,32 +2600,19 @@ export default function TransactionsScreen() {
                       )
                     }
                   />
-                  <DropdownField
+                  <CategoryPicker
                     label={t("transactions.categoryFilter")}
-                    valueLabel={
-                      transferEdit.categoryId
-                        ? (transferCategoriesQuery.data?.find(
-                            (category: any) =>
-                              category.id === transferEdit.categoryId,
-                          )?.name ?? t("transactions.uncategorized"))
-                        : t("none")
-                    }
                     placeholder={t("none")}
-                    selectedKey={transferEdit.categoryId ?? ""}
-                    options={[
-                      { key: "", label: t("none") },
-                      ...(transferCategoriesQuery.data ?? []).map(
-                        (category: any) => ({
-                          key: category.id,
-                          label: category.name,
-                        }),
-                      ),
-                    ]}
+                    categories={
+                      allCategories.filter(
+                        (category: any) => category.type === "account",
+                      ) as any
+                    }
+                    selectedId={transferEdit.categoryId ?? null}
+                    clearLabel={t("none")}
                     onChange={(categoryId) =>
                       setTransferEdit((current) =>
-                        current
-                          ? { ...current, categoryId: categoryId || null }
-                          : current,
+                        current ? { ...current, categoryId } : current,
                       )
                     }
                   />
@@ -2487,6 +2661,8 @@ export default function TransactionsScreen() {
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={() => setTransferToDelete(null)}
+            accessibilityRole="button"
+            accessibilityLabel={t("cancel")}
           />
           <View style={styles.modalCard}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
@@ -2536,6 +2712,8 @@ export default function TransactionsScreen() {
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={closeEditTransaction}
+            accessibilityRole="button"
+            accessibilityLabel={t("cancel")}
           />
           <View style={[styles.modalCard, styles.editModalCard]}>
             <ScrollView
@@ -2669,25 +2847,16 @@ export default function TransactionsScreen() {
                       ppr: t("accounts.types.ppr"),
                     }}
                   />
-                  <DropdownField
+                  <CategoryPicker
                     label={t("transactions.categories")}
-                    valueLabel={
-                      editTransaction.categoryId
-                        ? (categories.find(
-                            (item: any) =>
-                              item.id === editTransaction.categoryId,
-                          )?.name ?? t("transactions.uncategorized"))
-                        : t("none")
-                    }
                     placeholder={t("transactions.categories")}
                     hint={t("transactions.categories")}
-                    selectedKey={editTransaction.categoryId ?? ""}
-                    options={categoryOptions}
+                    categories={categories as any}
+                    selectedId={editTransaction.categoryId}
+                    clearLabel={t("none")}
                     onChange={(value) =>
                       setEditTransaction((current) =>
-                        current
-                          ? { ...current, categoryId: value || null }
-                          : current,
+                        current ? { ...current, categoryId: value } : current,
                       )
                     }
                   />
@@ -2828,449 +2997,3 @@ export default function TransactionsScreen() {
   );
 }
 
-function createStyles(colors: any) {
-  return StyleSheet.create({
-    viewTabs: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "center",
-      gap: spacing(2),
-      padding: spacing(2),
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.lg,
-      backgroundColor: colors.surfaceMuted,
-    },
-    sectionActions: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "center",
-      gap: spacing(2),
-    },
-    bulkActionBar: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "flex-end",
-      gap: spacing(3),
-      padding: spacing(3),
-      marginBottom: spacing(3),
-      borderWidth: 1,
-      borderColor: colors.primary,
-      borderRadius: radius.lg,
-      backgroundColor: colors.primarySoft,
-    },
-    bulkActionSummary: {
-      minWidth: spacing(44),
-      flex: 1,
-      gap: spacing(1),
-      alignSelf: "center",
-    },
-    bulkActionTitle: {
-      color: colors.text,
-      fontSize: typography.fontSize[16],
-      fontWeight: String(typography.fontWeight.extraBold),
-    },
-    bulkActionHint: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[12],
-    },
-    bulkCategoryField: {
-      minWidth: spacing(52),
-      flexGrow: 1,
-    },
-    bulkCheckbox: {
-      width: spacing(9),
-      height: spacing(9),
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.full,
-      backgroundColor: colors.surface,
-    },
-    bulkCheckboxSelected: {
-      borderColor: colors.primary,
-      backgroundColor: colors.primary,
-    },
-    bulkCheckboxDisabled: {
-      opacity: 0.38,
-    },
-    transactionHeader: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      justifyContent: "space-between",
-      gap: spacing(3),
-    },
-    transactionIdentity: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing(2),
-    },
-    transactionIcon: {
-      width: spacing(9),
-      height: spacing(9),
-      borderRadius: radius.full,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    transactionDetails: { flex: 1, gap: spacing(0.5) },
-    transactionTitle: {
-      color: colors.text,
-      fontWeight: String(typography.fontWeight.bold),
-    },
-    transactionAccount: {
-      color: colors.text,
-      fontWeight: String(typography.fontWeight.semibold),
-    },
-    transactionCreator: {
-      color: colors.primary,
-      fontWeight: String(typography.fontWeight.bold),
-    },
-    transactionContext: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[12],
-    },
-    transactionAmount: {
-      fontSize: typography.fontSize[16],
-      fontWeight: String(typography.fontWeight.extraBold),
-    },
-    transactionBalance: {
-      color: colors.text,
-      fontSize: typography.fontSize[14],
-      fontWeight: String(typography.fontWeight.bold),
-    },
-    personIdentity: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing(1.5),
-    },
-    menuButton: {
-      width: spacing(10.5),
-      height: spacing(10.5),
-      borderRadius: radius.mdPlus,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceMuted,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    menuButtonText: {
-      color: colors.text,
-      fontSize: typography.fontSize[22],
-      fontWeight: String(typography.fontWeight.extraBold),
-      lineHeight: typography.lineHeight[22],
-    },
-    floatingCreateButton: {
-      position: "absolute",
-      right: spacing(6),
-      bottom: spacing(6),
-      zIndex: 10,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: spacing(2),
-      paddingHorizontal: spacing(4),
-      paddingVertical: spacing(3),
-      borderRadius: radius.full,
-      borderWidth: 1,
-      borderColor: colors.primary,
-      backgroundColor: colors.primary,
-    },
-    floatingCreateButtonText: {
-      color: colors.primaryForeground,
-      fontSize: typography.fontSize[14],
-      fontWeight: String(typography.fontWeight.extraBold),
-    },
-    floatingCreateSpacer: {
-      height: spacing(16),
-    },
-    filterToggle: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing(1.5),
-      borderWidth: 1,
-      borderRadius: radius.lg,
-      paddingHorizontal: spacing(3),
-      paddingVertical: spacing(2),
-    },
-    filterToggleLabel: {
-      fontSize: typography.fontSize[13],
-      fontWeight: typography.fontWeight.semibold as any,
-    },
-    filtersGrid: {
-      width: "100%",
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "flex-start",
-      gap: spacing(3),
-    },
-    filterGridItem: {
-      minWidth: 0,
-      alignSelf: "stretch",
-    },
-    filterChoiceGroup: {
-      gap: spacing(2),
-      padding: spacing(3),
-      borderWidth: 1,
-      borderRadius: radius.lg,
-    },
-    filterGroupLabel: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing(1.5),
-    },
-    filterGroupLabelText: {
-      fontSize: typography.fontSize[13],
-      fontWeight: typography.fontWeight.semibold as any,
-    },
-    filterPills: {
-      flexDirection: "row",
-      alignItems: "center",
-      flexWrap: "wrap",
-      gap: spacing(2),
-    },
-    modalBackdrop: {
-      flex: 1,
-      justifyContent: "center",
-      padding: spacing(5),
-      backgroundColor: "rgba(2, 6, 23, 0.82)",
-    },
-    modalKeyboardView: {
-      width: "100%",
-      maxHeight: "92%",
-      alignSelf: "center",
-    },
-    createModalCard: {
-      width: "100%",
-      maxWidth: spacing(190),
-      maxHeight: "100%",
-      alignSelf: "center",
-      overflow: "hidden",
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.xl,
-      backgroundColor: colors.surface,
-    },
-    createModalHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing(3),
-      paddingHorizontal: spacing(5),
-      paddingVertical: spacing(4),
-      borderBottomWidth: 1,
-    },
-    modalIcon: {
-      width: spacing(11),
-      height: spacing(11),
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: radius.lg,
-    },
-    modalHeading: {
-      flex: 1,
-      gap: spacing(0.5),
-    },
-    modalClose: {
-      width: spacing(10),
-      height: spacing(10),
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderRadius: radius.full,
-    },
-    modalPressed: {
-      opacity: 0.72,
-    },
-    createModalScroll: {
-      flexShrink: 1,
-    },
-    createModalBody: {
-      gap: spacing(3.5),
-      padding: spacing(5),
-    },
-    typeSelector: {
-      flexDirection: "row",
-      alignItems: "center",
-      alignSelf: "flex-start",
-      gap: spacing(2),
-      padding: spacing(2),
-      borderWidth: 1,
-      borderRadius: radius.full,
-    },
-    formGrid: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      gap: spacing(3),
-    },
-    formGridCompact: {
-      flexDirection: "column",
-    },
-    formGridItem: {
-      flex: 1,
-      width: "100%",
-      minWidth: 0,
-    },
-    createModalFooter: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: spacing(2.5),
-      paddingHorizontal: spacing(5),
-      paddingVertical: spacing(3.5),
-      borderTopWidth: 1,
-      backgroundColor: colors.surface,
-    },
-    createModalPrimaryActions: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      justifyContent: "flex-end",
-      gap: spacing(2.5),
-    },
-    modalCard: {
-      width: "100%",
-      maxWidth: spacing(160),
-      alignSelf: "center",
-      gap: spacing(3.5),
-      padding: spacing(4.5),
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.xl,
-      backgroundColor: colors.surface,
-    },
-    editModalCard: {
-      maxHeight: "92%",
-      padding: 0,
-      overflow: "hidden",
-    },
-    editModalContent: {
-      gap: spacing(3.5),
-      padding: spacing(4.5),
-    },
-    menuCard: {
-      width: "100%",
-      maxWidth: spacing(96),
-      alignSelf: "center",
-      gap: spacing(3),
-      padding: spacing(4.5),
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.xl,
-      backgroundColor: colors.surface,
-    },
-    modalTitle: {
-      color: colors.text,
-      fontSize: typography.fontSize[20],
-      fontWeight: String(typography.fontWeight.extraBold),
-    },
-    modalSubtitle: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[13],
-      lineHeight: typography.lineHeight[18],
-    },
-    editAttachmentsSection: {
-      gap: spacing(2),
-      padding: spacing(3),
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.lg,
-      backgroundColor: colors.surfaceMuted,
-    },
-    editAttachmentsHeading: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing(1.5),
-    },
-    editAttachmentsTitle: {
-      color: colors.text,
-      fontSize: typography.fontSize[14],
-      fontWeight: String(typography.fontWeight.bold),
-    },
-    editAttachmentsStatus: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[13],
-    },
-    editAttachmentsError: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: spacing(2),
-    },
-    editAttachmentsList: { gap: spacing(3) },
-    editAttachmentItem: { gap: spacing(1) },
-    editAttachmentMeta: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[12],
-    },
-    categorySuggestionStatus: {
-      minHeight: spacing(4.5),
-      justifyContent: "center",
-    },
-    categorySuggestionText: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[12],
-      lineHeight: typography.lineHeight[18],
-    },
-    titleSuggestionBox: {
-      marginTop: spacing(1.5),
-      overflow: "hidden",
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.lg,
-      backgroundColor: colors.surface,
-    },
-    titleSuggestionRow: {
-      gap: spacing(0.5),
-      paddingHorizontal: spacing(3.5),
-      paddingVertical: spacing(2.5),
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
-    },
-    titleSuggestionRowActive: { backgroundColor: colors.primarySoft },
-    titleSuggestionTitle: {
-      color: colors.text,
-      fontSize: typography.fontSize[14],
-      fontWeight: String(typography.fontWeight.bold),
-    },
-    titleSuggestionContext: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[12],
-    },
-    modalActions: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: spacing(2.5),
-      justifyContent: "flex-end",
-    },
-    menuItem: {
-      paddingVertical: spacing(3.5),
-      paddingHorizontal: spacing(3.5),
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceMuted,
-    },
-    menuItemDanger: {
-      paddingVertical: spacing(3.5),
-      paddingHorizontal: spacing(3.5),
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.destructiveBorder,
-      backgroundColor: colors.destructiveSoft,
-    },
-    menuItemText: {
-      color: colors.text,
-      fontSize: typography.fontSize[14],
-      fontWeight: String(typography.fontWeight.bold),
-    },
-    menuItemTextDanger: {
-      color: colors.destructive,
-      fontSize: typography.fontSize[14],
-      fontWeight: String(typography.fontWeight.bold),
-    },
-    pressed: {
-      opacity: 0.85,
-    },
-  } as any);
-}

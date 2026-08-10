@@ -1,2 +1,6 @@
-// Dashboard visual cards were intentionally not migrated here because they
-// were mostly styling-heavy and the app already has its own UI surface.
+export * from './types';
+export * from './utils';
+export { AllocationDonut } from './components/allocation-donut';
+export { AllocationLegend } from './components/allocation-legend';
+export { PersonOverviewCard } from './components/person-overview-card';
+export { GoalMeter } from './components/goal-meter';

@@ -14,6 +14,13 @@ export class CategoriesRepository extends BaseRepository<"categories"> {
     super(client, "categories");
   }
 
+  // `includeArchived` used to be passed straight into `.eq("is_archived",
+  // includeArchived)`, which can only ever match ONE exact boolean value —
+  // `includeArchived: true` returned archived-only, not "active AND
+  // archived" like the parameter name promises (and every caller assumed).
+  // Fixed to match the same pattern accounts.repository.ts already uses:
+  // omit the archived filter entirely when includeArchived is true, so both
+  // are returned; otherwise filter down to active-only.
   async listForHousehold(
     householdId: string,
     type?: CategoryType,
@@ -23,8 +30,11 @@ export class CategoriesRepository extends BaseRepository<"categories"> {
       .from("categories")
       .select("*")
       .eq("household_id", householdId)
-      .eq("is_archived", includeArchived)
       .order("sort_order", { ascending: true });
+
+    if (!includeArchived) {
+      query = query.eq("is_archived", false);
+    }
 
     if (type) {
       query = query.eq("type", type);
@@ -46,8 +56,11 @@ export class CategoriesRepository extends BaseRepository<"categories"> {
       .select("*")
       .eq("household_id", householdId)
       .is("parent_id", null)
-      .eq("is_archived", includeArchived)
       .order("sort_order", { ascending: true });
+
+    if (!includeArchived) {
+      query = query.eq("is_archived", false);
+    }
 
     if (type) {
       query = query.eq("type", type);
@@ -80,7 +93,10 @@ export class CategoriesRepository extends BaseRepository<"categories"> {
 
   async updateCategory(
     id: string,
-    values: Pick<CategoryUpdate, "name" | "type" | "icon" | "parent_id">
+    values: Pick<
+      CategoryUpdate,
+      "name" | "type" | "icon" | "parent_id" | "is_discretionary"
+    >
   ): Promise<RepoResult<Category>> {
     return this.update(id, values);
   }

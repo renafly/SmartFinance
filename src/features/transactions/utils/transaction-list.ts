@@ -1,4 +1,10 @@
-export type TransactionListSortKey = 'newest' | 'oldest' | 'amount_desc' | 'amount_asc';
+export type TransactionListSortKey =
+  | 'newest'
+  | 'oldest'
+  | 'amount_desc'
+  | 'amount_asc'
+  | 'title_asc'
+  | 'title_desc';
 
 type SortableTransaction = {
   id?: string | null;
@@ -11,6 +17,10 @@ type SortableTransaction = {
 function timestamp(value: string | null | undefined) {
   const parsed = new Date(value ?? 0).getTime();
   return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function titleKey(value: string | null | undefined) {
+  return (value ?? '').trim().toLowerCase();
 }
 
 export function compareTransactions(
@@ -26,6 +36,8 @@ export function compareTransactions(
   const amountB = Number(b.amount ?? 0);
   const idA = String(a.id ?? '');
   const idB = String(b.id ?? '');
+  const titleA = titleKey(a.title);
+  const titleB = titleKey(b.title);
 
   switch (sortBy) {
     case 'oldest':
@@ -34,6 +46,20 @@ export function compareTransactions(
       return amountB - amountA || transactionDateB - transactionDateA || createdAtB - createdAtA || idB.localeCompare(idA);
     case 'amount_asc':
       return amountA - amountB || transactionDateB - transactionDateA || createdAtB - createdAtA || idB.localeCompare(idA);
+    case 'title_asc':
+      return (
+        titleA.localeCompare(titleB) ||
+        transactionDateB - transactionDateA ||
+        createdAtB - createdAtA ||
+        idB.localeCompare(idA)
+      );
+    case 'title_desc':
+      return (
+        titleB.localeCompare(titleA) ||
+        transactionDateB - transactionDateA ||
+        createdAtB - createdAtA ||
+        idB.localeCompare(idA)
+      );
     case 'newest':
     default:
       return transactionDateB - transactionDateA || createdAtB - createdAtA || idB.localeCompare(idA);

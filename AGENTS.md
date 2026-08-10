@@ -6,14 +6,14 @@ Read the exact versioned Expo docs at https://docs.expo.dev/versions/v57.0.0/ be
 
 This project has a knowledge graph in `graphify-out/`, including god nodes, community structure, and cross-file relationships.
 
-When the user types `/graphify`, use the installed Graphify skill/instructions before doing anything else.
+**Always use Graphify before anything else.** Before reading source files, grepping, editing code, or taking any other action on any task, run Graphify first — e.g. `graphify query "<task or question>"` (or `explain`/`path` as fits) when `graphify-out/graph.json` exists. This applies to every task, not just explicit codebase questions. When the user types `/graphify`, use the installed Graphify skill/instructions before doing anything else.
 
 Rules:
 
-- For codebase questions, first run `graphify query "<question>"` when `graphify-out/graph.json` exists.
+- Before anything else, run `graphify query "<question>"` when `graphify-out/graph.json` exists — for every task, not just codebase questions.
 - Use `graphify path "<A>" "<B>"` to inspect relationships between two files, components, services, or concepts.
 - Use `graphify explain "<concept>"` for focused explanations of a specific area.
-- Prefer `graphify query`, `graphify path`, or `graphify explain` before broad source browsing or raw grep searches.
+- Always prefer `graphify query`, `graphify path`, or `graphify explain` before broad source browsing or raw grep searches — Graphify comes first, every time.
 - Dirty `graphify-out/` files are expected after hooks or incremental updates. Dirty graph files are not a reason to skip Graphify.
 - Only skip Graphify if the task is about stale or incorrect graph output, or if the user explicitly says not to use Graphify.
 - If `graphify-out/wiki/index.md` exists, use it for broad navigation before raw source browsing.

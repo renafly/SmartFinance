@@ -33,6 +33,25 @@ export function useTransactionMovementsInfinite(
   });
 }
 
+/**
+ * Aggregates (count, income total, expense total, net) over the FULL
+ * filtered movement set -- not just the pages currently loaded by
+ * useTransactionMovementsInfinite -- to back a results-summary bar above the
+ * Transactions list.
+ */
+export function useTransactionMovementsSummary(
+  filters: TransactionMovementFilters = {},
+  options?: { enabled?: boolean },
+) {
+  const { householdId, isLoading } = useAuth();
+  return useQuery({
+    queryKey: ["transaction-movements-summary", householdId, filters],
+    queryFn: () => transactionsService.getMovementsSummary(householdId!, filters),
+    staleTime: 0,
+    enabled: (options?.enabled ?? true) && !!householdId && !isLoading,
+  });
+}
+
 export function useTransactions(
   filters: TransactionFilters = {},
   options?: { enabled?: boolean },

@@ -1,19 +1,23 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { usePreferencesStore } from "@/stores/preferencesStore";
 import { useTheme } from "@/theme/ThemeProvider";
 
 const options = [
-  { value: "pt" as const, flag: "🇵🇹", label: "Português" },
-  { value: "en" as const, flag: "🇬🇧", label: "English" },
+  { value: "pt" as const, flag: "🇵🇹", code: "PT", label: "Português" },
+  { value: "en" as const, flag: "🇬🇧", code: "EN", label: "English" },
 ];
+
+const MENU_WIDTH = 172;
+const MENU_MARGIN = 16;
 
 export function LanguageMenu() {
   const { t, i18n } = useTranslation("common");
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
   const setLanguage = usePreferencesStore((state) => state.setLanguage);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<View>(null);
@@ -23,6 +27,21 @@ export function LanguageMenu() {
     : "en";
   const active =
     options.find((option) => option.value === resolvedLanguage) ?? options[0];
+
+  // Flags represent countries, not languages, and a flag-only trigger
+  // doesn't tell anyone (sighted or using assistive tech) which language
+  // is currently active without opening the menu. Show the language code
+  // next to the flag, and describe the current selection in the
+  // accessibility label instead of a generic "select language".
+  const triggerLabel = t("landing.language.current", {
+    language: active.label,
+  });
+
+  // Keep the dropdown from overflowing narrow viewports: it opens
+  // right-aligned to its own trigger by default, but on very small
+  // screens (roughly a 320-360px phone) a fixed 172px panel can still
+  // run past the edge of the viewport, so shrink it to fit instead.
+  const menuWidth = Math.min(MENU_WIDTH, Math.max(width - MENU_MARGIN * 2, 140));
 
   useEffect(() => {
     if (!open) return;
@@ -48,7 +67,7 @@ export function LanguageMenu() {
     <View ref={rootRef} style={styles.root}>
       <Pressable
         ref={triggerRef}
-        accessibilityLabel={t("landing.language.select")}
+        accessibilityLabel={triggerLabel}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         aria-expanded={open}
@@ -60,6 +79,9 @@ export function LanguageMenu() {
         ]}
       >
         <Text style={styles.flag}>{active.flag}</Text>
+        <Text style={[styles.code, { color: colors.primary }]}>
+          {active.code}
+        </Text>
         <MaterialIcons
           color={colors.primary}
           name={open ? "expand-less" : "expand-more"}
@@ -71,7 +93,11 @@ export function LanguageMenu() {
           accessibilityRole="menu"
           style={[
             styles.menu,
-            { backgroundColor: colors.surface, borderColor: colors.primary },
+            {
+              width: menuWidth,
+              backgroundColor: colors.surface,
+              borderColor: colors.primary,
+            },
           ]}
         >
           {options.map((option) => (
@@ -109,7 +135,7 @@ export function LanguageMenu() {
 const styles = StyleSheet.create({
   root: { position: "relative", zIndex: 100 },
   trigger: {
-    minWidth: 68,
+    minWidth: 78,
     height: 44,
     borderWidth: 1.5,
     borderRadius: 12,
@@ -123,12 +149,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
   },
-  flag: { fontSize: 20, lineHeight: 24 },
+  flag: { fontSize: 18, lineHeight: 22 },
+  code: { fontSize: 13, fontWeight: "800", letterSpacing: 0.4 },
   menu: {
     position: "absolute",
     right: 0,
     top: 50,
-    width: 172,
     borderWidth: 1.5,
     borderRadius: 14,
     padding: 6,

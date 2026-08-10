@@ -74,8 +74,20 @@ export interface TransactionFilters {
   from?: string;
   /** ISO date string, inclusive upper bound on transaction_date */
   to?: string;
+  /** Case-insensitive match against title, notes, or merchant_name. */
+  search?: string;
+  /** Inclusive lower bound on amount. */
+  minAmount?: number;
+  /** Inclusive upper bound on amount. */
+  maxAmount?: number;
   /** Database ordering applied before limit/offset pagination. */
-  sortBy?: "newest" | "oldest" | "amount_desc" | "amount_asc";
+  sortBy?:
+    | "newest"
+    | "oldest"
+    | "amount_desc"
+    | "amount_asc"
+    | "title_asc"
+    | "title_desc";
   limit?: number;
   offset?: number;
 }
@@ -96,6 +108,7 @@ export type TransactionMovement = {
   created_by: string;
   title: string;
   notes: string | null;
+  merchant_name: string | null;
   amount: number;
   balance_after_transaction: number | null;
   transaction_date: string;
@@ -116,7 +129,21 @@ export interface TransactionMovementFilters extends Omit<TransactionFilters, "ty
   kind?: TransactionMovementKind;
   sourceAccountId?: string;
   destinationAccountId?: string;
+  /**
+   * Drops transfer rows server-side. Distinct from `kind: "transfer"`
+   * (which is an inclusion filter) -- this is used by the "movements" view
+   * (income + expense, transfers hidden) so every returned page is fully
+   * populated instead of being trimmed after the fact on the client.
+   */
+  excludeTransfers?: boolean;
 }
+
+export type TransactionMovementSummary = {
+  movement_count: number;
+  income_total: number;
+  expense_total: number;
+  net_total: number;
+};
 
 export interface UpdateCompletedTransferInput {
   transferGroupId: string;
@@ -188,10 +215,53 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
       p_sort: filters.sortBy ?? "newest",
       p_limit: filters.limit ?? 25,
       p_offset: filters.offset ?? 0,
+      p_exclude_transfers: filters.excludeTransfers ?? false,
+      p_search: filters.search?.trim() || null,
+      p_min_amount: filters.minAmount ?? null,
+      p_max_amount: filters.maxAmount ?? null,
     });
     if (error) return { data: null, error };
 
     return { data: (data as TransactionMovement[]) ?? [], error: null };
+  }
+
+  /**
+   * Aggregates over the FULL filtered set (not just loaded pages) using the
+   * same filters as listMovements, minus sort/limit/offset. Backs the
+   * results-summary bar above the Transactions list.
+   */
+  async summarizeMovements(
+    householdId: string,
+    filters: TransactionMovementFilters = {},
+  ): Promise<RepoResult<TransactionMovementSummary>> {
+    const { data, error } = await this.client.rpc(
+      "summarize_transaction_movements",
+      {
+        p_household_id: householdId,
+        p_kind: filters.kind ?? null,
+        p_account_id: filters.accountId ?? null,
+        p_source_account_id: filters.sourceAccountId ?? null,
+        p_destination_account_id: filters.destinationAccountId ?? null,
+        p_category_id: filters.categoryId ?? null,
+        p_uncategorized: filters.categoryId === null,
+        p_created_by: filters.createdBy ?? null,
+        p_from: filters.from ?? null,
+        p_to: filters.to ?? null,
+        p_exclude_transfers: filters.excludeTransfers ?? false,
+        p_search: filters.search?.trim() || null,
+        p_min_amount: filters.minAmount ?? null,
+        p_max_amount: filters.maxAmount ?? null,
+      },
+    );
+    if (error) return { data: null, error };
+
+    const row = (data as TransactionMovementSummary[] | null)?.[0] ?? {
+      movement_count: 0,
+      income_total: 0,
+      expense_total: 0,
+      net_total: 0,
+    };
+    return { data: row, error: null };
   }
 
   async updateCompletedTransfer(input: UpdateCompletedTransferInput): Promise<RepoResult<string>> {
@@ -217,6 +287,29 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
     return { data: data as number, error: null };
   }
 
+  /**
+   * A category filter should also surface transactions filed under that
+   * category's subcategories (picking "Groceries" shouldn't hide "Groceries
+   * > Snacks"). Filtering by a subcategory itself stays an exact match,
+   * which falls out naturally here: a subcategory has no children of its
+   * own, so this just returns `[categoryId]` unchanged. Derived from
+   * categories.parent_id at request time rather than any hardcoded
+   * parent/child table.
+   */
+  private async resolveCategoryFilterIds(
+    householdId: string,
+    categoryId: string,
+  ): Promise<string[]> {
+    const { data } = await this.client
+      .from("categories")
+      .select("id")
+      .eq("household_id", householdId)
+      .eq("parent_id", categoryId);
+
+    const childIds = ((data ?? []) as { id: string }[]).map((row) => row.id);
+    return childIds.length ? [categoryId, ...childIds] : [categoryId];
+  }
+
   async listForHousehold(
     householdId: string,
     filters: TransactionFilters = {},
@@ -227,9 +320,18 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
       .eq("household_id", householdId);
 
     if (filters.accountId) query = query.eq("account_id", filters.accountId);
-    if (filters.categoryId === null) query = query.is("category_id", null);
-    else if (filters.categoryId)
-      query = query.eq("category_id", filters.categoryId);
+    if (filters.categoryId === null) {
+      query = query.is("category_id", null);
+    } else if (filters.categoryId) {
+      const categoryIds = await this.resolveCategoryFilterIds(
+        householdId,
+        filters.categoryId,
+      );
+      query =
+        categoryIds.length > 1
+          ? query.in("category_id", categoryIds)
+          : query.eq("category_id", filters.categoryId);
+    }
     if (filters.createdBy) query = query.eq("created_by", filters.createdBy);
     if (filters.type) query = query.eq("type", filters.type);
     if (filters.from) query = query.gte("transaction_date", filters.from);
@@ -252,6 +354,20 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
       case "amount_asc":
         query = query
           .order("amount", { ascending: true })
+          .order("transaction_date", { ascending: false })
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false });
+        break;
+      case "title_asc":
+        query = query
+          .order("title", { ascending: true })
+          .order("transaction_date", { ascending: false })
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false });
+        break;
+      case "title_desc":
+        query = query
+          .order("title", { ascending: false })
           .order("transaction_date", { ascending: false })
           .order("created_at", { ascending: false })
           .order("id", { ascending: false });
