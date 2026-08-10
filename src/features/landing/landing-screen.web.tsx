@@ -1,18 +1,13 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { Link } from "expo-router";
-import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useTheme } from "@/theme/ThemeProvider";
-import { LanguageMenu } from "./components/language-menu.web";
+import { PublicFooter } from "./components/public-footer.web";
+import { PublicHeader } from "./components/public-header.web";
+import { newsPosts } from "./data/news-posts";
+import { usePublicBreakpoints } from "./hooks/use-public-breakpoints";
 
 const featureIcons = [
   "account-balance-wallet",
@@ -20,21 +15,6 @@ const featureIcons = [
   "savings",
   "groups",
 ] as const;
-const updateIcons = ["auto-graph", "shield", "tips-and-updates"] as const;
-
-function Brand() {
-  const { colors } = useTheme();
-  return (
-    <View style={styles.brand}>
-      <View style={[styles.logo, { backgroundColor: colors.primary }]}>
-        <Text style={styles.logoText}>S</Text>
-      </View>
-      <Text style={[styles.brandText, { color: colors.text }]}>
-        SmartFinance
-      </Text>
-    </View>
-  );
-}
 
 function Cta({
   href,
@@ -82,151 +62,12 @@ function Cta({
 export default function LandingScreen() {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
-  const { width } = useWindowDimensions();
-  const compact = width < 900;
-  const phone = width < 600;
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuButtonRef = useRef<View & { focus?: () => void }>(null);
-
-  useEffect(() => {
-    if (compact || !menuOpen) return;
-    const frame = requestAnimationFrame(() => setMenuOpen(false));
-    return () => cancelAnimationFrame(frame);
-  }, [compact, menuOpen]);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setMenuOpen(false);
-        requestAnimationFrame(() => menuButtonRef.current?.focus?.());
-      }
-    };
-    document.addEventListener("keydown", close);
-    return () => {
-      document.body.style.overflow = previous;
-      document.removeEventListener("keydown", close);
-    };
-  }, [menuOpen]);
-
-  const navItems = [
-    { key: "features", href: "/features" },
-    { key: "howItWorks", href: "/how-it-works" },
-    { key: "news", href: "/news" },
-    { key: "about", href: "/about" },
-  ] as const;
-  const closeMenu = () => setMenuOpen(false);
+  const { compact, phone } = usePublicBreakpoints();
+  const featuredPosts = newsPosts.slice(0, 3);
 
   return (
     <View style={[styles.page, { backgroundColor: colors.background }]}>
-      <View
-        role="banner"
-        style={[
-          styles.header,
-          {
-            borderBottomColor: colors.border,
-            backgroundColor: colors.background,
-          },
-        ]}
-      >
-        <View style={[styles.headerInner, phone && styles.headerInnerPhone]}>
-          <Brand />
-          {!compact ? (
-            <View style={styles.desktopNav}>
-              {navItems.map((item) => (
-                <Link
-                  key={item.key}
-                  href={item.href}
-                  style={StyleSheet.flatten([
-                    styles.navLink,
-                    { color: colors.textSecondary },
-                  ])}
-                >
-                  {t(`landing.nav.${item.key}`)}
-                </Link>
-              ))}
-            </View>
-          ) : null}
-          <View style={styles.headerActions}>
-            {!compact ? <LanguageMenu /> : null}
-            {!compact ? (
-              <Cta href="/login" label={t("landing.nav.signIn")} secondary />
-            ) : null}
-            {!compact ? (
-              <Cta href="/login" label={t("landing.nav.getStarted")} />
-            ) : null}
-            {compact ? (
-              <Pressable
-                ref={menuButtonRef}
-                accessibilityLabel={
-                  menuOpen
-                    ? t("landing.nav.closeMenu")
-                    : t("landing.nav.openMenu")
-                }
-                accessibilityRole="button"
-                accessibilityState={{ expanded: menuOpen }}
-                aria-expanded={menuOpen}
-                onPress={() => setMenuOpen((value) => !value)}
-                style={[
-                  styles.menuButton,
-                  {
-                    borderColor: colors.border,
-                    backgroundColor: colors.surface,
-                  },
-                ]}
-              >
-                <MaterialIcons
-                  color={colors.text}
-                  name={menuOpen ? "close" : "menu"}
-                  size={25}
-                />
-              </Pressable>
-            ) : null}
-          </View>
-        </View>
-      </View>
-
-      {compact && menuOpen ? (
-        <>
-          <Pressable
-            accessibilityLabel={t("landing.nav.closeMenu")}
-            onPress={closeMenu}
-            style={styles.mobileBackdrop}
-          />
-          <View
-            style={[
-              styles.mobileMenu,
-              {
-                backgroundColor: colors.background,
-                borderBottomColor: colors.border,
-              },
-            ]}
-          >
-            {navItems.map((item) => (
-              <Link
-                key={item.key}
-                href={item.href}
-                onPress={closeMenu}
-                style={StyleSheet.flatten([
-                  styles.mobileLink,
-                  { color: colors.text },
-                ])}
-              >
-                {t(`landing.nav.${item.key}`)}
-              </Link>
-            ))}
-            <View style={styles.mobileMenuFooter}>
-              <LanguageMenu />
-              <View style={styles.mobileMenuActions}>
-                <Cta href="/login" label={t("landing.nav.signIn")} secondary />
-                <Cta href="/login" label={t("landing.nav.getStarted")} />
-              </View>
-            </View>
-          </View>
-        </>
-      ) : null}
+      <PublicHeader />
 
       <ScrollView role="main" contentContainerStyle={styles.scrollContent}>
         <View
@@ -355,7 +196,7 @@ export default function LandingScreen() {
           </View>
         </View>
 
-        <View nativeID="features" style={styles.section}>
+        <View style={styles.section}>
           <Text style={[styles.sectionKicker, { color: colors.primary }]}>
             {t("landing.features.kicker")}
           </Text>
@@ -399,7 +240,6 @@ export default function LandingScreen() {
         </View>
 
         <View
-          nativeID="howItWorks"
           style={[
             styles.section,
             styles.softSection,
@@ -438,7 +278,7 @@ export default function LandingScreen() {
           </View>
         </View>
 
-        <View nativeID="news" style={styles.section}>
+        <View style={styles.section}>
           <Text style={[styles.sectionKicker, { color: colors.primary }]}>
             {t("landing.news.kicker")}
           </Text>
@@ -446,48 +286,44 @@ export default function LandingScreen() {
             {t("landing.news.title")}
           </Text>
           <View style={styles.grid}>
-            {updateIcons.map((icon, index) => (
-              <View
-                key={icon}
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <MaterialIcons color={colors.primary} name={icon} size={27} />
-                <Text style={[styles.newsMeta, { color: colors.primary }]}>
-                  {t(`landing.news.items.${index}.category`)}
-                </Text>
-                <Text style={[styles.cardTitle, { color: colors.text }]}>
-                  {t(`landing.news.items.${index}.title`)}
-                </Text>
-                <Text
-                  style={[styles.cardBody, { color: colors.textSecondary }]}
+            {featuredPosts.map((post) => (
+              <Link key={post.slug} href={`/news/${post.slug}`} asChild>
+                <Pressable
+                  style={({ pressed }) =>
+                    StyleSheet.flatten([
+                      styles.card,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      },
+                      pressed && styles.pressed,
+                    ])
+                  }
                 >
-                  {t(`landing.news.items.${index}.description`)}
-                </Text>
-              </View>
+                  <MaterialIcons color={colors.primary} name={post.icon} size={27} />
+                  <Text style={[styles.newsMeta, { color: colors.primary }]}>
+                    {t(`publicPages.news.posts.${post.key}.meta`)}
+                  </Text>
+                  <Text style={[styles.cardTitle, { color: colors.text }]}>
+                    {t(`publicPages.news.posts.${post.key}.title`)}
+                  </Text>
+                  <Text
+                    style={[styles.cardBody, { color: colors.textSecondary }]}
+                  >
+                    {t(`publicPages.news.posts.${post.key}.description`)}
+                  </Text>
+                </Pressable>
+              </Link>
             ))}
           </View>
         </View>
 
-        <View
-          nativeID="about"
-          style={[styles.finalCta, { backgroundColor: colors.primary }]}
-        >
+        <View style={[styles.finalCta, { backgroundColor: colors.primary }]}>
           <Text style={styles.finalTitle}>{t("landing.final.title")}</Text>
           <Text style={styles.finalBody}>{t("landing.final.description")}</Text>
           <Cta href="/login" label={t("landing.final.action")} secondary />
         </View>
-        <View style={[styles.footer, { borderTopColor: colors.border }]}>
-          <Brand />
-          <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-            {t("landing.footer")}
-          </Text>
-        </View>
+        <PublicFooter />
       </ScrollView>
     </View>
   );
@@ -495,83 +331,6 @@ export default function LandingScreen() {
 
 const styles = StyleSheet.create({
   page: { flex: 1 },
-  header: {
-    height: 76,
-    borderBottomWidth: 1,
-    justifyContent: "center",
-    zIndex: 30,
-  },
-  headerInner: {
-    width: "100%",
-    maxWidth: 1180,
-    alignSelf: "center",
-    paddingHorizontal: 24,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  headerInnerPhone: { paddingHorizontal: 16 },
-  brand: { flexDirection: "row", alignItems: "center", gap: 10 },
-  logo: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoText: { color: "#FFFFFF", fontSize: 20, fontWeight: "800" },
-  brandText: { fontSize: 18, fontWeight: "800" },
-  desktopNav: { flexDirection: "row", gap: 28, alignItems: "center" },
-  navLink: { fontSize: 14, fontWeight: "600", textDecorationLine: "none" },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: 10 },
-  menuButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  mobileBackdrop: {
-    position: "absolute",
-    zIndex: 10,
-    top: 76,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(15, 23, 42, 0.25)",
-  },
-  mobileMenu: {
-    position: "absolute",
-    zIndex: 20,
-    top: 76,
-    left: 0,
-    right: 0,
-    borderBottomWidth: 1,
-    padding: 24,
-    gap: 6,
-  },
-  mobileLink: {
-    paddingVertical: 13,
-    fontSize: 17,
-    fontWeight: "700",
-    textDecorationLine: "none",
-  },
-  mobileMenuFooter: {
-    marginTop: 14,
-    paddingTop: 18,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 14,
-  },
-  mobileMenuActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "flex-end",
-    gap: 8,
-  },
   scrollContent: { paddingBottom: 24 },
   hero: {
     width: "100%",
@@ -775,19 +534,5 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 24,
   },
-  footer: {
-    width: "100%",
-    maxWidth: 1180,
-    alignSelf: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 34,
-    borderTopWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 20,
-    flexWrap: "wrap",
-  },
-  footerText: { fontSize: 13 },
   pressed: { opacity: 0.76 },
 });

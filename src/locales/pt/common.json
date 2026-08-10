@@ -2,19 +2,19 @@
   "cookieConsent": {
     "bannerLabel": "Preferências de cookies e armazenamento",
     "title": "As suas escolhas de privacidade",
-    "description": "O SmartFinance utiliza armazenamento necessário do navegador para manter a sessão e recordar definições essenciais. Com a sua autorização, também utilizamos análise opcional.",
+    "description": "O SmartFinance guarda algumas coisas essenciais no seu navegador para manter a sessão iniciada e lembrar-se das suas definições. Com a sua autorização, também usamos análise opcional.",
     "policyLink": "Leia a nossa política de cookies.",
     "rejectOptional": "Rejeitar opcionais",
     "manage": "Gerir preferências",
     "acceptAll": "Aceitar tudo",
     "preferencesTitle": "Preferências de cookies",
-    "preferencesDescription": "Escolha que tecnologias opcionais o SmartFinance pode utilizar. O armazenamento necessário está sempre ativo porque o serviço depende dele.",
+    "preferencesDescription": "Escolha que tecnologia opcional o SmartFinance pode usar. O armazenamento necessário mantém-se sempre ativo, porque a aplicação não funciona sem ele.",
     "necessaryTitle": "Necessários",
-    "necessaryDescription": "Autenticação, segurança, registo do consentimento e funcionamento essencial do serviço.",
+    "necessaryDescription": "Iniciar a sua sessão, manter tudo seguro, lembrar-se do seu idioma e das suas escolhas de consentimento.",
     "preferenceTitle": "Preferências",
-    "preferenceDescription": "Recordar escolhas como o idioma e o tema visual.",
+    "preferenceDescription": "Lembra-se de coisas como o tema da aplicação.",
     "analyticsTitle": "Análise",
-    "analyticsDescription": "Permitir medição de desempenho com proteção da privacidade através do Vercel Speed Insights.",
+    "analyticsDescription": "Permite-nos perceber como a aplicação está a funcionar, usando o Vercel Speed Insights, que respeita a sua privacidade.",
     "readPolicy": "Ler a Política de Cookies e Tecnologias Semelhantes",
     "cancel": "Cancelar",
     "save": "Guardar preferências"
@@ -24,19 +24,19 @@
     "title": "Política de Cookies e Tecnologias Semelhantes",
     "effective": "Em vigor desde 30 de julho de 2026",
     "scope": {
-      "title": "Âmbito desta política",
-      "body": "Esta política explica como a aplicação web SmartFinance utiliza cookies e tecnologias semelhantes do navegador, incluindo armazenamento local. As aplicações móveis nativas utilizam armazenamento do dispositivo, e não cookies do navegador."
+      "title": "O que esta política cobre",
+      "body": "Esta política explica como a aplicação web do SmartFinance usa cookies e tecnologias semelhantes do navegador, incluindo armazenamento local. As aplicações móveis usam armazenamento do próprio dispositivo, em vez de cookies do navegador."
     },
     "necessary": {
       "title": "Armazenamento necessário",
-      "body": "O SmartFinance necessita de algum armazenamento do navegador para prestar o serviço solicitado. A informação da sessão de autenticação Supabase mantém a sessão iniciada e permite renová-la. Um registo de consentimento memoriza as suas escolhas de privacidade. Estas tecnologias não são utilizadas para publicidade."
+      "body": "O SmartFinance precisa de algum armazenamento no navegador só para funcionar. Mantém a sua sessão iniciada e renova-a quando necessário, e lembra-se das suas escolhas de privacidade. Nada disto é usado para publicidade."
     },
     "optional": {
       "title": "Armazenamento e medição opcionais",
-      "body": "As preferências de idioma e tema melhoram a sua experiência. O Vercel Speed Insights ajuda-nos a compreender o desempenho do site e só é ativado após consentimento para análise. O SmartFinance não utiliza atualmente cookies de publicidade ou marketing entre sites."
+      "body": "A sua preferência de tema torna a aplicação mais agradável de ver. O Vercel Speed Insights ajuda-nos a perceber o desempenho do site, e só é ativado depois de aceitar a análise. O SmartFinance não usa cookies de publicidade nem de marketing entre sites."
     },
     "storage": {
-      "title": "Tecnologias que utilizamos",
+      "title": "O que usamos",
       "type": "Tecnologia",
       "purpose": "Finalidade",
       "duration": "Duração",
@@ -45,52 +45,58 @@
         {
           "name": "Sessão de autenticação Supabase",
           "type": "Armazenamento local do navegador (não é um cookie HttpOnly)",
-          "purpose": "Guarda dados de acesso e renovação da sessão para manter a sessão iniciada em segurança.",
-          "duration": "Até terminar sessão, a sessão expirar ou os dados do navegador serem apagados",
+          "purpose": "Mantém a sua sessão iniciada em segurança, guardando os dados de acesso e renovação.",
+          "duration": "Até terminar sessão, a sessão expirar, ou os dados do navegador serem apagados",
           "category": "Necessário"
         },
         {
           "name": "Registo de consentimento SmartFinance",
           "type": "Armazenamento local do navegador",
-          "purpose": "Memoriza se aceitou ou rejeitou tecnologias opcionais.",
-          "duration": "Até redefinir a preferência, mudar a versão da política ou apagar os dados do navegador",
+          "purpose": "Lembra-se se aceitou ou rejeitou tecnologia opcional.",
+          "duration": "Até redefinir a escolha, a política mudar, ou os dados do navegador serem apagados",
           "category": "Necessário"
         },
         {
-          "name": "Preferências de idioma e tema",
+          "name": "Preferência de idioma",
           "type": "Armazenamento local do navegador",
-          "purpose": "Memoriza as suas escolhas de idioma e aparência visual.",
-          "duration": "Até serem alteradas ou os dados do navegador serem apagados",
+          "purpose": "Lembra-se do idioma que escolheu, para a aplicação abrir no seu idioma da próxima vez.",
+          "duration": "Até a alterar ou apagar os dados do navegador",
+          "category": "Necessário"
+        },
+        {
+          "name": "Preferência de tema",
+          "type": "Armazenamento local do navegador",
+          "purpose": "Lembra-se de como gosta que a aplicação apareça.",
+          "duration": "Até a alterar ou apagar os dados do navegador",
           "category": "Preferências"
         },
         {
           "name": "Vercel Speed Insights",
           "type": "Tecnologia de análise de desempenho",
-          "purpose": "Mede de forma agregada a capacidade de resposta e o carregamento do site.",
-          "duration": "Conforme especificado pela Vercel para os dados de medição recolhidos",
+          "purpose": "Mede, de forma agregada, a rapidez e a capacidade de resposta do site.",
+          "duration": "Conforme definido pela Vercel para os dados que recolhe",
           "category": "Análise — consentimento necessário"
         }
       ]
     },
     "control": {
       "title": "Gerir ou retirar o consentimento",
-      "body": "Pode rejeitar tecnologias opcionais e continuar a utilizar as funcionalidades principais do SmartFinance. Pode reabrir as Preferências de cookies a qualquer momento para alterar ou retirar o consentimento. Também pode apagar os dados do site no navegador; isto poderá terminar a sessão e repor as preferências.",
+      "body": "Pode rejeitar tecnologia opcional e continuar a usar todas as funcionalidades principais do SmartFinance. Reabra as Preferências de cookies a qualquer momento para mudar de ideias. Também pode apagar os dados do site no navegador, embora isso possa terminar a sua sessão e repor as preferências guardadas.",
       "action": "Gerir preferências de cookies"
     },
     "thirdParties": {
-      "title": "Prestadores de serviços",
-      "body": "A Supabase fornece autenticação e infraestrutura da aplicação. A Vercel fornece o alojamento do site e, quando é dado consentimento para análise, o Speed Insights. A Google intervém quando escolhe o início de sessão Google e aplica os seus próprios termos de privacidade durante esse processo."
+      "title": "Com quem trabalhamos",
+      "body": "A Supabase trata da autenticação e da infraestrutura da aplicação. A Vercel aloja o site e, quando aceita a análise, executa o Speed Insights. A Google entra em ação quando inicia sessão com o Google, com os seus próprios termos de privacidade."
     },
     "changes": {
       "title": "Alterações a esta política",
-      "body": "Podemos atualizar esta política quando a tecnologia ou as obrigações legais mudarem. Atualizaremos a data de entrada em vigor e voltaremos a pedir as suas escolhas quando uma alteração afetar materialmente o consentimento."
+      "body": "Atualizamos esta política sempre que a nossa tecnologia ou as obrigações legais mudarem. Quando uma alteração afetar o seu consentimento de forma relevante, atualizamos a data de entrada em vigor e voltamos a perguntar."
     }
   },
   "drawer": {
     "dashboard": "Painel",
     "accounts": "Contas",
     "transactions": "Transações",
-    "insights": "Análises",
     "transfers": "Transferências",
     "monthlyBudget": "Orçamento Mensal",
     "categories": "Categorias",
@@ -105,56 +111,55 @@
     "subtitle": "Finanças Pessoais",
     "brand": "SmartFinance",
     "overview": "Visão geral",
-    "overviewDescription": "Comece aqui e salte para as áreas mais usadas.",
+    "overviewDescription": "Comece por aqui e vá diretamente às áreas que mais usa.",
     "moneyMovement": "Movimento de dinheiro",
-    "moneyMovementDescription": "Movimente fundos e reveja os fluxos recorrentes.",
+    "moneyMovementDescription": "Mova dinheiro entre contas e reveja as transferências recorrentes.",
     "administration": "Administração",
-    "administrationDescription": "Gira a estrutura do agregado."
+    "administrationDescription": "Gira a forma como o seu agregado está organizado.",
+    "openMenu": "Abrir menu"
   },
-
   "tabs": {
     "home": "Início",
     "explore": "Explorar",
     "docs": "Docs"
   },
-
   "diagnostics": {
-    "title": "Diagnóstico de release",
+    "title": "Diagnóstico de lançamento",
     "subtitle": "Verifique a configuração de produção antes de publicar ou partilhar links.",
-    "configurationTitle": "Prontidão de produção",
-    "configurationSubtitle": "Estes checks cobrem Supabase, origens OAuth, storage e a função de convites.",
+    "configurationTitle": "Prontidão para produção",
+    "configurationSubtitle": "Verifica o Supabase, as origens OAuth, o armazenamento e se os emails de convite chegam ao destino.",
     "supabaseUrl": "URL do Supabase",
-    "supabaseUrlDescription": "Obrigatório para auth, base de dados, storage e Edge Functions.",
+    "supabaseUrlDescription": "Necessário para autenticação, base de dados, armazenamento e Edge Functions.",
     "supabaseKey": "Chave pública do Supabase",
-    "supabaseKeyDescription": "Chave segura para cliente usada no bundle Expo.",
+    "supabaseKeyDescription": "A chave segura para o cliente, usada no bundle do Expo.",
     "inviteWebUrl": "URL web dos convites",
-    "inviteWebUrlDescription": "URL base usada ao criar links de convite.",
+    "inviteWebUrlDescription": "O URL base usado ao criar links de convite.",
     "oauthOrigin": "Origem OAuth",
-    "oauthOriginDescription": "Adicione esta origem no Google OAuth para login web e testes em preview.",
-    "storageBucket": "Bucket de storage",
-    "storageBucketDescription": "Verifica se o bucket {{bucket}} é acessível pela sessão atual.",
+    "oauthOriginDescription": "Adicione esta origem no Google OAuth para o login na web e testes em preview.",
+    "storageBucket": "Contentor de armazenamento",
+    "storageBucketDescription": "Verifica se o contentor {{bucket}} está acessível a partir desta sessão.",
     "inviteFunction": "Função de email de convite",
-    "inviteFunctionDescription": "Verifica se {{functionName}} responde a um pedido preflight seguro.",
-    "runChecks": "Executar checks",
+    "inviteFunctionDescription": "Verifica se {{functionName}} responde a um pedido de teste seguro.",
+    "runChecks": "Executar verificações",
     "checking": "A verificar...",
     "notificationTest": "Teste de notificação",
-    "notificationTestDescription": "Envia uma notificação local imediata para este dispositivo. Não requer configuração de push remoto.",
+    "notificationTestDescription": "Envia já uma notificação local para este dispositivo. Não é preciso configurar push remoto.",
     "triggerNotification": "Disparar notificação",
     "triggeringNotification": "A disparar...",
     "notificationTestChannel": "Diagnóstico",
     "notificationTestMessageTitle": "Mensagem de teste de notificação",
     "notificationTestMessageBody": "Mensagem de teste de notificação.",
-    "notificationTestSent": "Notificação de teste enviada. Verifique o banner de notificações.",
+    "notificationTestSent": "Notificação de teste enviada. Verifique o aviso de notificações.",
     "notificationPermissionDenied": "A permissão de notificações não foi concedida.",
-    "notificationBrowserUnsupported": "Este browser não suporta notificações do sistema.",
-    "notificationSecureContextRequired": "As notificações do browser requerem uma ligação HTTPS segura.",
-    "notificationNotShown": "O browser aceitou o teste mas não o mostrou. Verifique a permissão de notificações deste site e as definições de notificações do sistema.",
+    "notificationBrowserUnsupported": "Este navegador não suporta notificações do sistema.",
+    "notificationSecureContextRequired": "As notificações do navegador precisam de uma ligação HTTPS segura.",
+    "notificationNotShown": "O navegador aceitou o teste mas não o mostrou. Verifique a permissão de notificações deste site e as definições de notificações do sistema.",
     "configured": "Configurado",
     "notChecked": "Ainda não verificado",
     "notAvailable": "Indisponível",
     "nativeRuntime": "Runtime nativo",
     "reachable": "Acessível",
-    "missingSupabaseUrl": "URL do Supabase em falta",
+    "missingSupabaseUrl": "Falta o URL do Supabase",
     "httpStatus": "HTTP {{status}}",
     "unknownError": "Erro desconhecido",
     "status": {
@@ -164,7 +169,6 @@
       "checking": "A verificar"
     }
   },
-
   "ok": "OK",
   "cancel": "Cancelar",
   "delete": "Eliminar",
@@ -183,10 +187,9 @@
   "weekly": "Semanal",
   "monthly": "Mensal",
   "yearly": "Anual",
-
   "budget": {
     "title": "Orçamento Mensal",
-    "subtitle": "Configure as regras do agregado, veja a previsão do mês e gere as transferências.",
+    "subtitle": "Defina as regras do seu agregado, veja a previsão do mês e gere as transferências.",
     "resumeTitle": "Resumo",
     "resumeSubtitle": "Um resumo rápido antes de editar as definições do agregado.",
     "incomeModeSummary": "Modo de rendimento: {{value}}",
@@ -197,7 +200,7 @@
     "confirmMonth": "Confirmar mês",
     "generating": "A gerar...",
     "householdSettings": "Definições do agregado",
-    "householdSettingsSubtitle": "Estas definições controlam a simulação e o cash restante.",
+    "householdSettingsSubtitle": "Estas definições decidem como a simulação calcula o dinheiro que sobra.",
     "name": "Nome do orçamento",
     "namePlaceholder": "Orçamento mensal",
     "month": "Mês",
@@ -206,24 +209,35 @@
       "shared": "Partilhado",
       "individual": "Individual"
     },
-    "remainingCashStrategy": "Estratégia do cash restante",
+    "incomeModeHints": {
+      "shared": "Todos os salários entram num único fundo partilhado, independentemente de quem ganha o quê.",
+      "individual": "O salário e a conta de dinheiro de cada pessoa são geridos em separado."
+    },
+    "remainingCashStrategy": "Estratégia do dinheiro restante",
     "remainingCashStrategies": {
-      "keep": "Manter cash",
+      "keep": "Manter dinheiro",
       "fixed": "Objetivo fixo"
     },
-    "fixedRemainingCashAmount": "Valor fixo de cash restante",
+    "remainingCashStrategyHints": {
+      "keep": "O que sobrar depois das suas regras fica simplesmente na conta.",
+      "fixed": "Defina um valor exato para guardar todos os meses, abaixo."
+    },
+    "fixedRemainingCashAmount": "Valor fixo de dinheiro restante",
     "monthlyInputs": "Entradas mensais de rendimento",
-    "monthlyInputsSubtitle": "Defina o salário de cada membro e a conta que recebe o valor.",
+    "monthlyInputsSubtitle": "Defina o salário de cada membro e a conta onde ele entra.",
     "salary": "Salário",
-    "cashAccount": "Conta de cash",
-    "selectCashAccount": "Escolha uma conta de cash",
+    "cashAccount": "Conta de dinheiro",
+    "selectCashAccount": "Escolha uma conta de dinheiro",
     "cashAccountHint": "Escolha a conta que recebe o salário.",
     "wageAvailability": "Disponível para alocações",
     "wageAvailabilityThisMonth": "Este mês",
     "wageAvailabilityNextMonth": "Próximo mês",
     "wageAvailabilityHint": "Escolha quando este salário pode ser usado pelas regras do orçamento.",
     "rulesTitle": "Regras do orçamento",
-    "rulesSubtitle": "Crie as transferências mensais que serão geradas depois dos salários.",
+    "rulesSubtitle": "Configure as transferências mensais a gerar assim que os salários chegarem.",
+    "rulesEmptyTitle": "Ainda sem regras",
+    "rulesEmptyDescription": "Adicione uma regra para começar a direcionar rendimento para poupanças, investimentos ou mealheiros todos os meses.",
+    "ruleIncomplete": "Incompleta",
     "addRule": "Adicionar regra",
     "expandAllRules": "Expandir tudo",
     "collapseAllRules": "Recolher tudo",
@@ -232,10 +246,10 @@
     "section": "Secção",
     "sections": {
       "savings": "Poupanças",
-      "pots": "Pots",
+      "pots": "Mealheiros",
       "investments": "Investimentos",
       "ppr": "PPR",
-      "remaining_cash": "Cash restante"
+      "remaining_cash": "Dinheiro restante"
     },
     "owner": "Proprietário",
     "shared": "Partilhado",
@@ -252,7 +266,7 @@
     "pigBank": "Mealheiro",
     "destinationGroups": {
       "accounts": "Contas",
-      "cash": "Contas de cash",
+      "cash": "Contas de dinheiro",
       "bank": "Contas bancárias",
       "savings": "Contas de poupança",
       "investment": "Contas de investimento",
@@ -267,29 +281,39 @@
     "active": "Ativa",
     "inactive": "Inativa",
     "previewTitle": "Previsão mensal",
-    "previewSubtitle": "Reveja os totais antes de guardar ou confirmar o mês.",
+    "previewSubtitle": "Confira os totais antes de guardar ou confirmar o mês.",
+    "transfersTitle": "Transferências",
+    "transfersProgress": "{{done}} de {{count}} marcada(s) como feita(s)",
+    "transferMarkDone": "Marcar como transferida",
+    "transferMarkNotDone": "Marcar como não transferida",
+    "transferDone": "Feita",
     "incomeTotal": "Rendimento",
     "configuredTotal": "Transferências configuradas",
-    "remainingCash": "Cash restante",
+    "remainingCash": "Dinheiro restante",
     "recurringNet": "Recorrentes líquidos",
     "budgetStatus": "Estado do orçamento",
     "onTrack": "Dentro do previsto",
     "overBudget": "Acima do previsto",
     "validationTitle": "Corrija estes problemas",
     "runsTitle": "Execuções mensais",
-    "runsSubtitle": "Abra uma execução para ver as entradas guardadas, cancelar um rascunho ou remover as transações geradas.",
-    "runPreview": "Cash restante previsto",
+    "runsSubtitle": "Abra uma execução para ver as entradas guardadas, cancelar um rascunho ou limpar as transações que gerou.",
+    "runPreview": "Prever dinheiro restante",
     "loadDraft": "Carregar rascunho",
     "cancelRun": "Cancelar execução",
     "cancelling": "A cancelar...",
     "deleteRunTransactions": "Eliminar transações da execução",
     "deleteRunTransactionsTitle": "Eliminar as transações desta execução?",
-    "deleteRunTransactionsMessage": "Isto elimina todas as transações de salários e alocações geradas por esta execução mensal. Uma execução confirmada voltará a rascunho para poder executá-la novamente.",
+    "deleteRunTransactionsMessage": "Isto remove todas as transações de salários e alocações criadas por esta execução. A execução volta a rascunho para poder executá-la de novo.",
     "deleteRunTransactionsConfirm": "Eliminar transações",
     "deletingRunTransactions": "A eliminar...",
-    "deleteRunTransactionsSuccess": "Foram eliminadas {{count}} transação(ões). A execução pode ser iniciada novamente.",
-    "deleteRunTransactionsError": "Não foi possível eliminar as transações da execução: {{detail}}",
+    "deleteRunTransactionsSuccess": "Foram eliminadas {{count}} transação(ões). Já pode executar este mês outra vez.",
+    "deleteRunTransactionsError": "Não foi possível eliminar as transações desta execução: {{detail}}",
     "selectedRunInputs": "Entradas de rendimento guardadas",
+    "hintNeedsName": "Dê um nome a este orçamento para o poder guardar.",
+    "hintFixRules": "Corrija {{count}} regra(s) com problemas antes de guardar.",
+    "hintSaveConfigFirst": "Guarde a sua configuração para desbloquear rascunhos e execuções mensais.",
+    "hintResolveIssues": "Resolva {{count}} problema(s) na previsão antes de guardar um rascunho.",
+    "hintMonthConfirmed": "Este mês já está confirmado.",
     "defaults": {
       "tradeRep": "Trade Rep",
       "tradeRepInvestments": "Trade Rep - Investimentos",
@@ -304,56 +328,54 @@
       "ppr": "PPR"
     }
   },
-
   "settings": {
     "title": "Definições do Agregado",
     "householdManagement": "Gestão do Agregado",
     "profile": "Perfil",
     "feedbackTitle": "Feedback e suporte",
-    "feedbackSubtitle": "Envie uma ideia, reporte um erro ou acompanhe uma conversa existente.",
+    "feedbackSubtitle": "Partilhe uma ideia, reporte um erro, ou acompanhe uma conversa que já tem em curso.",
     "openFeedback": "Abrir feedback",
     "openAdminFeedback": "Abrir caixa de feedback",
     "privacyTitle": "Privacidade",
-    "privacySubtitle": "Consulte como o SmartFinance utiliza o armazenamento do navegador e altere as suas escolhas de consentimento opcional.",
+    "privacySubtitle": "Veja como o SmartFinance usa o armazenamento do navegador e altere as suas escolhas de consentimento opcional.",
     "manageCookiePreferences": "Gerir preferências de cookies",
     "openCookiePolicy": "Ler política de cookies",
     "unnamedUser": "Utilizador sem nome",
-    "noEmail": "Sem email",
     "currentHousehold": "Agregado atual: {{value}}",
     "none": "nenhum",
     "editDetails": "Editar detalhes",
     "you": "Você",
     "createHousehold": "Criar um Agregado",
-    "createHouseholdSubtitle": "Use esta opção para criar um novo agregado em vez de criar automaticamente no registo.",
+    "createHouseholdSubtitle": "Crie um novo agregado, em vez de usar o que foi criado automaticamente no registo.",
     "householdName": "Nome do agregado",
     "householdPlaceholder": "O meu agregado",
     "defaultHousehold": "Agregado Predefinido",
-    "noHouseholds": "Não existem agregados disponíveis.",
+    "noHouseholds": "Não há agregados disponíveis.",
     "active": "ativo",
     "default": "predefinido",
     "setAsDefault": "Definir Como Predefinido",
     "currentHouseholdLabel": "Agregado atual",
     "myHouseholds": "Os meus agregados",
-    "myHouseholdsSubtitle": "Renomeie agregados que lhe pertencem. Os agregados com transações são eliminados de forma suave; os vazios são removidos permanentemente.",
+    "myHouseholdsSubtitle": "Renomeie os agregados que lhe pertencem. Os que têm transações são arquivados em vez de eliminados; os vazios são removidos em definitivo.",
     "owner": "Proprietário",
     "member": "Membro",
     "saveChanges": "Guardar alterações",
     "setDefault": "Definir como predefinido",
     "deleteHousehold": "Eliminar agregado",
     "deleteHouseholdTitle": "Eliminar agregado",
-    "onlyOwnerHouseholdEdit": "Apenas o proprietário do agregado pode renomear ou eliminar este agregado.",
-    "deleteHouseholdMessage": "Isto vai eliminar o agregado. Se tiver transações, será arquivado em vez de removido permanentemente.",
+    "onlyOwnerHouseholdEdit": "Só o proprietário do agregado pode renomeá-lo ou eliminá-lo.",
+    "deleteHouseholdMessage": "Isto elimina o agregado. Se tiver transações, é arquivado em vez de removido em definitivo.",
     "settingDefault": "A definir...",
     "inviteMember": "Convidar Membro",
-    "onlyAdminsInvite": "Apenas proprietários e administradores podem enviar convites.",
+    "onlyAdminsInvite": "Só proprietários e administradores podem enviar convites.",
     "invalidEmail": "Introduza um endereço de email válido.",
     "alreadyInvited": "Este email já tem um convite pendente.",
     "inviteLink": "Link de convite",
-    "emailQueued": "Pedido de envio de email efetuado com sucesso.",
-    "emailNotAvailable": "A função de email ainda não está disponível. Partilhe este link manualmente por agora.",
+    "emailQueued": "Email de convite enviado.",
+    "emailNotAvailable": "O envio de email ainda não está disponível. Por agora, partilhe este link diretamente.",
     "sendInvitation": "Enviar Convite",
     "myInvitations": "Os Meus Convites",
-    "noMyInvitations": "Não existem convites pendentes para a sua conta.",
+    "noMyInvitations": "Não tem convites pendentes.",
     "invitedAs": "Convidado como: {{email}}",
     "expires": "Expira: {{date}}",
     "accept": "Aceitar",
@@ -368,7 +390,7 @@
     "dangerZone": "Zona de Perigo",
     "leaveHousehold": "Sair do Agregado",
     "leaveTitle": "Sair do Agregado?",
-    "leaveMessage": "Tem a certeza de que quer sair de {{householdName}}? Vai perder acesso a todos os dados do agregado.",
+    "leaveMessage": "Tem a certeza de que quer sair de {{householdName}}? Vai perder o acesso a todos os dados do agregado.",
     "cancel": "Cancelar",
     "leave": "Sair",
     "success": "Sucesso",
@@ -383,38 +405,39 @@
     "themeDark": "Escuro",
     "themeWhite": "Branco",
     "themeBlue": "Azul",
+    "themeUltra": "Ultra",
     "themeSystem": "Sistema",
     "currency": "Moeda",
     "currencySubtitle": "Escolha a moeda usada em toda a aplicação.",
     "currencyEuro": "Euro (EUR)",
     "currencyUsd": "Dólar americano (USD)",
     "currencyGbp": "Libra esterlina (GBP)",
-    "backupTitle": "Backup do agregado",
-    "backupSubtitle": "Exporte este agregado ou importe um backup guardado como um novo agregado.",
-    "backupDescription": "Os exports incluem definições do agregado, contas, categorias, transações, regras recorrentes, pots de poupança e dados do orçamento mensal. Os ficheiros das faturas não são incluídos nesta versão.",
+    "backupTitle": "Cópia de segurança do agregado",
+    "backupSubtitle": "Exporte este agregado, ou importe uma cópia guardada como um novo agregado.",
+    "backupDescription": "As exportações incluem definições do agregado, contas, categorias, transações, regras recorrentes, mealheiros e dados do orçamento mensal. Os ficheiros de faturas ainda não estão incluídos.",
     "backupExport": "Exportar agregado",
     "backupExporting": "A exportar...",
-    "backupImport": "Importar backup",
+    "backupImport": "Importar cópia de segurança",
     "backupImporting": "A importar...",
-    "backupConfirmTitle": "Importar backup do agregado",
-    "backupConfirmSubtitle": "Isto vai criar um novo agregado a partir de {{householdName}}.",
-    "backupConfirmNote": "Será criado um novo agregado e definido como agregado atual. Os ficheiros anexados são ignorados; os metadados ficam no ficheiro exportado.",
+    "backupConfirmTitle": "Importar cópia de segurança do agregado",
+    "backupConfirmSubtitle": "Isto cria um novo agregado a partir de {{householdName}}.",
+    "backupConfirmNote": "Vai ser criado um novo agregado, definido como o seu agregado atual. Os ficheiros anexados são ignorados, mas os seus detalhes ficam guardados no ficheiro exportado.",
     "backupConfirmImport": "Criar agregado importado",
-    "backupExportUnavailableTitle": "Export indisponível",
-    "backupExportUnavailableMessage": "Neste momento o export descarrega o ficheiro JSON na web. A importação continua a funcionar a partir de um ficheiro JSON.",
-    "backupInvalidTitle": "Ficheiro de backup inválido",
-    "backupInvalidMessage": "Escolha um ficheiro JSON válido de backup do SmartFinance.",
-    "backupErrorTitle": "Erro no backup",
-    "backupUnknownError": "Algo correu mal ao processar o backup.",
-    "backupSignInRequired": "Tem de iniciar sessão para importar um backup do agregado.",
+    "backupExportUnavailableTitle": "Exportação indisponível",
+    "backupExportUnavailableMessage": "Na web, exportar descarrega um ficheiro JSON para o seu dispositivo. Importar a partir de um ficheiro JSON continua a funcionar na mesma.",
+    "backupInvalidTitle": "Ficheiro de cópia de segurança inválido",
+    "backupInvalidMessage": "Escolha um ficheiro JSON válido de cópia de segurança do SmartFinance.",
+    "backupErrorTitle": "Erro na cópia de segurança",
+    "backupUnknownError": "Algo correu mal ao processar a cópia de segurança.",
+    "backupSignInRequired": "Inicie sessão para importar uma cópia de segurança do agregado.",
     "backupImportCompleteTitle": "Agregado importado",
-    "backupImportCompleteMessage": "{{householdName}} é agora o agregado atual. Foram importadas {{transactions}} transação(ões).",
+    "backupImportCompleteMessage": "{{householdName}} é agora o seu agregado atual. Foram importadas {{transactions}} transação(ões).",
     "backupCounts": {
       "accounts": "Contas",
       "categories": "Categorias",
       "transactions": "Transações",
-      "savingPots": "Pots de poupança",
-      "savingPotAccounts": "Ligações pot-conta",
+      "savingPots": "Mealheiros",
+      "savingPotAccounts": "Ligações mealheiro-conta",
       "recurringTransactions": "Regras recorrentes",
       "budgetConfigs": "Configurações de orçamento",
       "budgetRules": "Regras de orçamento",
@@ -441,7 +464,6 @@
       "owner": "proprietário"
     }
   },
-
   "common": {
     "ok": "OK",
     "cancel": "Cancelar",
@@ -462,25 +484,45 @@
     "monthly": "Mensal",
     "yearly": "Anual"
   },
-
   "dashboard": {
     "title": "Painel",
-    "subtitle": "Bem-vindo de volta{{name}}. O seu agregado está pronto.",
+    "subtitle": "Bem-vindo de volta{{name}}. Eis onde o seu agregado está.",
     "household": "Agregado",
     "selectHousehold": "Escolher agregado",
     "trackedFunds": "Fundos acompanhados",
     "netWorthTotal": "Património total",
     "netWorthScope": "Investimentos + contas de poupança",
-    "allocationSubtitle": "Os pots são objetivos suportados por essas contas, por isso aparecem em separado e não são somados outra vez.",
+    "allocationSubtitle": "Os mealheiros são objetivos apoiados por essas contas, por isso aparecem à parte em vez de serem somados outra vez.",
     "investedTotal": "Total investido",
     "savingsAccountsTotal": "Contas de poupança",
-    "savingPotsTotal": "Pots de poupança",
+    "savingPotsTotal": "Mealheiros",
+    "networkTitle": "Rede de contas",
+    "networkSubtitle": "Todas as suas contas, à volta do total do agregado.",
+    "networkEmptyTitle": "Ainda nada para mostrar",
+    "networkEmptyDescription": "Assim que as suas contas tiverem saldo, vão aparecer aqui como nós à volta do total do agregado.",
+    "categoryNetworkTitle": "Rede de categorias",
+    "categoryNetworkSubtitle": "As suas categorias de despesa no período selecionado e quanto gastou em cada uma — esfera maior, gasto maior.",
+    "categoryNetworkTotalLabel": "Gasto neste período",
+    "categoryNetworkEmptyTitle": "Ainda nada para mostrar",
+    "categoryNetworkEmptyDescription": "Assim que registar transações de despesa em categorias, elas aparecem aqui como uma rede.",
+    "categoryNetworkLoadingTitle": "A somar os números",
+    "categoryNetworkLoadingDescription": "A calcular as transações deste período.",
+    "categoryNetworkTransactions_one": "{{count}} transação",
+    "categoryNetworkTransactions_other": "{{count}} transações",
+    "categoryNetworkPeriod": {
+      "1m": "1 mês",
+      "3m": "3 meses",
+      "6m": "6 meses",
+      "1y": "1 ano"
+    },
+    "hideValues": "Ocultar valores",
+    "showValues": "Mostrar valores",
     "byPersonTitle": "Por pessoa",
-    "byPersonSubtitle": "Contas de investimento, contas de poupança e pots agrupados por membro do agregado.",
+    "byPersonSubtitle": "Contas de investimento, contas de poupança e mealheiros, agrupados por membro do agregado.",
     "person": "Pessoa",
     "invested": "Investido",
     "savingsAccounts": "Contas de poupança",
-    "pots": "Pots",
+    "pots": "Mealheiros",
     "total": "Total",
     "accountTotal": "Total em contas",
     "verticalTotal": "Total da coluna",
@@ -495,31 +537,26 @@
     "savingsAccountsSubtitle": "{{count}} conta(s) de poupança no agregado.",
     "investmentAndSavingsAccountsTitle": "Contas de investimento e poupança",
     "investmentAndSavingsAccountsSubtitle": "{{count}} conta(s) de investimento e poupança no agregado.",
-    "investmentSavingsAndPotsTitle": "Investimentos, poupanças e pots",
-    "investmentSavingsAndPotsSubtitle": "{{accountCount}} conta(s) de investimento e poupança, mais {{potCount}} pot(s).",
-    "savingPotsTitle": "Pots de poupança",
-    "savingPotsSubtitle": "{{count}} pot(s) no agregado.",
+    "savingPotsTitle": "Mealheiros",
+    "savingPotsSubtitle": "{{count}} mealheiro(s) no agregado.",
     "shared": "Partilhado",
     "unnamedPerson": "Pessoa sem nome",
     "noPeople": "Ainda não há membros no agregado.",
     "noInvestmentAccounts": "Ainda não há contas de investimento.",
     "noSavingsAccounts": "Ainda não há contas de poupança.",
     "noInvestmentAndSavingsAccounts": "Ainda não há contas de investimento ou poupança.",
-    "noInvestmentSavingsOrPots": "Ainda não há contas de investimento, poupança ou pots.",
-    "noSavingPots": "Ainda não há pots de poupança.",
+    "noSavingPots": "Ainda não há mealheiros.",
     "totalBalance": "Saldo total",
     "accounts": "Contas",
     "categories": "Categorias",
     "recentTransactions": "Transações recentes",
-    "recentTransactionsSubtitle": "As 10 transações mais recentes do agregado, com os mesmos detalhes da lista completa.",
+    "recentTransactionsSubtitle": "As suas 10 transações mais recentes, com o mesmo detalhe da lista completa.",
     "account": "Conta",
-    "uncategorized": "Sem categoria",
-    "noTransactions": "Ainda sem transações.",
     "viewAllAccounts": "Ver todas as contas",
     "incomeTx": "Receitas",
     "expenseTx": "Despesas",
     "recurring": "Recorrentes",
-    "savingPots": "Pots de poupança",
+    "savingPots": "Mealheiros",
     "spentOf": "{{spent}} gastos de {{budget}}",
     "remaining": "{{remaining}} restantes",
     "savingsTitle": "Poupanças",
@@ -527,7 +564,7 @@
     "savingsBalance": "Saldo: {{balance}}",
     "savingsTarget": "Alvo: {{target}}",
     "goalsTitle": "Categorias com Mais Gasto",
-    "noExpenseData": "Sem dados de despesa este mês.",
+    "noExpenseData": "Sem despesas registadas este mês.",
     "recentTransactionsTitle": "Transações Recentes",
     "noTransactions": "Ainda sem transações.",
     "upcomingPaymentsTitle": "Próximos Pagamentos",
@@ -539,12 +576,11 @@
     "uncategorized": "Sem categoria",
     "nextRun": "próxima execução"
   },
-
   "accounts": {
     "title": "Contas",
-    "subtitle": "Gerir contas do agregado usando os hooks e a camada de serviços existentes.",
+    "subtitle": "Adicione, edite e organize todas as contas do seu agregado.",
     "createTitle": "Criar conta",
-    "createSubtitle": "Isto usa a mutação atual de criação de contas.",
+    "createSubtitle": "Adicione uma nova conta para começar a acompanhar o seu saldo.",
     "name": "Nome",
     "namePlaceholder": "Conta principal",
     "type": "Tipo",
@@ -569,9 +605,9 @@
     "archive": "Arquivar",
     "accountTransfersLoadingMore": "A carregar mais transferências...",
     "balanceChartTitle": "Visão geral dos saldos",
-    "balanceChartSubtitle": "Saldos atuais agrupados por tipo de conta, mantendo cada pote de poupança separado.",
+    "balanceChartSubtitle": "Saldos atuais agrupados por tipo de conta, com cada mealheiro mostrado à parte.",
     "balancePieChart": "Gráfico circular da distribuição dos saldos",
-    "savingPotSlice": "Pote · {{name}}",
+    "savingPotSlice": "Mealheiro · {{name}}",
     "types": {
       "bank": "Banco",
       "cash": "Numerário",
@@ -583,42 +619,84 @@
       "ppr": "PPR"
     }
   },
-
   "insights": {
-    "title": "Análise financeira",
-    "subtitle": "Compreenda o fluxo de caixa, compromissos recorrentes e saldos projetados.",
-    "income": "Rendimento este mês",
-    "expenses": "Despesas este mês",
-    "netCashFlow": "Fluxo de caixa líquido",
-    "incomeForPeriod": "Rendimento · {{period}}",
-    "expensesForPeriod": "Despesas · {{period}}",
-    "netCashFlowForPeriod": "Fluxo de caixa líquido · {{period}}",
-    "subscriptionMonthly": "Custo recorrente mensal",
-    "upcoming": "Próximos movimentos",
-    "upcomingSubtitle": "Rendimentos, contas, subscrições e transferências previstas para este e o próximo mês.",
-    "noUpcoming": "Sem movimentos recorrentes futuros.",
-    "merchants": "Principais comerciantes",
-    "merchantsSubtitle": "Os maiores destinos das despesas no mês atual.",
-    "noSpending": "Sem despesas neste período.",
-    "projections": "Saldos projetados",
-    "projectionsSubtitle": "Saldos atuais após os movimentos recorrentes confirmados até ao próximo mês.",
-    "dateRange": "Intervalo temporal das análises",
-    "range3Months": "3 meses",
-    "range6Months": "6 meses",
-    "range12Months": "12 meses",
-    "rangeYtd": "Desde o início do ano",
-    "monthlyCashFlow": "Fluxo de caixa mensal",
-    "monthlyCashFlowSubtitle": "Rendimentos e despesas, com o fluxo líquido apresentado em linha.",
-    "spendingByCategory": "Despesas por categoria",
-    "spendingByCategorySubtitle": "Distribuição das despesas do agregado no período selecionado.",
-    "savingsRate": "Taxa de poupança",
-    "savingsRateSubtitle": "Percentagem do rendimento que sobra depois das despesas em cada mês.",
-    "chartIncome": "Rendimentos",
-    "chartExpenses": "Despesas",
-    "chartNet": "Líquido",
-    "notAvailable": "Indisponível",
-    "unknownCategory": "Categoria desconhecida",
-    "uncategorized": "Sem categoria"
+    "wageFlow": {
+      "title": "Fluxo do rendimento",
+      "subtitle": "Como o seu rendimento no período selecionado se moveu entre contas, despesas e poupanças.",
+      "periodLabel": "Período do fluxo do rendimento",
+      "range1Month": "Mês atual",
+      "rangeLastMonth": "Mês passado",
+      "range3Months": "3 meses",
+      "range6Months": "6 meses",
+      "range9Months": "9 meses",
+      "range12Months": "1 ano",
+      "range24Months": "2 anos",
+      "income": "Rendimento",
+      "expenses": "Despesas",
+      "debtPayments": "Pagamentos de Dívida",
+      "savingsAndGoals": "Poupança e Objetivos",
+      "discretionary": "Despesas Discricionárias",
+      "unallocated": "Não Atribuído",
+      "noIncome": "Sem rendimento registado neste período.",
+      "transferFrom": "Transferência de {{account}}",
+      "moreTransactions": "+{{count}} mais",
+      "configTitle": "Categorias do fluxo do rendimento",
+      "configSubtitle": "Personalize o que conta para cada categoria abaixo. As categorias são avaliadas por ordem, por isso coloque as mais específicas primeiro.",
+      "configEmpty": "Ainda sem categorias configuradas — adicione uma para começar a construir o seu fluxo.",
+      "tableName": "Categoria",
+      "tableRules": "Inclui",
+      "tableAmount": "Valor",
+      "tableShare": "Percentagem",
+      "tableActions": "Ações",
+      "addCategory": "Adicionar categoria",
+      "addAllMainCategories": "Adicionar todas as categorias principais",
+      "editCategory": "Editar categoria",
+      "editCategorySubtitle": "Escolha o que deve contar para esta categoria. Uma transação é incluída se corresponder a qualquer regra abaixo.",
+      "categoryName": "Nome",
+      "categoryNamePlaceholder": "ex.: Renda, Fundo de Férias",
+      "color": "Cor",
+      "icon": "Ícone",
+      "whatToInclude": "O que conta para esta categoria",
+      "whatToIncludeHint": "Uma transação é incluída se corresponder a qualquer uma das regras abaixo. Defina várias regras para combinar contas, categorias ou fundos numa só categoria.",
+      "allTransactions": "Todas as transações",
+      "on": "Ligado",
+      "off": "Desligado",
+      "specificAccounts": "Contas específicas",
+      "specificAccountsHint": "Despesas destas contas, ou transferências que chegam a estas contas.",
+      "noneSelected": "Nenhuma selecionada",
+      "categoriesAndSubcategories": "Categorias e subcategorias",
+      "categoriesHint": "Selecionar uma categoria também inclui as suas subcategorias.",
+      "specificPots": "Fundos / contas poupança específicas",
+      "specificPotsHint": "Acompanhe transferências para fundos ou contas poupança individuais.",
+      "transfersBetweenAccounts": "Transferências entre contas",
+      "transfersIntoPots": "Transferências para fundos",
+      "removeCategory": "Remover categoria",
+      "save": "Guardar categoria",
+      "close": "Fechar",
+      "applySelection": "Aplicar",
+      "noAccounts": "Sem contas disponíveis.",
+      "noCategories": "Sem categorias de despesa disponíveis.",
+      "noPots": "Sem contas de poupança, investimento ou fundos disponíveis.",
+      "rules": {
+        "allTransactions": "Todas as transações",
+        "accounts": "{{count}} conta(s)",
+        "categories": "{{count}} categorias",
+        "pots": "{{count}} fundo(s)",
+        "transfersBetweenAccounts": "Transferências entre contas",
+        "transfersIntoPots": "Transferências para fundos",
+        "none": "Ainda nada"
+      },
+      "categoriesMenuLabel": "Categorias",
+      "collapseMenu": "Recolher lista de categorias",
+      "expandMenu": "Expandir lista de categorias",
+      "selectedCategory": "selecionada",
+      "detailsTitle": "Detalhes da categoria",
+      "transactionCount": "{{count}} transação(ões)",
+      "selectCategoryPrompt": "Selecione uma categoria no fluxo para ver os seus detalhes.",
+      "noTransactionsInCategory": "Ainda sem transações nesta categoria.",
+      "collapseDetails": "Recolher painel de detalhes",
+      "expandDetails": "Expandir painel de detalhes"
+    }
   },
   "transactions": {
     "views": {
@@ -626,10 +704,10 @@
       "scheduled": "Agendados"
     },
     "title": "Transações",
-    "subtitle": "Crie e reveja receitas, despesas, transferências e movimentos agendados do agregado.",
+    "subtitle": "Registe e reveja receitas, despesas, transferências e movimentos agendados do agregado.",
     "filtersTitle": "Filtros",
     "filtersSubtitle": "Combine filtros de tipo, categoria, conta, criador, data e ordenação.",
-    "filtersCollapsed": "Abra os filtros para refinar a lista de transações.",
+    "filtersCollapsed": "Abra os filtros para restringir a lista.",
     "showFilters": "Mostrar filtros",
     "hideFilters": "Ocultar filtros",
     "filterType": "Tipo de movimento",
@@ -638,24 +716,38 @@
       "newest": "Mais recentes",
       "oldest": "Mais antigas",
       "amount_desc": "Maior valor",
-      "amount_asc": "Menor valor"
+      "amount_asc": "Menor valor",
+      "title_asc": "Nome (A-Z)",
+      "title_desc": "Nome (Z-A)"
     },
     "dateFrom": "Data inicial",
     "dateTo": "Data final",
     "dateFromPlaceholder": "Data inicial",
     "dateToPlaceholder": "Data final",
     "filters": {
+      "movements": "Receitas e Despesas",
       "all": "Todas",
       "income": "Receita",
       "expense": "Despesa",
       "transfer": "Transferência"
     },
     "createTitle": "Adicionar movimento",
-    "createSubtitle": "Crie uma receita, despesa ou transferência entre contas.",
+    "createSubtitle": "Adicione uma receita, despesa ou transferência entre contas.",
+    "wizard": {
+      "stepOf": "Passo {{current}} de {{total}}",
+      "back": "Voltar",
+      "next": "Seguinte",
+      "stepTypeTitle": "Que tipo de movimento?",
+      "stepTypeSubtitle": "Escolha um tipo e depois adicione o título, valor, data e notas.",
+      "stepAccountsTitle": "Contas e pessoas",
+      "stepAccountsSubtitle": "Para onde vai o dinheiro e para quem é.",
+      "stepExtrasTitle": "Categoria e anexo",
+      "stepExtrasSubtitle": "Opcional - categorize e anexe um recibo, se tiver."
+    },
     "titleLabel": "Título",
     "titlePlaceholder": "Salário / Compras",
     "titleSuggestions": "Sugestões de nome da transação",
-    "titleSuggestionHint": "Escreva pelo menos dois caracteres para ver nomes usados antes. Pode sempre introduzir um nome novo.",
+    "titleSuggestionHint": "Escreva pelo menos dois carateres para ver nomes já usados, ou introduza um novo.",
     "titleSuggestionUses_one": "Usado uma vez",
     "titleSuggestionUses_other": "Usado {{count}} vezes",
     "amountLabel": "Valor",
@@ -674,11 +766,14 @@
     "noAttachments": "Esta transação não tem anexos.",
     "accounts": "Contas",
     "categories": "Categorias",
+    "subcategory": "Subcategoria",
+    "subcategoryHint": "Opcionalmente, restrinja a uma das subcategorias da categoria principal.",
+    "mainCategoryOnly": "Apenas a categoria principal",
     "createdBy": "Criado por",
     "categorySuggestionLoading": "A procurar uma categoria...",
     "categorySuggestionHigh": "Sugerida com base em {{count}} transação(ões) semelhante(s).",
     "categorySuggestionMedium": "Categoria sugerida: {{category}} - com base em {{count}} transação(ões) semelhante(s).",
-    "categorySuggestionUnavailable": "As sugestões de categoria estão temporariamente indisponíveis. Ainda pode criar a transação.",
+    "categorySuggestionUnavailable": "As sugestões de categoria não estão disponíveis de momento, mas ainda pode criar a transação.",
     "createdByPlaceholder": "Selecionar quem é dono desta transação",
     "create": "Criar transação",
     "createTransfer": "Criar transferência",
@@ -706,16 +801,32 @@
     "categoryFilter": "Categoria",
     "categoryFilterHint": "Mostrar transações de uma categoria.",
     "allCategories": "Todas as categorias",
+    "transactionDate": "Data da transação",
     "balanceAfter": "Saldo após",
     "uncategorized": "Sem categoria",
     "activeFilters": "{{count}} filtros ativos - Limpar tudo",
+    "clearAllFilters": "Limpar tudo",
+    "searchLabel": "Pesquisar",
+    "searchPlaceholder": "Pesquisar título, notas ou comerciante",
+    "searchHint": "Corresponde ao título, notas e nome do comerciante.",
+    "minAmountLabel": "Valor mínimo",
+    "maxAmountLabel": "Valor máximo",
+    "minAmountPlaceholder": "Sem mínimo",
+    "maxAmountPlaceholder": "Sem máximo",
+    "summary": {
+      "count_one": "{{count}} resultado",
+      "count_other": "{{count}} resultados",
+      "income": "Receitas",
+      "expense": "Despesas",
+      "net": "Saldo"
+    },
     "accountFilter": "Conta",
     "personFilter": "Pessoa",
     "editTitle": "Editar Transação",
     "dangerZone": "Zona de Perigo",
     "delete": "Eliminar Transação",
     "deleteTitle": "Eliminar transação",
-    "deleteMessage": "Esta ação não pode ser revertida.",
+    "deleteMessage": "Esta ação não pode ser desfeita.",
     "deleteTransfer": "Eliminar transferência",
     "deleteTransferTitle": "Eliminar esta transferência?",
     "deleteTransferMessage": "Isto elimina os dois lados de “{{title}}” e atualiza os saldos das duas contas.",
@@ -727,11 +838,11 @@
       "selected_one": "{{count}} transação selecionada",
       "selected_other": "{{count}} transações selecionadas",
       "chooseTypeHint": "Selecione uma receita ou despesa para começar.",
-      "sameTypeHint": "Apenas transações de {{type}} podem ser selecionadas em conjunto.",
+      "sameTypeHint": "Só é possível selecionar em conjunto transações de {{type}}.",
       "selectLoaded": "Selecionar carregadas",
       "category": "Nova categoria",
       "chooseCategory": "Escolher uma categoria",
-      "categoryHint": "Só são apresentadas categorias do tipo das transações selecionadas.",
+      "categoryHint": "Só são mostradas categorias do mesmo tipo das transações selecionadas.",
       "applyCategory": "Aplicar categoria",
       "clearCategory": "Limpar categoria",
       "success_one": "Categoria atualizada em {{count}} transação.",
@@ -744,43 +855,34 @@
     "new": "+ Nova",
     "empty": "Não foram encontradas transações."
   },
-
   "categories": {
     "title": "Categorias",
-    "subtitle": "Criar e gerir a estrutura de categorias usada pelas transações.",
+    "subtitle": "Crie e faça a gestão das categorias usadas pelas transações.",
     "summaryTitle": "Resumo",
-    "summarySubtitle": "Uma visão rápida do conjunto atual de categorias.",
+    "summarySubtitle": "Uma visão rápida das suas categorias atuais.",
     "selectedType": "Tipo selecionado",
-    "parentHint": "Use um id de categoria pai se estiver a criar uma categoria aninhada.",
-    "noParent": "Sem pai",
+    "parentHint": "Escolha uma categoria principal para aninhar esta dentro dela, ou deixe-a como categoria principal.",
+    "parentHintEmpty": "Ainda não existe nenhuma categoria principal deste tipo, por isso esta será criada como categoria principal.",
+    "parentCategory": "Categoria principal",
+    "topLevel": "Nível superior (categoria principal)",
+    "topLevelHint": "Sem categoria-pai — esta torna-se uma categoria principal.",
+    "noParent": "Sem categoria-pai",
     "icon": "Ícone",
-    "iconHint": "Escolha um ícone para mostrar nesta categoria.",
+    "iconHint": "Escolha um ícone para esta categoria.",
     "searchIcons": "Procurar ícones",
     "noIcon": "Sem ícone",
+    "discretionary": "Despesa discricionária",
+    "discretionaryOn": "Discricionária",
+    "discretionaryOff": "Essencial",
+    "discretionaryHint": "Categorias discricionárias aparecem separadas em análises de despesas como o gráfico Wage Flow, em vez de contarem como despesas normais.",
     "createTitle": "Criar categoria",
-    "createSubtitle": "Defina uma nova categoria e escolha o tipo, pai e ícone.",
+    "createSubtitle": "Defina um nome, tipo, categoria-pai e ícone para a nova categoria.",
     "editTitle": "Editar categoria",
     "name": "Nome",
-    "parentId": "Id da categoria pai",
-    "optional": "Opcional",
     "create": "Criar Categoria",
     "creating": "A criar...",
     "listTitle": "Categorias",
-    "listSubtitle": "A mostrar {{count}} categorias.",
-    "filterTitle": "Filtrar categorias",
-    "filterSubtitle": "Muda entre categorias de receita, despesa e conta sem alterar o formulário de criação.",
-    "emptyFilteredTitle": "Nenhuma categoria corresponde a este filtro",
-    "emptyFilteredSubtitle": "Experimente outro tipo ou crie uma categoria para esta secção.",
-    "table": {
-      "name": "Nome",
-      "type": "Tipo",
-      "status": "Estado",
-      "parent": "Pai",
-      "actions": "Opções"
-    },
-    "parent": "pai",
     "archived": "Arquivada",
-    "active": "Ativa",
     "edit": "Editar",
     "archive": "Arquivar",
     "restore": "Restaurar",
@@ -789,19 +891,121 @@
       "active": "Ativas",
       "archived": "Arquivadas"
     },
-    "filters": {
-      "all": "Todos os tipos"
-    },
     "types": {
       "expense": "Despesa",
       "income": "Receita",
       "account": "Conta"
+    },
+    "seedTitle": "Comece com categorias predefinidas",
+    "seedSubtitle": "Adicione um conjunto pronto de 10 categorias principais de despesa (cada uma com subcategorias comuns) e 10 categorias de receita, para não começar com uma lista vazia. Só preenche o tipo que ainda faltar.",
+    "seedAction": "Adicionar categorias predefinidas",
+    "seedInProgress": "A adicionar categorias...",
+    "browser": {
+      "title": "Navegador de categorias",
+      "subtitle": "Encontre, gira e veja os números por trás das suas categorias.",
+      "newCategory": "Nova categoria",
+      "addChild": "Adicionar subcategoria",
+      "searchLabel": "Procurar categorias",
+      "searchPlaceholder": "ex.: Mercearia",
+      "collapseGroup": "Recolher {{name}}",
+      "expandGroup": "Expandir {{name}}",
+      "noSelectionTitle": "Nenhuma categoria selecionada",
+      "noSelectionHint": "Selecione uma categoria na lista à esquerda para ver aqui os seus gastos, transações e ações.",
+      "typeNodeHint": "Selecione uma categoria (não apenas o seu tipo) para editar, arquivar ou eliminar.",
+      "periodAll": "Sempre",
+      "totalSpendingLabel": "Total gasto",
+      "totalIncomeLabel": "Total recebido",
+      "totalAmountLabel": "Valor total",
+      "transactionCountLabel": "Transações",
+      "transactionCount_one": "{{count}} transação",
+      "transactionCount_other": "{{count}} transações",
+      "percentOfTotalLabel": "% do total de {{type}}",
+      "subcategoriesTitle": "Subcategorias",
+      "noSubcategories": "Esta categoria não tem subcategorias.",
+      "recentTransactionsTitle": "Transações recentes",
+      "noRecentTransactions": "Sem transações neste período.",
+      "byAccountTitle": "Por conta",
+      "byUserTitle": "Por membro do agregado"
+    },
+    "defaults": {
+      "housing": "Habitação",
+      "utilities": "Serviços Públicos",
+      "groceries": "Compras de Mercearia",
+      "transportation": "Transportes",
+      "healthWellness": "Saúde & Bem-estar",
+      "diningEntertainment": "Restauração & Entretenimento",
+      "shoppingPersonalCare": "Compras & Cuidados Pessoais",
+      "familyEducation": "Família & Educação",
+      "savingsInvestments": "Poupanças & Investimentos",
+      "debtObligations": "Dívidas & Obrigações Financeiras"
+    },
+    "defaultsSub": {
+      "housing": {
+        "rentMortgage": "Renda/Hipoteca",
+        "homeInsurance": "Seguro de Habitação",
+        "maintenance": "Manutenção & Reparações"
+      },
+      "utilities": {
+        "electricity": "Eletricidade",
+        "water": "Água",
+        "internetPhone": "Internet & Telefone"
+      },
+      "groceries": {
+        "supermarket": "Supermercado",
+        "householdSupplies": "Artigos para Casa"
+      },
+      "transportation": {
+        "fuel": "Combustível",
+        "publicTransit": "Transportes Públicos",
+        "carMaintenance": "Manutenção & Seguro do Carro"
+      },
+      "healthWellness": {
+        "doctorPharmacy": "Médico & Farmácia",
+        "healthInsurance": "Seguro de Saúde",
+        "fitness": "Fitness"
+      },
+      "diningEntertainment": {
+        "restaurantsTakeout": "Restaurantes & Take-away",
+        "streamingSubscriptions": "Streaming & Subscrições",
+        "leisureHobbies": "Lazer & Passatempos"
+      },
+      "shoppingPersonalCare": {
+        "clothing": "Roupa",
+        "personalCare": "Cuidados Pessoais",
+        "electronicsGadgets": "Eletrónica & Gadgets"
+      },
+      "familyEducation": {
+        "childcare": "Cuidados Infantis",
+        "tuitionCourses": "Propinas & Cursos",
+        "kidsActivities": "Atividades para Crianças"
+      },
+      "savingsInvestments": {
+        "emergencyFund": "Fundo de Emergência",
+        "investments": "Investimentos",
+        "retirement": "Reforma"
+      },
+      "debtObligations": {
+        "loanPayments": "Pagamento de Empréstimos",
+        "creditCardPayments": "Pagamento de Cartão de Crédito",
+        "taxesFees": "Impostos & Taxas"
+      }
+    },
+    "defaultsIncome": {
+      "salary": "Salário",
+      "freelance": "Freelance & Trabalho Independente",
+      "bonusCommissions": "Bónus & Comissões",
+      "investmentIncome": "Rendimento de Investimentos",
+      "rentalIncome": "Rendimento de Arrendamento",
+      "businessIncome": "Rendimento de Negócio",
+      "giftsInheritance": "Presentes & Heranças",
+      "refundsReimbursements": "Reembolsos",
+      "governmentBenefits": "Apoios do Estado",
+      "otherIncome": "Outros Rendimentos"
     }
   },
-
   "budgets": {
     "title": "Orçamentos",
-    "subtitle": "Acompanhar limites para pagamentos e transferências",
+    "subtitle": "Acompanhe limites para pagamentos e transferências",
     "createTitle": "Criar Orçamento",
     "currentTitle": "Orçamentos Atuais",
     "type": "Tipo de Orçamento",
@@ -824,44 +1028,41 @@
     "periodLabel": "Período: {{from}} a {{to}}",
     "delete": "Eliminar Orçamento",
     "deleteTitle": "Eliminar orçamento",
-    "deleteMessage": "Esta ação não pode ser revertida.",
+    "deleteMessage": "Esta ação não pode ser desfeita.",
     "missingCategory": "Selecione uma categoria"
   },
-
   "savings": {
     "title": "Poupanças",
-    "subtitle": "Acompanhe pots de poupança e os respetivos saldos.",
-    "createTitle": "Criar pot de poupança",
-    "name": "Nome",
+    "subtitle": "Acompanhe os seus mealheiros e os respetivos saldos.",
+    "createTitle": "Criar mealheiro",
     "namePlaceholder": "Fundo de emergência",
     "createdBy": "Criado por",
-    "createdByPlaceholder": "Selecionar quem é dono deste pot",
-    "targetAmount": "Valor alvo",
-    "scopeLabel": "Tipo de pot",
+    "createdByPlaceholder": "Selecionar quem é dono deste mealheiro",
+    "scopeLabel": "Tipo de mealheiro",
     "scopeShared": "Partilhado",
     "scopeAccountSpecific": "Específico de conta",
-    "sharedAccountsHint": "Este pot é partilhado pelo agregado e usa todas as contas.",
+    "sharedAccountsHint": "Este mealheiro é partilhado pelo agregado e usa todas as contas.",
     "noAccountsSelected": "Ainda não há contas selecionadas.",
-    "addPot": "Adicionar pot de poupança",
+    "addPot": "Adicionar mealheiro",
     "selectAccounts": "Escolher contas",
     "editAccounts": "Editar contas",
-    "selectedAccountsTitle": "Contas usadas neste pot",
-    "selectedAccountsHint": "Escolha uma ou mais contas. Se não selecionar nenhuma, são usadas todas as contas do agregado.",
-    "selectAccountsRequiredHint": "Escolha pelo menos uma conta para um pot específico de conta.",
+    "selectedAccountsTitle": "Contas usadas neste mealheiro",
+    "selectedAccountsHint": "Escolha uma ou mais contas. Se não escolher nenhuma, são usadas todas as contas do agregado.",
+    "selectAccountsRequiredHint": "Escolha pelo menos uma conta para um mealheiro específico de conta.",
     "selectedAccountsSummary": "{{count}} conta(s) selecionada(s)",
     "allAccountsUsed": "São usadas todas as contas do agregado",
     "sharedAccounts": "Contas partilhadas",
     "noAccountsAvailable": "Não há contas disponíveis neste agregado.",
     "saveAccounts": "Guardar contas",
-    "savePot": "Guardar pot",
+    "savePot": "Guardar mealheiro",
     "closeAccounts": "Fechar",
-    "removePot": "Remover pot",
+    "removePot": "Remover mealheiro",
     "actions": "Opções",
     "editDetails": "Editar detalhes",
-    "editPotSubtitle": "Atualize o nome, o objetivo e que contas contam para este pot.",
-    "create": "Criar pot de poupança",
+    "editPotSubtitle": "Atualize o nome, o objetivo, e que contas contam para este mealheiro.",
+    "create": "Criar mealheiro",
     "balancesTitle": "Saldos",
-    "balancesSubtitle": "A vista atual do saldo da query de saldos de pots de poupança existente.",
+    "balancesSubtitle": "Quanto já foi guardado em cada mealheiro.",
     "saved": "Guardado",
     "spent": "Gasto",
     "balance": "Saldo",
@@ -869,13 +1070,16 @@
     "balanceByAccount": "Saldo por conta",
     "accountColumn": "Conta",
     "balanceColumn": "Saldo",
-    "currentTitle": "Pots de poupança",
-    "currentSubtitle": "Eliminar pots usando a mutação existente.",
-    "noTarget": "Sem alvo",
+    "currentTitle": "Mealheiros",
+    "currentSubtitle": "Remova um mealheiro que já não precise.",
+    "name": "Nome",
+    "targetOptional": "Objetivo (Opcional)",
+    "targetAmount": "Valor do objetivo",
+    "noTarget": "Sem objetivo",
     "progress": "Progresso: {{percent}}%",
-    "estimatedFinish": "Término estimado: {{value}}",
+    "estimatedFinish": "Conclusão estimada: {{value}}",
     "estimateUnavail": "Ainda sem estimativa disponível.",
-    "estimateNote": "Com base nas transferências recorrentes ativas das contas selecionadas.",
+    "estimateNote": "Com base nas transferências recorrentes ativas para as contas selecionadas.",
     "forecastMonthlyContribution": "Contribuição prevista: {{value}} / mês",
     "forecastRecurringTransfers": "Transferências recorrentes: {{value}} / mês",
     "forecastMonthlyBudget": "Orçamento mensal: {{value}} / mês",
@@ -886,20 +1090,19 @@
     "forecastYearlyView": "Ano",
     "forecastMonth": "Mês",
     "forecastYear": "Ano",
-    "forecastContributionShort": "Entrada",
+    "forecastContributionShort": "Adicionado",
     "forecastBalanceShort": "Saldo",
-    "forecastUnavailableNoTarget": "Adicione um valor de objetivo para ver a previsão de conclusão.",
-    "forecastUnavailableNoContributions": "Ainda não existem transferências recorrentes ou regras de orçamento mensal ativas para este pot.",
-    "forecastUnavailableBeyondHorizon": "Não é possível prever este objetivo nos próximos 30 anos.",
+    "forecastUnavailableNoTarget": "Adicione um valor de objetivo para ver uma previsão de conclusão.",
+    "forecastUnavailableNoContributions": "Ainda não há transferências recorrentes nem regras de orçamento a contribuir para este mealheiro.",
+    "forecastUnavailableBeyondHorizon": "Não é possível prever este objetivo dentro dos próximos 30 anos.",
     "delete": "Eliminar",
-    "deleteTitle": "Eliminar pot de poupança",
-    "deleteMessage": "Esta ação não pode ser revertida.",
-    "empty": "Ainda sem pots de poupança."
+    "deleteTitle": "Eliminar mealheiro",
+    "deleteMessage": "Esta ação não pode ser desfeita.",
+    "empty": "Ainda sem mealheiros."
   },
-
   "recurring": {
     "title": "Recorrentes",
-    "subtitle": "Agende transações repetidas e gira a sua ativação.",
+    "subtitle": "Agende transações repetidas e ligue-as ou desligue-as.",
     "createTitle": "Criar transação recorrente",
     "rulesTitle": "Regras recorrentes",
     "rulesSubtitle": "{{count}} regras neste agregado.",
@@ -931,7 +1134,7 @@
       "custom": "Personalizado"
     },
     "excludeMonths": "Excluir meses",
-    "excludeMonthsHint": "Escolha os meses em que esta regra deve ser ignorada.",
+    "excludeMonthsHint": "Escolha os meses a saltar nesta regra.",
     "customFrequencyAnyMonth": "todos os meses",
     "months": {
       "jan": "Jan",
@@ -949,7 +1152,6 @@
     },
     "nextRunLabel": "próxima {{value}}"
   },
-
   "transfers": {
     "title": "Transferências",
     "subtitle": "Mover dinheiro entre contas",
@@ -957,22 +1159,33 @@
     "defaultTitle": "Transferência",
     "fromAccount": "Conta de origem",
     "toAccount": "Conta de destino",
+    "formCategory": "Categoria de Transferência",
+    "formCategoryNone": "Sem categoria",
     "formTitle": "Título",
     "formAmount": "Valor",
     "formDate": "Data",
-    "formCategory": "Categoria de Transferência",
-    "formCategoryNone": "Sem categoria",
     "formNotes": "Notas",
     "formCreate": "Criar Transferência",
     "formCreating": "A criar...",
     "howItWorksTitle": "Como funciona",
-    "howItWorksSubtitle": "As transferências criam duas linhas de transação ligadas através da RPC de transferências.",
-    "howItWorksBody": "A conta de origem é debitada como despesa e a conta de destino é creditada como receita, mantendo os saldos consistentes.",
+    "howItWorksSubtitle": "Uma transferência cria duas transações ligadas entre si, para as duas contas ficarem sempre sincronizadas.",
+    "howItWorksBody": "A conta de origem é debitada como despesa e a conta de destino é creditada como receita, para os saldos ficarem sempre certos.",
     "movementType": "Tipo de movimento",
     "types": {
       "oneOff": "Transferência única",
       "recurringTransfer": "Transferência recorrente",
-      "recurringTransaction": "Receita ou despesa recorrente"
+      "recurringTransaction": "Receita ou despesa recorrente",
+      "subscription": "Subscrições",
+      "bill": "Contas e outras despesas",
+      "recurringIncome": "Receitas recorrentes",
+      "income": "Receita recorrente",
+      "transfer": "Transferência recorrente"
+    },
+    "expenseKind": "Tipo de despesa",
+    "expenseKinds": {
+      "subscription": "Subscrição",
+      "bill": "Conta",
+      "other": "Outra despesa"
     },
     "scheduledTitle": "Movimentos agendados",
     "scheduledSubtitle": "{{count}} movimentos agendados neste agregado.",
@@ -985,7 +1198,7 @@
     "sourceAccount": "Conta de origem",
     "destination": "Destino",
     "pigBank": "Mealheiro",
-    "destinationPots": "Potes de poupança",
+    "destinationPots": "Mealheiros",
     "transactionType": "Tipo de transação",
     "notes": "Notas",
     "chooseType": "Escolher tipo de movimento",
@@ -995,7 +1208,7 @@
     "saveRecurring": "Guardar movimento agendado",
     "executionHistory": "Histórico de execuções",
     "executionHistoryTitle": "Histórico de execuções",
-    "executionHistoryUnavailable": "O histórico de execuções aparecerá aqui quando a execução agendada estiver disponível.",
+    "executionHistoryUnavailable": "O histórico de execuções vai aparecer aqui assim que as execuções agendadas estiverem disponíveis.",
     "executionStatuses": {
       "pending": "Pendente",
       "completed": "Concluída",
@@ -1005,14 +1218,14 @@
     "pause": "Pausar",
     "resume": "Retomar",
     "editScheduled": "Editar movimento agendado",
-    "emptyScheduled": "Ainda não existem movimentos agendados.",
+    "emptyScheduled": "Ainda não há movimentos agendados.",
     "transferRoute": "{{from}} para {{to}}",
-    "potDestination": "Pote de poupança: {{name}}",
+    "potDestination": "Mealheiro: {{name}}",
     "requiresDestination": "Escolha um destino para esta transferência recorrente.",
     "invalidMovement": "Preencha os campos obrigatórios antes de guardar este movimento.",
     "frequency": "Frequência",
     "excludeMonths": "Excluir meses",
-    "excludeMonthsHint": "Escolha os meses em que este movimento deve ser ignorado.",
+    "excludeMonthsHint": "Escolha os meses a saltar neste movimento.",
     "customFrequencyAnyMonth": "todos os meses",
     "nextRunLabel": "próxima {{value}}",
     "months": {
@@ -1030,7 +1243,6 @@
       "dec": "Dez"
     }
   },
-
   "notifications": {
     "title": "Notificações",
     "empty": "Não tem notificações.",
@@ -1039,10 +1251,9 @@
     "softDelete": "Eliminar suavemente",
     "softDeleteShort": "X"
   },
-
   "members": {
     "title": "Membros",
-    "subtitle": "Convide pessoas, gira a adesão e transfira a propriedade.",
+    "subtitle": "Convide pessoas, faça a gestão da adesão e transfira a propriedade.",
     "inviteTitle": "Convidar membro",
     "email": "Email",
     "sendInvite": "Enviar convite",
@@ -1056,49 +1267,47 @@
     "transferOwnership": "Transferir propriedade para o primeiro não-proprietário",
     "leaveHousehold": "Sair do agregado",
     "pendingTitle": "Convites",
-    "pendingSubtitle": "Convites do agregado emitidos pela aplicação.",
+    "pendingSubtitle": "Convites do agregado enviados pela aplicação.",
     "expires": "expira {{date}}",
-    "noDate": "n/a",
+    "noDate": "n/d",
     "revoke": "Revogar",
     "myTitle": "Os meus convites",
-    "mySubtitle": "Convites destinados ao utilizador autenticado.",
+    "mySubtitle": "Convites dirigidos a si.",
     "thisMember": "este membro",
     "removeTitle": "Remover membro",
     "removeMessage": "Remover {{name}} deste agregado?",
     "sending": "A enviar...",
     "removing": "A remover..."
   },
-
   "invite": {
     "invalidTitle": "Link de convite inválido",
     "invalidMessage": "Este link precisa de um token para funcionar.",
-    "invalidDescription": "Este link de convite não tem token. Peça ao administrador do agregado para enviar um novo convite.",
+    "invalidDescription": "Falta um token a este link de convite. Peça ao administrador do agregado para enviar um novo.",
     "goHome": "Ir para o Início",
     "welcomeTitle": "Foi convidado",
-    "acceptTitle": "Aceitar convite",
-    "subtitle": "Existe um convite do agregado a aguardar por si.",
+    "acceptTitle": "Aceitar o seu convite",
+    "subtitle": "Há um convite de agregado à sua espera.",
     "thisHousehold": "este agregado",
     "someone": "Alguém",
     "householdOwner": "O proprietário do agregado",
-    "friendlySubtitle": "{{ownerName}} convidou-o para se juntar a {{householdName}}.",
+    "friendlySubtitle": "{{ownerName}} convidou-o a juntar-se a {{householdName}}.",
     "sectionTitle": "Convite",
-    "friendlyBody": "{{ownerName}} está a convidá-lo para se juntar a {{householdName}}.",
-    "signInBody": "Inicie sessão com a conta convidada e concluiremos a adesão automaticamente.",
+    "friendlyBody": "{{ownerName}} está a convidá-lo a juntar-se a {{householdName}}.",
+    "signInBody": "Inicie sessão com a conta convidada e nós tratamos do resto para concluir a adesão.",
     "joinAs": "Vai juntar-se como {{role}}.",
-    "expires": "Este convite expira em {{date}}.",
-    "lookupAfterSignIn": "Assim que iniciar sessão, vamos procurar os detalhes do convite para a conta convidada.",
-    "wrongAccount": "Este convite foi enviado para outra conta Google. Altere de conta e tente novamente.",
-    "acceptedMessage": "Convite aceite. A redirecionar para Definições...",
+    "expires": "Este convite expira a {{date}}.",
+    "lookupAfterSignIn": "Assim que iniciar sessão, procuramos os detalhes do convite para essa conta.",
+    "wrongAccount": "Este convite foi enviado para outra conta Google. Troque de conta e tente novamente.",
+    "acceptedMessage": "Convite aceite. A levá-lo para as Definições...",
     "signInTitle": "Iniciar sessão",
-    "signInMessage": "Inicie sessão com a conta convidada e concluiremos a adesão automaticamente.",
+    "signInMessage": "Inicie sessão com a conta convidada e tratamos da adesão automaticamente.",
     "accepting": "A aceitar...",
     "switchAccount": "Trocar de conta",
     "unknownError": "Erro desconhecido"
   },
-
   "onboarding": {
     "welcomeTitle": "Torne as suas finanças mais claras",
-    "welcomeDescription": "O SmartFinance reúne as contas, planos e objetivos do seu agregado num só lugar. Este guia curto mostra-lhe por onde começar.",
+    "welcomeDescription": "O SmartFinance reúne as contas, planos e objetivos do seu agregado num só lugar. Aqui fica um guia rápido para começar.",
     "progress": "Passo {{current}} de {{total}}",
     "next": "Seguinte",
     "back": "Anterior",
@@ -1107,79 +1316,78 @@
     "start": "Iniciar guia",
     "close": "Fechar",
     "completionTitle": "Está tudo pronto",
-    "completionDescription": "Pode reabrir este guia a qualquer momento nas Definições, e as novas funcionalidades apresentam-se quando estiverem disponíveis.",
+    "completionDescription": "Pode reabrir este guia quando quiser, a partir das Definições, e as novas funcionalidades apresentam-se sozinhas quando chegarem.",
     "restart": "Rever guia da aplicação",
-    "restartDescription": "Veja novamente o guia completo do SmartFinance.",
+    "restartDescription": "Veja de novo o guia completo do SmartFinance.",
     "sectionGuide": "Como funciona esta secção",
     "reviewSectionGuide": "Rever guia",
     "guideSeen": "Guia visto",
     "newFeature": "Novo",
     "featureGuideTitle": "Conheça {{feature}}",
-    "featureGuideDescription": "Esta funcionalidade é nova. Veja rapidamente como funciona.",
+    "featureGuideDescription": "Esta funcionalidade é nova. Aqui fica uma vista rápida de como funciona.",
     "dashboard": {
       "title": "A sua visão financeira",
-      "description": "Veja o património acompanhado, os movimentos deste mês, contas, objetivos e atividade recente numa só vista.",
+      "description": "Veja o que está a acompanhar, os movimentos deste mês, contas, objetivos e atividade recente, tudo numa só vista.",
       "tip": "Use os cabeçalhos das secções para recolher detalhes e focar-se no que importa agora."
     },
     "accounts": {
       "title": "Reúna todas as contas",
-      "description": "Crie contas bancárias, de poupança, numerário, investimento, crédito e PPR. Atribua um proprietário ou deixe uma conta partilhada.",
-      "tip": "Os saldos e proprietários ajudam a distinguir dinheiro individual e partilhado."
+      "description": "Crie contas bancárias, de poupança, numerário, investimento, crédito e PPR. Atribua um proprietário, ou deixe a conta partilhada.",
+      "tip": "Saldos e proprietários ajudam a distinguir dinheiro individual e partilhado, de relance."
     },
     "transactions": {
       "title": "Registe entradas e saídas",
-      "description": "Adicione receitas e despesas com conta, categoria, data e notas ou fatura opcionais.",
-      "tip": "Use os filtros para rever rapidamente os gastos de uma pessoa, conta ou tipo de transação."
+      "description": "Adicione receitas e despesas com conta, categoria, data e, se quiser, notas ou uma fatura anexada.",
+      "tip": "Use os filtros para rever rapidamente os gastos de uma pessoa, de uma conta, ou de um tipo de transação."
     },
     "transfers": {
       "title": "Mova dinheiro sem perder o controlo",
-      "description": "As transferências ligam as contas de origem e destino, mantendo ambos os saldos consistentes. Também pode agendar movimentos recorrentes.",
-      "tip": "Escolha cuidadosamente a origem e o destino: uma transferência é registada como despesa e receita correspondente."
+      "description": "As transferências ligam a conta de origem e a de destino, para os dois saldos ficarem sempre sincronizados. Também pode agendar movimentos recorrentes.",
+      "tip": "Escolha bem a origem e o destino: uma transferência fica registada como despesa de um lado e receita do outro."
     },
     "budget": {
-      "title": "Planeie o mês antes de começar",
-      "description": "Defina rendimentos, regras mensais, meses ativos e destinos. Reveja a prévia antes de confirmar o mês.",
-      "tip": "Use meses ativos para regras sazonais, como contribuições de verão ou Natal."
+      "title": "Planeie o mês antes de ele começar",
+      "description": "Defina o rendimento do agregado, as regras mensais, os meses ativos e os destinos. Reveja a previsão antes de confirmar.",
+      "tip": "Use os meses ativos para regras sazonais, como contribuições de verão ou do Natal."
     },
     "savings": {
       "title": "Transforme poupanças em objetivos claros",
-      "description": "Crie pots de poupança, defina um objetivo, associe as contas que os alimentam e acompanhe o progresso.",
-      "tip": "Abra a previsão de contribuições de um pot para ver o percurso mensal ou anual esperado até ao objetivo."
+      "description": "Crie mealheiros, defina um objetivo, associe as contas que os alimentam e acompanhe o progresso.",
+      "tip": "Abra a previsão de contribuições de um mealheiro para ver o percurso esperado até ao objetivo."
     },
     "categories": {
       "title": "Organize cada movimento",
-      "description": "Crie categorias de receita, despesa e conta para manter os relatórios e listas de transações úteis.",
-      "tip": "Use categorias-pai para organizar categorias mais detalhadas."
+      "description": "Crie categorias de receita, despesa e conta para os seus relatórios e listas de transações continuarem úteis.",
+      "tip": "Use categorias-pai para manter as categorias mais detalhadas organizadas."
     },
     "members": {
       "title": "Gira o agregado em conjunto",
-      "description": "Convide pessoas para o agregado, reveja adesões e gira os acessos à medida que o agregado muda.",
+      "description": "Convide pessoas, veja quem é membro e faça a gestão dos acessos à medida que o agregado muda.",
       "tip": "Proprietários e administradores podem enviar convites e gerir outros membros."
     },
     "settings": {
       "title": "Controle a configuração do agregado",
-      "description": "Gira os detalhes do agregado, idioma, tema, moeda, convites e cópias de segurança num só lugar.",
-      "tip": "Volte aqui sempre que quiser rever o guia da aplicação ou alterar as suas preferências."
+      "description": "Gira os detalhes do agregado, idioma, tema, moeda, convites e cópias de segurança, tudo num só lugar.",
+      "tip": "Volte aqui sempre que quiser rever o guia da aplicação ou mudar as suas preferências."
     }
   },
-
   "feedback": {
     "title": "Ajude a melhorar o SmartFinance",
-    "subtitle": "Partilhe uma ideia ou reporte um problema e acompanhe todas as atualizações da equipa.",
+    "subtitle": "Partilhe uma ideia ou reporte um problema, depois acompanhe todas as atualizações da equipa.",
     "newTitle": "Enviar feedback",
-    "newSubtitle": "Um pouco de contexto ajuda-nos a compreender, reproduzir e agir rapidamente.",
+    "newSubtitle": "Um pouco de contexto ajuda-nos a perceber o que se passa e a agir depressa.",
     "kind": {
       "suggestion": "Sugestão",
-      "suggestionDescription": "Proponha uma melhoria ou uma nova forma de trabalhar.",
+      "suggestionDescription": "Proponha uma melhoria ou uma forma diferente de fazer algo.",
       "bug": "Erro",
-      "bugDescription": "Descreva algo que não funcionou como esperado."
+      "bugDescription": "Conte-nos algo que não funcionou como esperava."
     },
     "fields": {
       "title": "Título curto",
       "titlePlaceholder": "Resuma a ideia ou o problema",
       "description": "Detalhes",
-      "suggestionDescriptionPlaceholder": "O que melhoraria a sua experiência e porquê?",
-      "bugDescriptionPlaceholder": "O que estava a tentar fazer quando ocorreu o problema?",
+      "suggestionDescriptionPlaceholder": "O que tornaria a sua experiência melhor, e porquê?",
+      "bugDescriptionPlaceholder": "O que estava a tentar fazer quando aconteceu?",
       "expected": "Resultado esperado",
       "expectedPlaceholder": "O que deveria ter acontecido?",
       "actual": "Resultado obtido",
@@ -1210,18 +1418,18 @@
     "removeScreenshot": "Remover {{name}}",
     "screenshotErrorTitle": "Não foi possível adicionar as imagens",
     "screenshotErrorMessage": "Escolha novamente as imagens.",
-    "privacyNote": "O feedback fica associado à sua conta para podermos responder e enviar atualizações.",
+    "privacyNote": "O feedback fica associado à sua conta para podermos responder e mantê-lo a par.",
     "submit": "Enviar feedback",
     "submitting": "A enviar...",
     "submitted": "Feedback enviado. Obrigado.",
     "submitErrorTitle": "Não foi possível enviar o feedback",
-    "submitErrorMessage": "Tente novamente dentro de instantes.",
+    "submitErrorMessage": "Tente novamente daqui a pouco.",
     "timelineTitle": "O seu feedback",
-    "timelineSubtitle": "Acompanhe mudanças de estado e continue a conversa.",
+    "timelineSubtitle": "Acompanhe as mudanças de estado e continue a conversa.",
     "loading": "A carregar o seu feedback...",
-    "loadError": "Não foi possível carregar o seu feedback.",
+    "loadError": "Não conseguimos carregar o seu feedback.",
     "emptyTitle": "Ainda não enviou feedback",
-    "emptyBody": "As suas sugestões e comunicações de erro aparecerão aqui depois de as enviar.",
+    "emptyBody": "As suas sugestões e relatos de erro vão aparecer aqui depois de os enviar.",
     "resolvedInRelease": "Resolvido na versão {{release}}",
     "supportTeam": "Equipa SmartFinance",
     "replyLabel": "Resposta",
@@ -1233,15 +1441,14 @@
     "replyErrorMessage": "Tente novamente.",
     "withdraw": "Retirar",
     "withdrawTitle": "Retirar feedback?",
-    "withdrawMessage": "Retirar “{{title}}”? A conversa será mantida para referência.",
+    "withdrawMessage": "Retirar “{{title}}”? A conversa fica guardada para referência.",
     "withdrawn": "Feedback retirado.",
     "withdrawErrorTitle": "Não foi possível retirar o feedback",
     "withdrawErrorMessage": "Tente novamente."
   },
-
   "adminFeedback": {
     "title": "Caixa de feedback",
-    "subtitle": "Faça a triagem, coordene responsáveis e feche o ciclo com notas de versão claras.",
+    "subtitle": "Veja o que os clientes estão a dizer, atribua um responsável e feche o ciclo com notas claras.",
     "filtersTitle": "Encontre o próximo sinal",
     "filtersSubtitle": "Pesquise na caixa e combine filtros de fluxo de trabalho.",
     "searchLabel": "Pesquisar",
@@ -1264,11 +1471,11 @@
     },
     "inboxTitle": "Caixa de entrada",
     "loading": "A carregar a caixa...",
-    "loadError": "Não foi possível carregar a caixa de feedback.",
+    "loadError": "Não conseguimos carregar a caixa de feedback.",
     "emptyTitle": "Nenhum resultado para estes filtros",
     "emptyBody": "Alargue os filtros ou limpe a pesquisa.",
     "selectTitle": "Selecione feedback",
-    "selectBody": "Escolha um item para rever o contexto e atualizar o fluxo de trabalho.",
+    "selectBody": "Escolha um item da caixa para ver o contexto e atualizar o fluxo de trabalho.",
     "unknownSubmitter": "Autor desconhecido",
     "notProvided": "Não indicado",
     "attachments": "Capturas de ecrã",
@@ -1283,13 +1490,13 @@
     "internalNoteTitle": "Nota interna",
     "internalNoteHelp": "Visível apenas para administradores da plataforma.",
     "internalNoteLabel": "Nota",
-    "internalNotePlaceholder": "Registe detalhes da investigação, decisões ou contexto de passagem...",
+    "internalNotePlaceholder": "Registe detalhes da investigação, decisões, ou contexto para a próxima pessoa...",
     "addNote": "Adicionar nota interna",
     "noteAdded": "Nota interna adicionada.",
     "responseTitle": "Resposta ao cliente",
-    "responseHelp": "Esta resposta é visível para a pessoa que enviou o feedback.",
+    "responseHelp": "Esta resposta é visível para quem enviou o feedback.",
     "responseLabel": "Resposta",
-    "responsePlaceholder": "Partilhe uma atualização, faça uma pergunta ou explique a resolução...",
+    "responsePlaceholder": "Partilhe uma atualização, faça uma pergunta, ou explique a resolução...",
     "sendResponse": "Enviar resposta",
     "responseSent": "Resposta enviada.",
     "saving": "A guardar...",
@@ -1311,7 +1518,6 @@
     "replyErrorTitle": "Não foi possível guardar a mensagem",
     "replyErrorMessage": "Tente novamente."
   },
-
   "landing": {
     "nav": {
       "features": "Funcionalidades",
@@ -1325,15 +1531,16 @@
     },
     "language": {
       "select": "Selecionar idioma",
-      "close": "Fechar menu de idiomas"
+      "close": "Fechar menu de idiomas",
+      "current": "Idioma: {{language}}. Selecionar idioma."
     },
     "hero": {
-      "eyebrow": "Finanças mais claras, decisões mais tranquilas",
-      "title": "A sua vida financeira, organizada num só lugar.",
-      "description": "Reúna contas, despesas, orçamentos e objetivos partilhados. O SmartFinance dá ao seu agregado a clareza necessária para planear com confiança.",
+      "eyebrow": "Saiba sempre como está o seu dinheiro",
+      "title": "Tudo sobre o seu dinheiro, num só lugar.",
+      "description": "Contas, despesas, orçamentos e objetivos partilhados, tudo junto. O SmartFinance ajuda o seu agregado a planear sem adivinhar.",
       "primary": "Começar gratuitamente",
       "secondary": "Explorar funcionalidades",
-      "trust": "Privacidade desde a origem. Os seus dados financeiros continuam a ser seus."
+      "trust": "Os seus dados financeiros continuam a ser seus. Sempre."
     },
     "preview": {
       "label": "Saldo total",
@@ -1342,235 +1549,263 @@
     },
     "features": {
       "kicker": "Tudo numa só vista",
-      "title": "Clareza em cada decisão financeira",
-      "description": "Ferramentas simples que transformam a atividade financeira do dia a dia numa visão útil e partilhada.",
+      "title": "Uma visão clara para cada decisão financeira",
+      "description": "Ferramentas simples que transformam a atividade financeira do dia a dia em algo que o seu agregado realmente usa.",
       "items": [
         {
           "title": "Todas as suas contas",
-          "description": "Acompanhe saldos bancários, numerário, poupanças, investimentos e crédito num painel organizado."
+          "description": "Veja saldos bancários, numerário, poupanças, investimentos e crédito num só painel."
         },
         {
-          "title": "Informação com significado",
-          "description": "Perceba para onde vai o dinheiro através de categorias, tendências e atividade recente."
+          "title": "Informação que interessa",
+          "description": "Veja para onde vai o dinheiro, com categorias, tendências e atividade recente."
         },
         {
           "title": "Orçamentos e objetivos",
-          "description": "Planeie o mês, automatize movimentos recorrentes e avance nos objetivos de poupança."
+          "description": "Planeie o mês, automatize transferências recorrentes e vá avançando nos seus objetivos de poupança."
         },
         {
           "title": "Pensado para agregados",
-          "description": "Coordene finanças partilhadas mantendo a propriedade individual visível e controlada."
+          "description": "Faça a gestão das finanças partilhadas, mantendo claro quem é dono de quê."
         }
       ]
     },
     "steps": {
       "kicker": "Simples desde o primeiro dia",
-      "title": "Uma visão mais clara em três passos",
+      "title": "Três passos para uma visão mais clara",
       "items": [
         {
           "title": "Crie o seu agregado",
-          "description": "Configure o seu espaço financeiro privado e convide as pessoas em quem confia."
+          "description": "Configure o seu espaço privado e convide as pessoas em quem confia."
         },
         {
           "title": "Adicione as suas finanças",
-          "description": "Organize contas, transações, categorias, orçamentos e objetivos de poupança."
+          "description": "Junte contas, transações, categorias, orçamentos e objetivos de poupança."
         },
         {
           "title": "Planeiem em conjunto",
-          "description": "Use uma visão fiável para tomar melhores decisões mensais em agregado."
+          "description": "Trabalhem a partir da mesma visão para tomar melhores decisões todos os meses."
         }
       ]
     },
     "news": {
       "kicker": "Últimas notícias",
-      "title": "Ideias e novidades do SmartFinance",
-      "items": [
-        {
-          "category": "Produto · Painel",
-          "title": "O seu mês financeiro explicado numa só visão",
-          "description": "Veja saldos, atividade recente, distribuição das despesas e progresso das poupanças antes de decidir o próximo passo."
-        },
-        {
-          "category": "Guia · Movimentos recorrentes",
-          "title": "Transforme despesas repetidas num plano",
-          "description": "Torne rendas, subscrições, salários e transferências regulares visíveis antes de preparar o orçamento mensal."
-        },
-        {
-          "category": "Produto · Poupança",
-          "title": "Dê um próximo passo a cada objetivo de poupança",
-          "description": "Ligue os mealheiros às contas que os financiam e use as previsões para ajustar as contribuições."
-        }
-      ]
+      "title": "Ideias e novidades do SmartFinance"
     },
     "final": {
       "title": "Pronto para simplificar as suas finanças?",
-      "description": "Construa hoje uma visão financeira mais clara para si e para o seu agregado.",
+      "description": "Construa uma visão financeira mais clara para si e para o seu agregado, a partir de hoje.",
       "action": "Abrir SmartFinance"
     },
-    "footer": "© 2026 SmartFinance. Finanças pessoais com mais clareza."
+    "footer": "© 2026 SmartFinance. Finanças pessoais, mais claras.",
+    "footerCookiePolicy": "Política de cookies"
   },
-
   "publicPages": {
     "backHome": "Voltar ao início",
     "cta": {
-      "title": "Pronto para uma vida financeira mais clara?",
-      "description": "Reúna as finanças do agregado e comece a planear com confiança.",
       "action": "Abrir SmartFinance"
     },
     "features": {
       "kicker": "Visão completa",
       "title": "Tudo o que precisa para gerir dinheiro em conjunto",
-      "description": "Das despesas diárias aos objetivos de longo prazo, todas as ferramentas partem da mesma visão fiável do agregado.",
+      "description": "Das despesas do dia a dia aos objetivos de longo prazo, todas as ferramentas partem da mesma visão do agregado.",
+      "highlight": "8 ferramentas, uma só vista ligada",
+      "cta": {
+        "title": "Pronto para ver tudo num só lugar?",
+        "description": "Junte contas, orçamentos e objetivos e experimente as ferramentas do SmartFinance por si próprio."
+      },
       "items": [
         {
           "title": "Contas e saldos",
-          "description": "Acompanhe contas bancárias, numerário, poupanças, investimentos, crédito e PPR, com propriedade individual ou partilhada clara."
+          "description": "Acompanhe contas bancárias, numerário, poupança, investimento, cartão de crédito e reforma, com propriedade individual ou partilhada bem definida."
         },
         {
           "title": "Transações e faturas",
-          "description": "Registe receitas e despesas, acrescente categorias e notas e guarde faturas junto de cada movimento."
+          "description": "Registe receitas e despesas, junte categorias e notas, e mantenha as faturas anexadas a cada movimento."
         },
         {
           "title": "Transferências",
-          "description": "Mova dinheiro entre contas sem perder o rasto: ambos os lados ficam ligados e os saldos mantêm-se consistentes."
+          "description": "Mova dinheiro entre contas sem perder o rasto — os dois lados ficam ligados e os saldos mantêm-se certos."
         },
         {
           "title": "Movimentos recorrentes",
-          "description": "Agende receitas, despesas e transferências recorrentes, com frequências personalizadas e meses excluídos."
+          "description": "Agende receitas, despesas e transferências recorrentes, com frequências à sua medida e meses que pode excluir."
         },
         {
           "title": "Objetivos de poupança",
-          "description": "Crie mealheiros, associe as contas que os financiam e acompanhe o progresso e as previsões de contribuição."
+          "description": "Crie mealheiros, associe as contas que os alimentam e acompanhe o progresso e as previsões."
         },
         {
           "title": "Orçamentos mensais",
-          "description": "Modele rendimentos e regras do agregado, reveja a previsão e só depois confirme o plano mensal."
+          "description": "Modele rendimentos e regras do agregado, reveja o resultado e confirme o mês só quando fizer sentido."
         },
         {
-          "title": "Colaboração do agregado",
-          "description": "Convide pessoas de confiança, atribua funções e combine visibilidade partilhada com propriedade pessoal clara."
+          "title": "Colaboração no agregado",
+          "description": "Convide pessoas de confiança, atribua funções e mantenha a visibilidade partilhada ao lado da propriedade pessoal."
         },
         {
           "title": "Preferências e cópias de segurança",
-          "description": "Escolha idioma, tema e moeda e exporte ou restaure uma cópia de segurança portátil do agregado."
+          "description": "Escolha idioma, tema e moeda, e exporte ou restaure uma cópia de segurança do agregado quando quiser."
         }
       ]
     },
     "howItWorks": {
       "kicker": "Da configuração à decisão",
-      "title": "Um percurso simples e tranquilo para as suas finanças",
-      "description": "O SmartFinance transforma informação financeira dispersa num plano partilhado que todos conseguem compreender e usar.",
+      "title": "Um percurso prático para as suas finanças",
+      "description": "O SmartFinance transforma informação financeira dispersa num plano que consegue mesmo entender e usar.",
+      "highlight": "A maioria dos agregados fica pronta em menos de 10 minutos",
+      "cta": {
+        "title": "Pronto para configurar o seu primeiro agregado?",
+        "description": "Crie o seu espaço, adicione as suas contas e veja o primeiro plano mensal a ganhar forma."
+      },
       "items": [
         {
           "title": "1. Crie o seu espaço",
-          "description": "Inicie sessão em segurança, crie um agregado privado e convide apenas quem deve ter acesso."
+          "description": "Inicie sessão em segurança, crie um agregado privado e convide só quem deve ter acesso."
         },
         {
           "title": "2. Organize as contas",
-          "description": "Adicione os locais onde está o dinheiro e indique se cada conta pertence a uma pessoa ou ao agregado."
+          "description": "Adicione os sítios onde está o seu dinheiro, e indique se cada conta é de uma pessoa ou do agregado."
         },
         {
           "title": "3. Registe a atividade",
-          "description": "Adicione transações e transferências e use categorias e regras recorrentes para manter a visão útil."
+          "description": "Registe transações e transferências, depois use categorias e regras recorrentes para manter tudo organizado."
         },
         {
           "title": "4. Planeie o mês",
-          "description": "Adicione rendimentos, prioridades e regras de transferência. Reveja o plano antes de confirmar o mês."
+          "description": "Adicione rendimentos, prioridades e regras de transferência. Reveja o plano antes de confirmar qualquer execução mensal."
         },
         {
           "title": "5. Acompanhe o progresso",
-          "description": "Use o painel, saldos, tendências e previsões de poupança para perceber o que mudou e o que se segue."
+          "description": "Use o painel, os saldos, as tendências e as previsões de poupança para ver o que mudou e o que vem a seguir."
         },
         {
           "title": "6. Decidam em conjunto",
-          "description": "Dê a todos o mesmo contexto fiável, mantendo funções, propriedade e limites de privacidade."
+          "description": "Dê a todos a mesma informação de confiança, mantendo funções, propriedade e privacidade intactas."
         }
       ]
     },
     "news": {
       "kicker": "Jornal SmartFinance",
-      "title": "Novidades do produto e orientação financeira prática",
-      "description": "Histórias práticas inspiradas nas ferramentas que já existem no SmartFinance: planeamento, poupança, movimentos recorrentes, colaboração e proteção de dados.",
-      "items": [
-        {
+      "title": "Novidades do produto e conselhos práticos sobre dinheiro",
+      "description": "Histórias práticas sobre as ferramentas que já existem no SmartFinance: planeamento, poupança, movimentos recorrentes, colaboração, e como manter os seus dados seguros.",
+      "highlight_one": "{{count}} novidade até agora",
+      "highlight_other": "{{count}} novidades até agora",
+      "readMore": "Ler novidade",
+      "backToNews": "← Voltar às novidades",
+      "publishedOn": "Publicado a {{date}}",
+      "cta": {
+        "title": "Quer acompanhar as próximas novidades?",
+        "description": "Novos guias e atualizações do produto aparecem aqui primeiro — volte sempre que quiser ver o que mudou."
+      },
+      "posts": {
+        "dashboardOverview": {
           "meta": "Produto · Painel",
-          "title": "O seu mês financeiro explicado numa só visão",
-          "description": "Saldos, movimentos recentes, distribuição das despesas e progresso das poupanças encontram-se no painel, para perceber a situação do agregado antes da próxima decisão."
+          "title": "O seu mês financeiro, numa só vista",
+          "description": "Saldos, movimentos recentes, despesas e progresso das poupanças vivem todos no painel, para ver como está o agregado antes de decidir o que vem a seguir.",
+          "body": [
+            "O painel junta todas as contas, os movimentos recentes e os mealheiros de poupança num único ecrã, para não ter de abrir cinco vistas diferentes só para perceber como está o agregado.",
+            "Foi pensado para responder primeiro a uma pergunta: o que mudou desde a última vez que olhei? A partir daí, o resto do SmartFinance — transações, orçamentos, poupanças — está a um toque de distância."
+          ]
         },
-        {
+        "recurringPlan": {
           "meta": "Guia · Movimentos recorrentes",
           "title": "Transforme despesas repetidas num plano",
-          "description": "Renda, subscrições, salários e transferências regulares podem ser agendados com a sua própria frequência. Com os movimentos previsíveis visíveis, preparar o orçamento torna-se mais simples."
+          "description": "Renda, subscrições, salários e transferências regulares podem ter cada um o seu próprio calendário. Com o previsível à vista, montar o orçamento mensal fica bem mais fácil.",
+          "body": [
+            "As regras recorrentes permitem colocar a renda, as subscrições, os salários e as transferências regulares num calendário uma única vez, em vez de os voltar a introduzir todos os meses.",
+            "Depois de a parte previsível das suas finanças ficar visível e automática, montar o orçamento mensal passa a ser sobretudo sobre a parte que realmente varia."
+          ]
         },
-        {
+        "savingsNextStep": {
           "meta": "Produto · Poupança",
           "title": "Dê um próximo passo a cada objetivo de poupança",
-          "description": "Os mealheiros ligam objetivos às contas que os financiam. O progresso e as previsões mostram se a contribuição atual é suficiente ou precisa de ser ajustada."
+          "description": "Os mealheiros ligam objetivos às contas que os alimentam. O progresso e as previsões mostram se a sua contribuição atual chega, ou se precisa de ajuste.",
+          "body": [
+            "Os mealheiros ligam um objetivo — um fundo de emergência, umas férias, um casamento — às contas que o alimentam de facto, para o progresso não ser só um número que atualiza à mão.",
+            "A previsão parte das suas contribuições recorrentes atuais e projeta o futuro, para perceber cedo se está no bom caminho ou se precisa de ajustar antes de o prazo chegar."
+          ]
         },
-        {
+        "transferVsExpense": {
           "meta": "Guia · Transferências",
-          "title": "Uma transferência não é outra despesa",
-          "description": "O SmartFinance liga os dois lados do dinheiro movido entre contas, preservando o histórico sem contar o mesmo valor duas vezes como despesa."
+          "title": "Uma transferência não é mais uma despesa",
+          "description": "O SmartFinance liga os dois lados do dinheiro que passa entre as suas contas, para o rasto se manter intacto e nada ser contado como despesa duas vezes.",
+          "body": [
+            "Mover dinheiro da conta à ordem para a poupança pode facilmente acabar por aparecer como despesa — a inflacionar sem motivo os seus totais de gastos.",
+            "O SmartFinance liga os dois lados de cada transferência, debitando uma conta e creditando a outra, para os seus números de despesa se manterem certos e o rasto entre contas se manter intacto."
+          ]
         },
-        {
+        "householdVisibility": {
           "meta": "Segurança · Agregados",
-          "title": "Visibilidade partilhada com limites claros",
-          "description": "As funções do agregado e a propriedade das contas permitem trabalhar com a mesma informação, mantendo claras as responsabilidades pessoais e partilhadas."
+          "title": "Visibilidade partilhada, com limites claros",
+          "description": "As funções do agregado e a propriedade das contas deixam todos trabalhar com a mesma informação, mantendo fácil distinguir responsabilidades pessoais e partilhadas.",
+          "body": [
+            "Um agregado não é uma carteira só — são várias pessoas com as suas próprias contas, algumas partilhadas, outras não. O SmartFinance mantém essa distinção visível, em vez de juntar tudo numa única bolsa.",
+            "As funções decidem quem pode convidar, editar ou apenas ver, para que todos vejam a mesma imagem de confiança sem perder de vista quem é dono de quê."
+          ]
         },
-        {
+        "portableBackup": {
           "meta": "Produto · Cópia de segurança",
-          "title": "Os dados do agregado podem acompanhá-lo",
-          "description": "As ferramentas de cópia de segurança e restauro oferecem uma forma adicional de preservar informação, preferências e registos financeiros do agregado."
+          "title": "Os dados do seu agregado podem viajar consigo",
+          "description": "As ferramentas de cópia de segurança e restauro dão-lhe mais uma forma de guardar a informação, as preferências e os registos financeiros do agregado.",
+          "body": [
+            "Exporte um agregado e recebe as suas contas, categorias, transações, regras recorrentes, mealheiros e dados do orçamento mensal num único ficheiro de cópia de segurança.",
+            "Importe-o de volta — em qualquer dispositivo, a qualquer momento — e o SmartFinance reconstrói o agregado a partir desse ficheiro, para o seu histórico financeiro não ficar preso a um único lugar."
+          ]
         }
-      ]
+      }
     },
     "about": {
       "kicker": "Sobre o SmartFinance",
-      "title": "Criado para tornar as finanças partilhadas mais claras",
-      "description": "O SmartFinance substitui folhas dispersas e conversas pouco claras por uma visão útil e tranquila do agregado.",
+      "title": "Criado para tornar as finanças partilhadas mais fáceis de entender",
+      "description": "O SmartFinance existe para substituir folhas de cálculo dispersas e conversas confusas por uma visão do agregado em que toda a gente pode confiar.",
+      "highlight": "Privacidade e limites do agregado, incluídos desde o primeiro dia",
+      "cta": {
+        "title": "Pronto para ver o SmartFinance na prática?",
+        "description": "Os princípios acima são mais fáceis de avaliar quando o seu próprio agregado está dentro deles."
+      },
       "items": [
         {
           "title": "Clareza em primeiro lugar",
-          "description": "As ferramentas financeiras devem explicar o que acontece sem exigir conhecimentos de contabilidade ou horas de manutenção."
+          "description": "As ferramentas financeiras devem explicar o que está a acontecer, sem exigir formação em contabilidade nem horas de manutenção."
         },
         {
           "title": "Privacidade desde a origem",
-          "description": "Acesso, propriedade e limites do agregado são conceitos centrais do produto, não detalhes acrescentados no fim."
+          "description": "Acesso, propriedade e limites do agregado fazem parte do produto desde o início, não são detalhes acrescentados depois."
         },
         {
           "title": "Pensado para agregados reais",
-          "description": "Dinheiro individual e partilhado podem coexistir. O SmartFinance torna ambos visíveis sem assumir que todos vivem da mesma forma."
+          "description": "Dinheiro individual e partilhado podem coexistir. O SmartFinance mantém os dois visíveis, sem assumir que todos os agregados funcionam da mesma maneira."
         },
         {
-          "title": "Disponível em todo o lado",
-          "description": "Use a experiência focada no Android e iOS ou a versão web completa quando precisar de mais espaço."
+          "title": "Disponível em qualquer lado",
+          "description": "Use a aplicação móvel, mais direta, no Android e no iOS, ou a versão web completa quando precisar de mais espaço."
         },
         {
           "title": "Uma única visão de confiança",
-          "description": "Contas, transações, transferências, orçamentos e objetivos foram pensados para contar a mesma história financeira, em vez de criarem conjuntos de números desligados."
+          "description": "Contas, transações, transferências, orçamentos e objetivos foram feitos para contar a mesma história, em vez de se tornarem números soltos e desligados."
         },
         {
-          "title": "Útil sem julgamentos",
-          "description": "O SmartFinance ajuda os agregados a compreender escolhas e consequências, sem impor um estilo de vida ou assumir que só existe uma forma certa de organizar dinheiro."
+          "title": "Útil sem julgar",
+          "description": "O SmartFinance ajuda os agregados a perceber as suas escolhas e as suas consequências. Não vem dizer-lhe que só há uma forma certa de gerir dinheiro."
         }
       ]
     }
   },
-
   "auth": {
     "brand": "SmartFinance",
     "loginSubtitle": "Inicie sessão com Google",
     "loginTitle": "Inicie sessão com Google",
-    "loginDescription": "O Google inicia a sessão através do Supabase para a aplicação carregar a sua sessão.",
+    "loginDescription": "O Google inicia a sua sessão através do Supabase, para a aplicação carregar os seus dados.",
     "loginFooter": "Ao continuar, aceita os Termos de Serviço e a Política de Privacidade.",
     "continueWith": "Continuar com",
     "continueWithGoogle": "Continuar com Google",
-    "googleSignInErrorTitle": "Não foi possível iniciar sessão com Google",
-    "googleSignInErrorMessage": "Tente novamente dentro de alguns instantes.",
+    "googleSignInErrorTitle": "Início de sessão Google indisponível",
+    "googleSignInErrorMessage": "Tente novamente daqui a pouco.",
     "completingGoogleSignIn": "A concluir o início de sessão com Google...",
-    "preparingDashboard": "A sua casa financeira está a ganhar forma",
-    "preparingDashboardDescription": "A ligar o seu perfil, agregado e números mais recentes.",
+    "preparingDashboard": "A sua casa financeira está a tomar forma",
+    "preparingDashboardDescription": "A ligar o seu perfil, o seu agregado e os números mais recentes.",
     "loadingAccessibilityLabel": "A preparar o seu painel SmartFinance",
-    "googleCallbackErrorMessage": "Não foi possível concluir o início de sessão com Google. Tente novamente."
+    "googleCallbackErrorMessage": "Não conseguimos concluir o início de sessão com Google. Tente novamente."
   }
 }

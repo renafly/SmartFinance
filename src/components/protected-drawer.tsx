@@ -1,6 +1,6 @@
 import type { DrawerContentComponentProps } from "expo-router/drawer";
 import { Drawer } from "expo-router/drawer";
-import { router, usePathname } from "expo-router";
+import { router, useNavigation, usePathname } from "expo-router";
 import {
   Platform,
   Pressable,
@@ -21,13 +21,11 @@ import { isSystemAdminEmail } from "@/constants/admin-access";
 import { NotificationCenter } from "@/components/notification-center";
 import { useOnboarding } from "@/features/onboarding";
 import type { OnboardingGuideKey } from "@/features/onboarding";
-import { usePlatformAdminAccess } from "@/features/feedback";
 
 const menuIconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
   dashboard: "home-outline",
   accounts: "wallet-outline",
   transactions: "receipt-outline",
-  insights: "analytics-outline",
   transfers: "swap-horizontal-outline",
   monthlyBudget: "calculator-outline",
   savings: "file-tray-full-outline",
@@ -92,6 +90,38 @@ function SectionGuideButton({
   );
 }
 
+// Renders a single Pressable menu toggle, replacing the drawer's built-in
+// header toggle button. On web, @react-navigation/drawer's default
+// DrawerToggleButton ends up nested inside another button-rendering
+// wrapper in the header, which React DOM flags as invalid nesting
+// (<button> cannot contain a nested <button>). Supplying our own headerLeft
+// sidesteps that entirely — it's just one Pressable dispatching the same
+// TOGGLE_DRAWER action the router's own drawer components use internally.
+//
+// Note: this dispatches a plain action object instead of importing
+// DrawerActions from "@react-navigation/native" — since Expo SDK 56,
+// expo-router ships its own internal fork of react-navigation and flags
+// (and eventually breaks under) direct imports from the standalone
+// @react-navigation/native package. useNavigation() itself comes from
+// "expo-router" for the same reason.
+function DrawerMenuButton() {
+  const { t } = useTranslation("common");
+  const { colors } = useTheme();
+  const navigation = useNavigation();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t("drawer.openMenu")}
+      onPress={() => navigation.dispatch({ type: "TOGGLE_DRAWER" })}
+      hitSlop={8}
+      style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
+    >
+      <Ionicons name="menu-outline" size={22} color={colors.text} />
+    </Pressable>
+  );
+}
+
 export function ProtectedDrawerLayout() {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
@@ -110,6 +140,7 @@ export function ProtectedDrawerLayout() {
             fontSize: typography.fontSize[16],
             fontWeight: typography.fontWeight.extraBold,
           },
+          headerLeft: () => <DrawerMenuButton />,
           drawerStyle: [
             styles.drawer,
             {
@@ -135,7 +166,6 @@ export function ProtectedDrawerLayout() {
         name="transactions"
         options={{ title: t("drawer.transactions") }}
       />
-      <Drawer.Screen name="insights" options={{ title: t("drawer.insights") }} />
       <Drawer.Screen
         name="transfers"
         options={{
@@ -153,13 +183,22 @@ export function ProtectedDrawerLayout() {
         options={{ title: t("drawer.categories") }}
       />
       <Drawer.Screen name="members" options={{ title: t("drawer.members") }} />
+      {/* Feedback and Admin feedback stay reachable as routes (Settings
+          links to both), but are hidden from the drawer's own nav list
+          since Settings already surfaces them, same pattern as Transfers. */}
       <Drawer.Screen
         name="feedback"
-        options={{ title: t("drawer.feedback") }}
+        options={{
+          title: t("drawer.feedback"),
+          drawerItemStyle: { display: "none" },
+        }}
       />
       <Drawer.Screen
         name="admin-feedback"
-        options={{ title: t("drawer.adminFeedback") }}
+        options={{
+          title: t("drawer.adminFeedback"),
+          drawerItemStyle: { display: "none" },
+        }}
       />
       <Drawer.Screen
         name="diagnostics"
@@ -179,14 +218,12 @@ function DrawerContent(props: DrawerContentComponentProps) {
   const { logout, profile, session } = useAuth();
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
-  const platformAdminQuery = usePlatformAdminAccess();
   const closeDrawerAfterNavigate =
     Platform.OS !== "web" || !responsive.isDesktop;
   const canViewDiagnostics = isSystemAdminEmail(
     profile?.email,
     session?.user.email,
   );
-  const canManageFeedback = platformAdminQuery.data === true;
   const guideKey = getGuideKeyForPathname(pathname);
   const navigateTo = (href: string) => {
     router.push(href as any);
@@ -211,11 +248,6 @@ function DrawerContent(props: DrawerContentComponentProps) {
       href: "/(protected)/transactions",
     },
     {
-      key: "insights",
-      label: t("drawer.insights"),
-      href: "/(protected)/insights",
-    },
-    {
       key: "monthlyBudget",
       label: t("drawer.monthlyBudget"),
       href: "/(protected)/budget",
@@ -235,20 +267,6 @@ function DrawerContent(props: DrawerContentComponentProps) {
       label: t("drawer.members"),
       href: "/(protected)/members",
     },
-    {
-      key: "feedback",
-      label: t("drawer.feedback"),
-      href: "/(protected)/feedback",
-    },
-    ...(canManageFeedback
-      ? [
-          {
-            key: "adminFeedback" as const,
-            label: t("drawer.adminFeedback"),
-            href: "/(protected)/admin-feedback",
-          },
-        ]
-      : []),
     ...(canViewDiagnostics
       ? [
           {
@@ -293,11 +311,6 @@ function DrawerContent(props: DrawerContentComponentProps) {
           label: t("drawer.transactions"),
           href: "/(protected)/transactions",
         },
-        {
-          key: "insights",
-          label: t("drawer.insights"),
-          href: "/(protected)/insights",
-        },
       ],
     },
     {
@@ -330,20 +343,6 @@ function DrawerContent(props: DrawerContentComponentProps) {
           label: t("drawer.members"),
           href: "/(protected)/members",
         },
-        {
-          key: "feedback",
-          label: t("drawer.feedback"),
-          href: "/(protected)/feedback",
-        },
-        ...(canManageFeedback
-          ? [
-              {
-                key: "adminFeedback" as const,
-                label: t("drawer.adminFeedback"),
-                href: "/(protected)/admin-feedback",
-              },
-            ]
-          : []),
         ...(canViewDiagnostics
           ? [
               {
@@ -687,6 +686,13 @@ const styles: any = StyleSheet.create({
   guideLabel: {
     fontWeight: typography.fontWeight.bold as any,
     fontSize: typography.fontSize[14],
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    marginLeft: spacing(2),
+    alignItems: "center",
+    justifyContent: "center",
   },
   pressed: {
     opacity: 0.85,

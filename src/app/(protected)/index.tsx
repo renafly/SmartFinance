@@ -1,13 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Circle } from 'react-native-svg';
 
-import { Page, Section, formatCurrency, formatDate, Button } from '@/components/migrated-page';
-import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from '@/components/data-surface';
+import { Card, Page, Section, formatCurrency, Button } from '@/components/migrated-page';
+import { Badge, EmptyState, MetricCard } from '@/components/data-surface';
 import { SelectionOptionRow, SelectionShell, SelectionTrigger } from '@/components/selection-shell';
 import { AuthLoadingTransition } from '@/features/auth/components/auth-loading-transition';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -15,6 +14,8 @@ import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
 import { useResponsiveMetrics } from '@/theme/responsive';
 import { radius } from '@/theme/radius';
+import { displayCurrency } from '@/shared/lib/mask-currency';
+import { usePrivacyStore } from '@/stores/privacyStore';
 
 import { useAuth } from '../../providers/AuthProvider';
 import { useHouseholdMemberDetails } from '../../features/households/hooks/useHouseholdMemberDetails';
@@ -22,512 +23,63 @@ import { useDefaultHousehold, useMyHouseholds } from '../../features/households/
 import { accountsService } from '../../features/accounts/services/accounts.service';
 import { transactionsService } from '../../features/transactions/services/transaction.service';
 import { savingPotsService } from '../../features/saving-pots/services/saving-pots.service';
+import { useSavingPotAccountAssignments } from '../../features/saving-pots/hooks';
+import { useAllTransactions } from '../../features/transactions/hooks/useTransactions';
+
+import { AllocationDonut } from '../../features/dashboard/components/allocation-donut';
+import { AllocationLegend } from '../../features/dashboard/components/allocation-legend';
+import { AccountsNetworkSection } from '../../features/dashboard/components/accounts-network-section';
+import { getPersonLabel, sumBalances, formatLocalDate } from '../../features/dashboard/utils';
+import { buildAccountAccentPalette, buildAccountNetworkNodes } from '../../features/dashboard/network-data';
+import type { DashboardAccount, DashboardPot, MemberDetails, AllocationSegment } from '../../features/dashboard/types';
+
+import { useCategories } from '../../features/categories/hooks';
+
 import {
-  SHARED_ACCOUNT_OWNER_KEY,
-  getAccountOwnerToneIndex,
-  groupAccountsByOwner,
-} from '../../features/accounts/account-ordering';
-
-type DashboardAccount = {
-  id: string;
-  name: string;
-  type: string;
-  currency?: string;
-  owner_profile_id: string | null;
-  initial_balance?: number | null;
-  current_balance?: number | null;
-  balance?: number | null;
-};
-
-type DashboardPot = {
-  id: string;
-  name: string;
-  balance?: number | null;
-  target_amount?: number | null;
-  created_by?: string | null;
-};
-
-type MemberDetails = {
-  userId: string;
-  role: 'owner' | 'admin' | 'member';
-  status: 'pending' | 'accepted';
-  fullName: string | null;
-  email: string | null;
-};
-
-function getPersonLabel(member: MemberDetails | undefined, fallback: string) {
-  return member?.fullName?.trim() || member?.email?.trim() || fallback;
-}
-
-function sumBalances<T>(items: T[], getValue: (item: T) => number) {
-  return items.reduce((sum, item) => sum + getValue(item), 0);
-}
-
-function formatLocalDate(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+  buildDefaultWageFlowConfig,
+  buildOneWageFlowCategoryPerMainCategory,
+  calculateWageFlow,
+  computeDateRange,
+  resolveWageFlowColor,
+  type WageFlowCategoryConfig,
+} from '@/features/financial-insights';
+import {
+  WageFlowChart,
+  WageFlowCategoryMenu,
+  type WageFlowChartBucket,
+} from '@/features/financial-insights/components/insight-charts';
+import { WageFlowDetailsPanel } from '@/features/financial-insights/components/wage-flow-details-panel';
+import {
+  WageFlowCategoryEditorModal,
+  WageFlowConfigTable,
+  buildHierarchicalCategoryOptions,
+  blankWageFlowCategory,
+  type WageFlowAccountOption,
+  type WageFlowCategoryOption,
+} from '@/features/financial-insights/components/wage-flow-config-panel';
+import {
+  useCreateManyWageFlowCategories,
+  useCreateWageFlowCategory,
+  useDeleteWageFlowCategory,
+  useReorderWageFlowCategories,
+  useSeedWageFlowCategoryDefaults,
+  useUpdateWageFlowCategory,
+  useWageFlowCategories,
+} from '@/features/financial-insights/hooks/useWageFlowCategories';
 
 function formatSignedCurrency(value: number) {
   return `${value > 0 ? '+' : ''}${formatCurrency(value)}`;
 }
 
-type AllocationKey = 'invested' | 'savings' | 'pots';
-
-type AllocationSegment = {
-  key: AllocationKey;
-  label: string;
-  value: number;
-  color: string;
-  icon: keyof typeof Ionicons.glyphMap;
-};
-
-function getPercent(value: number, total: number) {
-  if (total <= 0) return 0;
-
-  return Math.round((value / total) * 100);
-}
-
-function AllocationDonut({ segments, total }: { segments: AllocationSegment[]; total: number }) {
-  const { colors } = useTheme();
-  const responsive = useResponsiveMetrics();
-  const size = responsive.isPhone ? spacing(34) : spacing(40);
-  const strokeWidth = spacing(3.25);
-  const radiusValue = size / 2 - strokeWidth / 2;
-  const circumference = 2 * Math.PI * radiusValue;
-  const visibleSegments = total > 0
-    ? segments.filter((segment) => Number.isFinite(segment.value) && segment.value > 0)
-    : [];
-  let offset = 0;
-
-  return (
-    <View style={styles.donutWrap}>
-      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radiusValue}
-          stroke={colors.border}
-          strokeWidth={strokeWidth}
-          fill="transparent"
-        />
-        {visibleSegments.map((segment) => {
-          const share = segment.value / total;
-          const dashLength = Math.max(circumference * share, 0);
-          const gapLength = Math.max(circumference - dashLength, 0);
-          const dashOffset = -offset;
-          offset += dashLength;
-
-          return (
-            <Circle
-              key={segment.key}
-              cx={size / 2}
-              cy={size / 2}
-              r={radiusValue}
-              stroke={segment.color}
-              strokeWidth={strokeWidth}
-              strokeDasharray={[dashLength, gapLength]}
-              strokeDashoffset={dashOffset}
-              strokeLinecap={visibleSegments.length > 1 ? 'round' : 'butt'}
-              fill="transparent"
-            />
-          );
-        })}
-      </Svg>
-      <View style={styles.donutCenter}>
-        <Text style={[styles.donutCenterLabel, { color: colors.textSecondary }]}>{getPercent(segments[0]?.value ?? 0, total)}%</Text>
-        <Text style={[styles.donutCenterText, { color: colors.text }]}>{segments[0]?.label}</Text>
-      </View>
-    </View>
-  );
-}
-
-function AllocationLegend({ segments, total }: { segments: AllocationSegment[]; total: number }) {
-  const { colors } = useTheme();
-
-  return (
-    <View style={styles.legendList}>
-      {segments.map((segment) => (
-        <View key={segment.key} style={[styles.legendItem, { borderColor: colors.border, backgroundColor: colors.surfaceMuted }]}>
-          <View style={[styles.legendIcon, { backgroundColor: segment.color }]}>
-            <Ionicons name={segment.icon} size={16} color={colors.primaryForeground} />
-          </View>
-          <View style={styles.legendCopy}>
-            <Text style={[styles.legendLabel, { color: colors.text }]}>{segment.label}</Text>
-            <Text style={[styles.legendValue, { color: colors.textSecondary }]}>
-              {formatCurrency(segment.value)} - {getPercent(segment.value, total)}%
-            </Text>
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function PersonBreakdownBar({
-  row,
-  segments,
-}: {
-  row: { id: string; label: string; invested: number; savings: number; pots: number; total: number };
-  segments: AllocationSegment[];
-}) {
-  const { colors } = useTheme();
-
-  return (
-    <View style={[styles.personBarCard, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
-      <View style={styles.personBarHeader}>
-        <View style={styles.personBarTitle}>
-          <Ionicons name={row.id === '__shared__' ? 'people-outline' : 'person-circle-outline'} size={18} color={colors.primary} />
-          <Text style={[styles.personBarName, { color: colors.text }]}>{row.label}</Text>
-        </View>
-        <Text style={[styles.personBarTotal, { color: colors.primary }]}>{formatCurrency(row.total)}</Text>
-      </View>
-      <View style={[styles.stackedBarTrack, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {segments.map((segment) => {
-          const value = row[segment.key];
-          if (value <= 0 || row.total <= 0) return null;
-
-          return (
-            <View
-              key={segment.key}
-              style={[
-                styles.stackedBarSegment,
-                {
-                  backgroundColor: segment.color,
-                  flexGrow: value,
-                },
-              ]}
-            />
-          );
-        })}
-      </View>
-      <View style={styles.personBarLegend}>
-        {segments.map((segment) => (
-          <Text key={segment.key} style={[styles.personBarLegendText, { color: colors.textSecondary }]}>
-            {segment.label}: {formatCurrency(row[segment.key])}
-          </Text>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function GoalMeter({ balance, target }: { balance: number; target?: number | null }) {
-  const { colors } = useTheme();
-  const progress = target && target > 0 ? Math.min(balance / target, 1) : 0;
-  const progressPercent = Math.round(progress * 100);
-
-  return (
-    <View style={styles.goalMeter}>
-      <View style={[styles.goalTrack, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={[styles.goalFill, { backgroundColor: colors.success, flexGrow: progress }]} />
-        <View style={{ flexGrow: 1 - progress }} />
-      </View>
-      <Text style={[styles.goalLabel, { color: colors.textSecondary }]}>
-        {target && target > 0 ? `${progressPercent}% - ${formatCurrency(balance)} / ${formatCurrency(target)}` : formatCurrency(balance)}
-      </Text>
-    </View>
-  );
-}
-
-function AccountOverviewTable({
-  accounts,
-  members,
-  memberMap,
-  savingPots,
-  savingPotBalances,
-  emptyTitle,
-  monthlyBalanceChangesByAccount,
-  monthlyExpensesByAccount,
-}: {
-  accounts: DashboardAccount[];
-  members: MemberDetails[];
-  memberMap: Map<string, MemberDetails>;
-  savingPots: DashboardPot[];
-  savingPotBalances: DashboardPot[];
-  emptyTitle: string;
-  monthlyBalanceChangesByAccount: Map<string, number>;
-  monthlyExpensesByAccount: Map<string, number>;
-}) {
-  const { t } = useTranslation('common');
-  const { colors } = useTheme();
-  const responsive = useResponsiveMetrics();
-
-  if (!accounts.length && !savingPotBalances.length) {
-    return <EmptyState title={emptyTitle} icon="layers-outline" />;
-  }
-
-  const accountGroupWidth =
-    responsive.width >= 1800
-      ? '31.8%'
-      : responsive.width >= 1200
-        ? '48.8%'
-        : '100%';
-  const ownerOrder = [
-    ...members.map((member) => member.userId),
-    SHARED_ACCOUNT_OWNER_KEY,
-  ];
-  const accountGroups = groupAccountsByOwner(accounts, ownerOrder);
-  const groupTones = [
-    { accent: colors.primary, surface: colors.primarySoft },
-    { accent: colors.financialPositive, surface: colors.financialPositiveSoft },
-    { accent: colors.financialNeutral, surface: colors.financialNeutralSoft },
-    {
-      accent: colors.financialAttention,
-      surface: colors.financialAttentionSoft,
-    },
-    { accent: colors.financialGoal, surface: colors.financialGoalSoft },
-  ];
-
-  return (
-    <View style={styles.accountGroups}>
-      {accountGroups.map((group) => {
-        const ownerIndex = ownerOrder.indexOf(group.key);
-        const tone = groupTones[
-          (ownerIndex < 0 ? groupTones.length - 1 : ownerIndex) %
-            groupTones.length
-        ];
-        const ownerLabel =
-          group.key === SHARED_ACCOUNT_OWNER_KEY
-            ? t('dashboard.shared')
-            : getPersonLabel(
-                memberMap.get(group.key),
-                t('dashboard.unnamedPerson'),
-              );
-        const groupTotal = sumBalances(group.accounts, (account) =>
-          Number(account.current_balance ?? account.balance ?? 0),
-        );
-
-        return (
-          <View
-            key={group.key}
-            style={[
-              styles.accountGroup,
-              {
-                backgroundColor: tone.surface,
-                borderColor: tone.accent,
-                flexBasis: accountGroupWidth,
-                maxWidth: accountGroupWidth,
-              },
-            ]}
-          >
-            <View style={styles.accountGroupHeader}>
-              <View style={styles.accountGroupIdentity}>
-                <View
-                  style={[
-                    styles.accountGroupMarker,
-                    { backgroundColor: tone.accent },
-                  ]}
-                />
-                <Ionicons
-                  name={
-                    group.key === SHARED_ACCOUNT_OWNER_KEY
-                      ? 'people-outline'
-                      : 'person-outline'
-                  }
-                  size={18}
-                  color={tone.accent}
-                />
-                <Text
-                  style={[styles.accountGroupTitle, { color: tone.accent }]}
-                >
-                  {ownerLabel}
-                </Text>
-                <Badge label={String(group.accounts.length)} tone="neutral" />
-              </View>
-              <Text style={[styles.accountGroupTotal, { color: tone.accent }]}>
-                {formatCurrency(groupTotal)}
-              </Text>
-            </View>
-
-            <Table
-              columns={[
-                { label: t('accounts.name'), flex: 2.2 },
-                { label: t('dashboard.total'), align: 'right' },
-                { label: t('dashboard.changeThisMonth'), align: 'right' },
-                { label: t('dashboard.spentThisMonth'), align: 'right' },
-              ]}
-            >
-              {group.accounts.map((account) => {
-                const currentBalance = Number(
-                  account.current_balance ?? account.balance ?? 0,
-                );
-                const isSavingsAccount = account.type === 'savings';
-                const accountAccent = isSavingsAccount
-                  ? colors.success
-                  : colors.primary;
-                const accountAccentSoft = isSavingsAccount
-                  ? colors.successSoft
-                  : colors.primarySoft;
-                const balanceDifference =
-                  monthlyBalanceChangesByAccount.get(account.id) ?? 0;
-                const spentThisMonth =
-                  monthlyExpensesByAccount.get(account.id) ?? 0;
-
-                return (
-                  <TableRow
-                    key={account.id}
-                    onPress={() => router.push('/accounts' as any)}
-                  >
-                    <TableCell flex={2.2}>
-                      <View style={styles.accountTitle}>
-                        <View
-                          style={[
-                            styles.accountIcon,
-                            { backgroundColor: accountAccentSoft },
-                          ]}
-                        >
-                          <Ionicons
-                            name={
-                              account.type === 'ppr'
-                                ? 'shield-checkmark-outline'
-                                : isSavingsAccount
-                                  ? 'wallet-outline'
-                                  : 'trending-up-outline'
-                            }
-                            size={17}
-                            color={accountAccent}
-                          />
-                        </View>
-                        <View style={styles.accountCopy}>
-                          <Text
-                            style={[styles.accountName, { color: colors.text }]}
-                            numberOfLines={1}
-                          >
-                            {account.name}
-                          </Text>
-                          <Badge
-                            label={t(`accounts.types.${account.type}`)}
-                            tone={isSavingsAccount ? 'success' : 'primary'}
-                          />
-                        </View>
-                      </View>
-                    </TableCell>
-                    <TableCell align="right" mobilePinned>
-                      <Text
-                        style={[
-                          styles.accountBalance,
-                          { color: colors.text },
-                        ]}
-                      >
-                        {formatCurrency(currentBalance)}
-                      </Text>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Text
-                        style={{
-                          color:
-                            balanceDifference > 0
-                              ? colors.success
-                              : balanceDifference < 0
-                                ? colors.destructive
-                                : colors.textSecondary,
-                          fontWeight: typography.fontWeight.bold as any,
-                        }}
-                      >
-                        {balanceDifference > 0 ? '+' : ''}
-                        {formatCurrency(balanceDifference)}
-                      </Text>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Text
-                        style={{
-                          color:
-                            spentThisMonth > 0
-                              ? colors.destructive
-                              : colors.textSecondary,
-                          fontWeight: typography.fontWeight.bold as any,
-                        }}
-                      >
-                        {formatCurrency(spentThisMonth)}
-                      </Text>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </Table>
-          </View>
-        );
-      })}
-      {savingPotBalances.map((pot) => {
-        const potDefinition = savingPots.find((item) => item.id === pot.id);
-        const creator = potDefinition?.created_by
-          ? memberMap.get(potDefinition.created_by)
-          : undefined;
-
-        return (
-          <View
-            key={`pot-${pot.id}`}
-            style={[
-              styles.goalCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.success,
-                flexBasis: accountGroupWidth,
-                maxWidth: accountGroupWidth,
-                padding: responsive.cardPadding,
-                gap: responsive.cardGap,
-              },
-            ]}
-          >
-            <View style={styles.goalCardHeader}>
-              <View style={styles.goalCardTitle}>
-                <View
-                  style={[
-                    styles.goalIcon,
-                    { backgroundColor: colors.successSoft },
-                  ]}
-                >
-                  <Ionicons
-                    name="flag-outline"
-                    size={18}
-                    color={colors.success}
-                  />
-                </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text
-                    style={[styles.goalName, { color: colors.text }]}
-                    numberOfLines={1}
-                  >
-                    {pot.name}
-                  </Text>
-                  <Text
-                    style={[styles.goalOwner, { color: colors.textSecondary }]}
-                    numberOfLines={1}
-                  >
-                    {getPersonLabel(creator, t('dashboard.shared'))}
-                  </Text>
-                </View>
-              </View>
-              <Text style={[styles.goalBalance, { color: colors.text }]}>
-                {formatCurrency(pot.balance ?? 0)}
-              </Text>
-            </View>
-            <GoalMeter
-              balance={Number(pot.balance ?? 0)}
-              target={potDefinition?.target_amount}
-            />
-            <View style={styles.goalCardAction}>
-              <Button
-                label={t('dashboard.savingPotsTitle')}
-                onPress={() => router.push('/savings' as any)}
-                variant="secondary"
-              />
-            </View>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
+type WageFlowRangePreset = '1m' | 'last_month' | '3m' | '6m' | '9m' | '12m' | '24m';
 
 export default function DashboardScreen() {
   const { t } = useTranslation('common');
   const { profile, householdId } = useAuth();
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
+  const toggleHideValues = usePrivacyStore((state) => state.toggleHideValues);
   const membersQuery = useHouseholdMemberDetails();
   const householdsQuery = useMyHouseholds();
   const setDefaultHousehold = useDefaultHousehold();
@@ -543,12 +95,6 @@ export default function DashboardScreen() {
   const accountsQuery = useQuery({
     queryKey: ['dashboard', 'accounts', householdId],
     queryFn: () => accountsService.getAccountsWithBalances(householdId!),
-    enabled: !!householdId,
-  });
-
-  const transactionsQuery = useQuery({
-    queryKey: ['dashboard', 'transaction-movements', householdId, 10],
-    queryFn: () => transactionsService.getMovements(householdId!, { limit: 10 }),
     enabled: !!householdId,
   });
 
@@ -573,36 +119,28 @@ export default function DashboardScreen() {
     enabled: !!householdId,
   });
 
+  // Filtered to expense categories since that's the only kind Wage Flow
+  // category rules (and the old category network section) ever needed.
+  const categoriesQuery = useCategories('expense');
+
   const isPreparingDashboard = [
     accountsQuery,
-    transactionsQuery,
     monthlyTransactionsQuery,
     savingPotsQuery,
     savingPotBalancesQuery,
     membersQuery,
     householdsQuery,
+    categoriesQuery,
   ].some((query) => query.isPending && query.fetchStatus === 'fetching');
 
   const accounts = (accountsQuery.data ?? []) as DashboardAccount[];
-  const transactions = transactionsQuery.data ?? [];
+  const categories = (categoriesQuery.data ?? []) as any[];
   const savingPots = (savingPotsQuery.data ?? []) as DashboardPot[];
   const savingPotBalances = (savingPotBalancesQuery.data ?? []) as DashboardPot[];
   const members = (membersQuery.data ?? []) as MemberDetails[];
   const households = householdsQuery.data ?? [];
   const currentHousehold = households.find((item: any) => item.id === householdId);
   const currentHouseholdName = currentHousehold?.name?.trim() || t('settings.currentHouseholdLabel');
-  const monthlyExpensesByAccount = useMemo(() => {
-    const totals = new Map<string, number>();
-    for (const transaction of monthlyTransactionsQuery.data ?? []) {
-      // Transfer source legs are expenses in the ledger, but not money spent.
-      if (transaction.type !== 'expense' || transaction.transfer_group_id || !transaction.account_id) continue;
-      totals.set(
-        transaction.account_id,
-        (totals.get(transaction.account_id) ?? 0) + Number(transaction.amount ?? 0),
-      );
-    }
-    return totals;
-  }, [monthlyTransactionsQuery.data]);
   const monthlyBalanceChangesByAccount = useMemo(() => {
     const totals = new Map<string, number>();
     for (const transaction of monthlyTransactionsQuery.data ?? []) {
@@ -620,21 +158,6 @@ export default function DashboardScreen() {
     }
     return map;
   }, [members]);
-  const transactionOwnerOrder = [
-    ...members.map((member) => member.userId),
-    SHARED_ACCOUNT_OWNER_KEY,
-  ];
-  const transactionOwnerTones = [
-    { accent: colors.primary, surface: colors.primarySoft },
-    { accent: colors.financialPositive, surface: colors.financialPositiveSoft },
-    { accent: colors.financialNeutral, surface: colors.financialNeutralSoft },
-    {
-      accent: colors.financialAttention,
-      surface: colors.financialAttentionSoft,
-    },
-    { accent: colors.financialGoal, surface: colors.financialGoalSoft },
-  ];
-
   const investmentAccounts = useMemo(
     () =>
       accounts
@@ -656,10 +179,6 @@ export default function DashboardScreen() {
   const savingsAccounts = useMemo(
     () => accounts.filter((account) => account.type === 'savings'),
     [accounts],
-  );
-  const investmentAndSavingsAccounts = useMemo(
-    () => [...investmentAccounts, ...savingsAccounts],
-    [investmentAccounts, savingsAccounts],
   );
 
   const investmentMonthlyChange = useMemo(
@@ -717,98 +236,280 @@ export default function DashboardScreen() {
     [colors.primary, colors.success, investmentTotal, savingsAccountTotal, t],
   );
 
-  const memberBreakdown = useMemo(() => {
-    const rows = new Map<
-      string,
-      {
-        id: string;
-        label: string;
-        invested: number;
-        savings: number;
-        pots: number;
-      }
-    >();
-
-    const sharedId = '__shared__';
-    const ensureRow = (id: string, label: string) => {
-      if (!rows.has(id)) {
-        rows.set(id, { id, label, invested: 0, savings: 0, pots: 0 });
-      }
-      return rows.get(id)!;
-    };
-
-    for (const member of members) {
-      ensureRow(member.userId, getPersonLabel(member, t('dashboard.unnamedPerson')));
-    }
-
-    for (const account of investmentAccounts) {
-      const ownerId = account.owner_profile_id && memberMap.has(account.owner_profile_id)
-        ? account.owner_profile_id
-        : sharedId;
-      const owner = ownerId === sharedId ? t('dashboard.shared') : getPersonLabel(memberMap.get(ownerId), t('dashboard.unnamedPerson'));
-      ensureRow(ownerId, owner).invested += Number(account.current_balance ?? account.balance ?? 0);
-    }
-
-    for (const account of savingsAccounts) {
-      const ownerId = account.owner_profile_id && memberMap.has(account.owner_profile_id)
-        ? account.owner_profile_id
-        : sharedId;
-      const owner = ownerId === sharedId ? t('dashboard.shared') : getPersonLabel(memberMap.get(ownerId), t('dashboard.unnamedPerson'));
-      ensureRow(ownerId, owner).savings += Number(account.current_balance ?? account.balance ?? 0);
-    }
-
-    for (const pot of savingPotBalances) {
-      const potDefinition = savingPots.find((item) => item.id === pot.id);
-      const creatorId = potDefinition?.created_by && memberMap.has(potDefinition.created_by)
-        ? potDefinition.created_by
-        : sharedId;
-      const creator = creatorId === sharedId ? t('dashboard.shared') : getPersonLabel(memberMap.get(creatorId), t('dashboard.unnamedPerson'));
-      ensureRow(creatorId, creator).pots += Number(pot.balance ?? 0);
-    }
-
-    const orderedRows = members.map((member) => rows.get(member.userId)).filter(Boolean) as Array<{
-      id: string;
-      label: string;
-      invested: number;
-      savings: number;
-      pots: number;
-    }>;
-
-    const sharedRow = rows.get(sharedId);
-    if (sharedRow && (sharedRow.invested > 0 || sharedRow.savings > 0 || sharedRow.pots > 0)) {
-      orderedRows.push(sharedRow);
-    }
-
-    return orderedRows.map((row) => ({
-      ...row,
-      total: row.invested + row.savings,
-    }));
-  }, [investmentAccounts, memberMap, members, savingPotBalances, savingPots, savingsAccounts, t]);
-
-  const memberBreakdownTotals = useMemo(
+  const accountAccentPalette = useMemo(
     () =>
-      memberBreakdown.reduce(
-        (totals, row) => ({
-          invested: totals.invested + row.invested,
-          savings: totals.savings + row.savings,
-          pots: totals.pots + row.pots,
-          total: totals.total + row.total,
-        }),
-        {
-          invested: 0,
-          savings: 0,
-          pots: 0,
-          total: 0,
-        },
+      buildAccountAccentPalette({
+        primary: colors.primary,
+        financialPositive: colors.financialPositive,
+        financialNeutral: colors.financialNeutral,
+        financialGoal: colors.financialGoal,
+        financialAttention: colors.financialAttention,
+        info: colors.info,
+        warning: colors.warning,
+        destructive: colors.destructive,
+      }),
+    [colors.destructive, colors.financialAttention, colors.financialGoal, colors.financialNeutral, colors.financialPositive, colors.info, colors.primary, colors.warning],
+  );
+  const accountNetworkNodes = useMemo(
+    () =>
+      buildAccountNetworkNodes(
+        accounts,
+        memberMap,
+        accountAccentPalette,
+        t('dashboard.shared'),
+        t('dashboard.unnamedPerson'),
       ),
-    [memberBreakdown],
+    [accountAccentPalette, accounts, memberMap, t],
   );
 
   const totalInvestmentAccounts = investmentAccounts.length;
   const totalSavingsAccounts = savingsAccounts.length;
-  const totalInvestmentAndSavingsAccounts =
-    investmentAndSavingsAccounts.length;
   const totalPots = savingPots.length;
+
+  // ---- Wage Flow (moved here from Insights) --------------------------
+  const wageFlowNow = useMemo(() => new Date(), []);
+  const [wageFlowRangePreset, setWageFlowRangePreset] = useState<WageFlowRangePreset>('1m');
+  const wageFlowRange = useMemo(
+    () => computeDateRange(wageFlowRangePreset, wageFlowNow),
+    [wageFlowNow, wageFlowRangePreset],
+  );
+  const wageFlowPeriodLabel = useMemo(() => {
+    const monthYear = (dateString: string) =>
+      new Date(`${dateString}T12:00:00`).toLocaleDateString(undefined, {
+        month: 'long',
+        year: 'numeric',
+      });
+    const fromLabel = monthYear(wageFlowRange.from);
+    const toLabel = monthYear(wageFlowRange.to);
+    return fromLabel === toLabel ? fromLabel : `${fromLabel} – ${toLabel}`;
+  }, [wageFlowRange]);
+  const wageFlowTransactionsQuery = useAllTransactions({
+    from: wageFlowRange.from,
+    to: wageFlowRange.to,
+  });
+  const savingPotAssignmentsQuery = useSavingPotAccountAssignments();
+
+  const potLabelByAccountId = useMemo(() => {
+    const potNames = new Map(savingPots.map((pot) => [pot.id, pot.name]));
+    const map = new Map<string, string>();
+    for (const assignment of (savingPotAssignmentsQuery.data ?? []) as any[]) {
+      const potName = potNames.get(assignment.pot_id);
+      if (potName) map.set(assignment.account_id, potName);
+    }
+    return map;
+  }, [savingPotAssignmentsQuery.data, savingPots]);
+  const wageFlowOwnerLabelByAccountId = useMemo(() => {
+    const sharedLabel = t('dashboard.shared');
+    const map = new Map<string, string>();
+    for (const account of accounts) {
+      const owner = account.owner_profile_id
+        ? getPersonLabel(memberMap.get(account.owner_profile_id), sharedLabel)
+        : sharedLabel;
+      map.set(account.id, owner);
+    }
+    return map;
+  }, [accounts, memberMap, t]);
+
+  const wageFlowAccountOptions: WageFlowAccountOption[] = useMemo(
+    () =>
+      accounts.map((account) => ({
+        id: account.id,
+        name: account.name,
+        type: account.type,
+        potLabel: potLabelByAccountId.get(account.id) ?? null,
+        ownerLabel: wageFlowOwnerLabelByAccountId.get(account.id) ?? t('dashboard.shared'),
+        currentBalance: Number(account.current_balance ?? account.balance ?? 0),
+      })),
+    [accounts, potLabelByAccountId, t, wageFlowOwnerLabelByAccountId],
+  );
+  const wageFlowPotAccountOptions = useMemo(
+    () => wageFlowAccountOptions.filter((account) => ['savings', 'investment', 'ppr'].includes(account.type)),
+    [wageFlowAccountOptions],
+  );
+  const wageFlowAccountLabelById = useMemo(
+    () => new Map(wageFlowAccountOptions.map((account) => [account.id, account.potLabel ?? account.name])),
+    [wageFlowAccountOptions],
+  );
+  const wageFlowCategoryOptions = useMemo(
+    () => buildHierarchicalCategoryOptions(categories as any[]),
+    [categories],
+  );
+
+  const wageFlowLabels = useMemo(
+    () => ({
+      expenses: t('insights.wageFlow.expenses'),
+      debtPayments: t('insights.wageFlow.debtPayments'),
+      savingsAndGoals: t('insights.wageFlow.savingsAndGoals'),
+      discretionary: t('insights.wageFlow.discretionary'),
+    }),
+    [t],
+  );
+  const wageFlowCategoriesQuery = useWageFlowCategories();
+  const seedWageFlowDefaults = useSeedWageFlowCategoryDefaults();
+  const createWageFlowCategory = useCreateWageFlowCategory();
+  const createManyWageFlowCategories = useCreateManyWageFlowCategories();
+  const updateWageFlowCategory = useUpdateWageFlowCategory();
+  const deleteWageFlowCategoryMutation = useDeleteWageFlowCategory();
+  const reorderWageFlowCategories = useReorderWageFlowCategories();
+  const wageFlowConfig = useMemo(
+    () => wageFlowCategoriesQuery.data ?? [],
+    [wageFlowCategoriesQuery.data],
+  );
+
+  // Seed the household's starting categories the first time Wage Flow loads
+  // with none saved yet -- runs once per household.
+  const hasSeededWageFlowDefaults = useRef<string | null>(null);
+  useEffect(() => {
+    if (!householdId) return;
+    if (!wageFlowCategoriesQuery.isSuccess) return;
+    if ((wageFlowCategoriesQuery.data ?? []).length > 0) return;
+    if (!(accountsQuery.isSuccess && categoriesQuery.isSuccess)) return;
+    if (hasSeededWageFlowDefaults.current === householdId) return;
+    if (seedWageFlowDefaults.isPending) return;
+
+    hasSeededWageFlowDefaults.current = householdId;
+    seedWageFlowDefaults.mutate(
+      buildDefaultWageFlowConfig({
+        accounts: accounts as any,
+        categories: categories as any,
+        labels: wageFlowLabels,
+      }),
+    );
+  }, [
+    accounts,
+    accountsQuery.isSuccess,
+    categories,
+    categoriesQuery.isSuccess,
+    householdId,
+    seedWageFlowDefaults,
+    wageFlowCategoriesQuery.data,
+    wageFlowCategoriesQuery.isSuccess,
+    wageFlowLabels,
+  ]);
+
+  function removeWageFlowCategory(id: string) {
+    deleteWageFlowCategoryMutation.mutate(id);
+  }
+  function moveWageFlowCategory(id: string, direction: 'up' | 'down') {
+    const index = wageFlowConfig.findIndex((item) => item.id === id);
+    if (index === -1) return;
+    const swapWith = direction === 'up' ? index - 1 : index + 1;
+    if (swapWith < 0 || swapWith >= wageFlowConfig.length) return;
+
+    const nextOrder = wageFlowConfig.map((item) => item.id);
+    [nextOrder[index], nextOrder[swapWith]] = [nextOrder[swapWith], nextOrder[index]];
+    reorderWageFlowCategories.mutate(nextOrder);
+  }
+
+  const [wageFlowDraft, setWageFlowDraft] = useState<WageFlowCategoryConfig | null>(null);
+  const [wageFlowDraftIsNew, setWageFlowDraftIsNew] = useState(false);
+  const [selectedWageFlowKey, setSelectedWageFlowKey] = useState<string | null>(null);
+  const [wageFlowMenuCollapsed, setWageFlowMenuCollapsed] = useState(false);
+  const [wageFlowDetailsCollapsed, setWageFlowDetailsCollapsed] = useState(false);
+  const [wageFlowCategoriesModalOpen, setWageFlowCategoriesModalOpen] = useState(false);
+
+  // Shared by both the chart (tapping a segment) and the category menu
+  // (tapping a row) so a repeat tap on the already-selected category always
+  // deselects it, the same way in either place.
+  function handleSelectWageFlowKey(key: string) {
+    setSelectedWageFlowKey((current) => (current === key ? null : key));
+  }
+
+  const wageFlow = useMemo(
+    () =>
+      calculateWageFlow({
+        transactions: (wageFlowTransactionsQuery.data ?? []) as any,
+        accounts: accounts as any,
+        categories: categories as any,
+        config: wageFlowConfig,
+        range: wageFlowRange,
+      }),
+    [accounts, categories, wageFlowConfig, wageFlowRange, wageFlowTransactionsQuery.data],
+  );
+  const wageFlowResultById = useMemo(
+    () => new Map(wageFlow.categories.map((category) => [category.id, category])),
+    [wageFlow.categories],
+  );
+  const wageFlowBuckets: WageFlowChartBucket[] = useMemo(
+    () =>
+      wageFlow.categories.map((category) => ({
+        key: category.id,
+        label: category.name,
+        icon: (category.icon as WageFlowChartBucket['icon']) || 'ellipse-outline',
+        amount: category.amount,
+        share: category.share,
+        color: resolveWageFlowColor(
+          category.colorToken,
+          colors as unknown as Record<string, string>,
+          colors.financialNeutral,
+        ),
+        matches: category.matches.map((match) => ({
+          id: match.id,
+          title: match.title,
+          amount: match.amount,
+          transactionDate: match.transactionDate,
+          accountLabel: wageFlowAccountLabelById.get(match.accountId) ?? match.accountId,
+          ownerLabel: wageFlowOwnerLabelByAccountId.get(match.accountId) ?? t('dashboard.shared'),
+          isTransfer: match.isTransfer,
+        })),
+      })),
+    [colors, t, wageFlow.categories, wageFlowAccountLabelById, wageFlowOwnerLabelByAccountId],
+  );
+  const wageFlowTableRows = useMemo(
+    () =>
+      wageFlowConfig.map((config) => {
+        const result = wageFlowResultById.get(config.id);
+        return { config, amount: result?.amount ?? 0, share: result?.share ?? 0 };
+      }),
+    [wageFlowConfig, wageFlowResultById],
+  );
+  const selectedWageFlowCategory =
+    wageFlowBuckets.find((bucket) => bucket.key === selectedWageFlowKey) ?? null;
+
+  function openAddWageFlowCategory() {
+    setWageFlowDraft(blankWageFlowCategory());
+    setWageFlowDraftIsNew(true);
+  }
+  // "Add all main categories": a one-time bulk add of one Wage Flow category
+  // per main transaction category that doesn't already have one -- not a
+  // standing rule, so main categories created afterward aren't picked up
+  // automatically. Skips any main category already covered by an existing
+  // Wage Flow category's categoryIds, so re-running only fills in gaps.
+  function addAllMainCategories() {
+    const newConfigs = buildOneWageFlowCategoryPerMainCategory({
+      mainCategories: wageFlowCategoryOptions.filter((option) => option.parentId === null),
+      existingConfigs: wageFlowConfig,
+    });
+    if (newConfigs.length === 0) return;
+    createManyWageFlowCategories.mutate({
+      configs: newConfigs,
+      startingSortOrder: wageFlowConfig.length,
+    });
+  }
+  function openEditWageFlowCategory(id: string) {
+    const existing = wageFlowConfig.find((item) => item.id === id);
+    if (!existing) return;
+    setWageFlowDraft({ ...existing });
+    setWageFlowDraftIsNew(false);
+  }
+  function closeWageFlowEditor() {
+    setWageFlowDraft(null);
+  }
+  function saveWageFlowDraft() {
+    if (!wageFlowDraft) return;
+    if (wageFlowDraftIsNew) {
+      createWageFlowCategory.mutate({ config: wageFlowDraft, sortOrder: wageFlowConfig.length });
+    } else {
+      updateWageFlowCategory.mutate({ id: wageFlowDraft.id, config: wageFlowDraft });
+    }
+    setWageFlowDraft(null);
+  }
+  function deleteWageFlowDraft() {
+    if (!wageFlowDraft) return;
+    removeWageFlowCategory(wageFlowDraft.id);
+    setWageFlowDraft(null);
+  }
+  // ---- end Wage Flow ---------------------------------------------------
 
   if (isPreparingDashboard) return <AuthLoadingTransition />;
 
@@ -825,6 +526,21 @@ export default function DashboardScreen() {
           disabled={households.length <= 1 || setDefaultHousehold.isPending}
           onPress={() => setHouseholdPickerOpen(true)}
         />
+      }
+      overlay={
+        // Fixed in place over the whole screen (not just scrolled content)
+        // so it stays reachable no matter how far down the dashboard you've
+        // scrolled, and masks every currency figure on the page at once via
+        // the shared privacy store — not just the account network diagram.
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: hideValues }}
+          accessibilityLabel={hideValues ? t('dashboard.showValues') : t('dashboard.hideValues')}
+          onPress={toggleHideValues}
+          style={({ pressed }) => [styles.privacyToggle, { borderColor: colors.primary, backgroundColor: colors.primary }, pressed && styles.pressed]}
+        >
+          <Ionicons name={hideValues ? 'eye-off-outline' : 'eye-outline'} size={18} color={colors.primaryForeground} />
+        </Pressable>
       }
     >
       <View style={[styles.heroCard, { backgroundColor: colors.primarySoft, borderColor: colors.primary, flexDirection: responsive.isPhone ? 'column' : 'row', padding: responsive.isPhone ? spacing(4) : spacing(5) }]}>
@@ -851,7 +567,7 @@ export default function DashboardScreen() {
               },
             ]}
           >
-            {formatCurrency(netWorthTotal)}
+            {displayCurrency(formatCurrency(netWorthTotal), hideValues)}
           </Text>
           <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
             {t('dashboard.allocationSubtitle')}
@@ -867,68 +583,202 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      <View style={[styles.metricGrid, responsive.isPhone && styles.metricGridPhone]}>
-        <MetricCard label={t('dashboard.savingsAccounts')} value={formatCurrency(savingsAccountTotal)} icon="wallet-outline" hint={`${totalSavingsAccounts} ${t('dashboard.account').toLowerCase()}`} />
-        <MetricCard label={t('dashboard.invested')} value={formatCurrency(investmentTotal)} icon="trending-up-outline" hint={`${totalInvestmentAccounts} ${t('dashboard.account').toLowerCase()}`} />
-        <MetricCard label={t('dashboard.pots')} value={formatCurrency(savingPotsTotal)} icon="flag-outline" hint={`${totalPots} ${t('dashboard.savingPotsTitle').toLowerCase()}`} />
-        <MetricCard
-          label={t('dashboard.investedThisMonth')}
-          value={formatSignedCurrency(investmentMonthlyChange)}
-          icon="trending-up-outline"
-          hint={`${totalInvestmentAccounts} ${t('dashboard.account').toLowerCase()}`}
-        />
-        <MetricCard
-          label={t('dashboard.addedToSavingsThisMonth')}
-          value={formatSignedCurrency(savingsMonthlyChange)}
-          icon="add-circle-outline"
-          hint={`${totalSavingsAccounts} ${t('dashboard.account').toLowerCase()}`}
-        />
+      {/* On desktop the network diagram has a lot of empty space around it
+          (it's capped at a square ~460px), so the 5 metric cards move into
+          a rail beside it instead of a full-width row underneath — better
+          use of the extra horizontal room. Phone/tablet keep the original
+          stacked order, just as two separate blocks. */}
+      <View style={responsive.isDesktop ? styles.networkMetricsRow : styles.networkMetricsStacked}>
+        <View style={responsive.isDesktop ? styles.networkColumn : styles.fullWidthColumn}>
+          <Section
+            title={t('dashboard.networkTitle')}
+            subtitle={t('dashboard.networkSubtitle')}
+            collapsible
+          >
+            <AccountsNetworkSection nodes={accountNetworkNodes} totalValue={netWorthTotal} />
+          </Section>
+        </View>
+
+        <View style={responsive.isDesktop ? styles.metricRail : [styles.metricGrid, responsive.isPhone && styles.metricGridPhone]}>
+          <MetricCard label={t('dashboard.savingsAccounts')} value={displayCurrency(formatCurrency(savingsAccountTotal), hideValues)} icon="wallet-outline" hint={`${totalSavingsAccounts} ${t('dashboard.account').toLowerCase()}`} />
+          <MetricCard label={t('dashboard.invested')} value={displayCurrency(formatCurrency(investmentTotal), hideValues)} icon="trending-up-outline" hint={`${totalInvestmentAccounts} ${t('dashboard.account').toLowerCase()}`} />
+          <MetricCard label={t('dashboard.pots')} value={displayCurrency(formatCurrency(savingPotsTotal), hideValues)} icon="flag-outline" hint={`${totalPots} ${t('dashboard.savingPotsTitle').toLowerCase()}`} />
+          <MetricCard
+            label={t('dashboard.investedThisMonth')}
+            value={displayCurrency(formatSignedCurrency(investmentMonthlyChange), hideValues)}
+            icon="trending-up-outline"
+            hint={`${totalInvestmentAccounts} ${t('dashboard.account').toLowerCase()}`}
+          />
+          <MetricCard
+            label={t('dashboard.addedToSavingsThisMonth')}
+            value={displayCurrency(formatSignedCurrency(savingsMonthlyChange), hideValues)}
+            icon="add-circle-outline"
+            hint={`${totalSavingsAccounts} ${t('dashboard.account').toLowerCase()}`}
+          />
+        </View>
       </View>
 
-      <Section
-        title={t('dashboard.byPersonTitle')}
-        subtitle={t('dashboard.byPersonSubtitle')}
-        collapsible
-      >
-        {memberBreakdown.length ? (
-          <View style={styles.personBreakdown}>
-            {memberBreakdown.map((row) => (
-              <PersonBreakdownBar key={row.id} row={row} segments={allocationSegments} />
-            ))}
-            {memberBreakdown.length > 1 ? (
-              <View style={[styles.breakdownTotal, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
-                <View style={styles.breakdownTotalLabel}>
-                  <Ionicons name="people-outline" size={18} color={colors.primary} />
-                  <Text style={[styles.breakdownTotalTitle, { color: colors.text }]}>{t('dashboard.verticalTotal')}</Text>
-                </View>
-                <Text style={[styles.breakdownTotalValue, { color: colors.primary }]}>{formatCurrency(memberBreakdownTotals.total)}</Text>
-              </View>
-            ) : null}
+      <Card>
+        <Section
+          title={t('insights.wageFlow.title')}
+          subtitle={t('insights.wageFlow.subtitle')}
+          action={
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('insights.wageFlow.configTitle')}
+              onPress={() => setWageFlowCategoriesModalOpen(true)}
+              style={({ pressed }) => [
+                {
+                  width: spacing(9),
+                  height: spacing(9),
+                  borderRadius: radius.lg,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.surfaceMuted,
+                },
+                pressed && { opacity: 0.85 },
+              ]}
+            >
+              <Ionicons name="settings-outline" size={18} color={colors.textSecondary} />
+            </Pressable>
+          }
+        >
+          <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel={t('insights.wageFlow.periodLabel')}
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: spacing(2),
+              marginBottom: spacing(3),
+            }}
+          >
+            {(
+              [
+                ['1m', t('insights.wageFlow.range1Month')],
+                ['last_month', t('insights.wageFlow.rangeLastMonth')],
+                ['3m', t('insights.wageFlow.range3Months')],
+                ['6m', t('insights.wageFlow.range6Months')],
+                ['9m', t('insights.wageFlow.range9Months')],
+                ['12m', t('insights.wageFlow.range12Months')],
+                ['24m', t('insights.wageFlow.range24Months')],
+              ] as const
+            ).map(([value, label]) => {
+              const selected = wageFlowRangePreset === value;
+              return (
+                <Pressable
+                  key={value}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  onPress={() => setWageFlowRangePreset(value)}
+                  style={{
+                    paddingHorizontal: spacing(3),
+                    paddingVertical: spacing(1.5),
+                    borderRadius: radius.lg,
+                    borderWidth: 1,
+                    borderColor: selected ? colors.primary : colors.border,
+                    backgroundColor: selected ? colors.primarySoft : colors.surface,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: colors.text,
+                      fontSize: 13,
+                      fontWeight: selected
+                        ? typography.fontWeight.bold
+                        : typography.fontWeight.regular,
+                    }}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
-        ) : (
-          <EmptyState title={t('dashboard.noPeople')} description={t('dashboard.byPersonSubtitle')} icon="people-outline" />
-        )}
-      </Section>
+          {wageFlow.income > 0 ? (
+            <View
+              style={{
+                flexDirection: responsive.isPhone ? 'column' : 'row',
+                gap: spacing(3),
+                alignItems: responsive.isPhone ? 'stretch' : 'flex-start',
+              }}
+            >
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <WageFlowChart
+                  income={wageFlow.income}
+                  buckets={wageFlowBuckets}
+                  periodLabel={wageFlowPeriodLabel}
+                  selectedKey={selectedWageFlowKey}
+                  onSelectKey={handleSelectWageFlowKey}
+                />
+              </View>
+              <View
+                style={
+                  responsive.isPhone
+                    ? { width: '100%' }
+                    : { width: wageFlowMenuCollapsed ? spacing(12) : spacing(52) }
+                }
+              >
+                <WageFlowCategoryMenu
+                  buckets={wageFlowBuckets}
+                  selectedKey={selectedWageFlowKey}
+                  onSelectKey={handleSelectWageFlowKey}
+                  collapsed={wageFlowMenuCollapsed}
+                  onToggleCollapsed={() => setWageFlowMenuCollapsed((c) => !c)}
+                />
+              </View>
+              <View
+                style={
+                  responsive.isPhone
+                    ? { width: '100%' }
+                    : { width: wageFlowDetailsCollapsed ? spacing(12) : spacing(80) }
+                }
+              >
+                <WageFlowDetailsPanel
+                  category={selectedWageFlowCategory}
+                  collapsed={wageFlowDetailsCollapsed}
+                  onToggleCollapsed={() => setWageFlowDetailsCollapsed((c) => !c)}
+                />
+              </View>
+            </View>
+          ) : (
+            <EmptyState title={t('insights.wageFlow.noIncome')} />
+          )}
+        </Section>
+      </Card>
 
-      <Section
-        title={t('dashboard.investmentSavingsAndPotsTitle')}
-        subtitle={t('dashboard.investmentSavingsAndPotsSubtitle', {
-          accountCount: totalInvestmentAndSavingsAccounts,
-          potCount: totalPots,
-        })}
-        collapsible
+      <SelectionShell
+        visible={wageFlowCategoriesModalOpen}
+        title={t('insights.wageFlow.configTitle')}
+        subtitle={t('insights.wageFlow.configSubtitle')}
+        closeLabel={t('insights.wageFlow.close')}
+        onClose={() => setWageFlowCategoriesModalOpen(false)}
       >
-        <AccountOverviewTable
-          accounts={investmentAndSavingsAccounts}
-          members={members}
-          memberMap={memberMap}
-          savingPots={savingPots}
-          savingPotBalances={savingPotBalances}
-          emptyTitle={t('dashboard.noInvestmentSavingsOrPots')}
-          monthlyBalanceChangesByAccount={monthlyBalanceChangesByAccount}
-          monthlyExpensesByAccount={monthlyExpensesByAccount}
+        <WageFlowConfigTable
+          rows={wageFlowTableRows}
+          onEdit={openEditWageFlowCategory}
+          onRemove={removeWageFlowCategory}
+          onMoveUp={(id) => moveWageFlowCategory(id, 'up')}
+          onMoveDown={(id) => moveWageFlowCategory(id, 'down')}
+          onAdd={openAddWageFlowCategory}
+          onAddAllMainCategories={addAllMainCategories}
         />
-      </Section>
+      </SelectionShell>
+
+      <WageFlowCategoryEditorModal
+        visible={wageFlowDraft !== null}
+        draft={wageFlowDraft}
+        isNew={wageFlowDraftIsNew}
+        accounts={wageFlowAccountOptions}
+        potAccounts={wageFlowPotAccountOptions}
+        categoryOptions={wageFlowCategoryOptions}
+        onChange={(patch) => setWageFlowDraft((current) => (current ? { ...current, ...patch } : current))}
+        onClose={closeWageFlowEditor}
+        onSave={saveWageFlowDraft}
+        onDelete={deleteWageFlowDraft}
+      />
 
       <SelectionShell
         visible={householdPickerOpen}
@@ -957,187 +807,35 @@ export default function DashboardScreen() {
         </View>
       </SelectionShell>
 
-      <Section
-        title={t('dashboard.recentTransactions')}
-        subtitle={t('dashboard.recentTransactionsSubtitle')}
-        action={<Button label={t('dashboard.recentTransactions')} onPress={() => router.push('/transactions' as any)} variant="secondary" />}
-        collapsible
-      >
-        {transactions.length ? (
-          <Table
-            columns={[
-              { label: t('transactions.titleLabel'), flex: 2.2 },
-              { label: t('transactions.account'), flex: 1.3 },
-              { label: t('transactions.accountOwner'), flex: 1.15 },
-              { label: t('transactions.createdBy'), flex: 1.15 },
-              { label: t('transactions.amountLabel'), align: 'right' },
-              { label: t('transactions.balanceAfter'), align: 'right' },
-            ]}
-          >
-            {transactions.map((item: any) => {
-              const isTransfer = item.movement_kind === 'transfer';
-              const account =
-                (isTransfer ? item.source_account : item.account) ??
-                accounts.find((candidate) => candidate.id === item.account_id);
-              const ownerProfileId = account?.owner_profile_id;
-              const ownerLabel = ownerProfileId
-                ? getPersonLabel(
-                    memberMap.get(ownerProfileId),
-                    t('dashboard.unnamedPerson'),
-                  )
-                : t('dashboard.shared');
-              const creatorId =
-                item.created_by_profile?.id ?? item.created_by;
-              const creatorLabel = getPersonLabel(
-                memberMap.get(creatorId),
-                item.created_by_profile?.full_name ??
-                  t('dashboard.unnamedPerson'),
-              );
-              const ownerTone =
-                isTransfer
-                  ? {
-                      accent: colors.financialNeutral,
-                      surface: colors.transferRow,
-                    }
-                  : transactionOwnerTones[
-                      getAccountOwnerToneIndex(
-                        ownerProfileId,
-                        transactionOwnerOrder,
-                        transactionOwnerTones.length,
-                      )
-                    ];
-
-              return (
-                <TableRow
-                  key={item.movement_id ?? item.id}
-                  backgroundColor={ownerTone.surface}
-                  accentColor={ownerTone.accent}
-                >
-                  <TableCell flex={2.2}>
-                    <View style={styles.accountTitle}>
-                      <View
-                        style={[
-                          styles.accountIcon,
-                          {
-                            backgroundColor:
-                              isTransfer
-                                ? colors.surface
-                                : item.type === 'expense'
-                                ? colors.destructiveSoft
-                                : colors.successSoft,
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name={isTransfer
-                            ? 'swap-horizontal-outline'
-                            : (item.category?.icon ?? 'pricetag-outline') as any}
-                          size={18}
-                          color={
-                            isTransfer
-                              ? colors.financialNeutral
-                              : item.type === 'expense'
-                              ? colors.destructive
-                              : colors.success
-                          }
-                        />
-                      </View>
-                      <View style={styles.accountCopy}>
-                        <Text
-                          style={[styles.accountName, { color: colors.text }]}
-                          numberOfLines={1}
-                        >
-                          {item.title}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.accountOwner,
-                            { color: colors.textSecondary },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {isTransfer
-                            ? t('transactions.filters.transfer')
-                            : item.category?.name ??
-                              t('transactions.uncategorized')}{' '}
-                          · {formatDate(item.transaction_date)}
-                        </Text>
-                      </View>
-                    </View>
-                  </TableCell>
-                  <TableCell flex={1.3}>
-                    <Text style={{ color: colors.text }}>
-                      {isTransfer
-                        ? `${item.source_account?.name ?? t('transactions.sourceAccount')} → ${item.destination_account?.name ?? t('transactions.destinationAccount')}`
-                        : account?.name ?? t('transactions.account')}
-                    </Text>
-                  </TableCell>
-                  <TableCell flex={1.15}>
-                    <View style={styles.transactionPerson}>
-                      <Ionicons
-                        name={
-                          ownerProfileId
-                            ? 'person-outline'
-                            : 'people-outline'
-                        }
-                        size={15}
-                        color={ownerTone.accent}
-                      />
-                      <Text style={{ color: colors.text }}>{ownerLabel}</Text>
-                    </View>
-                  </TableCell>
-                  <TableCell flex={1.15}>
-                    <View style={styles.transactionPerson}>
-                      <Ionicons
-                        name="create-outline"
-                        size={15}
-                        color={colors.primary}
-                      />
-                      <Text style={{ color: colors.text }}>{creatorLabel}</Text>
-                    </View>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Text
-                      style={{
-                        color:
-                          isTransfer
-                            ? colors.financialNeutral
-                            : item.type === 'expense'
-                            ? colors.destructive
-                            : colors.success,
-                        fontWeight: typography.fontWeight.bold as any,
-                      }}
-                    >
-                      {isTransfer ? '' : item.type === 'expense' ? '-' : '+'}
-                      {formatCurrency(item.amount)}
-                    </Text>
-                  </TableCell>
-                  <TableCell align="right" mobilePinned>
-                    <Text
-                      style={{
-                        color: colors.text,
-                        fontWeight: typography.fontWeight.bold as any,
-                      }}
-                    >
-                      {isTransfer || item.balance_after_transaction == null
-                        ? '—'
-                        : formatCurrency(item.balance_after_transaction)}
-                    </Text>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </Table>
-        ) : (
-          <EmptyState title={t('dashboard.noTransactions')} icon="receipt-outline" />
-        )}
-      </Section>
-
+      <View style={styles.privacyToggleSpacer} />
     </Page>
   );
 }
 
 const styles = StyleSheet.create({
+  privacyToggle: {
+    position: 'absolute',
+    right: spacing(6),
+    bottom: spacing(6),
+    zIndex: 10,
+    width: spacing(12),
+    height: spacing(12),
+    borderRadius: radius.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  privacyToggleSpacer: {
+    height: spacing(16),
+  },
+  pressed: {
+    opacity: 0.75,
+  },
   heroCard: {
     width: '100%',
     alignSelf: 'stretch',
@@ -1182,28 +880,30 @@ const styles = StyleSheet.create({
     gap: spacing(4),
     minWidth: 0,
   },
-  donutWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  networkMetricsRow: {
+    width: '100%',
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing(4),
   },
-  donutCenter: {
-    position: 'absolute',
-    alignItems: 'center',
-    gap: spacing(0.5),
+  networkMetricsStacked: {
+    width: '100%',
+    alignSelf: 'stretch',
+    gap: spacing(5),
   },
-  donutCenterLabel: {
-    fontSize: typography.fontSize[28],
-    lineHeight: typography.lineHeight[32],
-    fontWeight: typography.fontWeight.extraBold as any,
+  networkColumn: {
+    flex: 1.3,
+    minWidth: 0,
   },
-  donutCenterText: {
-    fontSize: typography.fontSize[12],
-    lineHeight: typography.lineHeight[16],
-    fontWeight: typography.fontWeight.bold as any,
+  fullWidthColumn: {
+    width: '100%',
   },
-  legendList: {
-    gap: spacing(2),
-    minWidth: spacing(48),
+  metricRail: {
+    flex: 1,
+    minWidth: spacing(52),
+    maxWidth: spacing(72),
+    gap: spacing(3),
   },
   metricGrid: {
     width: '100%',
@@ -1216,243 +916,5 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     flexWrap: 'nowrap',
     gap: spacing(2),
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing(2),
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing(2),
-  },
-  legendIcon: {
-    width: spacing(8),
-    height: spacing(8),
-    borderRadius: radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  legendCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: spacing(0.5),
-  },
-  legendLabel: {
-    fontSize: typography.fontSize[13],
-    fontWeight: typography.fontWeight.extraBold as any,
-  },
-  legendValue: {
-    fontSize: typography.fontSize[12],
-    lineHeight: typography.lineHeight[16],
-  },
-  personBreakdown: {
-    width: '100%',
-    alignSelf: 'stretch',
-    gap: spacing(3),
-  },
-  personBarCard: {
-    width: '100%',
-    alignSelf: 'stretch',
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing(3),
-    gap: spacing(2),
-  },
-  personBarHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing(2),
-  },
-  personBarTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing(1.5),
-    minWidth: 0,
-  },
-  personBarName: {
-    fontSize: typography.fontSize[15],
-    fontWeight: typography.fontWeight.extraBold as any,
-  },
-  personBarTotal: {
-    fontSize: typography.fontSize[15],
-    fontWeight: typography.fontWeight.extraBold as any,
-  },
-  stackedBarTrack: {
-    minHeight: spacing(3),
-    borderRadius: radius.full,
-    borderWidth: 1,
-    overflow: 'hidden',
-    flexDirection: 'row',
-  },
-  stackedBarSegment: {},
-  personBarLegend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing(2),
-  },
-  personBarLegendText: {
-    fontSize: typography.fontSize[12],
-    lineHeight: typography.lineHeight[16],
-  },
-  breakdownTotal: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing(2),
-    padding: spacing(3),
-    borderRadius: radius.lg,
-    borderWidth: 1,
-  },
-  breakdownTotalLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing(1.5),
-  },
-  breakdownTotalTitle: {
-    fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.extraBold as any,
-  },
-  breakdownTotalValue: {
-    fontSize: typography.fontSize[16],
-    fontWeight: typography.fontWeight.extraBold as any,
-  },
-  accountTitle: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing(2),
-    minWidth: 0,
-  },
-  accountIcon: {
-    width: spacing(8),
-    height: spacing(8),
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  accountCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: spacing(0.5),
-  },
-  accountName: {
-    fontSize: typography.fontSize[14],
-    lineHeight: typography.lineHeight[20],
-    fontWeight: typography.fontWeight.extraBold as any,
-  },
-  accountOwner: {
-    fontSize: typography.fontSize[12],
-    lineHeight: typography.lineHeight[16],
-  },
-  transactionPerson: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing(1),
-    minWidth: 0,
-  },
-  accountBalance: {
-    fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.extraBold as any,
-  },
-  accountGroups: {
-    width: '100%',
-    alignSelf: 'stretch',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'stretch',
-    gap: spacing(3),
-  },
-  accountGroup: {
-    alignSelf: 'stretch',
-    minWidth: 0,
-    gap: spacing(2.5),
-    padding: spacing(3),
-    borderWidth: 1,
-    borderLeftWidth: spacing(1),
-    borderRadius: radius.lg,
-  },
-  accountGroupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: spacing(2),
-  },
-  accountGroupIdentity: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: spacing(1.5),
-  },
-  accountGroupMarker: {
-    width: spacing(1),
-    height: spacing(6),
-    borderRadius: radius.full,
-  },
-  accountGroupTitle: {
-    fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.extraBold as any,
-  },
-  accountGroupTotal: {
-    fontSize: typography.fontSize[15],
-    fontWeight: typography.fontWeight.extraBold as any,
-    fontVariant: ['tabular-nums'],
-  },
-  goalCard: {
-    alignSelf: 'stretch',
-    borderRadius: radius.lg,
-    borderWidth: 1,
-  },
-  goalCardAction: {
-    marginTop: 'auto',
-  },
-  goalCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing(2),
-  },
-  goalCardTitle: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing(2),
-  },
-  goalIcon: {
-    width: spacing(8),
-    height: spacing(8),
-    borderRadius: radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  goalName: {
-    fontSize: typography.fontSize[15],
-    fontWeight: typography.fontWeight.extraBold as any,
-  },
-  goalOwner: {
-    marginTop: spacing(0.25),
-    fontSize: typography.fontSize[12],
-    lineHeight: typography.lineHeight[16],
-  },
-  goalBalance: {
-    fontSize: typography.fontSize[15],
-    fontWeight: typography.fontWeight.extraBold as any,
-  },
-  goalMeter: {
-    gap: spacing(1),
-  },
-  goalTrack: {
-    minHeight: spacing(2.5),
-    borderRadius: radius.full,
-    borderWidth: 1,
-    overflow: 'hidden',
-    flexDirection: 'row',
-  },
-  goalFill: {},
-  goalLabel: {
-    fontSize: typography.fontSize[12],
-    lineHeight: typography.lineHeight[16],
   },
 });

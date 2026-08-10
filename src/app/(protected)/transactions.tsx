@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import * as DocumentPicker from "expo-document-picker";
-import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { typography } from "@/theme/typography";
 import { useTheme } from "@/theme/ThemeProvider";
@@ -37,11 +36,6 @@ import {
   TableRow,
 } from "@/components/data-surface";
 import { HouseholdMemberSelect } from "@/components/household-member-select";
-import {
-  SelectionOptionRow,
-  SelectionShell,
-  SelectionTrigger,
-} from "@/components/selection-shell";
 import { GroupedAccountSelect } from "@/components/grouped-account-select";
 import {
   GroupedDestinationSelect,
@@ -51,9 +45,10 @@ import { DatePickerField as SharedDatePickerField } from "@/components/date-pick
 import { AttachmentPreview } from "@/components/attachment-preview";
 import { useAuth } from "../../providers/AuthProvider";
 import { useAccountsWithBalances } from "../../features/accounts/hooks";
-import { useTopLevelCategories } from "../../features/categories/hooks";
+import { useCategories } from "../../features/categories/hooks";
+import { CategoryPicker } from "@/components/category-picker";
 import { useHouseholdMemberDetails } from "../../features/households/hooks";
-import { useTransactionMovementsInfinite } from "../../features/transactions/hooks/useTransactions";
+import { useTransactionMovementsInfinite, useTransactionMovementsSummary } from "../../features/transactions/hooks/useTransactions";
 import { useCreateTransaction } from "../../features/transactions/hooks/useCreateTransaction";
 import { useDeleteTransaction } from "../../features/transactions/hooks/useDeleteTransaction";
 import { useDeleteCompletedTransfer } from "../../features/transactions/hooks/useDeleteCompletedTransfer";
@@ -71,6 +66,12 @@ import {
   type TransactionListSortKey,
 } from "../../features/transactions/utils/transaction-list";
 import {
+  movementAmountColor,
+  movementAmountSign,
+  movementIconBackground,
+  resolveMovementKind,
+} from "../../features/transactions/utils/transaction-amount";
+import {
   getAddAnotherTransactionReset,
   getFreshTransactionCreateReset,
   getLocalCalendarDate,
@@ -80,10 +81,10 @@ import {
   SHARED_ACCOUNT_OWNER_KEY,
   getAccountOwnerToneIndex,
 } from "../../features/accounts/account-ordering";
-import {
-  RecurringTransferCreateForm,
-  TransfersContent,
-} from "./transfers";
+import { RecurringTransferCreateForm, TransfersContent } from "./transfers";
+import { createStyles } from "@/features/transactions/ui-styles";
+import { DropdownField, type DropdownFieldProps } from "@/features/transactions/components/dropdown-field";
+import { DateFilterField, DatePickerField, formatDateInputValue, parseDateInputValue } from "@/features/transactions/components/transaction-date-field";
 
 type TransactionEditDraft = {
   id: string;
@@ -108,279 +109,6 @@ type TransferEditDraft = {
   categoryId: string | null;
 };
 
-type DropdownFieldProps = {
-  label: string;
-  valueLabel: string;
-  placeholder: string;
-  hint?: string;
-  selectedKey?: string;
-  options: {
-    key: string;
-    label: string;
-    subtitle?: string;
-    iconName?: keyof typeof Ionicons.glyphMap;
-  }[];
-  onChange: (key: string) => void;
-};
-
-function DropdownField({
-  label,
-  valueLabel,
-  placeholder,
-  hint,
-  selectedKey,
-  options,
-  onChange,
-}: DropdownFieldProps) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <View style={{ gap: spacing(2) }}>
-      <SelectionTrigger
-        label={label}
-        valueLabel={valueLabel}
-        hint={hint}
-        placeholder={placeholder}
-        iconName="chevron-down-outline"
-        onPress={() => setOpen(true)}
-      />
-      <SelectionShell
-        visible={open}
-        title={label}
-        subtitle={hint ?? placeholder}
-        closeLabel={placeholder}
-        onClose={() => setOpen(false)}
-      >
-        <View style={{ gap: spacing(2) }}>
-          {options.map((option) => (
-            <SelectionOptionRow
-              key={option.key}
-              title={option.label}
-              subtitle={option.subtitle}
-              iconName={option.iconName ?? "ellipse-outline"}
-              active={
-                selectedKey
-                  ? option.key === selectedKey
-                  : option.label === valueLabel
-              }
-              onPress={() => {
-                onChange(option.key);
-                setOpen(false);
-              }}
-            />
-          ))}
-        </View>
-      </SelectionShell>
-    </View>
-  );
-}
-
-function parseDateInputValue(value: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]) - 1;
-  const day = Number(match[3]);
-  const nextDate = new Date(year, month, day);
-  return Number.isNaN(nextDate.getTime()) ? null : nextDate;
-}
-
-function formatDateInputValue(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function DatePickerField({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (nextValue: string) => void;
-  placeholder: string;
-}) {
-  const { colors } = useTheme();
-  const { t } = useTranslation("common");
-  const [open, setOpen] = useState(false);
-  const [draftDate, setDraftDate] = useState(
-    () => parseDateInputValue(value) ?? new Date(),
-  );
-
-  if (Platform.OS === "web") {
-    return (
-      <SharedDatePickerField
-        label={label}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-      />
-    );
-  }
-
-  return (
-    <View style={{ gap: spacing(2) }}>
-      <Text
-        style={
-          {
-            color: colors.textSecondary,
-            fontWeight: typography.fontWeight.semibold as any,
-          } as any
-        }
-      >
-        {label}
-      </Text>
-      <Pressable
-        onPress={() => {
-          if (!open) {
-            setDraftDate(parseDateInputValue(value) ?? new Date());
-          }
-          setOpen((current) => !current);
-        }}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: spacing(3.5),
-          paddingVertical: spacing(3),
-          borderRadius: radius.mdPlus,
-          backgroundColor: colors.surfaceMuted,
-          borderWidth: 1,
-          borderColor: colors.border,
-        }}
-      >
-        <Text
-          style={
-            {
-              color:
-                value.trim().length > 0 ? colors.text : colors.textSecondary,
-              fontWeight: typography.fontWeight.bold as any,
-            } as any
-          }
-        >
-          {value.trim().length > 0 ? value : placeholder}
-        </Text>
-        <Text
-          style={
-            {
-              color: colors.textSecondary,
-              fontWeight: typography.fontWeight.bold as any,
-            } as any
-          }
-        >
-          {open ? "▴" : "▾"}
-        </Text>
-      </Pressable>
-      {open ? (
-        <View
-          style={{
-            gap: spacing(2),
-            padding: spacing(3),
-            borderRadius: radius.lg,
-            backgroundColor: colors.surfaceMuted,
-            borderWidth: 1,
-            borderColor: colors.border,
-          }}
-        >
-          <DateTimePicker
-            value={draftDate}
-            mode="date"
-            display={Platform.OS === "ios" ? "inline" : "default"}
-            presentation={Platform.OS === "android" ? "dialog" : "inline"}
-            onValueChange={(_, date) => {
-              if (!date) return;
-              setDraftDate(date);
-              if (Platform.OS === "android") {
-                onChange(formatDateInputValue(date));
-                setOpen(false);
-              }
-            }}
-            onDismiss={() => setOpen(false)}
-          />
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "flex-end",
-              gap: spacing(2),
-            }}
-          >
-            <Button
-              label={t("cancel")}
-              variant="secondary"
-              onPress={() => setOpen(false)}
-            />
-            <Button
-              label={t("done")}
-              onPress={() => {
-                onChange(formatDateInputValue(draftDate));
-                setOpen(false);
-              }}
-            />
-          </View>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function DateFilterField({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (nextValue: string) => void;
-  placeholder: string;
-}) {
-  const { colors } = useTheme();
-  const { t } = useTranslation("common");
-
-  return (
-    <View style={{ gap: spacing(1.5) }}>
-      <DatePickerField
-        label={label}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-      />
-      {value ? (
-        <Pressable
-          onPress={() => onChange("")}
-          style={({ pressed }) => [
-            {
-              alignSelf: "flex-start",
-              paddingHorizontal: spacing(2.5),
-              paddingVertical: spacing(1.5),
-              borderRadius: radius.full,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.surfaceMuted,
-            },
-            pressed && { opacity: 0.85 },
-          ]}
-        >
-          <Text
-            style={
-              {
-                color: colors.textSecondary,
-                fontSize: typography.fontSize[12],
-                fontWeight: typography.fontWeight.semibold as any,
-              } as any
-            }
-          >
-            {t("clear")}
-          </Text>
-        </Pressable>
-      ) : null}
-    </View>
-  );
-}
-
 type AttachmentDraft = {
   file: Blob | ArrayBuffer | File;
   fileName: string;
@@ -390,6 +118,28 @@ type AttachmentDraft = {
 };
 
 const TRANSACTIONS_PAGE_SIZE = 25;
+
+type WizardStepKey = "type" | "accounts" | "extras";
+
+// "type" now covers both what used to be separate "type" and "details"
+// (or "form", for recurring transfers) steps: choosing income/expense/
+// transfer and filling in the title/amount/date/notes (or the recurring
+// form) happen on the same first step, since picking a type with nothing
+// else to look at felt like a wasted extra tap.
+const WIZARD_STEP_COPY: Record<WizardStepKey, { titleKey: string; subtitleKey: string }> = {
+  type: {
+    titleKey: "transactions.wizard.stepTypeTitle",
+    subtitleKey: "transactions.wizard.stepTypeSubtitle",
+  },
+  accounts: {
+    titleKey: "transactions.wizard.stepAccountsTitle",
+    subtitleKey: "transactions.wizard.stepAccountsSubtitle",
+  },
+  extras: {
+    titleKey: "transactions.wizard.stepExtrasTitle",
+    subtitleKey: "transactions.wizard.stepExtrasSubtitle",
+  },
+};
 
 export default function TransactionsScreen() {
   const { colors } = useTheme();
@@ -427,9 +177,13 @@ export default function TransactionsScreen() {
   const [activeView, setActiveView] = useState<"activity" | "scheduled">(
     "activity",
   );
+  // Defaults to "movements" (income + expense, transfers hidden) rather than
+  // "all", since transfers between your own accounts usually just clutter
+  // the activity list. "all" is still one tap away for anyone who wants
+  // transfers back in the mix.
   const [filtersType, setFiltersType] = useState<
-    "all" | "income" | "expense" | "transfer"
-  >("all");
+    "movements" | "all" | "income" | "expense" | "transfer"
+  >("movements");
   const [accountFilter, setAccountFilter] = useState<"all" | string>("all");
   const [sourceAccountFilter, setSourceAccountFilter] = useState<
     "all" | string
@@ -443,29 +197,80 @@ export default function TransactionsScreen() {
   const [createdByFilter, setCreatedByFilter] = useState<"all" | string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [searchFilter, setSearchFilter] = useState("");
+  const [minAmountFilter, setMinAmountFilter] = useState("");
+  const [maxAmountFilter, setMaxAmountFilter] = useState("");
   const [sortBy, setSortBy] = useState<TransactionListSortKey>("newest");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState(0);
   const [editTransaction, setEditTransaction] =
     useState<TransactionEditDraft | null>(null);
-  const editAttachmentsQuery = useTransactionAttachments(
-    editTransaction?.id,
-  );
+  const editAttachmentsQuery = useTransactionAttachments(editTransaction?.id);
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [transferToDelete, setTransferToDelete] = useState<any | null>(null);
-  const [transferEdit, setTransferEdit] = useState<TransferEditDraft | null>(null);
+  const [transferEdit, setTransferEdit] = useState<TransferEditDraft | null>(
+    null,
+  );
   const [bulkSelectionOpen, setBulkSelectionOpen] = useState(false);
   const [bulkSelectionType, setBulkSelectionType] = useState<
     "income" | "expense" | null
   >(null);
-  const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [selectedTransactionIds, setSelectedTransactionIds] = useState<
+    Set<string>
+  >(() => new Set());
   const [bulkCategoryId, setBulkCategoryId] = useState("");
 
-  const transactionsQuery = useTransactionMovementsInfinite(
-    {
-      kind: filtersType === "all" ? undefined : filtersType,
+  // Debounce free-text search and amount inputs so every keystroke doesn't
+  // fire its own network request -- the input fields themselves stay
+  // immediate (searchFilter/minAmountFilter/maxAmountFilter), only the value
+  // handed to the query is delayed.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchFilter.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchFilter]);
+  const [debouncedMinAmount, setDebouncedMinAmount] = useState("");
+  const [debouncedMaxAmount, setDebouncedMaxAmount] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedMinAmount(minAmountFilter), 300);
+    return () => clearTimeout(timer);
+  }, [minAmountFilter]);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedMaxAmount(maxAmountFilter), 300);
+    return () => clearTimeout(timer);
+  }, [maxAmountFilter]);
+
+  const parsedMinAmount = useMemo(() => {
+    const trimmed = debouncedMinAmount.trim();
+    if (!trimmed) return undefined;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, [debouncedMinAmount]);
+  const parsedMaxAmount = useMemo(() => {
+    const trimmed = debouncedMaxAmount.trim();
+    if (!trimmed) return undefined;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, [debouncedMaxAmount]);
+
+  // Shared by the infinite list query and the full-set summary query below --
+  // both must see identical filters so the summary bar's totals always match
+  // what's actually being listed.
+  const movementFilters = useMemo(
+    () => ({
+      // The backend's "kind" filter only understands a single exact
+      // movement_kind ("income" | "expense" | "transfer"), so there's no
+      // server-side way to ask for "income and expense but not transfer" via
+      // p_kind alone. For "movements" we instead fetch every kind (p_kind
+      // left null) and set excludeTransfers so the RPC drops transfer rows
+      // in its WHERE clause -- unlike the previous client-side post-filter,
+      // this keeps every returned page correctly sized for infinite scroll.
+      kind:
+        filtersType === "all" || filtersType === "movements"
+          ? undefined
+          : filtersType,
+      excludeTransfers: filtersType === "movements",
       accountId: accountFilter === "all" ? undefined : accountFilter,
       sourceAccountId:
         sourceAccountFilter === "all" ? undefined : sourceAccountFilter,
@@ -482,69 +287,76 @@ export default function TransactionsScreen() {
       createdBy: createdByFilter === "all" ? undefined : createdByFilter,
       from: dateFrom || undefined,
       to: dateTo || undefined,
-      sortBy,
-    },
+      search: debouncedSearch || undefined,
+      minAmount: parsedMinAmount,
+      maxAmount: parsedMaxAmount,
+    }),
+    [
+      filtersType,
+      accountFilter,
+      sourceAccountFilter,
+      destinationAccountFilter,
+      categoryFilter,
+      createdByFilter,
+      dateFrom,
+      dateTo,
+      debouncedSearch,
+      parsedMinAmount,
+      parsedMaxAmount,
+    ],
+  );
+
+  const transactionsQuery = useTransactionMovementsInfinite(
+    { ...movementFilters, sortBy },
     TRANSACTIONS_PAGE_SIZE,
   );
+  const movementsSummaryQuery = useTransactionMovementsSummary(movementFilters);
   const activeCategoryType = editTransaction?.type ?? type;
-  const categoriesQuery = useTopLevelCategories(activeCategoryType);
-  const filterCategoriesQuery = useTopLevelCategories(
-    filtersType === "all" || filtersType === "transfer"
-      ? undefined
-      : filtersType,
+  // A single fetch-all-types query, with every view-specific list (create
+  // form, filter dropdown, transfer categories, bulk-edit) derived from it
+  // client-side. Previously each of those was its own useCategories() call
+  // (4 separate network round trips fetching heavily overlapping data) --
+  // one query is enough since categories are cheap to hold in memory and
+  // rarely change.
+  const allCategoriesQuery = useCategories();
+  const allCategories = useMemo(
+    () => allCategoriesQuery.data ?? [],
+    [allCategoriesQuery.data],
   );
-  const transferCategoriesQuery = useTopLevelCategories("account");
-  const bulkCategoriesQuery = useTopLevelCategories(bulkSelectionType ?? undefined);
+  // Full flat lists (main categories + their subcategories) rather than
+  // top-level-only — the shared CategoryPicker groups them into
+  // expand/collapse sections itself, so every call site just hands it
+  // whichever flat list makes sense for that context.
+  const categories = useMemo(
+    () => allCategories.filter((category: any) => category.type === activeCategoryType),
+    [allCategories, activeCategoryType],
+  );
+  const bulkCategories = useMemo(
+    () => allCategories.filter((category: any) => category.type === bulkSelectionType),
+    [allCategories, bulkSelectionType],
+  );
+  // Filter category list shown in the "Category" filter dropdown, with a
+  // synthetic "uncategorized" entry prepended so it can live inside the
+  // same unified picker as a selectable pseudo-category.
+  const filterCategories = useMemo(() => {
+    const source =
+      filtersType === "transfer"
+        ? allCategories.filter((category: any) => category.type === "account")
+        : filtersType === "income" || filtersType === "expense"
+          ? allCategories.filter((category: any) => category.type === filtersType)
+          : allCategories.filter((category: any) => category.type !== "account");
+    return [
+      {
+        id: "uncategorized",
+        name: t("transactions.uncategorized"),
+        icon: "help-circle-outline",
+        parent_id: null,
+      },
+      ...source,
+    ];
+  }, [allCategories, filtersType, t]);
 
   const accounts = accountsQuery.data ?? [];
-  const categories = useMemo(
-    () => categoriesQuery.data ?? [],
-    [categoriesQuery.data],
-  );
-  const categoryOptions = useMemo(
-    () => [
-      {
-        key: "",
-        label: t("none"),
-        iconName: "close-circle-outline" as const,
-      },
-      ...categories.map((category: any) => ({
-        key: category.id,
-        label: category.name,
-        iconName:
-          (category.icon as keyof typeof Ionicons.glyphMap | null) ??
-          "pricetag-outline",
-      })),
-    ],
-    [categories, t],
-  );
-  const filterCategoryOptions = useMemo(
-    () => {
-      const filterCategories =
-        filtersType === "transfer"
-          ? (transferCategoriesQuery.data ?? [])
-          : (filterCategoriesQuery.data ?? []).filter(
-              (category: any) => category.type !== "account",
-            );
-      return [
-        { key: "all", label: t("transactions.allCategories") },
-        { key: "uncategorized", label: t("transactions.uncategorized") },
-        ...filterCategories.map((category: any) => ({
-          key: category.id,
-          label: category.name,
-          iconName:
-            (category.icon as keyof typeof Ionicons.glyphMap | null) ??
-            "pricetag-outline",
-        })),
-      ];
-    },
-    [
-      filterCategoriesQuery.data,
-      filtersType,
-      t,
-      transferCategoriesQuery.data,
-    ],
-  );
   const acceptedMembers = useMemo(
     () =>
       (membersQuery.data ?? []).filter(
@@ -574,28 +386,20 @@ export default function TransactionsScreen() {
       }
     }
 
-    const rows = [...rowsById.values()];
+    // The RPC already excludes transfers server-side for "movements" (via
+    // excludeTransfers), so this is now a defensive no-op rather than the
+    // primary filter -- kept in case a stale cached page ever slips through.
+    const rows =
+      filtersType === "movements"
+        ? [...rowsById.values()].filter(
+            (row) => row.movement_kind !== "transfer",
+          )
+        : [...rowsById.values()];
 
     rows.sort((a: any, b: any) => compareTransactions(a, b, sortBy));
 
     return rows;
-  }, [sortBy, transactionsQuery.data]);
-  const bulkCategories = useMemo(
-    () => (bulkCategoriesQuery.data ?? []).filter(
-      (category: any) => category.type === bulkSelectionType,
-    ),
-    [bulkCategoriesQuery.data, bulkSelectionType],
-  );
-  const bulkCategoryOptions = useMemo(
-    () => bulkCategories.map((category: any) => ({
-      key: category.id,
-      label: category.name,
-      iconName:
-        (category.icon as keyof typeof Ionicons.glyphMap | null) ??
-        "pricetag-outline",
-    })),
-    [bulkCategories],
-  );
+  }, [filtersType, sortBy, transactionsQuery.data]);
   const memberLabelMap = new Map(
     acceptedMembers.map((member) => [
       member.userId,
@@ -641,9 +445,134 @@ export default function TransactionsScreen() {
       : createdByFilter === currentUserId || createdByFilter === ""
         ? currentUserLabel
         : (memberLabelMap.get(createdByFilter) ?? t("settings.unnamedUser"));
-  const selectedFilterCategoryLabel =
-    filterCategoryOptions.find((item) => item.key === categoryFilter)?.label ??
-    t("transactions.allCategories");
+
+  // Every non-default filter gets a removable chip so it stays visible even
+  // once the filter panel is collapsed, plus a single "Clear all" action --
+  // otherwise a forgotten narrow filter (e.g. a stale date range) silently
+  // hides transactions with no visible explanation.
+  const activeFilterChips = useMemo(() => {
+    const chips: { key: string; label: string; onClear: () => void }[] = [];
+    if (filtersType !== "movements") {
+      chips.push({
+        key: "filtersType",
+        label: t(`transactions.filters.${filtersType}`),
+        onClear: () => setFiltersType("movements"),
+      });
+    }
+    if (accountFilter !== "all") {
+      const account = (accounts as any[]).find(
+        (entry) => entry.id === accountFilter,
+      );
+      chips.push({
+        key: "account",
+        label: `${t("transactions.account")}: ${account?.name ?? accountFilter}`,
+        onClear: () => setAccountFilter("all"),
+      });
+    }
+    if (filtersType === "transfer" && sourceAccountFilter !== "all") {
+      const account = (accounts as any[]).find(
+        (entry) => entry.id === sourceAccountFilter,
+      );
+      chips.push({
+        key: "sourceAccount",
+        label: `${t("transactions.sourceAccount")}: ${account?.name ?? sourceAccountFilter}`,
+        onClear: () => setSourceAccountFilter("all"),
+      });
+    }
+    if (filtersType === "transfer" && destinationAccountFilter !== "all") {
+      const account = (accounts as any[]).find(
+        (entry) => entry.id === destinationAccountFilter,
+      );
+      chips.push({
+        key: "destinationAccount",
+        label: `${t("transactions.destinationAccount")}: ${account?.name ?? destinationAccountFilter}`,
+        onClear: () => setDestinationAccountFilter("all"),
+      });
+    }
+    if (categoryFilter !== "all") {
+      const category = (filterCategories as any[]).find(
+        (entry) => entry.id === categoryFilter,
+      );
+      chips.push({
+        key: "category",
+        label: `${t("transactions.categoryFilter")}: ${category?.name ?? t("transactions.uncategorized")}`,
+        onClear: () => setCategoryFilter("all"),
+      });
+    }
+    if (createdByFilter !== "all") {
+      chips.push({
+        key: "createdBy",
+        label: `${t("transactions.createdBy")}: ${selectedCreatorLabel}`,
+        onClear: () => setCreatedByFilter("all"),
+      });
+    }
+    if (dateFrom) {
+      chips.push({
+        key: "dateFrom",
+        label: `${t("transactions.dateFrom")}: ${dateFrom}`,
+        onClear: () => setDateFrom(""),
+      });
+    }
+    if (dateTo) {
+      chips.push({
+        key: "dateTo",
+        label: `${t("transactions.dateTo")}: ${dateTo}`,
+        onClear: () => setDateTo(""),
+      });
+    }
+    if (searchFilter.trim()) {
+      chips.push({
+        key: "search",
+        label: `${t("transactions.searchLabel")}: ${searchFilter.trim()}`,
+        onClear: () => setSearchFilter(""),
+      });
+    }
+    if (minAmountFilter.trim()) {
+      chips.push({
+        key: "minAmount",
+        label: `${t("transactions.minAmountLabel")}: ${minAmountFilter.trim()}`,
+        onClear: () => setMinAmountFilter(""),
+      });
+    }
+    if (maxAmountFilter.trim()) {
+      chips.push({
+        key: "maxAmount",
+        label: `${t("transactions.maxAmountLabel")}: ${maxAmountFilter.trim()}`,
+        onClear: () => setMaxAmountFilter(""),
+      });
+    }
+    return chips;
+  }, [
+    filtersType,
+    accountFilter,
+    sourceAccountFilter,
+    destinationAccountFilter,
+    categoryFilter,
+    createdByFilter,
+    dateFrom,
+    dateTo,
+    searchFilter,
+    minAmountFilter,
+    maxAmountFilter,
+    accounts,
+    filterCategories,
+    selectedCreatorLabel,
+    t,
+  ]);
+
+  function clearAllFilters() {
+    setFiltersType("movements");
+    setAccountFilter("all");
+    setSourceAccountFilter("all");
+    setDestinationAccountFilter("all");
+    setCategoryFilter("all");
+    setCreatedByFilter("all");
+    setDateFrom("");
+    setDateTo("");
+    setSearchFilter("");
+    setMinAmountFilter("");
+    setMaxAmountFilter("");
+  }
   const effectiveCreatedById = createdById || currentUserId;
   const categorySuggestion = useTransactionCategorySuggestion({
     title,
@@ -675,15 +604,51 @@ export default function TransactionsScreen() {
       (Boolean(transferDestination?.id) &&
         transferDestination?.id !== effectiveAccountId));
 
+  // The "Add movement" modal is a short step-by-step wizard rather than one
+  // long scrolling form. Which steps exist depends on what kind of movement
+  // is being created: a recurring transfer hands off entirely to its own
+  // form (it already has its own save button and validation) with no
+  // further steps, a one-off transfer skips the category/attachment step
+  // since neither applies to transfers, and a plain transaction gets the
+  // full set.
+  const wizardSteps = useMemo<WizardStepKey[]>(() => {
+    if (createMovementKind === "recurring-transfer") return ["type"];
+    if (createMovementKind === "transfer") return ["type", "accounts"];
+    return ["type", "accounts", "extras"];
+  }, [createMovementKind]);
+  const currentWizardStep = Math.min(wizardStep, wizardSteps.length - 1);
+  const currentWizardStepKey = wizardSteps[currentWizardStep];
+  const isLastWizardStep = currentWizardStep === wizardSteps.length - 1;
+  const canProceedFromDetailsStep =
+    title.trim().length > 0 &&
+    Number.isFinite(parsedAmount) &&
+    parsedAmount > 0 &&
+    /^\d{4}-\d{2}-\d{2}$/.test(date);
+  const canProceedFromAccountsStep =
+    Boolean(effectiveAccountId) &&
+    (createMovementKind !== "transfer" ||
+      (Boolean(transferDestination?.id) &&
+        transferDestination?.id !== effectiveAccountId));
+  const canProceedFromCurrentStep =
+    currentWizardStepKey === "type"
+      ? createMovementKind === "recurring-transfer" || canProceedFromDetailsStep
+      : currentWizardStepKey === "accounts"
+        ? canProceedFromAccountsStep
+        : true;
+
+  function goToWizardStep(nextStep: number) {
+    setWizardStep(Math.max(0, Math.min(nextStep, wizardSteps.length - 1)));
+  }
+
   const getTransactionAccount = (item: any) => {
     const account =
       item.movement_kind === "transfer"
-        ? item.source_account ??
+        ? (item.source_account ??
           (accounts as any[]).find(
             (entry) => entry.id === item.source_account_id,
-          )
-        : (accounts as any[]).find((entry) => entry.id === item.account_id) ??
-          item.account;
+          ))
+        : ((accounts as any[]).find((entry) => entry.id === item.account_id) ??
+          item.account);
     return account ?? null;
   };
   const getTransactionAccountLabel = (item: any) =>
@@ -744,7 +709,9 @@ export default function TransactionsScreen() {
   function openBulkSelection() {
     setBulkSelectionOpen(true);
     setBulkSelectionType(
-      filtersType === "income" || filtersType === "expense" ? filtersType : null,
+      filtersType === "income" || filtersType === "expense"
+        ? filtersType
+        : null,
     );
     setSelectedTransactionIds(new Set());
     setBulkCategoryId("");
@@ -774,14 +741,17 @@ export default function TransactionsScreen() {
 
   function selectLoadedBulkTransactions() {
     if (!bulkSelectionType) return;
-    setSelectedTransactionIds(new Set(
-      transactions
-        .filter(
-          (item: any) =>
-            item.movement_kind !== "transfer" && item.type === bulkSelectionType,
-        )
-        .map((item: any) => item.id),
-    ));
+    setSelectedTransactionIds(
+      new Set(
+        transactions
+          .filter(
+            (item: any) =>
+              item.movement_kind !== "transfer" &&
+              item.type === bulkSelectionType,
+          )
+          .map((item: any) => item.id),
+      ),
+    );
   }
 
   async function applyBulkCategory(categoryId: string | null) {
@@ -794,13 +764,17 @@ export default function TransactionsScreen() {
         categoryId,
       });
       closeBulkSelection();
-      show(t("transactions.bulk.success", {
-        count: updatedCount ?? selectedCount,
-      }));
+      show(
+        t("transactions.bulk.success", {
+          count: updatedCount ?? selectedCount,
+        }),
+      );
     } catch (error) {
-      show(t("transactions.bulk.error", {
-        detail: error instanceof Error ? error.message : t("unknownError"),
-      }));
+      show(
+        t("transactions.bulk.error", {
+          detail: error instanceof Error ? error.message : t("unknownError"),
+        }),
+      );
     }
   }
 
@@ -847,7 +821,13 @@ export default function TransactionsScreen() {
     applyCreateFormReset(getFreshTransactionCreateReset());
     setCreateMovementKind("transaction");
     setTransferDestination(null);
+    setWizardStep(0);
     setCreateModalOpen(true);
+  }
+
+  function closeCreateModal() {
+    setCreateModalOpen(false);
+    setWizardStep(0);
   }
 
   async function handleCreate(keepOpen = false) {
@@ -899,12 +879,13 @@ export default function TransactionsScreen() {
         }),
       );
       setTransferDestination(null);
+      setWizardStep(0);
       return;
     }
 
     applyCreateFormReset(getFreshTransactionCreateReset());
     setTransferDestination(null);
-    setCreateModalOpen(false);
+    closeCreateModal();
   }
 
   function closeEditTransaction() {
@@ -980,7 +961,8 @@ export default function TransactionsScreen() {
       !Number.isFinite(nextAmount) ||
       nextAmount <= 0 ||
       !/^\d{4}-\d{2}-\d{2}$/.test(transferEdit.date)
-    ) return;
+    )
+      return;
 
     await updateCompletedTransfer.mutateAsync({
       transferGroupId: transferEdit.transferGroupId,
@@ -1035,1106 +1017,1474 @@ export default function TransactionsScreen() {
         />
       </View>
 
-      {activeView === "activity" ? <>
-      <Card>
-        <Section
-          title={t("transactions.filtersTitle")}
-          subtitle={
-            filtersOpen
-              ? t("transactions.filtersSubtitle")
-              : t("transactions.filtersCollapsed")
-          }
-          action={
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setFiltersOpen((current) => !current)}
-              style={[
-                styles.filterToggle,
-                {
-                  borderColor: colors.border,
-                  backgroundColor: colors.surfaceMuted,
-                },
-              ]}
-            >
-              <Ionicons
-                name={
-                  filtersOpen ? "chevron-up-outline" : "chevron-down-outline"
-                }
-                size={18}
-                color={colors.text}
-              />
-              <Text style={[styles.filterToggleLabel, { color: colors.text }]}>
-                {filtersOpen
-                  ? t("transactions.hideFilters")
-                  : t("transactions.showFilters")}
-              </Text>
-            </Pressable>
-          }
-        >
-          {filtersOpen ? (
-            <View style={styles.filtersGrid}>
-              <View
-                style={[
-                  styles.filterGridItem,
-                  styles.filterChoiceGroup,
-                  {
-                    flexBasis: filterItemWidth,
-                    maxWidth: filterItemWidth,
-                    borderColor: colors.border,
-                    backgroundColor: colors.surfaceMuted,
-                  },
-                ]}
-              >
-                <View style={styles.filterGroupLabel}>
-                  <Ionicons
-                    name="funnel-outline"
-                    size={16}
-                    color={colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.filterGroupLabelText,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {t("transactions.filterType")}
-                  </Text>
-                </View>
-                <View style={styles.filterPills}>
-                  {(["all", "income", "expense", "transfer"] as const).map((item) => (
-                    <Pill
-                      key={item}
-                      label={t(`transactions.filters.${item}`)}
-                      active={filtersType === item}
-                      onPress={() => {
-                        setFiltersType(item);
-                        setCategoryFilter("all");
-                        if (item !== "transfer") {
-                          setSourceAccountFilter("all");
-                          setDestinationAccountFilter("all");
-                        }
-                      }}
-                    />
-                  ))}
-                </View>
-              </View>
-              {filtersType === "transfer" ? (
-                <>
-                  <View style={[styles.filterGridItem, { flexBasis: filterItemWidth, maxWidth: filterItemWidth }]}>
-                    <GroupedAccountSelect
-                      label={t("transactions.sourceAccount")}
-                      accounts={accounts as any}
-                      members={acceptedMembers as any}
-                      value={sourceAccountFilter}
-                      placeholder={t("transactions.allSourceAccounts")}
-                      hint={t("transactions.sourceAccountHint")}
-                      onChange={setSourceAccountFilter}
-                      closeLabel={t("close", { defaultValue: "Close" })}
-                      sharedLabel={t("dashboard.shared")}
-                      unassignedLabel={t("settings.unnamedUser")}
-                      allOption={{ value: "all", label: t("transactions.allSourceAccounts") }}
-                      typeLabels={{ bank: t("accounts.types.bank"), cash: t("accounts.types.cash"), savings: t("accounts.types.savings"), credit_card: t("accounts.types.credit_card"), investment: t("accounts.types.investment"), ppr: t("accounts.types.ppr") }}
-                    />
-                  </View>
-                  <View style={[styles.filterGridItem, { flexBasis: filterItemWidth, maxWidth: filterItemWidth }]}>
-                    <GroupedAccountSelect
-                      label={t("transactions.destinationAccount")}
-                      accounts={accounts as any}
-                      members={acceptedMembers as any}
-                      value={destinationAccountFilter}
-                      placeholder={t("transactions.allDestinationAccounts")}
-                      hint={t("transactions.destinationAccountHint")}
-                      onChange={setDestinationAccountFilter}
-                      closeLabel={t("close", { defaultValue: "Close" })}
-                      sharedLabel={t("dashboard.shared")}
-                      unassignedLabel={t("settings.unnamedUser")}
-                      allOption={{ value: "all", label: t("transactions.allDestinationAccounts") }}
-                      typeLabels={{ bank: t("accounts.types.bank"), cash: t("accounts.types.cash"), savings: t("accounts.types.savings"), credit_card: t("accounts.types.credit_card"), investment: t("accounts.types.investment"), ppr: t("accounts.types.ppr") }}
-                    />
-                  </View>
-                </>
-              ) : null}
-              <View
-                style={[
-                  styles.filterGridItem,
-                  styles.filterChoiceGroup,
-                  {
-                    flexBasis: filterItemWidth,
-                    maxWidth: filterItemWidth,
-                    borderColor: colors.border,
-                    backgroundColor: colors.surfaceMuted,
-                  },
-                ]}
-              >
-                <View style={styles.filterGroupLabel}>
-                  <Ionicons
-                    name="swap-vertical-outline"
-                    size={16}
-                    color={colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.filterGroupLabelText,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {t("transactions.sortBy")}
-                  </Text>
-                </View>
-                <View style={styles.filterPills}>
-                  {(
-                    ["newest", "oldest", "amount_desc", "amount_asc"] as const
-                  ).map((item) => (
-                    <Pill
-                      key={item}
-                      label={t(`transactions.sorts.${item}`)}
-                      active={sortBy === item}
-                      onPress={() => setSortBy(item)}
-                    />
-                  ))}
-                </View>
-              </View>
-              <View
-                style={[
-                  styles.filterGridItem,
-                  {
-                    flexBasis: filterItemWidth,
-                    maxWidth: filterItemWidth,
-                  },
-                ]}
-              >
-                <GroupedAccountSelect
-                  label={t("transactions.account")}
-                  accounts={accounts as any}
-                  members={acceptedMembers as any}
-                  value={accountFilter}
-                  placeholder={t("transactions.allAccounts")}
-                  hint={t("transactions.selectAccountHint", {
-                    defaultValue: t("transactions.account"),
-                  })}
-                  onChange={setAccountFilter}
-                  closeLabel={t("close", { defaultValue: "Close" })}
-                  sharedLabel={t("dashboard.shared")}
-                  unassignedLabel={t("settings.unnamedUser")}
-                  allOption={{
-                    value: "all",
-                    label: t("transactions.allAccounts"),
-                  }}
-                  typeLabels={{
-                    bank: t("accounts.types.bank"),
-                    cash: t("accounts.types.cash"),
-                    savings: t("accounts.types.savings"),
-                    credit_card: t("accounts.types.credit_card"),
-                    investment: t("accounts.types.investment"),
-                    ppr: t("accounts.types.ppr"),
-                  }}
-                />
-              </View>
-              <View
-                style={[
-                  styles.filterGridItem,
-                  {
-                    flexBasis: filterItemWidth,
-                    maxWidth: filterItemWidth,
-                  },
-                ]}
-              >
-                <DropdownField
-                  label={t("transactions.categoryFilter")}
-                  valueLabel={selectedFilterCategoryLabel}
-                  placeholder={t("transactions.allCategories")}
-                  hint={t("transactions.categoryFilterHint")}
-                  selectedKey={categoryFilter}
-                  onChange={(value) => setCategoryFilter(value || "all")}
-                  options={filterCategoryOptions}
-                />
-              </View>
-              <View
-                style={[
-                  styles.filterGridItem,
-                  {
-                    flexBasis: filterItemWidth,
-                    maxWidth: filterItemWidth,
-                  },
-                ]}
-              >
-                <DropdownField
-                  label={t("transactions.createdBy")}
-                  valueLabel={selectedCreatorLabel}
-                  placeholder={t("transactions.createdBy")}
-                  hint={t("transactions.createdBy")}
-                  selectedKey={createdByFilter}
-                  onChange={setCreatedByFilter}
-                  options={[
-                    { key: "all", label: t("all", { defaultValue: "All" }) },
-                    {
-                      key: currentUserId,
-                      label: currentUserLabel,
-                      subtitle: t("settings.you"),
-                    },
-                    ...accountMemberOptions
-                      .filter((item) => item.id !== currentUserId)
-                      .map((item) => ({ key: item.id, label: item.label })),
-                  ]}
-                />
-              </View>
-              <View
-                style={[
-                  styles.filterGridItem,
-                  {
-                    flexBasis: filterItemWidth,
-                    maxWidth: filterItemWidth,
-                  },
-                ]}
-              >
-                <DateFilterField
-                  label={t("transactions.dateFrom")}
-                  value={dateFrom}
-                  onChange={setDateFrom}
-                  placeholder={t("transactions.dateFromPlaceholder")}
-                />
-              </View>
-              <View
-                style={[
-                  styles.filterGridItem,
-                  {
-                    flexBasis: filterItemWidth,
-                    maxWidth: filterItemWidth,
-                  },
-                ]}
-              >
-                <DateFilterField
-                  label={t("transactions.dateTo")}
-                  value={dateTo}
-                  onChange={setDateTo}
-                  placeholder={t("transactions.dateToPlaceholder")}
-                />
-              </View>
-            </View>
-          ) : null}
-        </Section>
-      </Card>
-
-      <Modal
-        visible={createModalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCreateModalOpen(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setCreateModalOpen(false)}
-            accessibilityRole="button"
-            accessibilityLabel={t("cancel")}
-          />
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-            style={styles.modalKeyboardView}
-          >
-            <View
-              style={styles.createModalCard}
-              accessibilityViewIsModal
-              accessibilityLabel={t("transactions.createTitle")}
-            >
-              <View
-                style={[
-                  styles.createModalHeader,
-                  { borderColor: colors.border },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.modalIcon,
-                    { backgroundColor: colors.primarySoft },
-                  ]}
-                >
-                  <Ionicons name="add" size={24} color={colors.primary} />
-                </View>
-                <View style={styles.modalHeading}>
-                  <Text style={styles.modalTitle}>
-                    {t("transactions.createTitle")}
-                  </Text>
-                  <Text style={styles.modalSubtitle}>
-                    {t("transactions.createSubtitle")}
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={() => setCreateModalOpen(false)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("close", { defaultValue: "Close" })}
-                  style={({ pressed }) => [
-                    styles.modalClose,
-                    {
-                      backgroundColor: colors.surfaceMuted,
-                      borderColor: colors.border,
-                    },
-                    pressed && styles.modalPressed,
-                  ]}
-                >
-                  <Ionicons
-                    name="close"
-                    size={20}
-                    color={colors.textSecondary}
-                  />
-                </Pressable>
-              </View>
-              <ScrollView
-                style={styles.createModalScroll}
-                contentContainerStyle={styles.createModalBody}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-              >
-                <View style={styles.typeSelector}>
-                  <Ionicons
-                    name="swap-horizontal-outline"
-                    size={16}
-                    color={colors.textSecondary}
-                  />
-                  {(["income", "expense", "transfer", "recurring-transfer"] as const).map((item) => (
-                    <Pill
-                      key={item}
-                      label={t(
-                        item === "recurring-transfer"
-                          ? "transfers.types.recurringTransfer"
-                          : item === "transfer"
-                          ? "transactions.movementKinds.transfer"
-                          : `transactions.types.${item}`,
-                      )}
-                      active={
-                        item === "recurring-transfer"
-                          ? createMovementKind === "recurring-transfer"
-                          : item === "transfer"
-                          ? createMovementKind === "transfer"
-                          : createMovementKind === "transaction" && type === item
-                      }
-                      onPress={() => {
-                        const isTransfer = item === "transfer";
-                        const isRecurringTransfer = item === "recurring-transfer";
-                        setCreateMovementKind(
-                          isRecurringTransfer
-                            ? "recurring-transfer"
-                            : isTransfer
-                              ? "transfer"
-                              : "transaction",
-                        );
-                        if (item === "income" || item === "expense") setType(item);
-                        setCategoryId(null);
-                        setCategoryIsAutomatic(!isTransfer && !isRecurringTransfer);
-                        if (isTransfer || isRecurringTransfer) setAttachment(null);
-                        else setTransferDestination(null);
-                      }}
-                    />
-                  ))}
-                </View>
-                {createMovementKind === "recurring-transfer" ? (
-                  <RecurringTransferCreateForm
-                    onCreated={() => {
-                      setCreateModalOpen(false);
-                      setActiveView("scheduled");
-                    }}
-                  />
-                ) : <>
-                <View>
-                  <Field
-                    label={t("transactions.titleLabel")}
-                    value={title}
-                    onChangeText={(value) => {
-                      setTitle(value);
-                      setActiveTitleSuggestion(0);
-                    }}
-                    onFocus={() => setTitleSuggestionsFocused(true)}
-                    onBlur={() =>
-                      setTimeout(() => setTitleSuggestionsFocused(false), 120)
-                    }
-                    onKeyPress={({ nativeEvent }) => {
-                      if (!visibleTitleSuggestions.length) return;
-                      if (nativeEvent.key === "ArrowDown") {
-                        setActiveTitleSuggestion(
-                          (current) =>
-                            (current + 1) % visibleTitleSuggestions.length,
-                        );
-                      } else if (nativeEvent.key === "ArrowUp") {
-                        setActiveTitleSuggestion(
-                          (current) =>
-                            (current - 1 + visibleTitleSuggestions.length) %
-                            visibleTitleSuggestions.length,
-                        );
-                      } else if (nativeEvent.key === "Enter") {
-                        setTitle(
-                          visibleTitleSuggestions[activeTitleSuggestion]
-                            ?.title ?? title,
-                        );
-                        setTitleSuggestionsFocused(false);
-                      } else if (nativeEvent.key === "Escape") {
-                        setTitleSuggestionsFocused(false);
-                      }
-                    }}
-                    placeholder={t("transactions.titlePlaceholder")}
-                    autoFocus={Platform.OS === "web"}
-                    returnKeyType="next"
-                    accessibilityHint={t("transactions.titleSuggestionHint")}
-                  />
-                  {titleSuggestionsFocused &&
-                  visibleTitleSuggestions.length > 0 ? (
-                    <View
-                      style={styles.titleSuggestionBox}
-                      accessibilityRole="menu"
-                      accessibilityLabel={t("transactions.titleSuggestions")}
-                    >
-                      {visibleTitleSuggestions.map((suggestion, index) => {
-                        const accountName = accounts.find(
-                          (item: any) => item.id === suggestion.accountId,
-                        )?.name;
-                        const context = [
-                          suggestion.categoryName,
-                          accountName,
-                          t("transactions.titleSuggestionUses", {
-                            count: suggestion.usageCount,
-                          }),
-                        ]
-                          .filter(Boolean)
-                          .join(" · ");
-                        return (
-                          <Pressable
-                            key={`${suggestion.title}-${suggestion.accountId}`}
-                            accessibilityRole="menuitem"
-                            accessibilityLabel={`${suggestion.title}, ${context}`}
-                            onPress={() => {
-                              setTitle(suggestion.title);
-                              setTitleSuggestionsFocused(false);
-                            }}
-                            style={({ pressed }) => [
-                              styles.titleSuggestionRow,
-                              index === activeTitleSuggestion &&
-                                styles.titleSuggestionRowActive,
-                              pressed && styles.modalPressed,
-                            ]}
-                          >
-                            <Text style={styles.titleSuggestionTitle}>
-                              {suggestion.title}
-                            </Text>
-                            <Text style={styles.titleSuggestionContext}>
-                              {context}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  ) : null}
-                </View>
-                <View
-                  style={[
-                    styles.formGrid,
-                    responsive.isPhone && styles.formGridCompact,
-                  ]}
-                >
-                  <View style={styles.formGridItem}>
-                    <Field
-                      label={t("transactions.amountLabel")}
-                      value={amount}
-                      onChangeText={setAmount}
-                      placeholder="0.00"
-                      keyboardType="decimal-pad"
-                    />
-                  </View>
-                  <View style={styles.formGridItem}>
-                    <DatePickerField
-                      label={t("transactions.dateLabel")}
-                      value={date}
-                      onChange={setDate}
-                      placeholder={t("transactions.datePlaceholder", {
-                        defaultValue: "DD-MM-YYYY",
-                      })}
-                    />
-                  </View>
-                </View>
-                <Field
-                  label={t("transactions.notesLabel")}
-                  value={notes}
-                  onChangeText={setNotes}
-                  placeholder={t("transactions.notesPlaceholder")}
-                />
-                <DropdownField
-                  label={t("transactions.createdBy")}
-                  valueLabel={selectedCreateCreatorLabel}
-                  placeholder={t("transactions.createdByPlaceholder")}
-                  hint={t("transactions.createdByPlaceholder")}
-                  selectedKey={effectiveCreatedById}
-                  onChange={setCreatedById}
-                  options={[
-                    {
-                      key: currentUserId,
-                      label: currentUserLabel,
-                      subtitle: t("settings.you"),
-                    },
-                    ...accountMemberOptions
-                      .filter((member) => member.id !== currentUserId)
-                      .map((member) => ({
-                        key: member.id,
-                        label: member.label,
-                      })),
-                  ]}
-                />
-                <GroupedAccountSelect
-                  label={
-                    createMovementKind === "transfer"
-                      ? t("transactions.sourceAccount")
-                      : t("transactions.account")
-                  }
-                  accounts={accounts as any}
-                  members={
-                    (membersQuery.data ?? []).filter(
-                      (member) => member.status === "accepted",
-                    ) as any
-                  }
-                  value={effectiveAccountId}
-                  placeholder={t("transactions.selectAccount")}
-                  hint={t("transactions.selectAccountHint", {
-                    defaultValue: t("transactions.account"),
-                  })}
-                  onChange={setAccountId}
-                  closeLabel={t("close", { defaultValue: "Close" })}
-                  sharedLabel={t("dashboard.shared")}
-                  unassignedLabel={t("settings.unnamedUser")}
-                  typeLabels={{
-                    bank: t("accounts.types.bank"),
-                    cash: t("accounts.types.cash"),
-                    savings: t("accounts.types.savings"),
-                    credit_card: t("accounts.types.credit_card"),
-                    investment: t("accounts.types.investment"),
-                    ppr: t("accounts.types.ppr"),
-                  }}
-                />
-                {createMovementKind === "transfer" ? (
-                  <GroupedDestinationSelect
-                    label={t("transactions.destinationAccount")}
-                    accounts={accounts as any}
-                    members={
-                      (membersQuery.data ?? []).filter(
-                        (member) => member.status === "accepted",
-                      ) as any
-                    }
-                    value={transferDestination}
-                    placeholder={t("transactions.destinationAccount")}
-                    hint={t("transactions.destinationAccount")}
-                    onChange={setTransferDestination}
-                    allowedAccountIds={accounts
-                      .filter((account: any) => account.id !== effectiveAccountId)
-                      .map((account: any) => account.id)}
-                    closeLabel={t("close", { defaultValue: "Close" })}
-                    sharedLabel={t("dashboard.shared")}
-                    unassignedLabel={t("settings.unnamedUser")}
-                    typeLabels={{
-                      bank: t("accounts.types.bank"),
-                      cash: t("accounts.types.cash"),
-                      savings: t("accounts.types.savings"),
-                      credit_card: t("accounts.types.credit_card"),
-                      investment: t("accounts.types.investment"),
-                      ppr: t("accounts.types.ppr"),
-                    }}
-                  />
-                ) : null}
-                {createMovementKind === "transaction" ? <DropdownField
-                  label={t("transactions.categories")}
-                  valueLabel={
-                    effectiveCategoryId
-                      ? (categories?.find(
-                          (item: any) => item.id === effectiveCategoryId,
-                        )?.name ??
-                        categorySuggestion.data?.categoryName ??
-                        t("transactions.uncategorized"))
-                      : t("none")
-                  }
-                  placeholder={t("transactions.categories")}
-                  hint={t("transactions.categories")}
-                  selectedKey={effectiveCategoryId ?? ""}
-                  onChange={(value) => {
-                    setCategoryId(value || null);
-                    setCategoryIsAutomatic(false);
-                  }}
-                  options={categoryOptions}
-                /> : null}
-                {createMovementKind === "transaction" ? <View
-                  style={styles.categorySuggestionStatus}
-                  accessibilityLiveRegion="polite"
-                >
-                  {categoryIsAutomatic && categorySuggestion.isFetching ? (
-                    <Text style={styles.categorySuggestionText}>
-                      {t("transactions.categorySuggestionLoading")}
-                    </Text>
-                  ) : categoryIsAutomatic && categorySuggestion.isError ? (
-                    <Text style={styles.categorySuggestionText}>
-                      {t("transactions.categorySuggestionUnavailable")}
-                    </Text>
-                  ) : categoryIsAutomatic &&
-                    categorySuggestion.data?.confidence === "high" ? (
-                    <Text style={styles.categorySuggestionText}>
-                      {t("transactions.categorySuggestionHigh", {
-                        count: categorySuggestion.data.matchCount,
-                      })}
-                    </Text>
-                  ) : categoryIsAutomatic &&
-                    categorySuggestion.data?.confidence === "medium" ? (
-                    <Text style={styles.categorySuggestionText}>
-                      {t("transactions.categorySuggestionMedium", {
-                        category: categorySuggestion.data.categoryName,
-                        count: categorySuggestion.data.matchCount,
-                      })}
-                    </Text>
-                  ) : null}
-                </View> : null}
-                {createMovementKind === "transaction" ? <View style={{ gap: spacing(2) } as any}>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: spacing(2),
-                    }}
-                  >
-                    <Ionicons
-                      name="attach-outline"
-                      size={16}
-                      color={colors.textSecondary}
-                    />
-                    <Text
-                      style={
-                        {
-                          color: colors.textSecondary,
-                          fontWeight: typography.fontWeight.semibold as any,
-                        } as any
-                      }
-                    >
-                      {t("transactions.attachInvoice")}
-                    </Text>
-                  </View>
-                  <Button
-                    label={
-                      attachment
-                        ? t("transactions.changeAttachment")
-                        : t("transactions.attachInvoice")
-                    }
-                    onPress={() => void handlePickAttachment()}
-                    variant="secondary"
-                  />
-                  {attachment ? (
-                    <View style={{ gap: spacing(1) }}>
-                      <Text
-                        style={
-                          {
-                            color: colors.text,
-                            fontWeight: typography.fontWeight.semibold as any,
-                          } as any
-                        }
-                      >
-                        {t("transactions.attachmentSelected")}
-                      </Text>
-                      <Text style={{ color: colors.textSecondary } as any}>
-                        {attachment.fileName} ·{" "}
-                        {(attachment.fileSize / 1024).toFixed(1)} KB
-                      </Text>
-                      <AttachmentPreview
-                        uri={attachment.previewUri}
-                        mimeType={attachment.mimeType}
-                        fileName={attachment.fileName}
-                        previewLabel={t("transactions.attachmentPreview")}
-                        openLabel={t("transactions.openAttachment")}
-                      />
-                      <Button
-                        label={t("transactions.removeAttachment")}
-                        onPress={() => setAttachment(null)}
-                        variant="secondary"
-                      />
-                    </View>
-                  ) : null}
-                </View> : null}
-                </>}
-              </ScrollView>
-              {createMovementKind !== "recurring-transfer" ? <View
-                style={[
-                  styles.createModalFooter,
-                  { borderColor: colors.border },
-                ]}
-              >
-                <Button
-                  label={t("cancel")}
-                  variant="secondary"
-                  onPress={() => setCreateModalOpen(false)}
-                />
-                <View style={styles.createModalPrimaryActions}>
-                  <Button
-                    label={
-                      createTransaction.isPending || createTransfer.isPending
-                        ? t("saving")
-                        : t("transactions.createAndNew")
-                    }
-                    variant="secondary"
-                    onPress={() => void handleCreate(true)}
-                    disabled={!canCreateMovement}
-                  />
-                  <Button
-                    label={
-                      createTransaction.isPending || createTransfer.isPending
-                        ? t("saving")
-                        : createMovementKind === "transfer"
-                          ? t("transactions.createTransfer")
-                          : t("transactions.create")
-                    }
-                    onPress={() => void handleCreate()}
-                    disabled={!canCreateMovement}
-                  />
-                </View>
-              </View> : null}
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
-
-      <Section
-        title={t("transactions.latestTitle")}
-        subtitle={t("transactions.latestSubtitle", {
-          count: transactions.length,
-        })}
-        action={
-          <View style={styles.sectionActions}>
-            <Button
-              label={
-                bulkSelectionOpen
-                  ? t("transactions.bulk.cancelSelection")
-                  : t("transactions.bulk.selectTransactions")
+      {activeView === "activity" ? (
+        <>
+          <Card>
+            <Section
+              title={t("transactions.filtersTitle")}
+              subtitle={
+                filtersOpen
+                  ? t("transactions.filtersSubtitle")
+                  : t("transactions.filtersCollapsed")
               }
-              variant="secondary"
-              onPress={bulkSelectionOpen ? closeBulkSelection : openBulkSelection}
-            />
-            <Button
-              label={t("transactions.addTransaction")}
-              onPress={openCreateTransaction}
-            />
-          </View>
-        }
-      >
-        {transactions.length ? (
-          <>
-            {bulkSelectionOpen ? (
-              <View style={styles.bulkActionBar}>
-                <View style={styles.bulkActionSummary}>
-                  <Text style={styles.bulkActionTitle}>
-                    {t("transactions.bulk.selected", {
-                      count: selectedTransactionIds.size,
-                    })}
-                  </Text>
-                  <Text style={styles.bulkActionHint}>
-                    {bulkSelectionType
-                      ? t("transactions.bulk.sameTypeHint", {
-                          type: t(`transactions.types.${bulkSelectionType}`),
-                        })
-                      : t("transactions.bulk.chooseTypeHint")}
-                  </Text>
-                </View>
-                <Button
-                  label={t("transactions.bulk.selectLoaded")}
-                  variant="secondary"
-                  disabled={!bulkSelectionType}
-                  onPress={selectLoadedBulkTransactions}
-                />
-                <View style={styles.bulkCategoryField}>
-                  <DropdownField
-                    label={t("transactions.bulk.category")}
-                    valueLabel={
-                      bulkCategories.find(
-                        (category: any) => category.id === bulkCategoryId,
-                      )?.name ?? t("transactions.bulk.chooseCategory")
+              action={
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setFiltersOpen((current) => !current)}
+                  style={[
+                    styles.filterToggle,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.surfaceMuted,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={
+                      filtersOpen
+                        ? "chevron-up-outline"
+                        : "chevron-down-outline"
                     }
-                    placeholder={t("transactions.bulk.chooseCategory")}
-                    hint={t("transactions.bulk.categoryHint")}
-                    selectedKey={bulkCategoryId}
-                    options={bulkCategoryOptions}
-                    onChange={setBulkCategoryId}
+                    size={18}
+                    color={colors.text}
                   />
-                </View>
-                <Button
-                  label={
-                    bulkUpdateCategories.isPending
-                      ? t("saving")
-                      : t("transactions.bulk.applyCategory")
-                  }
-                  disabled={
-                    selectedTransactionIds.size === 0 ||
-                    !bulkCategoryId ||
-                    bulkUpdateCategories.isPending
-                  }
-                  onPress={() => void applyBulkCategory(bulkCategoryId)}
-                />
-                <Button
-                  label={t("transactions.bulk.clearCategory")}
-                  variant="secondary"
-                  disabled={
-                    selectedTransactionIds.size === 0 ||
-                    bulkUpdateCategories.isPending
-                  }
-                  onPress={() => void applyBulkCategory(null)}
-                />
-              </View>
-            ) : null}
-            <Table
-              columns={[
-                { label: t("transactions.titleLabel"), flex: 2.2 },
-                { label: t("transactions.account"), flex: 1.3 },
-                { label: t("transactions.accountOwner"), flex: 1.15 },
-                { label: t("transactions.createdBy"), flex: 1.15 },
-                { label: t("transactions.amountLabel"), align: "right" },
-                { label: t("transactions.balanceAfter"), align: "right" },
-                { label: "", flex: 0.35, align: "right" },
-              ]}
-            >
-              {transactions.map((item: any) => {
-                const ownerTone = getTransactionAccountOwnerTone(item);
-                const rowTone =
-                  item.movement_kind === "transfer"
-                    ? {
-                        surface: colors.transferRow,
-                        accent: colors.financialNeutral,
-                      }
-                    : ownerTone;
-
-                return (
-                  <TableRow
-                    key={item.id}
-                    backgroundColor={rowTone.surface}
-                    accentColor={rowTone.accent}
+                  <Text
+                    style={[styles.filterToggleLabel, { color: colors.text }]}
                   >
-                    <TableCell flex={2.2}>
-                      <View style={styles.transactionIdentity}>
-                        <View
-                          style={[
-                            styles.transactionIcon,
-                            {
-                              backgroundColor:
-                                item.movement_kind === "transfer"
-                                  ? colors.surface
-                                  : item.type === "expense"
-                                  ? colors.destructiveSoft
-                                  : colors.successSoft,
-                            },
-                          ]}
-                        >
-                          <Ionicons
-                            name={
-                              item.movement_kind === "transfer"
-                                ? "swap-horizontal-outline"
-                                : (item.category?.icon ?? "pricetag-outline") as any
-                            }
-                            size={18}
-                            color={
-                              item.movement_kind === "transfer"
-                                ? colors.financialNeutral
-                                : item.type === "expense"
-                                ? colors.destructive
-                                : colors.success
-                            }
-                          />
-                        </View>
-                        <View style={styles.transactionDetails}>
-                          <Text style={styles.transactionTitle}>
-                            {item.title}
-                          </Text>
-                          <Text style={styles.transactionContext}>
-                            {item.movement_kind === "transfer"
-                              ? t("transactions.filters.transfer")
-                              : item.category?.name ??
-                                t("transactions.uncategorized")}{" "}
-                            · {formatDate(item.transaction_date)}
-                          </Text>
-                        </View>
-                      </View>
-                    </TableCell>
-                    <TableCell flex={1.3}>
-                      <Text style={styles.transactionAccount}>
-                        {item.movement_kind === "transfer"
-                          ? `${item.source_account?.name ?? t("transactions.sourceAccount")} → ${item.destination_account?.name ?? t("transactions.destinationAccount")}`
-                          : getTransactionAccountLabel(item)}
+                    {filtersOpen
+                      ? t("transactions.hideFilters")
+                      : t("transactions.showFilters")}
+                  </Text>
+                </Pressable>
+              }
+            >
+              {activeFilterChips.length > 0 ? (
+                <View style={styles.activeFiltersRow}>
+                  {activeFilterChips.map((chip) => (
+                    <Pressable
+                      key={chip.key}
+                      accessibilityRole="button"
+                      onPress={chip.onClear}
+                      style={styles.activeFilterChip}
+                    >
+                      <Text style={styles.activeFilterChipText}>
+                        {chip.label}
                       </Text>
-                    </TableCell>
-                    <TableCell flex={1.15}>
-                      <View style={styles.personIdentity}>
-                        <Ionicons
-                          name="person-outline"
-                          size={15}
-                          color={rowTone.accent}
-                        />
-                        <Text style={styles.transactionAccount}>
-                          {getTransactionAccountOwnerLabel(item)}
-                        </Text>
-                      </View>
-                    </TableCell>
-                    <TableCell flex={1.15}>
-                      <View style={styles.personIdentity}>
-                        <Ionicons
-                          name="create-outline"
-                          size={15}
-                          color={colors.primary}
-                        />
-                        <Text style={styles.transactionCreator}>
-                          {getTransactionCreatorLabel(item)}
-                        </Text>
-                      </View>
-                    </TableCell>
-                    <TableCell align="right">
+                      <Ionicons
+                        name="close-circle"
+                        size={14}
+                        color={colors.textSecondary}
+                      />
+                    </Pressable>
+                  ))}
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={clearAllFilters}
+                    style={styles.clearAllButton}
+                  >
+                    <Text style={styles.clearAllButtonText}>
+                      {t("transactions.clearAllFilters")}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
+              {filtersOpen ? (
+                <View style={styles.filtersGrid}>
+                  <View
+                    style={[
+                      styles.filterGridItem,
+                      styles.filterChoiceGroup,
+                      {
+                        flexBasis: filterItemWidth,
+                        maxWidth: filterItemWidth,
+                        borderColor: colors.border,
+                        backgroundColor: colors.surfaceMuted,
+                      },
+                    ]}
+                  >
+                    <View style={styles.filterGroupLabel}>
+                      <Ionicons
+                        name="funnel-outline"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                       <Text
                         style={[
-                          styles.transactionAmount,
+                          styles.filterGroupLabelText,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {t("transactions.filterType")}
+                      </Text>
+                    </View>
+                    <View style={styles.filterPills}>
+                      {(
+                        [
+                          "movements",
+                          "all",
+                          "income",
+                          "expense",
+                          "transfer",
+                        ] as const
+                      ).map(
+                        (item) => (
+                          <Pill
+                            key={item}
+                            label={t(`transactions.filters.${item}`)}
+                            active={filtersType === item}
+                            onPress={() => {
+                              setFiltersType(item);
+                              setCategoryFilter("all");
+                              if (item !== "transfer") {
+                                setSourceAccountFilter("all");
+                                setDestinationAccountFilter("all");
+                              }
+                            }}
+                          />
+                        ),
+                      )}
+                    </View>
+                  </View>
+                  {filtersType === "transfer" ? (
+                    <>
+                      <View
+                        style={[
+                          styles.filterGridItem,
                           {
-                            color:
-                              item.movement_kind === "transfer"
-                                ? colors.financialNeutral
-                                : item.type === "expense"
-                                ? colors.destructive
-                                : colors.success,
+                            flexBasis: filterItemWidth,
+                            maxWidth: filterItemWidth,
                           },
                         ]}
                       >
-                        {item.movement_kind === "transfer"
-                          ? ""
-                          : item.type === "expense"
-                            ? "-"
-                            : "+"}
-                        {formatCurrency(item.amount)}
-                      </Text>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Text style={styles.transactionBalance}>
-                        {item.movement_kind === "transfer" ||
-                        item.balance_after_transaction == null
-                          ? "—"
-                          : formatCurrency(item.balance_after_transaction)}
-                      </Text>
-                    </TableCell>
-                    <TableCell flex={0.35} align="right" mobilePinned>
-                      {bulkSelectionOpen ? (
-                        <Pressable
-                          accessibilityRole="checkbox"
-                          accessibilityState={{
-                            checked: selectedTransactionIds.has(item.id),
-                            disabled:
-                              item.movement_kind === "transfer" ||
-                              (bulkSelectionType !== null &&
-                                item.type !== bulkSelectionType),
+                        <GroupedAccountSelect
+                          label={t("transactions.sourceAccount")}
+                          accounts={accounts as any}
+                          members={acceptedMembers as any}
+                          value={sourceAccountFilter}
+                          placeholder={t("transactions.allSourceAccounts")}
+                          hint={t("transactions.sourceAccountHint")}
+                          onChange={setSourceAccountFilter}
+                          closeLabel={t("close", { defaultValue: "Close" })}
+                          sharedLabel={t("dashboard.shared")}
+                          unassignedLabel={t("settings.unnamedUser")}
+                          allOption={{
+                            value: "all",
+                            label: t("transactions.allSourceAccounts"),
                           }}
-                          accessibilityLabel={
-                            item.movement_kind === "transfer"
-                              ? t("transactions.bulk.transferUnavailable")
-                              : t("transactions.bulk.selectTransaction", {
-                                  title: item.title,
-                                })
-                          }
-                          disabled={
-                            item.movement_kind === "transfer" ||
-                            (bulkSelectionType !== null &&
-                              item.type !== bulkSelectionType)
-                          }
-                          onPress={() => toggleBulkTransaction(item)}
+                          typeLabels={{
+                            bank: t("accounts.types.bank"),
+                            cash: t("accounts.types.cash"),
+                            savings: t("accounts.types.savings"),
+                            credit_card: t("accounts.types.credit_card"),
+                            investment: t("accounts.types.investment"),
+                            ppr: t("accounts.types.ppr"),
+                          }}
+                        />
+                      </View>
+                      <View
+                        style={[
+                          styles.filterGridItem,
+                          {
+                            flexBasis: filterItemWidth,
+                            maxWidth: filterItemWidth,
+                          },
+                        ]}
+                      >
+                        <GroupedAccountSelect
+                          label={t("transactions.destinationAccount")}
+                          accounts={accounts as any}
+                          members={acceptedMembers as any}
+                          value={destinationAccountFilter}
+                          placeholder={t("transactions.allDestinationAccounts")}
+                          hint={t("transactions.destinationAccountHint")}
+                          onChange={setDestinationAccountFilter}
+                          closeLabel={t("close", { defaultValue: "Close" })}
+                          sharedLabel={t("dashboard.shared")}
+                          unassignedLabel={t("settings.unnamedUser")}
+                          allOption={{
+                            value: "all",
+                            label: t("transactions.allDestinationAccounts"),
+                          }}
+                          typeLabels={{
+                            bank: t("accounts.types.bank"),
+                            cash: t("accounts.types.cash"),
+                            savings: t("accounts.types.savings"),
+                            credit_card: t("accounts.types.credit_card"),
+                            investment: t("accounts.types.investment"),
+                            ppr: t("accounts.types.ppr"),
+                          }}
+                        />
+                      </View>
+                    </>
+                  ) : null}
+                  <View
+                    style={[
+                      styles.filterGridItem,
+                      styles.filterChoiceGroup,
+                      {
+                        flexBasis: filterItemWidth,
+                        maxWidth: filterItemWidth,
+                        borderColor: colors.border,
+                        backgroundColor: colors.surfaceMuted,
+                      },
+                    ]}
+                  >
+                    <View style={styles.filterGroupLabel}>
+                      <Ionicons
+                        name="swap-vertical-outline"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                      <Text
+                        style={[
+                          styles.filterGroupLabelText,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {t("transactions.sortBy")}
+                      </Text>
+                    </View>
+                    <View style={styles.filterPills}>
+                      {(
+                        [
+                          "newest",
+                          "oldest",
+                          "amount_desc",
+                          "amount_asc",
+                          "title_asc",
+                          "title_desc",
+                        ] as const
+                      ).map((item) => (
+                        <Pill
+                          key={item}
+                          label={t(`transactions.sorts.${item}`)}
+                          active={sortBy === item}
+                          onPress={() => setSortBy(item)}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.filterGridItem,
+                      {
+                        flexBasis: filterItemWidth,
+                        maxWidth: filterItemWidth,
+                      },
+                    ]}
+                  >
+                    <GroupedAccountSelect
+                      label={t("transactions.account")}
+                      accounts={accounts as any}
+                      members={acceptedMembers as any}
+                      value={accountFilter}
+                      placeholder={t("transactions.allAccounts")}
+                      hint={t("transactions.selectAccountHint", {
+                        defaultValue: t("transactions.account"),
+                      })}
+                      onChange={setAccountFilter}
+                      closeLabel={t("close", { defaultValue: "Close" })}
+                      sharedLabel={t("dashboard.shared")}
+                      unassignedLabel={t("settings.unnamedUser")}
+                      allOption={{
+                        value: "all",
+                        label: t("transactions.allAccounts"),
+                      }}
+                      typeLabels={{
+                        bank: t("accounts.types.bank"),
+                        cash: t("accounts.types.cash"),
+                        savings: t("accounts.types.savings"),
+                        credit_card: t("accounts.types.credit_card"),
+                        investment: t("accounts.types.investment"),
+                        ppr: t("accounts.types.ppr"),
+                      }}
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles.filterGridItem,
+                      {
+                        flexBasis: filterItemWidth,
+                        maxWidth: filterItemWidth,
+                      },
+                    ]}
+                  >
+                    <CategoryPicker
+                      label={t("transactions.categoryFilter")}
+                      placeholder={t("transactions.allCategories")}
+                      hint={t("transactions.categoryFilterHint")}
+                      categories={filterCategories as any}
+                      selectedId={categoryFilter === "all" ? null : categoryFilter}
+                      clearLabel={t("transactions.allCategories")}
+                      onChange={(value) => setCategoryFilter(value ?? "all")}
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles.filterGridItem,
+                      {
+                        flexBasis: filterItemWidth,
+                        maxWidth: filterItemWidth,
+                      },
+                    ]}
+                  >
+                    <DropdownField
+                      label={t("transactions.createdBy")}
+                      valueLabel={selectedCreatorLabel}
+                      placeholder={t("transactions.createdBy")}
+                      hint={t("transactions.createdBy")}
+                      selectedKey={createdByFilter}
+                      onChange={setCreatedByFilter}
+                      options={[
+                        {
+                          key: "all",
+                          label: t("all", { defaultValue: "All" }),
+                        },
+                        {
+                          key: currentUserId,
+                          label: currentUserLabel,
+                          subtitle: t("settings.you"),
+                        },
+                        ...accountMemberOptions
+                          .filter((item) => item.id !== currentUserId)
+                          .map((item) => ({ key: item.id, label: item.label })),
+                      ]}
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles.filterGridItem,
+                      {
+                        flexBasis: filterItemWidth,
+                        maxWidth: filterItemWidth,
+                      },
+                    ]}
+                  >
+                    <DateFilterField
+                      label={t("transactions.dateFrom")}
+                      value={dateFrom}
+                      onChange={setDateFrom}
+                      placeholder={t("transactions.dateFromPlaceholder")}
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles.filterGridItem,
+                      {
+                        flexBasis: filterItemWidth,
+                        maxWidth: filterItemWidth,
+                      },
+                    ]}
+                  >
+                    <DateFilterField
+                      label={t("transactions.dateTo")}
+                      value={dateTo}
+                      onChange={setDateTo}
+                      placeholder={t("transactions.dateToPlaceholder")}
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles.filterGridItem,
+                      {
+                        flexBasis: filterItemWidth,
+                        maxWidth: filterItemWidth,
+                      },
+                    ]}
+                  >
+                    <Field
+                      label={t("transactions.searchLabel")}
+                      value={searchFilter}
+                      onChangeText={setSearchFilter}
+                      placeholder={t("transactions.searchPlaceholder")}
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles.filterGridItem,
+                      {
+                        flexBasis: filterItemWidth,
+                        maxWidth: filterItemWidth,
+                      },
+                    ]}
+                  >
+                    <Field
+                      label={t("transactions.minAmountLabel")}
+                      value={minAmountFilter}
+                      onChangeText={setMinAmountFilter}
+                      placeholder={t("transactions.minAmountPlaceholder")}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles.filterGridItem,
+                      {
+                        flexBasis: filterItemWidth,
+                        maxWidth: filterItemWidth,
+                      },
+                    ]}
+                  >
+                    <Field
+                      label={t("transactions.maxAmountLabel")}
+                      value={maxAmountFilter}
+                      onChangeText={setMaxAmountFilter}
+                      placeholder={t("transactions.maxAmountPlaceholder")}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                </View>
+              ) : null}
+            </Section>
+          </Card>
+
+          <Modal
+            visible={createModalOpen}
+            transparent
+            animationType="fade"
+            onRequestClose={closeCreateModal}
+          >
+            <View style={styles.modalBackdrop}>
+              <Pressable
+                style={StyleSheet.absoluteFill}
+                onPress={closeCreateModal}
+                accessibilityRole="button"
+                accessibilityLabel={t("cancel")}
+              />
+              <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                style={styles.modalKeyboardView}
+              >
+                <View
+                  style={styles.createModalCard}
+                  accessibilityViewIsModal
+                  accessibilityLabel={t("transactions.createTitle")}
+                >
+                  <View
+                    style={[
+                      styles.createModalHeader,
+                      { borderColor: colors.border },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.modalIcon,
+                        { backgroundColor: colors.primarySoft },
+                      ]}
+                    >
+                      <Ionicons name="add" size={24} color={colors.primary} />
+                    </View>
+                    <View style={styles.modalHeading}>
+                      <Text style={styles.modalTitle}>
+                        {t("transactions.createTitle")}
+                      </Text>
+                      <Text style={styles.modalSubtitle}>
+                        {t("transactions.createSubtitle")}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={closeCreateModal}
+                      accessibilityRole="button"
+                      accessibilityLabel={t("close", { defaultValue: "Close" })}
+                      style={({ pressed }) => [
+                        styles.modalClose,
+                        {
+                          backgroundColor: colors.surfaceMuted,
+                          borderColor: colors.border,
+                        },
+                        pressed && styles.modalPressed,
+                      ]}
+                    >
+                      <Ionicons
+                        name="close"
+                        size={20}
+                        color={colors.textSecondary}
+                      />
+                    </Pressable>
+                  </View>
+                  <View
+                    style={{
+                      gap: spacing(2),
+                      paddingHorizontal: spacing(5),
+                      paddingTop: spacing(3.5),
+                    }}
+                  >
+                    <View style={styles.wizardProgressTrack}>
+                      {wizardSteps.map((step, index) => (
+                        <View
+                          key={step}
                           style={[
-                            styles.bulkCheckbox,
-                            selectedTransactionIds.has(item.id) &&
-                              styles.bulkCheckboxSelected,
-                            (item.movement_kind === "transfer" ||
-                              (bulkSelectionType !== null &&
-                                item.type !== bulkSelectionType)) &&
-                              styles.bulkCheckboxDisabled,
+                            styles.wizardProgressSegment,
+                            {
+                              backgroundColor:
+                                index <= currentWizardStep
+                                  ? colors.primary
+                                  : colors.border,
+                            },
                           ]}
+                        />
+                      ))}
+                    </View>
+                    <View style={styles.wizardStepHeader}>
+                      <Text style={styles.wizardStepIndicator}>
+                        {t("transactions.wizard.stepOf", {
+                          current: currentWizardStep + 1,
+                          total: wizardSteps.length,
+                        })}
+                      </Text>
+                      {currentWizardStep > 0 ? (
+                        <Pressable
+                          onPress={() => goToWizardStep(currentWizardStep - 1)}
+                          accessibilityRole="button"
+                          accessibilityLabel={t("transactions.wizard.back")}
+                          style={styles.wizardBackButton}
                         >
                           <Ionicons
-                            name={
-                              item.movement_kind === "transfer"
-                                ? "remove-outline"
-                                : selectedTransactionIds.has(item.id)
-                                  ? "checkmark"
-                                  : "ellipse-outline"
-                            }
-                            size={18}
-                            color={
-                              selectedTransactionIds.has(item.id)
-                                ? colors.primaryForeground
-                                : colors.textSecondary
-                            }
+                            name="chevron-back"
+                            size={16}
+                            color={colors.textSecondary}
                           />
+                          <Text style={styles.wizardBackLabel}>
+                            {t("transactions.wizard.back")}
+                          </Text>
                         </Pressable>
-                      ) : item.movement_kind !== "transfer" ? <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={t("transactions.editTitle")}
-                        onPress={() => openEditTransaction(item)}
-                        style={({ pressed }) =>
-                          [styles.menuButton, pressed && styles.pressed] as any
-                        }
-                      >
-                        <Ionicons
-                          name="create-outline"
-                          size={18}
-                          color={colors.text}
-                        />
-                      </Pressable> : (
-                        <View style={{ flexDirection: "row", gap: spacing(1) }}>
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={t("transactions.editTransfer")}
-                            onPress={() => setTransferEdit({
-                              transferGroupId: item.transfer_group_id,
-                              title: item.title ?? "",
-                              amount: String(item.amount ?? ""),
-                              date: item.transaction_date?.slice?.(0, 10) ?? "",
-                              notes: item.notes ?? "",
-                              sourceAccountId: item.source_account_id ?? "",
-                              destinationAccountId: item.destination_account_id ?? "",
-                              categoryId: item.category_id ?? null,
-                            })}
-                            style={({ pressed }) => [styles.menuButton, pressed && styles.pressed] as any}
-                          >
-                            <Ionicons name="create-outline" size={18} color={colors.text} />
-                          </Pressable>
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={t("transactions.deleteTransfer")}
-                            onPress={() => setTransferToDelete(item)}
-                            style={({ pressed }) => [styles.menuButton, pressed && styles.pressed] as any}
-                          >
-                            <Ionicons name="trash-outline" size={18} color={colors.destructive} />
-                          </Pressable>
-                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={styles.wizardStepTitle}>
+                      {t(WIZARD_STEP_COPY[currentWizardStepKey].titleKey)}
+                    </Text>
+                    <Text style={styles.wizardStepSubtitle}>
+                      {t(WIZARD_STEP_COPY[currentWizardStepKey].subtitleKey)}
+                    </Text>
+                  </View>
+                  <ScrollView
+                    style={styles.createModalScroll}
+                    contentContainerStyle={styles.createModalBody}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <View style={styles.wizardStepBody}>
+                    {currentWizardStepKey === "type" ? (
+                    <>
+                    <View style={styles.typeSelector}>
+                      <Ionicons
+                        name="swap-horizontal-outline"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                      {(["income", "expense", "transfer"] as const).map(
+                        (item) => (
+                          <Pill
+                            key={item}
+                            label={t(
+                              item === "transfer"
+                                ? "transactions.movementKinds.transfer"
+                                : `transactions.types.${item}`,
+                            )}
+                            active={
+                              item === "transfer"
+                                ? createMovementKind === "transfer" ||
+                                  createMovementKind === "recurring-transfer"
+                                : createMovementKind === "transaction" &&
+                                  type === item
+                            }
+                            onPress={() => {
+                              const isTransfer = item === "transfer";
+                              setCreateMovementKind(
+                                isTransfer ? "transfer" : "transaction",
+                              );
+                              if (item === "income" || item === "expense")
+                                setType(item);
+                              setCategoryId(null);
+                              setCategoryIsAutomatic(!isTransfer);
+                              if (isTransfer) setAttachment(null);
+                              else setTransferDestination(null);
+                            }}
+                          />
+                        ),
                       )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </Table>
-            {transactionsQuery.isFetchingNextPage ? (
-              <Text
-                style={
-                  { color: colors.textSecondary, marginTop: spacing(2) } as any
-                }
-              >
-                {t("loading", { defaultValue: "Loading more..." })}
-              </Text>
-            ) : transactionsQuery.hasNextPage ? (
-              <Button
-                label={t("loadMore", { defaultValue: "Load more" })}
-                variant="secondary"
-                onPress={() => void transactionsQuery.fetchNextPage()}
-              />
-            ) : null}
-          </>
-        ) : (
-          <EmptyState
-            title={t("transactions.emptyTitle", {
-              defaultValue: t("transactions.latestTitle"),
+                    </View>
+                    {createMovementKind === "transfer" ||
+                    createMovementKind === "recurring-transfer" ? (
+                      <View style={styles.typeSelector}>
+                        <Ionicons
+                          name="calendar-outline"
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                        <Pill
+                          label={t("transfers.types.oneOff")}
+                          active={createMovementKind === "transfer"}
+                          onPress={() => setCreateMovementKind("transfer")}
+                        />
+                        <Pill
+                          label={t("transfers.types.recurringTransfer")}
+                          active={createMovementKind === "recurring-transfer"}
+                          onPress={() => {
+                            setCreateMovementKind("recurring-transfer");
+                            setAttachment(null);
+                          }}
+                        />
+                      </View>
+                    ) : null}
+                    {createMovementKind === "recurring-transfer" ? (
+                      <RecurringTransferCreateForm
+                        onCreated={() => {
+                          closeCreateModal();
+                          setActiveView("scheduled");
+                        }}
+                      />
+                    ) : (
+                      <>
+                        <View>
+                          <Field
+                            label={t("transactions.titleLabel")}
+                            value={title}
+                            onChangeText={(value) => {
+                              setTitle(value);
+                              setActiveTitleSuggestion(0);
+                            }}
+                            onFocus={() => setTitleSuggestionsFocused(true)}
+                            onBlur={() =>
+                              setTimeout(
+                                () => setTitleSuggestionsFocused(false),
+                                120,
+                              )
+                            }
+                            onKeyPress={({ nativeEvent }) => {
+                              if (!visibleTitleSuggestions.length) return;
+                              if (nativeEvent.key === "ArrowDown") {
+                                setActiveTitleSuggestion(
+                                  (current) =>
+                                    (current + 1) %
+                                    visibleTitleSuggestions.length,
+                                );
+                              } else if (nativeEvent.key === "ArrowUp") {
+                                setActiveTitleSuggestion(
+                                  (current) =>
+                                    (current -
+                                      1 +
+                                      visibleTitleSuggestions.length) %
+                                    visibleTitleSuggestions.length,
+                                );
+                              } else if (nativeEvent.key === "Enter") {
+                                setTitle(
+                                  visibleTitleSuggestions[activeTitleSuggestion]
+                                    ?.title ?? title,
+                                );
+                                setTitleSuggestionsFocused(false);
+                              } else if (nativeEvent.key === "Escape") {
+                                setTitleSuggestionsFocused(false);
+                              }
+                            }}
+                            placeholder={t("transactions.titlePlaceholder")}
+                            autoFocus={Platform.OS === "web"}
+                            returnKeyType="next"
+                            accessibilityHint={t(
+                              "transactions.titleSuggestionHint",
+                            )}
+                          />
+                          {titleSuggestionsFocused &&
+                          visibleTitleSuggestions.length > 0 ? (
+                            <View
+                              style={styles.titleSuggestionBox}
+                              accessibilityRole="menu"
+                              accessibilityLabel={t(
+                                "transactions.titleSuggestions",
+                              )}
+                            >
+                              {visibleTitleSuggestions.map(
+                                (suggestion, index) => {
+                                  const accountName = accounts.find(
+                                    (item: any) =>
+                                      item.id === suggestion.accountId,
+                                  )?.name;
+                                  const context = [
+                                    suggestion.categoryName,
+                                    accountName,
+                                    t("transactions.titleSuggestionUses", {
+                                      count: suggestion.usageCount,
+                                    }),
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ");
+                                  return (
+                                    <Pressable
+                                      key={`${suggestion.title}-${suggestion.accountId}`}
+                                      accessibilityRole="menuitem"
+                                      accessibilityLabel={`${suggestion.title}, ${context}`}
+                                      onPress={() => {
+                                        setTitle(suggestion.title);
+                                        setTitleSuggestionsFocused(false);
+                                      }}
+                                      style={({ pressed }) => [
+                                        styles.titleSuggestionRow,
+                                        index === activeTitleSuggestion &&
+                                          styles.titleSuggestionRowActive,
+                                        pressed && styles.modalPressed,
+                                      ]}
+                                    >
+                                      <Text style={styles.titleSuggestionTitle}>
+                                        {suggestion.title}
+                                      </Text>
+                                      <Text
+                                        style={styles.titleSuggestionContext}
+                                      >
+                                        {context}
+                                      </Text>
+                                    </Pressable>
+                                  );
+                                },
+                              )}
+                            </View>
+                          ) : null}
+                        </View>
+                        <View
+                          style={[
+                            styles.formGrid,
+                            responsive.isPhone && styles.formGridCompact,
+                          ]}
+                        >
+                          <View style={styles.formGridItem}>
+                            <Field
+                              label={t("transactions.amountLabel")}
+                              value={amount}
+                              onChangeText={setAmount}
+                              placeholder="0.00"
+                              keyboardType="decimal-pad"
+                            />
+                          </View>
+                          <View style={styles.formGridItem}>
+                            <DatePickerField
+                              label={t("transactions.dateLabel")}
+                              value={date}
+                              onChange={setDate}
+                              placeholder={t("transactions.datePlaceholder", {
+                                defaultValue: "DD-MM-YYYY",
+                              })}
+                            />
+                          </View>
+                        </View>
+                        <Field
+                          label={t("transactions.notesLabel")}
+                          value={notes}
+                          onChangeText={setNotes}
+                          placeholder={t("transactions.notesPlaceholder")}
+                        />
+                      </>
+                    )}
+                    </>
+                    ) : null}
+                    {currentWizardStepKey === "accounts" ? (
+                      <>
+                        <DropdownField
+                          label={t("transactions.createdBy")}
+                          valueLabel={selectedCreateCreatorLabel}
+                          placeholder={t("transactions.createdByPlaceholder")}
+                          hint={t("transactions.createdByPlaceholder")}
+                          selectedKey={effectiveCreatedById}
+                          onChange={setCreatedById}
+                          options={[
+                            {
+                              key: currentUserId,
+                              label: currentUserLabel,
+                              subtitle: t("settings.you"),
+                            },
+                            ...accountMemberOptions
+                              .filter((member) => member.id !== currentUserId)
+                              .map((member) => ({
+                                key: member.id,
+                                label: member.label,
+                              })),
+                          ]}
+                        />
+                        <GroupedAccountSelect
+                          label={
+                            createMovementKind === "transfer"
+                              ? t("transactions.sourceAccount")
+                              : t("transactions.account")
+                          }
+                          accounts={accounts as any}
+                          members={
+                            (membersQuery.data ?? []).filter(
+                              (member) => member.status === "accepted",
+                            ) as any
+                          }
+                          value={effectiveAccountId}
+                          placeholder={t("transactions.selectAccount")}
+                          hint={t("transactions.selectAccountHint", {
+                            defaultValue: t("transactions.account"),
+                          })}
+                          onChange={setAccountId}
+                          closeLabel={t("close", { defaultValue: "Close" })}
+                          sharedLabel={t("dashboard.shared")}
+                          unassignedLabel={t("settings.unnamedUser")}
+                          typeLabels={{
+                            bank: t("accounts.types.bank"),
+                            cash: t("accounts.types.cash"),
+                            savings: t("accounts.types.savings"),
+                            credit_card: t("accounts.types.credit_card"),
+                            investment: t("accounts.types.investment"),
+                            ppr: t("accounts.types.ppr"),
+                          }}
+                        />
+                        {createMovementKind === "transfer" ? (
+                          <GroupedDestinationSelect
+                            label={t("transactions.destinationAccount")}
+                            accounts={accounts as any}
+                            members={
+                              (membersQuery.data ?? []).filter(
+                                (member) => member.status === "accepted",
+                              ) as any
+                            }
+                            value={transferDestination}
+                            placeholder={t("transactions.destinationAccount")}
+                            hint={t("transactions.destinationAccount")}
+                            onChange={setTransferDestination}
+                            allowedAccountIds={accounts
+                              .filter(
+                                (account: any) =>
+                                  account.id !== effectiveAccountId,
+                              )
+                              .map((account: any) => account.id)}
+                            closeLabel={t("close", { defaultValue: "Close" })}
+                            sharedLabel={t("dashboard.shared")}
+                            unassignedLabel={t("settings.unnamedUser")}
+                            typeLabels={{
+                              bank: t("accounts.types.bank"),
+                              cash: t("accounts.types.cash"),
+                              savings: t("accounts.types.savings"),
+                              credit_card: t("accounts.types.credit_card"),
+                              investment: t("accounts.types.investment"),
+                              ppr: t("accounts.types.ppr"),
+                            }}
+                          />
+                        ) : null}
+                      </>
+                    ) : null}
+                    {currentWizardStepKey === "extras" ? (
+                      <>
+                        <CategoryPicker
+                          label={t("transactions.categories")}
+                          placeholder={t("transactions.categories")}
+                          hint={t("transactions.categories")}
+                          categories={categories as any}
+                          selectedId={effectiveCategoryId ?? null}
+                          clearLabel={t("none")}
+                          onChange={(value) => {
+                            setCategoryId(value);
+                            setCategoryIsAutomatic(false);
+                          }}
+                        />
+                        {createMovementKind === "transaction" ? (
+                          <View
+                            style={styles.categorySuggestionStatus}
+                            accessibilityLiveRegion="polite"
+                          >
+                            {categoryIsAutomatic &&
+                            categorySuggestion.isFetching ? (
+                              <Text style={styles.categorySuggestionText}>
+                                {t("transactions.categorySuggestionLoading")}
+                              </Text>
+                            ) : categoryIsAutomatic &&
+                              categorySuggestion.isError ? (
+                              <Text style={styles.categorySuggestionText}>
+                                {t(
+                                  "transactions.categorySuggestionUnavailable",
+                                )}
+                              </Text>
+                            ) : categoryIsAutomatic &&
+                              categorySuggestion.data?.confidence === "high" ? (
+                              <Text style={styles.categorySuggestionText}>
+                                {t("transactions.categorySuggestionHigh", {
+                                  count: categorySuggestion.data.matchCount,
+                                })}
+                              </Text>
+                            ) : categoryIsAutomatic &&
+                              categorySuggestion.data?.confidence ===
+                                "medium" ? (
+                              <Text style={styles.categorySuggestionText}>
+                                {t("transactions.categorySuggestionMedium", {
+                                  category:
+                                    categorySuggestion.data.categoryName,
+                                  count: categorySuggestion.data.matchCount,
+                                })}
+                              </Text>
+                            ) : null}
+                          </View>
+                        ) : null}
+                        {createMovementKind === "transaction" ? (
+                          <View style={{ gap: spacing(2) } as any}>
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: spacing(2),
+                              }}
+                            >
+                              <Ionicons
+                                name="attach-outline"
+                                size={16}
+                                color={colors.textSecondary}
+                              />
+                              <Text
+                                style={
+                                  {
+                                    color: colors.textSecondary,
+                                    fontWeight: typography.fontWeight
+                                      .semibold as any,
+                                  } as any
+                                }
+                              >
+                                {t("transactions.attachInvoice")}
+                              </Text>
+                            </View>
+                            <Button
+                              label={
+                                attachment
+                                  ? t("transactions.changeAttachment")
+                                  : t("transactions.attachInvoice")
+                              }
+                              onPress={() => void handlePickAttachment()}
+                              variant="secondary"
+                            />
+                            {attachment ? (
+                              <View style={{ gap: spacing(1) }}>
+                                <Text
+                                  style={
+                                    {
+                                      color: colors.text,
+                                      fontWeight: typography.fontWeight
+                                        .semibold as any,
+                                    } as any
+                                  }
+                                >
+                                  {t("transactions.attachmentSelected")}
+                                </Text>
+                                <Text
+                                  style={{ color: colors.textSecondary } as any}
+                                >
+                                  {attachment.fileName} ·{" "}
+                                  {(attachment.fileSize / 1024).toFixed(1)} KB
+                                </Text>
+                                <AttachmentPreview
+                                  uri={attachment.previewUri}
+                                  mimeType={attachment.mimeType}
+                                  fileName={attachment.fileName}
+                                  previewLabel={t(
+                                    "transactions.attachmentPreview",
+                                  )}
+                                  openLabel={t("transactions.openAttachment")}
+                                />
+                                <Button
+                                  label={t("transactions.removeAttachment")}
+                                  onPress={() => setAttachment(null)}
+                                  variant="secondary"
+                                />
+                              </View>
+                            ) : null}
+                          </View>
+                        ) : null}
+                      </>
+                    ) : null}
+                    </View>
+                  </ScrollView>
+                  {createMovementKind !== "recurring-transfer" ? (
+                    <View
+                      style={[
+                        styles.createModalFooter,
+                        { borderColor: colors.border },
+                      ]}
+                    >
+                      <Button
+                        label={
+                          currentWizardStep > 0
+                            ? t("transactions.wizard.back")
+                            : t("cancel")
+                        }
+                        variant="secondary"
+                        onPress={() =>
+                          currentWizardStep > 0
+                            ? goToWizardStep(currentWizardStep - 1)
+                            : closeCreateModal()
+                        }
+                      />
+                      {isLastWizardStep ? (
+                        <View style={styles.createModalPrimaryActions}>
+                          <Button
+                            label={
+                              createTransaction.isPending ||
+                              createTransfer.isPending
+                                ? t("saving")
+                                : t("transactions.createAndNew")
+                            }
+                            variant="secondary"
+                            onPress={() => void handleCreate(true)}
+                            disabled={!canCreateMovement}
+                          />
+                          <Button
+                            label={
+                              createTransaction.isPending ||
+                              createTransfer.isPending
+                                ? t("saving")
+                                : createMovementKind === "transfer"
+                                  ? t("transactions.createTransfer")
+                                  : t("transactions.create")
+                            }
+                            onPress={() => void handleCreate()}
+                            disabled={!canCreateMovement}
+                          />
+                        </View>
+                      ) : (
+                        <Button
+                          label={t("transactions.wizard.next")}
+                          onPress={() => goToWizardStep(currentWizardStep + 1)}
+                          disabled={!canProceedFromCurrentStep}
+                        />
+                      )}
+                    </View>
+                  ) : null}
+                </View>
+              </KeyboardAvoidingView>
+            </View>
+          </Modal>
+
+          {movementsSummaryQuery.data ? (
+            <View style={styles.summaryBar}>
+              <View style={styles.summaryBarItem}>
+                <Text style={styles.summaryBarLabel}>
+                  {t("transactions.summary.count", {
+                    count: movementsSummaryQuery.data.movement_count,
+                  })}
+                </Text>
+                <Text style={[styles.summaryBarValue, { color: colors.text }]}>
+                  {movementsSummaryQuery.data.movement_count}
+                </Text>
+              </View>
+              <View style={styles.summaryBarItem}>
+                <Text style={styles.summaryBarLabel}>
+                  {t("transactions.summary.income")}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryBarValue,
+                    { color: colors.financialPositive },
+                  ]}
+                >
+                  {formatCurrency(movementsSummaryQuery.data.income_total)}
+                </Text>
+              </View>
+              <View style={styles.summaryBarItem}>
+                <Text style={styles.summaryBarLabel}>
+                  {t("transactions.summary.expense")}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryBarValue,
+                    { color: colors.destructive },
+                  ]}
+                >
+                  {formatCurrency(movementsSummaryQuery.data.expense_total)}
+                </Text>
+              </View>
+              <View style={styles.summaryBarItem}>
+                <Text style={styles.summaryBarLabel}>
+                  {t("transactions.summary.net")}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryBarValue,
+                    {
+                      color:
+                        movementsSummaryQuery.data.net_total < 0
+                          ? colors.destructive
+                          : colors.financialPositive,
+                    },
+                  ]}
+                >
+                  {formatCurrency(movementsSummaryQuery.data.net_total)}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          <Section
+            title={t("transactions.latestTitle")}
+            subtitle={t("transactions.latestSubtitle", {
+              count: transactions.length,
             })}
-            description={t("transactions.latestSubtitle", { count: 0 })}
-            icon="receipt-outline"
-            actionLabel={t("transactions.addTransaction")}
-            onAction={openCreateTransaction}
-          />
-        )}
-      </Section>
-      </> : (
+            action={
+              <View style={styles.sectionActions}>
+                <Button
+                  label={
+                    bulkSelectionOpen
+                      ? t("transactions.bulk.cancelSelection")
+                      : t("transactions.bulk.selectTransactions")
+                  }
+                  variant="secondary"
+                  onPress={
+                    bulkSelectionOpen ? closeBulkSelection : openBulkSelection
+                  }
+                />
+                <Button
+                  label={t("transactions.addTransaction")}
+                  onPress={openCreateTransaction}
+                />
+              </View>
+            }
+          >
+            {transactions.length ? (
+              <>
+                {bulkSelectionOpen ? (
+                  <View style={styles.bulkActionBar}>
+                    <View style={styles.bulkActionSummary}>
+                      <Text style={styles.bulkActionTitle}>
+                        {t("transactions.bulk.selected", {
+                          count: selectedTransactionIds.size,
+                        })}
+                      </Text>
+                      <Text style={styles.bulkActionHint}>
+                        {bulkSelectionType
+                          ? t("transactions.bulk.sameTypeHint", {
+                              type: t(
+                                `transactions.types.${bulkSelectionType}`,
+                              ),
+                            })
+                          : t("transactions.bulk.chooseTypeHint")}
+                      </Text>
+                    </View>
+                    <Button
+                      label={t("transactions.bulk.selectLoaded")}
+                      variant="secondary"
+                      disabled={!bulkSelectionType}
+                      onPress={selectLoadedBulkTransactions}
+                    />
+                    <View style={styles.bulkCategoryField}>
+                      <CategoryPicker
+                        label={t("transactions.bulk.category")}
+                        placeholder={t("transactions.bulk.chooseCategory")}
+                        hint={t("transactions.bulk.categoryHint")}
+                        categories={bulkCategories as any}
+                        selectedId={bulkCategoryId || null}
+                        onChange={(value) => setBulkCategoryId(value ?? "")}
+                      />
+                    </View>
+                    <Button
+                      label={
+                        bulkUpdateCategories.isPending
+                          ? t("saving")
+                          : t("transactions.bulk.applyCategory")
+                      }
+                      disabled={
+                        selectedTransactionIds.size === 0 ||
+                        !bulkCategoryId ||
+                        bulkUpdateCategories.isPending
+                      }
+                      onPress={() => void applyBulkCategory(bulkCategoryId)}
+                    />
+                    <Button
+                      label={t("transactions.bulk.clearCategory")}
+                      variant="secondary"
+                      disabled={
+                        selectedTransactionIds.size === 0 ||
+                        bulkUpdateCategories.isPending
+                      }
+                      onPress={() => void applyBulkCategory(null)}
+                    />
+                  </View>
+                ) : null}
+                <Table
+                  columns={[
+                    { label: t("transactions.titleLabel"), flex: 1.9 },
+                    { label: t("transactions.transactionDate"), flex: 1.1 },
+                    { label: t("transactions.account"), flex: 1.3 },
+                    { label: t("transactions.accountOwner"), flex: 1.15 },
+                    { label: t("transactions.createdBy"), flex: 1.15 },
+                    { label: t("transactions.amountLabel"), align: "right" },
+                    { label: t("transactions.balanceAfter"), align: "right" },
+                    { label: "", flex: 0.35, align: "right" },
+                  ]}
+                >
+                  {transactions.map((item: any) => {
+                    // Use the movement's own kind, not the stored amount's
+                    // sign (transactions.amount is always stored positive),
+                    // to decide expense vs. income styling and the +/- sign.
+                    const movementKind = resolveMovementKind(item);
+                    const ownerTone = getTransactionAccountOwnerTone(item);
+                    const rowTone =
+                      movementKind === "transfer"
+                        ? {
+                            surface: colors.transferRow,
+                            accent: colors.financialNeutral,
+                          }
+                        : ownerTone;
+
+                    return (
+                      <TableRow
+                        key={item.id}
+                        backgroundColor={rowTone.surface}
+                        accentColor={rowTone.accent}
+                      >
+                        <TableCell flex={1.9}>
+                          <View style={styles.transactionIdentity}>
+                            <View
+                              style={[
+                                styles.transactionIcon,
+                                {
+                                  backgroundColor: movementIconBackground(
+                                    movementKind,
+                                    colors,
+                                  ),
+                                },
+                              ]}
+                            >
+                              <Ionicons
+                                name={
+                                  movementKind === "transfer"
+                                    ? "swap-horizontal-outline"
+                                    : ((item.category?.icon ??
+                                        "pricetag-outline") as any)
+                                }
+                                size={18}
+                                color={movementAmountColor(
+                                  movementKind,
+                                  colors,
+                                )}
+                              />
+                            </View>
+                            <View style={styles.transactionDetails}>
+                              <Text style={styles.transactionTitle}>
+                                {item.title}
+                              </Text>
+                              <Text style={styles.transactionContext}>
+                                {movementKind === "transfer"
+                                  ? t("transactions.filters.transfer")
+                                  : (item.category?.name ??
+                                    t("transactions.uncategorized"))}
+                              </Text>
+                            </View>
+                          </View>
+                        </TableCell>
+                        <TableCell flex={1.1}>
+                          <Text style={styles.transactionAccount}>
+                            {formatDate(item.transaction_date)}
+                          </Text>
+                        </TableCell>
+                        <TableCell flex={1.3}>
+                          <Text style={styles.transactionAccount}>
+                            {movementKind === "transfer"
+                              ? `${item.source_account?.name ?? t("transactions.sourceAccount")} → ${item.destination_account?.name ?? t("transactions.destinationAccount")}`
+                              : getTransactionAccountLabel(item)}
+                          </Text>
+                        </TableCell>
+                        <TableCell flex={1.15}>
+                          <View style={styles.personIdentity}>
+                            <Ionicons
+                              name="person-outline"
+                              size={15}
+                              color={rowTone.accent}
+                            />
+                            <Text style={styles.transactionAccount}>
+                              {getTransactionAccountOwnerLabel(item)}
+                            </Text>
+                          </View>
+                        </TableCell>
+                        <TableCell flex={1.15}>
+                          <View style={styles.personIdentity}>
+                            <Ionicons
+                              name="create-outline"
+                              size={15}
+                              color={colors.primary}
+                            />
+                            <Text style={styles.transactionCreator}>
+                              {getTransactionCreatorLabel(item)}
+                            </Text>
+                          </View>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Text
+                            style={[
+                              styles.transactionAmount,
+                              { color: movementAmountColor(movementKind, colors) },
+                            ]}
+                          >
+                            {movementAmountSign(movementKind)}
+                            {formatCurrency(item.amount)}
+                          </Text>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Text style={styles.transactionBalance}>
+                            {item.movement_kind === "transfer" ||
+                            item.balance_after_transaction == null
+                              ? "—"
+                              : formatCurrency(item.balance_after_transaction)}
+                          </Text>
+                        </TableCell>
+                        <TableCell flex={0.35} align="right" mobilePinned>
+                          {bulkSelectionOpen ? (
+                            <Pressable
+                              accessibilityRole="checkbox"
+                              accessibilityState={{
+                                checked: selectedTransactionIds.has(item.id),
+                                disabled:
+                                  item.movement_kind === "transfer" ||
+                                  (bulkSelectionType !== null &&
+                                    item.type !== bulkSelectionType),
+                              }}
+                              accessibilityLabel={
+                                item.movement_kind === "transfer"
+                                  ? t("transactions.bulk.transferUnavailable")
+                                  : t("transactions.bulk.selectTransaction", {
+                                      title: item.title,
+                                    })
+                              }
+                              disabled={
+                                item.movement_kind === "transfer" ||
+                                (bulkSelectionType !== null &&
+                                  item.type !== bulkSelectionType)
+                              }
+                              onPress={() => toggleBulkTransaction(item)}
+                              style={[
+                                styles.bulkCheckbox,
+                                selectedTransactionIds.has(item.id) &&
+                                  styles.bulkCheckboxSelected,
+                                (item.movement_kind === "transfer" ||
+                                  (bulkSelectionType !== null &&
+                                    item.type !== bulkSelectionType)) &&
+                                  styles.bulkCheckboxDisabled,
+                              ]}
+                            >
+                              <Ionicons
+                                name={
+                                  item.movement_kind === "transfer"
+                                    ? "remove-outline"
+                                    : selectedTransactionIds.has(item.id)
+                                      ? "checkmark"
+                                      : "ellipse-outline"
+                                }
+                                size={18}
+                                color={
+                                  selectedTransactionIds.has(item.id)
+                                    ? colors.primaryForeground
+                                    : colors.textSecondary
+                                }
+                              />
+                            </Pressable>
+                          ) : item.movement_kind !== "transfer" ? (
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={t("transactions.editTitle")}
+                              onPress={() => openEditTransaction(item)}
+                              style={({ pressed }) =>
+                                [
+                                  styles.menuButton,
+                                  pressed && styles.pressed,
+                                ] as any
+                              }
+                            >
+                              <Ionicons
+                                name="create-outline"
+                                size={18}
+                                color={colors.text}
+                              />
+                            </Pressable>
+                          ) : (
+                            <View
+                              style={{ flexDirection: "row", gap: spacing(1) }}
+                            >
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={t(
+                                  "transactions.editTransfer",
+                                )}
+                                onPress={() =>
+                                  setTransferEdit({
+                                    transferGroupId: item.transfer_group_id,
+                                    title: item.title ?? "",
+                                    amount: String(item.amount ?? ""),
+                                    date:
+                                      item.transaction_date?.slice?.(0, 10) ??
+                                      "",
+                                    notes: item.notes ?? "",
+                                    sourceAccountId:
+                                      item.source_account_id ?? "",
+                                    destinationAccountId:
+                                      item.destination_account_id ?? "",
+                                    categoryId: item.category_id ?? null,
+                                  })
+                                }
+                                style={({ pressed }) =>
+                                  [
+                                    styles.menuButton,
+                                    pressed && styles.pressed,
+                                  ] as any
+                                }
+                              >
+                                <Ionicons
+                                  name="create-outline"
+                                  size={18}
+                                  color={colors.text}
+                                />
+                              </Pressable>
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={t(
+                                  "transactions.deleteTransfer",
+                                )}
+                                onPress={() => setTransferToDelete(item)}
+                                style={({ pressed }) =>
+                                  [
+                                    styles.menuButton,
+                                    pressed && styles.pressed,
+                                  ] as any
+                                }
+                              >
+                                <Ionicons
+                                  name="trash-outline"
+                                  size={18}
+                                  color={colors.destructive}
+                                />
+                              </Pressable>
+                            </View>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </Table>
+                {transactionsQuery.isFetchingNextPage ? (
+                  <Text
+                    style={
+                      {
+                        color: colors.textSecondary,
+                        marginTop: spacing(2),
+                      } as any
+                    }
+                  >
+                    {t("loading", { defaultValue: "Loading more..." })}
+                  </Text>
+                ) : transactionsQuery.hasNextPage ? (
+                  <Button
+                    label={t("loadMore", { defaultValue: "Load more" })}
+                    variant="secondary"
+                    onPress={() => void transactionsQuery.fetchNextPage()}
+                  />
+                ) : null}
+              </>
+            ) : (
+              <EmptyState
+                title={t("transactions.emptyTitle", {
+                  defaultValue: t("transactions.latestTitle"),
+                })}
+                description={t("transactions.latestSubtitle", { count: 0 })}
+                icon="receipt-outline"
+                actionLabel={t("transactions.addTransaction")}
+                onAction={openCreateTransaction}
+              />
+            )}
+          </Section>
+        </>
+      ) : (
         <TransfersContent embedded showCreate={false} />
       )}
 
@@ -2144,44 +2494,155 @@ export default function TransactionsScreen() {
         animationType="fade"
         onRequestClose={() => setTransferEdit(null)}
       >
-        <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setTransferEdit(null)} />
+        <View
+          style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setTransferEdit(null)}
+            accessibilityRole="button"
+            accessibilityLabel={t("cancel")}
+          />
           <ScrollView contentContainerStyle={styles.modalScroll}>
-            <View style={[styles.modalCard, { width: responsive.isPhone ? "100%" : spacing(120), borderColor: colors.border, backgroundColor: colors.surface }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>{t("transactions.editTransfer")}</Text>
-              {transferEdit ? <>
-                <Field label={t("transactions.titleLabel")} value={transferEdit.title} onChangeText={(title) => setTransferEdit((current) => current ? { ...current, title } : current)} />
-                <Field label={t("transactions.amountLabel")} value={transferEdit.amount} keyboardType="decimal-pad" onChangeText={(amount) => setTransferEdit((current) => current ? { ...current, amount } : current)} />
-                <DatePickerField label={t("transactions.dateLabel")} value={transferEdit.date} placeholder={t("transactions.dateLabel")} onChange={(date) => setTransferEdit((current) => current ? { ...current, date } : current)} />
-                <DropdownField
-                  label={t("transactions.sourceAccount")}
-                  valueLabel={accounts.find((account: any) => account.id === transferEdit.sourceAccountId)?.name ?? t("transactions.sourceAccount")}
-                  placeholder={t("transactions.sourceAccount")}
-                  selectedKey={transferEdit.sourceAccountId}
-                  options={accounts.filter((account: any) => account.id !== transferEdit.destinationAccountId).map((account: any) => ({ key: account.id, label: account.name }))}
-                  onChange={(sourceAccountId) => setTransferEdit((current) => current ? { ...current, sourceAccountId } : current)}
-                />
-                <DropdownField
-                  label={t("transactions.destinationAccount")}
-                  valueLabel={accounts.find((account: any) => account.id === transferEdit.destinationAccountId)?.name ?? t("transactions.destinationAccount")}
-                  placeholder={t("transactions.destinationAccount")}
-                  selectedKey={transferEdit.destinationAccountId}
-                  options={accounts.filter((account: any) => account.id !== transferEdit.sourceAccountId).map((account: any) => ({ key: account.id, label: account.name }))}
-                  onChange={(destinationAccountId) => setTransferEdit((current) => current ? { ...current, destinationAccountId } : current)}
-                />
-                <DropdownField
-                  label={t("transactions.categoryFilter")}
-                  valueLabel={transferEdit.categoryId ? transferCategoriesQuery.data?.find((category: any) => category.id === transferEdit.categoryId)?.name ?? t("transactions.uncategorized") : t("none")}
-                  placeholder={t("none")}
-                  selectedKey={transferEdit.categoryId ?? ""}
-                  options={[{ key: "", label: t("none") }, ...(transferCategoriesQuery.data ?? []).map((category: any) => ({ key: category.id, label: category.name }))]}
-                  onChange={(categoryId) => setTransferEdit((current) => current ? { ...current, categoryId: categoryId || null } : current)}
-                />
-                <Field label={t("transactions.notesLabel")} value={transferEdit.notes} multiline onChangeText={(notes) => setTransferEdit((current) => current ? { ...current, notes } : current)} />
-              </> : null}
+            <View
+              style={[
+                styles.modalCard,
+                {
+                  width: responsive.isPhone ? "100%" : spacing(120),
+                  borderColor: colors.border,
+                  backgroundColor: colors.surface,
+                },
+              ]}
+            >
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {t("transactions.editTransfer")}
+              </Text>
+              {transferEdit ? (
+                <>
+                  <Field
+                    label={t("transactions.titleLabel")}
+                    value={transferEdit.title}
+                    onChangeText={(title) =>
+                      setTransferEdit((current) =>
+                        current ? { ...current, title } : current,
+                      )
+                    }
+                  />
+                  <Field
+                    label={t("transactions.amountLabel")}
+                    value={transferEdit.amount}
+                    keyboardType="decimal-pad"
+                    onChangeText={(amount) =>
+                      setTransferEdit((current) =>
+                        current ? { ...current, amount } : current,
+                      )
+                    }
+                  />
+                  <DatePickerField
+                    label={t("transactions.dateLabel")}
+                    value={transferEdit.date}
+                    placeholder={t("transactions.dateLabel")}
+                    onChange={(date) =>
+                      setTransferEdit((current) =>
+                        current ? { ...current, date } : current,
+                      )
+                    }
+                  />
+                  <DropdownField
+                    label={t("transactions.sourceAccount")}
+                    valueLabel={
+                      accounts.find(
+                        (account: any) =>
+                          account.id === transferEdit.sourceAccountId,
+                      )?.name ?? t("transactions.sourceAccount")
+                    }
+                    placeholder={t("transactions.sourceAccount")}
+                    selectedKey={transferEdit.sourceAccountId}
+                    options={accounts
+                      .filter(
+                        (account: any) =>
+                          account.id !== transferEdit.destinationAccountId,
+                      )
+                      .map((account: any) => ({
+                        key: account.id,
+                        label: account.name,
+                      }))}
+                    onChange={(sourceAccountId) =>
+                      setTransferEdit((current) =>
+                        current ? { ...current, sourceAccountId } : current,
+                      )
+                    }
+                  />
+                  <DropdownField
+                    label={t("transactions.destinationAccount")}
+                    valueLabel={
+                      accounts.find(
+                        (account: any) =>
+                          account.id === transferEdit.destinationAccountId,
+                      )?.name ?? t("transactions.destinationAccount")
+                    }
+                    placeholder={t("transactions.destinationAccount")}
+                    selectedKey={transferEdit.destinationAccountId}
+                    options={accounts
+                      .filter(
+                        (account: any) =>
+                          account.id !== transferEdit.sourceAccountId,
+                      )
+                      .map((account: any) => ({
+                        key: account.id,
+                        label: account.name,
+                      }))}
+                    onChange={(destinationAccountId) =>
+                      setTransferEdit((current) =>
+                        current
+                          ? { ...current, destinationAccountId }
+                          : current,
+                      )
+                    }
+                  />
+                  <CategoryPicker
+                    label={t("transactions.categoryFilter")}
+                    placeholder={t("none")}
+                    categories={
+                      allCategories.filter(
+                        (category: any) => category.type === "account",
+                      ) as any
+                    }
+                    selectedId={transferEdit.categoryId ?? null}
+                    clearLabel={t("none")}
+                    onChange={(categoryId) =>
+                      setTransferEdit((current) =>
+                        current ? { ...current, categoryId } : current,
+                      )
+                    }
+                  />
+                  <Field
+                    label={t("transactions.notesLabel")}
+                    value={transferEdit.notes}
+                    multiline
+                    onChangeText={(notes) =>
+                      setTransferEdit((current) =>
+                        current ? { ...current, notes } : current,
+                      )
+                    }
+                  />
+                </>
+              ) : null}
               <View style={styles.modalActions}>
-                <Button label={t("cancel")} variant="secondary" onPress={() => setTransferEdit(null)} />
-                <Button label={updateCompletedTransfer.isPending ? t("saving") : t("transactions.saveTransfer")} disabled={updateCompletedTransfer.isPending} onPress={() => void handleSaveTransfer()} />
+                <Button
+                  label={t("cancel")}
+                  variant="secondary"
+                  onPress={() => setTransferEdit(null)}
+                />
+                <Button
+                  label={
+                    updateCompletedTransfer.isPending
+                      ? t("saving")
+                      : t("transactions.saveTransfer")
+                  }
+                  disabled={updateCompletedTransfer.isPending}
+                  onPress={() => void handleSaveTransfer()}
+                />
               </View>
             </View>
           </ScrollView>
@@ -2194,25 +2655,44 @@ export default function TransactionsScreen() {
         animationType="fade"
         onRequestClose={() => setTransferToDelete(null)}
       >
-        <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setTransferToDelete(null)} />
+        <View
+          style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setTransferToDelete(null)}
+            accessibilityRole="button"
+            accessibilityLabel={t("cancel")}
+          />
           <View style={styles.modalCard}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
               {t("transactions.deleteTransferTitle")}
             </Text>
             <Text style={{ color: colors.textSecondary }}>
-              {t("transactions.deleteTransferMessage", { title: transferToDelete?.title })}
+              {t("transactions.deleteTransferMessage", {
+                title: transferToDelete?.title,
+              })}
             </Text>
             <View style={styles.modalActions}>
-              <Button label={t("cancel")} variant="secondary" onPress={() => setTransferToDelete(null)} />
               <Button
-                label={deleteCompletedTransfer.isPending ? t("deleting") : t("transactions.deleteTransfer")}
+                label={t("cancel")}
+                variant="secondary"
+                onPress={() => setTransferToDelete(null)}
+              />
+              <Button
+                label={
+                  deleteCompletedTransfer.isPending
+                    ? t("deleting")
+                    : t("transactions.deleteTransfer")
+                }
                 variant="danger"
                 disabled={deleteCompletedTransfer.isPending}
                 onPress={() => {
                   const groupId = transferToDelete?.transfer_group_id;
                   if (!groupId) return;
-                  void deleteCompletedTransfer.mutateAsync(groupId).then(() => setTransferToDelete(null));
+                  void deleteCompletedTransfer
+                    .mutateAsync(groupId)
+                    .then(() => setTransferToDelete(null));
                 }}
               />
             </View>
@@ -2232,6 +2712,8 @@ export default function TransactionsScreen() {
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={closeEditTransaction}
+            accessibilityRole="button"
+            accessibilityLabel={t("cancel")}
           />
           <View style={[styles.modalCard, styles.editModalCard]}>
             <ScrollView
@@ -2239,280 +2721,274 @@ export default function TransactionsScreen() {
               contentContainerStyle={styles.editModalContent}
               showsVerticalScrollIndicator
             >
-            <View
-              style={
-                {
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: spacing(2),
-                } as any
-              }
-            >
-              <Ionicons
-                name="pencil-outline"
-                size={18}
-                color={colors.primary}
-              />
-              <Text style={styles.modalTitle}>
-                {t("transactions.editTitle")}
+              <View
+                style={
+                  {
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: spacing(2),
+                  } as any
+                }
+              >
+                <Ionicons
+                  name="pencil-outline"
+                  size={18}
+                  color={colors.primary}
+                />
+                <Text style={styles.modalTitle}>
+                  {t("transactions.editTitle")}
+                </Text>
+              </View>
+              <Text style={styles.modalSubtitle}>
+                {t("settings.editDetails")}
               </Text>
-            </View>
-            <Text style={styles.modalSubtitle}>
-              {t("settings.editDetails")}
-            </Text>
-            {editTransaction ? (
-              <>
-                <View style={{ flexDirection: "row", gap: spacing(2) } as any}>
-                  {(["income", "expense"] as const).map((item) => (
-                    <Pill
-                      key={item}
-                      label={t(`transactions.types.${item}`)}
-                      active={editTransaction.type === item}
-                      onPress={() =>
-                        setEditTransaction((current) =>
-                          current
-                            ? { ...current, type: item, categoryId: null }
-                            : current,
-                        )
-                      }
-                    />
-                  ))}
-                </View>
-                <Field
-                  label={t("transactions.titleLabel")}
-                  value={editTransaction.title}
-                  onChangeText={(value) =>
-                    setEditTransaction((current) =>
-                      current ? { ...current, title: value } : current,
-                    )
-                  }
-                />
-                <Field
-                  label={t("transactions.amountLabel")}
-                  value={editTransaction.amount}
-                  onChangeText={(value) =>
-                    setEditTransaction((current) =>
-                      current ? { ...current, amount: value } : current,
-                    )
-                  }
-                  keyboardType="numeric"
-                />
-                <SharedDatePickerField
-                  label={t("transactions.dateLabel")}
-                  value={editTransaction.date}
-                  onChange={(value) =>
-                    setEditTransaction((current) =>
-                      current ? { ...current, date: value } : current,
-                    )
-                  }
-                  placeholder={t("transactions.datePlaceholder", {
-                    defaultValue: "DD-MM-YYYY",
-                  })}
-                />
-                <Field
-                  label={t("transactions.notesLabel")}
-                  value={editTransaction.notes}
-                  onChangeText={(value) =>
-                    setEditTransaction((current) =>
-                      current ? { ...current, notes: value } : current,
-                    )
-                  }
-                  placeholder={t("transactions.notesPlaceholder")}
-                />
-                <HouseholdMemberSelect
-                  label={t("transactions.createdBy")}
-                  members={(membersQuery.data ?? []).filter(
-                    (member) => member.status === "accepted",
-                  )}
-                  value={editTransaction.createdById || profile?.id || ""}
-                  placeholder={t("transactions.createdByPlaceholder")}
-                  hint={t("transactions.createdByPlaceholder")}
-                  onChange={(value) =>
-                    setEditTransaction((current) =>
-                      current ? { ...current, createdById: value } : current,
-                    )
-                  }
-                />
-                <GroupedAccountSelect
-                  label={t("transactions.account")}
-                  accounts={accounts as any}
-                  members={
-                    (membersQuery.data ?? []).filter(
-                      (member) => member.status === "accepted",
-                    ) as any
-                  }
-                  value={editTransaction.accountId}
-                  placeholder={t("transactions.selectAccount")}
-                  hint={t("transactions.selectAccountHint", {
-                    defaultValue: t("transactions.account"),
-                  })}
-                  onChange={(value) =>
-                    setEditTransaction((current) =>
-                      current ? { ...current, accountId: value } : current,
-                    )
-                  }
-                  closeLabel={t("close", { defaultValue: "Close" })}
-                  sharedLabel={t("dashboard.shared")}
-                  unassignedLabel={t("settings.unnamedUser")}
-                  typeLabels={{
-                    bank: t("accounts.types.bank"),
-                    cash: t("accounts.types.cash"),
-                    savings: t("accounts.types.savings"),
-                    credit_card: t("accounts.types.credit_card"),
-                    investment: t("accounts.types.investment"),
-                    ppr: t("accounts.types.ppr"),
-                  }}
-                />
-                <DropdownField
-                  label={t("transactions.categories")}
-                  valueLabel={
-                    editTransaction.categoryId
-                      ? (categories.find(
-                          (item: any) => item.id === editTransaction.categoryId,
-                        )?.name ?? t("transactions.uncategorized"))
-                      : t("none")
-                  }
-                  placeholder={t("transactions.categories")}
-                  hint={t("transactions.categories")}
-                  selectedKey={editTransaction.categoryId ?? ""}
-                  options={categoryOptions}
-                  onChange={(value) =>
-                    setEditTransaction((current) =>
-                      current
-                        ? { ...current, categoryId: value || null }
-                        : current,
-                    )
-                  }
-                />
-                <View style={styles.editAttachmentsSection}>
-                  <View style={styles.editAttachmentsHeading}>
-                    <Ionicons
-                      name="attach-outline"
-                      size={18}
-                      color={colors.primary}
-                    />
-                    <Text style={styles.editAttachmentsTitle}>
-                      {t("transactions.attachmentsTitle")}
-                    </Text>
-                  </View>
-                  {editAttachmentsQuery.isPending ? (
-                    <Text style={styles.editAttachmentsStatus}>
-                      {t("transactions.loadingAttachments")}
-                    </Text>
-                  ) : editAttachmentsQuery.isError ? (
-                    <View style={styles.editAttachmentsError}>
-                      <Text style={styles.editAttachmentsStatus}>
-                        {t("transactions.attachmentsLoadError")}
-                      </Text>
-                      <Button
-                        label={t("retry")}
-                        variant="secondary"
-                        onPress={() => void editAttachmentsQuery.refetch()}
-                      />
-                    </View>
-                  ) : editAttachmentsQuery.data?.length ? (
-                    <View style={styles.editAttachmentsList}>
-                      {editAttachmentsQuery.data.map((savedAttachment) => (
-                        <View
-                          key={savedAttachment.id}
-                          style={styles.editAttachmentItem}
-                        >
-                          <AttachmentPreview
-                            uri={savedAttachment.signedUrl}
-                            mimeType={savedAttachment.mime_type}
-                            fileName={savedAttachment.file_name}
-                            previewLabel={t("transactions.attachmentPreview")}
-                            openLabel={t("transactions.openAttachment")}
-                          />
-                          <Text style={styles.editAttachmentMeta}>
-                            {(savedAttachment.file_size / 1024).toFixed(1)} KB
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={styles.editAttachmentsStatus}>
-                      {t("transactions.noAttachments")}
-                    </Text>
-                  )}
-                </View>
-                {deleteConfirmationOpen ? (
+              {editTransaction ? (
+                <>
                   <View
-                    style={{
-                      gap: spacing(2),
-                      padding: spacing(3),
-                      borderWidth: 1,
-                      borderColor: colors.destructive,
-                      borderRadius: radius.lg,
-                      backgroundColor: colors.surfaceMuted,
-                    }}
+                    style={{ flexDirection: "row", gap: spacing(2) } as any}
                   >
-                    <Text
+                    {(["income", "expense"] as const).map((item) => (
+                      <Pill
+                        key={item}
+                        label={t(`transactions.types.${item}`)}
+                        active={editTransaction.type === item}
+                        onPress={() =>
+                          setEditTransaction((current) =>
+                            current
+                              ? { ...current, type: item, categoryId: null }
+                              : current,
+                          )
+                        }
+                      />
+                    ))}
+                  </View>
+                  <Field
+                    label={t("transactions.titleLabel")}
+                    value={editTransaction.title}
+                    onChangeText={(value) =>
+                      setEditTransaction((current) =>
+                        current ? { ...current, title: value } : current,
+                      )
+                    }
+                  />
+                  <Field
+                    label={t("transactions.amountLabel")}
+                    value={editTransaction.amount}
+                    onChangeText={(value) =>
+                      setEditTransaction((current) =>
+                        current ? { ...current, amount: value } : current,
+                      )
+                    }
+                    keyboardType="numeric"
+                  />
+                  <SharedDatePickerField
+                    label={t("transactions.dateLabel")}
+                    value={editTransaction.date}
+                    onChange={(value) =>
+                      setEditTransaction((current) =>
+                        current ? { ...current, date: value } : current,
+                      )
+                    }
+                    placeholder={t("transactions.datePlaceholder", {
+                      defaultValue: "DD-MM-YYYY",
+                    })}
+                  />
+                  <Field
+                    label={t("transactions.notesLabel")}
+                    value={editTransaction.notes}
+                    onChangeText={(value) =>
+                      setEditTransaction((current) =>
+                        current ? { ...current, notes: value } : current,
+                      )
+                    }
+                    placeholder={t("transactions.notesPlaceholder")}
+                  />
+                  <HouseholdMemberSelect
+                    label={t("transactions.createdBy")}
+                    members={(membersQuery.data ?? []).filter(
+                      (member) => member.status === "accepted",
+                    )}
+                    value={editTransaction.createdById || profile?.id || ""}
+                    placeholder={t("transactions.createdByPlaceholder")}
+                    hint={t("transactions.createdByPlaceholder")}
+                    onChange={(value) =>
+                      setEditTransaction((current) =>
+                        current ? { ...current, createdById: value } : current,
+                      )
+                    }
+                  />
+                  <GroupedAccountSelect
+                    label={t("transactions.account")}
+                    accounts={accounts as any}
+                    members={
+                      (membersQuery.data ?? []).filter(
+                        (member) => member.status === "accepted",
+                      ) as any
+                    }
+                    value={editTransaction.accountId}
+                    placeholder={t("transactions.selectAccount")}
+                    hint={t("transactions.selectAccountHint", {
+                      defaultValue: t("transactions.account"),
+                    })}
+                    onChange={(value) =>
+                      setEditTransaction((current) =>
+                        current ? { ...current, accountId: value } : current,
+                      )
+                    }
+                    closeLabel={t("close", { defaultValue: "Close" })}
+                    sharedLabel={t("dashboard.shared")}
+                    unassignedLabel={t("settings.unnamedUser")}
+                    typeLabels={{
+                      bank: t("accounts.types.bank"),
+                      cash: t("accounts.types.cash"),
+                      savings: t("accounts.types.savings"),
+                      credit_card: t("accounts.types.credit_card"),
+                      investment: t("accounts.types.investment"),
+                      ppr: t("accounts.types.ppr"),
+                    }}
+                  />
+                  <CategoryPicker
+                    label={t("transactions.categories")}
+                    placeholder={t("transactions.categories")}
+                    hint={t("transactions.categories")}
+                    categories={categories as any}
+                    selectedId={editTransaction.categoryId}
+                    clearLabel={t("none")}
+                    onChange={(value) =>
+                      setEditTransaction((current) =>
+                        current ? { ...current, categoryId: value } : current,
+                      )
+                    }
+                  />
+                  <View style={styles.editAttachmentsSection}>
+                    <View style={styles.editAttachmentsHeading}>
+                      <Ionicons
+                        name="attach-outline"
+                        size={18}
+                        color={colors.primary}
+                      />
+                      <Text style={styles.editAttachmentsTitle}>
+                        {t("transactions.attachmentsTitle")}
+                      </Text>
+                    </View>
+                    {editAttachmentsQuery.isPending ? (
+                      <Text style={styles.editAttachmentsStatus}>
+                        {t("transactions.loadingAttachments")}
+                      </Text>
+                    ) : editAttachmentsQuery.isError ? (
+                      <View style={styles.editAttachmentsError}>
+                        <Text style={styles.editAttachmentsStatus}>
+                          {t("transactions.attachmentsLoadError")}
+                        </Text>
+                        <Button
+                          label={t("retry")}
+                          variant="secondary"
+                          onPress={() => void editAttachmentsQuery.refetch()}
+                        />
+                      </View>
+                    ) : editAttachmentsQuery.data?.length ? (
+                      <View style={styles.editAttachmentsList}>
+                        {editAttachmentsQuery.data.map((savedAttachment) => (
+                          <View
+                            key={savedAttachment.id}
+                            style={styles.editAttachmentItem}
+                          >
+                            <AttachmentPreview
+                              uri={savedAttachment.signedUrl}
+                              mimeType={savedAttachment.mime_type}
+                              fileName={savedAttachment.file_name}
+                              previewLabel={t("transactions.attachmentPreview")}
+                              openLabel={t("transactions.openAttachment")}
+                            />
+                            <Text style={styles.editAttachmentMeta}>
+                              {(savedAttachment.file_size / 1024).toFixed(1)} KB
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={styles.editAttachmentsStatus}>
+                        {t("transactions.noAttachments")}
+                      </Text>
+                    )}
+                  </View>
+                  {deleteConfirmationOpen ? (
+                    <View
                       style={{
-                        color: colors.destructive,
-                        fontWeight: typography.fontWeight.bold,
+                        gap: spacing(2),
+                        padding: spacing(3),
+                        borderWidth: 1,
+                        borderColor: colors.destructive,
+                        borderRadius: radius.lg,
+                        backgroundColor: colors.surfaceMuted,
                       }}
                     >
-                      {t("transactions.deleteTitle")}
-                    </Text>
-                    <Text style={{ color: colors.textSecondary }}>
-                      {t("transactions.deleteMessage")}
-                    </Text>
+                      <Text
+                        style={{
+                          color: colors.destructive,
+                          fontWeight: typography.fontWeight.bold,
+                        }}
+                      >
+                        {t("transactions.deleteTitle")}
+                      </Text>
+                      <Text style={{ color: colors.textSecondary }}>
+                        {t("transactions.deleteMessage")}
+                      </Text>
+                      <View style={styles.modalActions}>
+                        <Button
+                          label={t("cancel")}
+                          variant="secondary"
+                          onPress={() => setDeleteConfirmationOpen(false)}
+                          disabled={deleteTransaction.isPending}
+                        />
+                        <Button
+                          label={
+                            deleteTransaction.isPending
+                              ? t("deleting")
+                              : t("transactions.delete")
+                          }
+                          variant="danger"
+                          onPress={() => void handleDeleteEditedTransaction()}
+                          disabled={deleteTransaction.isPending}
+                        />
+                      </View>
+                    </View>
+                  ) : null}
+                  {!deleteConfirmationOpen ? (
                     <View style={styles.modalActions}>
+                      <Button
+                        label={t("transactions.delete")}
+                        variant="danger"
+                        onPress={() => setDeleteConfirmationOpen(true)}
+                        disabled={
+                          updateTransaction.isPending ||
+                          deleteTransaction.isPending
+                        }
+                      />
                       <Button
                         label={t("cancel")}
                         variant="secondary"
-                        onPress={() => setDeleteConfirmationOpen(false)}
+                        onPress={closeEditTransaction}
                         disabled={deleteTransaction.isPending}
                       />
                       <Button
                         label={
-                          deleteTransaction.isPending
-                            ? t("deleting")
-                            : t("transactions.delete")
+                          updateTransaction.isPending
+                            ? t("saving")
+                            : t("transactions.saveChanges", {
+                                defaultValue: t("settings.saveChanges"),
+                              })
                         }
-                        variant="danger"
-                        onPress={() => void handleDeleteEditedTransaction()}
-                        disabled={deleteTransaction.isPending}
+                        onPress={() => void handleSaveTransaction()}
+                        disabled={
+                          updateTransaction.isPending ||
+                          deleteTransaction.isPending
+                        }
                       />
                     </View>
-                  </View>
-                ) : null}
-                {!deleteConfirmationOpen ? (
-                  <View style={styles.modalActions}>
-                    <Button
-                      label={t("transactions.delete")}
-                      variant="danger"
-                      onPress={() => setDeleteConfirmationOpen(true)}
-                      disabled={
-                        updateTransaction.isPending ||
-                        deleteTransaction.isPending
-                      }
-                    />
-                    <Button
-                      label={t("cancel")}
-                      variant="secondary"
-                      onPress={closeEditTransaction}
-                      disabled={deleteTransaction.isPending}
-                    />
-                    <Button
-                      label={
-                        updateTransaction.isPending
-                          ? t("saving")
-                          : t("transactions.saveChanges", {
-                              defaultValue: t("settings.saveChanges"),
-                            })
-                      }
-                      onPress={() => void handleSaveTransaction()}
-                      disabled={
-                        updateTransaction.isPending ||
-                        deleteTransaction.isPending
-                      }
-                    />
-                  </View>
-                ) : null}
-              </>
-            ) : null}
+                  ) : null}
+                </>
+              ) : null}
             </ScrollView>
           </View>
         </View>
@@ -2521,449 +2997,3 @@ export default function TransactionsScreen() {
   );
 }
 
-function createStyles(colors: any) {
-  return StyleSheet.create({
-    viewTabs: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "center",
-      gap: spacing(2),
-      padding: spacing(2),
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.lg,
-      backgroundColor: colors.surfaceMuted,
-    },
-    sectionActions: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "center",
-      gap: spacing(2),
-    },
-    bulkActionBar: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "flex-end",
-      gap: spacing(3),
-      padding: spacing(3),
-      marginBottom: spacing(3),
-      borderWidth: 1,
-      borderColor: colors.primary,
-      borderRadius: radius.lg,
-      backgroundColor: colors.primarySoft,
-    },
-    bulkActionSummary: {
-      minWidth: spacing(44),
-      flex: 1,
-      gap: spacing(1),
-      alignSelf: "center",
-    },
-    bulkActionTitle: {
-      color: colors.text,
-      fontSize: typography.fontSize[16],
-      fontWeight: String(typography.fontWeight.extraBold),
-    },
-    bulkActionHint: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[12],
-    },
-    bulkCategoryField: {
-      minWidth: spacing(52),
-      flexGrow: 1,
-    },
-    bulkCheckbox: {
-      width: spacing(9),
-      height: spacing(9),
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.full,
-      backgroundColor: colors.surface,
-    },
-    bulkCheckboxSelected: {
-      borderColor: colors.primary,
-      backgroundColor: colors.primary,
-    },
-    bulkCheckboxDisabled: {
-      opacity: 0.38,
-    },
-    transactionHeader: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      justifyContent: "space-between",
-      gap: spacing(3),
-    },
-    transactionIdentity: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing(2),
-    },
-    transactionIcon: {
-      width: spacing(9),
-      height: spacing(9),
-      borderRadius: radius.full,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    transactionDetails: { flex: 1, gap: spacing(0.5) },
-    transactionTitle: {
-      color: colors.text,
-      fontWeight: String(typography.fontWeight.bold),
-    },
-    transactionAccount: {
-      color: colors.text,
-      fontWeight: String(typography.fontWeight.semibold),
-    },
-    transactionCreator: {
-      color: colors.primary,
-      fontWeight: String(typography.fontWeight.bold),
-    },
-    transactionContext: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[12],
-    },
-    transactionAmount: {
-      fontSize: typography.fontSize[16],
-      fontWeight: String(typography.fontWeight.extraBold),
-    },
-    transactionBalance: {
-      color: colors.text,
-      fontSize: typography.fontSize[14],
-      fontWeight: String(typography.fontWeight.bold),
-    },
-    personIdentity: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing(1.5),
-    },
-    menuButton: {
-      width: spacing(10.5),
-      height: spacing(10.5),
-      borderRadius: radius.mdPlus,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceMuted,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    menuButtonText: {
-      color: colors.text,
-      fontSize: typography.fontSize[22],
-      fontWeight: String(typography.fontWeight.extraBold),
-      lineHeight: typography.lineHeight[22],
-    },
-    floatingCreateButton: {
-      position: "absolute",
-      right: spacing(6),
-      bottom: spacing(6),
-      zIndex: 10,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: spacing(2),
-      paddingHorizontal: spacing(4),
-      paddingVertical: spacing(3),
-      borderRadius: radius.full,
-      borderWidth: 1,
-      borderColor: colors.primary,
-      backgroundColor: colors.primary,
-    },
-    floatingCreateButtonText: {
-      color: colors.primaryForeground,
-      fontSize: typography.fontSize[14],
-      fontWeight: String(typography.fontWeight.extraBold),
-    },
-    floatingCreateSpacer: {
-      height: spacing(16),
-    },
-    filterToggle: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing(1.5),
-      borderWidth: 1,
-      borderRadius: radius.lg,
-      paddingHorizontal: spacing(3),
-      paddingVertical: spacing(2),
-    },
-    filterToggleLabel: {
-      fontSize: typography.fontSize[13],
-      fontWeight: typography.fontWeight.semibold as any,
-    },
-    filtersGrid: {
-      width: "100%",
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "flex-start",
-      gap: spacing(3),
-    },
-    filterGridItem: {
-      minWidth: 0,
-      alignSelf: "stretch",
-    },
-    filterChoiceGroup: {
-      gap: spacing(2),
-      padding: spacing(3),
-      borderWidth: 1,
-      borderRadius: radius.lg,
-    },
-    filterGroupLabel: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing(1.5),
-    },
-    filterGroupLabelText: {
-      fontSize: typography.fontSize[13],
-      fontWeight: typography.fontWeight.semibold as any,
-    },
-    filterPills: {
-      flexDirection: "row",
-      alignItems: "center",
-      flexWrap: "wrap",
-      gap: spacing(2),
-    },
-    modalBackdrop: {
-      flex: 1,
-      justifyContent: "center",
-      padding: spacing(5),
-      backgroundColor: "rgba(2, 6, 23, 0.82)",
-    },
-    modalKeyboardView: {
-      width: "100%",
-      maxHeight: "92%",
-      alignSelf: "center",
-    },
-    createModalCard: {
-      width: "100%",
-      maxWidth: spacing(190),
-      maxHeight: "100%",
-      alignSelf: "center",
-      overflow: "hidden",
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.xl,
-      backgroundColor: colors.surface,
-    },
-    createModalHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing(3),
-      paddingHorizontal: spacing(5),
-      paddingVertical: spacing(4),
-      borderBottomWidth: 1,
-    },
-    modalIcon: {
-      width: spacing(11),
-      height: spacing(11),
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: radius.lg,
-    },
-    modalHeading: {
-      flex: 1,
-      gap: spacing(0.5),
-    },
-    modalClose: {
-      width: spacing(10),
-      height: spacing(10),
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderRadius: radius.full,
-    },
-    modalPressed: {
-      opacity: 0.72,
-    },
-    createModalScroll: {
-      flexShrink: 1,
-    },
-    createModalBody: {
-      gap: spacing(3.5),
-      padding: spacing(5),
-    },
-    typeSelector: {
-      flexDirection: "row",
-      alignItems: "center",
-      alignSelf: "flex-start",
-      gap: spacing(2),
-      padding: spacing(2),
-      borderWidth: 1,
-      borderRadius: radius.full,
-    },
-    formGrid: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      gap: spacing(3),
-    },
-    formGridCompact: {
-      flexDirection: "column",
-    },
-    formGridItem: {
-      flex: 1,
-      width: "100%",
-      minWidth: 0,
-    },
-    createModalFooter: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: spacing(2.5),
-      paddingHorizontal: spacing(5),
-      paddingVertical: spacing(3.5),
-      borderTopWidth: 1,
-      backgroundColor: colors.surface,
-    },
-    createModalPrimaryActions: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      justifyContent: "flex-end",
-      gap: spacing(2.5),
-    },
-    modalCard: {
-      width: "100%",
-      maxWidth: spacing(160),
-      alignSelf: "center",
-      gap: spacing(3.5),
-      padding: spacing(4.5),
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.xl,
-      backgroundColor: colors.surface,
-    },
-    editModalCard: {
-      maxHeight: "92%",
-      padding: 0,
-      overflow: "hidden",
-    },
-    editModalContent: {
-      gap: spacing(3.5),
-      padding: spacing(4.5),
-    },
-    menuCard: {
-      width: "100%",
-      maxWidth: spacing(96),
-      alignSelf: "center",
-      gap: spacing(3),
-      padding: spacing(4.5),
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.xl,
-      backgroundColor: colors.surface,
-    },
-    modalTitle: {
-      color: colors.text,
-      fontSize: typography.fontSize[20],
-      fontWeight: String(typography.fontWeight.extraBold),
-    },
-    modalSubtitle: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[13],
-      lineHeight: typography.lineHeight[18],
-    },
-    editAttachmentsSection: {
-      gap: spacing(2),
-      padding: spacing(3),
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.lg,
-      backgroundColor: colors.surfaceMuted,
-    },
-    editAttachmentsHeading: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing(1.5),
-    },
-    editAttachmentsTitle: {
-      color: colors.text,
-      fontSize: typography.fontSize[14],
-      fontWeight: String(typography.fontWeight.bold),
-    },
-    editAttachmentsStatus: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[13],
-    },
-    editAttachmentsError: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: spacing(2),
-    },
-    editAttachmentsList: { gap: spacing(3) },
-    editAttachmentItem: { gap: spacing(1) },
-    editAttachmentMeta: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[12],
-    },
-    categorySuggestionStatus: {
-      minHeight: spacing(4.5),
-      justifyContent: "center",
-    },
-    categorySuggestionText: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[12],
-      lineHeight: typography.lineHeight[18],
-    },
-    titleSuggestionBox: {
-      marginTop: spacing(1.5),
-      overflow: "hidden",
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.lg,
-      backgroundColor: colors.surface,
-    },
-    titleSuggestionRow: {
-      gap: spacing(0.5),
-      paddingHorizontal: spacing(3.5),
-      paddingVertical: spacing(2.5),
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
-    },
-    titleSuggestionRowActive: { backgroundColor: colors.primarySoft },
-    titleSuggestionTitle: {
-      color: colors.text,
-      fontSize: typography.fontSize[14],
-      fontWeight: String(typography.fontWeight.bold),
-    },
-    titleSuggestionContext: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[12],
-    },
-    modalActions: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: spacing(2.5),
-      justifyContent: "flex-end",
-    },
-    menuItem: {
-      paddingVertical: spacing(3.5),
-      paddingHorizontal: spacing(3.5),
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceMuted,
-    },
-    menuItemDanger: {
-      paddingVertical: spacing(3.5),
-      paddingHorizontal: spacing(3.5),
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.destructiveBorder,
-      backgroundColor: colors.destructiveSoft,
-    },
-    menuItemText: {
-      color: colors.text,
-      fontSize: typography.fontSize[14],
-      fontWeight: String(typography.fontWeight.bold),
-    },
-    menuItemTextDanger: {
-      color: colors.destructive,
-      fontSize: typography.fontSize[14],
-      fontWeight: String(typography.fontWeight.bold),
-    },
-    pressed: {
-      opacity: 0.85,
-    },
-  } as any);
-}

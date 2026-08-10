@@ -33,6 +33,23 @@ function createQuery(result: QueryResult) {
   return query;
 }
 
+/**
+ * Routes `.from("categories")` (used internally to expand a parent category
+ * filter into itself + its subcategory ids) to its own mock query, separate
+ * from `.from("transactions")`, so asserting on the transactions query's
+ * `.eq`/`.in` calls isn't polluted by the categories lookup's result rows.
+ */
+function createFromRouter(
+  transactionsQuery: Record<string, jest.Mock>,
+  categoriesResult: QueryResult = { data: [] },
+) {
+  const categoriesQuery = createQuery(categoriesResult);
+  const from = jest.fn((table: string) =>
+    table === "categories" ? categoriesQuery : transactionsQuery,
+  );
+  return { from, categoriesQuery };
+}
+
 describe("TransactionsRepository", () => {
   it("sends movement filters to the pagination-safe RPC", async () => {
     const rows = [{
@@ -204,9 +221,10 @@ describe("TransactionsRepository", () => {
   it("applies household list filters, date bounds, ordering, and range", async () => {
     const rows = [{ id: "transaction-1" }];
     const query = createQuery({ data: rows });
-    const client = {
-      from: jest.fn(() => query),
-    };
+    // No subcategories for "category-1" here, so the filter should still
+    // resolve to a plain `.eq("category_id", ...)`, unchanged from before.
+    const { from } = createFromRouter(query, { data: [] });
+    const client = { from };
     const repository = new TransactionsRepository(client as any);
 
     await expect(
@@ -232,6 +250,10 @@ describe("TransactionsRepository", () => {
     expect(query.eq).toHaveBeenCalledWith("household_id", "household-1");
     expect(query.eq).toHaveBeenCalledWith("account_id", "account-1");
     expect(query.eq).toHaveBeenCalledWith("category_id", "category-1");
+    expect(query.in).not.toHaveBeenCalledWith(
+      "category_id",
+      expect.anything(),
+    );
     expect(query.eq).toHaveBeenCalledWith("created_by", "profile-1");
     expect(query.eq).toHaveBeenCalledWith("type", "expense");
     expect(query.gte).toHaveBeenCalledWith("transaction_date", "2026-07-01");
@@ -295,6 +317,43 @@ describe("TransactionsRepository", () => {
 
     expect(query.order.mock.calls[0]).toEqual(["amount", { ascending }]);
     expect(query.range).toHaveBeenCalledWith(0, 19);
+  });
+
+  it("expands a parent category filter to include its subcategory ids", async () => {
+    const query = createQuery({ data: [] });
+    const { from, categoriesQuery } = createFromRouter(query, {
+      data: [{ id: "sub-1" }, { id: "sub-2" }],
+    });
+    const repository = new TransactionsRepository({ from } as any);
+
+    await repository.listForHousehold("household-1", {
+      categoryId: "parent-1",
+    });
+
+    expect(categoriesQuery.eq).toHaveBeenCalledWith("household_id", "household-1");
+    expect(categoriesQuery.eq).toHaveBeenCalledWith("parent_id", "parent-1");
+    expect(query.in).toHaveBeenCalledWith("category_id", [
+      "parent-1",
+      "sub-1",
+      "sub-2",
+    ]);
+    expect(query.eq).not.toHaveBeenCalledWith("category_id", expect.anything());
+  });
+
+  it("keeps an exact-match filter when the selected category has no subcategories (e.g. it is itself a subcategory)", async () => {
+    const query = createQuery({ data: [] });
+    const { from } = createFromRouter(query, { data: [] });
+    const repository = new TransactionsRepository({ from } as any);
+
+    await repository.listForHousehold("household-1", {
+      categoryId: "sub-1",
+    });
+
+    expect(query.eq).toHaveBeenCalledWith("category_id", "sub-1");
+    expect(query.in).not.toHaveBeenCalledWith(
+      "category_id",
+      expect.anything(),
+    );
   });
 
   it("filters uncategorized transactions with an IS NULL query", async () => {

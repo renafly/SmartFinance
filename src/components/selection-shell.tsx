@@ -64,6 +64,8 @@ export function SelectionTrigger({
         </View>
         <View style={{ flex: 1, gap: spacing(1) }}>
           <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
             style={[
               styles.triggerValue,
               { color: isEmpty ? colors.textSecondary : colors.text },
@@ -72,7 +74,11 @@ export function SelectionTrigger({
             {valueLabel}
           </Text>
           {hint ? (
-            <Text style={[styles.triggerHint, { color: colors.textSecondary }]}>
+            <Text
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              style={[styles.triggerHint, { color: colors.textSecondary }]}
+            >
               {hint}
             </Text>
           ) : null}
@@ -90,6 +96,10 @@ type SelectionShellProps = {
   closeLabel: string;
   onClose: () => void;
   bodyScrollable?: boolean;
+  /** An optional confirm/save action rendered in the same fixed footer row
+   * as the close button (outside the scrollable body), so the two sit next
+   * to each other instead of the action scrolling away with the content. */
+  primaryAction?: { label: string; onPress: () => void; disabled?: boolean };
   children: ReactNode;
 };
 
@@ -100,6 +110,7 @@ export function SelectionShell({
   closeLabel,
   onClose,
   bodyScrollable = true,
+  primaryAction,
   children,
 }: SelectionShellProps) {
   const { colors } = useTheme();
@@ -162,22 +173,38 @@ export function SelectionShell({
           ) : (
             <View style={styles.modalBodyContent}>{children}</View>
           )}
-          <Pressable
-            onPress={onClose}
-            style={({ pressed }) => [
-              styles.closeButton,
-              {
-                backgroundColor: colors.surfaceMuted,
-                borderColor: colors.border,
-              },
-              pressed && styles.pressed,
-            ]}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: primaryAction ? "space-between" : "flex-end",
+              gap: spacing(2),
+            }}
           >
-            <Ionicons name="close-outline" size={16} color={colors.text} />
-            <Text style={[styles.closeButtonText, { color: colors.text }]}>
-              {closeLabel}
-            </Text>
-          </Pressable>
+            <Pressable
+              onPress={onClose}
+              style={({ pressed }) => [
+                styles.closeButton,
+                {
+                  backgroundColor: colors.surfaceMuted,
+                  borderColor: colors.border,
+                },
+                pressed && styles.pressed,
+              ]}
+            >
+              <Ionicons name="close-outline" size={16} color={colors.text} />
+              <Text style={[styles.closeButtonText, { color: colors.text }]}>
+                {closeLabel}
+              </Text>
+            </Pressable>
+            {primaryAction ? (
+              <Button
+                label={primaryAction.label}
+                onPress={primaryAction.onPress}
+                disabled={primaryAction.disabled}
+              />
+            ) : null}
+          </View>
         </View>
       </View>
     </Modal>

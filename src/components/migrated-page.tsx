@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -219,7 +220,12 @@ export function Pill({ label, active, onPress }: PillProps) {
   }
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.pill, responsiveStyle, { backgroundColor: active ? colors.primary : colors.surfaceMuted, borderColor: active ? colors.primary : colors.border }, pressed && styles.pressed]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: !!active }}
+      style={({ pressed }) => [styles.pill, responsiveStyle, { backgroundColor: active ? colors.primary : colors.surfaceMuted, borderColor: active ? colors.primary : colors.border }, pressed && styles.pressed]}
+    >
       {content}
     </Pressable>
   );
@@ -233,31 +239,62 @@ type ButtonProps = {
 };
 
 export function Button({ label, onPress, variant = 'primary', disabled }: ButtonProps) {
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
   const responsive = useResponsiveMetrics();
 
-  return (
-      <Pressable
-        onPress={onPress}
-        disabled={disabled}
-        style={({ pressed }) => [
-          styles.button,
-          {
-            paddingHorizontal: responsive.buttonPaddingHorizontal,
-            paddingVertical: responsive.buttonPaddingVertical,
-            minHeight: responsive.isPhone ? 40 : 0,
-          },
-          { backgroundColor: variant === 'primary' ? colors.primary : variant === 'secondary' ? colors.surfaceMuted : colors.destructive },
-          { borderColor: variant === 'primary' ? colors.primary : variant === 'secondary' ? colors.border : colors.destructive },
-          pressed && !disabled && styles.pressed,
-          disabled && styles.disabled,
-        ]}
-      >
+  // In the Ultra theme, the primary action gets a violet-to-cyan gradient
+  // and a soft colored glow instead of a flat fill, to match that theme's
+  // more premium, high-contrast look. Every other theme keeps the plain
+  // flat-fill button used across the rest of the app.
+  const isUltraPrimary = mode === 'ultra' && variant === 'primary';
+
+  const button = (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !!disabled }}
+      style={({ pressed }) => [
+        styles.button,
+        {
+          paddingHorizontal: responsive.buttonPaddingHorizontal,
+          paddingVertical: responsive.buttonPaddingVertical,
+          minHeight: responsive.isPhone ? 40 : 0,
+        },
+        isUltraPrimary
+          ? [styles.ultraButton, { borderColor: 'transparent' }]
+          : [
+              { backgroundColor: variant === 'primary' ? colors.primary : variant === 'secondary' ? colors.surfaceMuted : colors.destructive },
+              { borderColor: variant === 'primary' ? colors.primary : variant === 'secondary' ? colors.border : colors.destructive },
+            ],
+        pressed && !disabled && styles.pressed,
+        disabled && styles.disabled,
+      ]}
+    >
+      {isUltraPrimary ? (
+        <LinearGradient
+          colors={[colors.gradientFrom, colors.gradientTo]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      ) : null}
       <Text style={[styles.buttonText, { color: variant === 'primary' ? colors.primaryForeground : variant === 'secondary' ? colors.text : colors.destructiveForeground }]}>
         {label}
       </Text>
     </Pressable>
   );
+
+  // The gradient button clips its own content (overflow: hidden, so the
+  // gradient respects the rounded corners), which would also clip its own
+  // shadow if the shadow lived on that same view. Wrapping it in an
+  // unclipped View lets the glow spread outside the rounded corners instead
+  // of being cut off at the edge.
+  if (isUltraPrimary) {
+    return <View style={[styles.ultraGlowWrap, { shadowColor: colors.glow }]}>{button}</View>;
+  }
+
+  return button;
 }
 
 type FieldProps = TextInputProps & {
@@ -408,6 +445,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
+  },
+  ultraButton: {
+    overflow: 'hidden',
+  },
+  ultraGlowWrap: {
+    borderRadius: radius.md,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 14,
+    elevation: 6,
   },
   buttonText: {
     fontSize: typography.fontSize[13],

@@ -12,6 +12,7 @@ import { RecurringTransactionsRepository } from "./recurring.transactions.reposi
 import { SavingPotsRepository } from "./saving-pots.repository";
 import { TransactionsRepository } from "./transactions.repository";
 import { TransactionAutomationRepository } from "./transaction-automation.repository";
+import { WageFlowCategoriesRepository } from "./wage-flow-categories.repository";
 
 export * from "./accounts.repository";
 export * from "./attachments.repository";
@@ -24,6 +25,7 @@ export * from "./recurring.transactions.repository";
 export * from "./saving-pots.repository";
 export * from "./transactions.repository";
 export * from "./transaction-automation.repository";
+export * from "./wage-flow-categories.repository";
 
 export function createRepositories(
   client: SupabaseClient<Database> = supabase,
@@ -39,6 +41,7 @@ export function createRepositories(
     savingPots: new SavingPotsRepository(client),
     transactions: new TransactionsRepository(client),
     transactionAutomation: new TransactionAutomationRepository(client),
+    wageFlowCategories: new WageFlowCategoriesRepository(client),
   };
 }
 

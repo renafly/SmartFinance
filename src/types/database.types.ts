@@ -372,6 +372,7 @@ export type Database = {
           is_default: boolean;
           sort_order: number;
           is_archived: boolean;
+          is_discretionary: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -386,6 +387,7 @@ export type Database = {
           is_default?: boolean;
           sort_order?: number;
           is_archived?: boolean;
+          is_discretionary?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -400,6 +402,7 @@ export type Database = {
           is_default?: boolean;
           sort_order?: number;
           is_archived?: boolean;
+          is_discretionary?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -821,6 +824,8 @@ export type Database = {
           category_id: string | null;
           pot_id: string | null;
           rule_kind: Database["public"]["Enums"]["recurring_rule_kind"];
+          expense_kind:
+            Database["public"]["Enums"]["recurring_expense_kind"] | null;
           destination_account_id: string | null;
           destination_pot_id: string | null;
           title: string;
@@ -843,6 +848,8 @@ export type Database = {
           category_id?: string | null;
           pot_id?: string | null;
           rule_kind?: Database["public"]["Enums"]["recurring_rule_kind"];
+          expense_kind?:
+            Database["public"]["Enums"]["recurring_expense_kind"] | null;
           destination_account_id?: string | null;
           destination_pot_id?: string | null;
           title: string;
@@ -865,6 +872,8 @@ export type Database = {
           category_id?: string | null;
           pot_id?: string | null;
           rule_kind?: Database["public"]["Enums"]["recurring_rule_kind"];
+          expense_kind?:
+            Database["public"]["Enums"]["recurring_expense_kind"] | null;
           destination_account_id?: string | null;
           destination_pot_id?: string | null;
           title?: string;
@@ -984,6 +993,57 @@ export type Database = {
           pot_id?: string;
           account_id?: string;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      wage_flow_categories: {
+        Row: {
+          id: string;
+          household_id: string;
+          name: string;
+          color: string;
+          icon: string;
+          include_all_transactions: boolean;
+          account_ids: string[];
+          category_ids: string[];
+          pot_account_ids: string[];
+          include_transfers_between_accounts: boolean;
+          include_transfers_into_pots: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          name: string;
+          color?: string;
+          icon?: string;
+          include_all_transactions?: boolean;
+          account_ids?: string[];
+          category_ids?: string[];
+          pot_account_ids?: string[];
+          include_transfers_between_accounts?: boolean;
+          include_transfers_into_pots?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          household_id?: string;
+          name?: string;
+          color?: string;
+          icon?: string;
+          include_all_transactions?: boolean;
+          account_ids?: string[];
+          category_ids?: string[];
+          pot_account_ids?: string[];
+          include_transfers_between_accounts?: boolean;
+          include_transfers_into_pots?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -1314,6 +1374,10 @@ export type Database = {
           p_sort?: string;
           p_limit?: number;
           p_offset?: number;
+          p_exclude_transfers?: boolean;
+          p_search?: string | null;
+          p_min_amount?: number | null;
+          p_max_amount?: number | null;
         };
         Returns: {
           movement_id: string;
@@ -1330,6 +1394,7 @@ export type Database = {
           created_by: string;
           title: string;
           notes: string | null;
+          merchant_name: string | null;
           amount: number;
           balance_after_transaction: number | null;
           transaction_date: string;
@@ -1338,12 +1403,37 @@ export type Database = {
           monthly_budget_run_id: string | null;
           generated_by_rule_id: string | null;
           recurring_execution_id: string | null;
-          budget_section: Database["public"]["Enums"]["monthly_budget_section"] | null;
+          budget_section:
+            Database["public"]["Enums"]["monthly_budget_section"] | null;
           account: Json | null;
           source_account: Json | null;
           destination_account: Json | null;
           category: Json | null;
           created_by_profile: Json | null;
+        }[];
+      };
+      summarize_transaction_movements: {
+        Args: {
+          p_household_id: string;
+          p_kind?: string | null;
+          p_account_id?: string | null;
+          p_source_account_id?: string | null;
+          p_destination_account_id?: string | null;
+          p_category_id?: string | null;
+          p_uncategorized?: boolean;
+          p_created_by?: string | null;
+          p_from?: string | null;
+          p_to?: string | null;
+          p_exclude_transfers?: boolean;
+          p_search?: string | null;
+          p_min_amount?: number | null;
+          p_max_amount?: number | null;
+        };
+        Returns: {
+          movement_count: number;
+          income_total: number;
+          expense_total: number;
+          net_total: number;
         }[];
       };
       update_completed_transfer: {
@@ -1583,6 +1673,7 @@ export type Database = {
       recurring_frequency: "daily" | "weekly" | "monthly" | "yearly" | "custom";
       recurring_execution_status:
         "pending" | "completed" | "skipped" | "failed";
+      recurring_expense_kind: "subscription" | "bill" | "other";
       recurring_rule_kind: "transaction" | "transfer";
       transaction_type: "income" | "expense";
     };

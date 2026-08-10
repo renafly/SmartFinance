@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 
 import { Page, Card, Section, Field, Button, Pill, formatCurrency } from '@/components/migrated-page';
-import { GroupedAccountSelect } from '@/components/grouped-account-select';
-import { GroupedDestinationSelect, type DestinationSelection } from '@/components/grouped-destination-select';
+import { EmptyState } from '@/components/data-surface';
+import { type DestinationSelection } from '@/components/grouped-destination-select';
 import { MonthPickerField } from '@/components/date-picker-field';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
@@ -30,26 +32,14 @@ import {
   type MonthlyBudgetRuleDraft,
 } from '../../features/monthly-budget/hooks';
 import { monthlyBudgetService, type MonthlyBudgetPreview } from '../../features/monthly-budget/services/monthly-budget.service';
-import type { Database } from '@/types/database.types';
-import type { HouseholdMemberDetails } from '../../features/households/hooks';
+import type { BudgetAccountLike, BudgetMemberLike } from '../../features/monthly-budget/types';
+import { getMemberAccentColor, getMemberLabel, getSectionBadgeIcon } from '../../features/monthly-budget/ui-utils';
+import { BudgetRuleCard } from '../../features/monthly-budget/components/budget-rule-card';
+import { MemberIncomeInputCard } from '../../features/monthly-budget/components/member-income-input-card';
+import { BudgetRunRow } from '../../features/monthly-budget/components/budget-run-row';
 
-type AccountLike = {
-  id: string;
-  household_id: string;
-  owner_profile_id: string | null;
-  name: string;
-  type: Database['public']['Enums']['account_type'];
-  currency: Database['public']['Enums']['currency_code'];
-  initial_balance: number;
-  icon: string | null;
-  color: string | null;
-  is_archived: boolean;
-  created_at: string;
-  updated_at: string;
-  current_balance?: number | null;
-};
-
-type MemberLike = HouseholdMemberDetails;
+type AccountLike = BudgetAccountLike;
+type MemberLike = BudgetMemberLike;
 
 const SECTION_SORT_ORDER: Record<string, number> = {
   savings: 0,
@@ -58,21 +48,6 @@ const SECTION_SORT_ORDER: Record<string, number> = {
   ppr: 3,
   remaining_cash: 4,
 };
-
-const MONTH_OPTIONS = [
-  { value: 1, label: 'Jan' },
-  { value: 2, label: 'Feb' },
-  { value: 3, label: 'Mar' },
-  { value: 4, label: 'Apr' },
-  { value: 5, label: 'May' },
-  { value: 6, label: 'Jun' },
-  { value: 7, label: 'Jul' },
-  { value: 8, label: 'Aug' },
-  { value: 9, label: 'Sep' },
-  { value: 10, label: 'Oct' },
-  { value: 11, label: 'Nov' },
-  { value: 12, label: 'Dec' },
-];
 
 type MemberContributionSummary = {
   label: string;
@@ -84,11 +59,6 @@ const SHARED_SUMMARY_ID = '__shared__';
 
 function monthKey(value: string) {
   return value.slice(0, 7);
-}
-
-function getMemberLabel(member?: MemberLike | null, fallback = 'Shared') {
-  if (!member) return fallback;
-  return member.fullName?.trim() || member.email || fallback;
 }
 
 function pickDefaultAccountId(accounts: AccountLike[], ownerId: string | null, allowedTypes: string[]) {
@@ -127,19 +97,36 @@ function normalizeMonthSelection(months: unknown) {
   )].sort((a, b) => a - b);
 }
 
-function formatMonthSelection(months: number[]) {
-  if (months.length === 0) return 'All months';
-
-  return months
-    .map((month) => MONTH_OPTIONS.find((option) => option.value === month)?.label ?? String(month))
-    .join(', ');
-}
-
 function getRuleRowKey(index: number, totalRules: number, columns: number) {
   const rowStart = columns === 1 ? index : Math.floor(index / columns) * columns;
   const rowRuleCount = columns === 1 ? 1 : Math.min(columns, totalRules - rowStart);
   const rowEnd = rowStart + rowRuleCount - 1;
   return `${rowStart}-${rowEnd}`;
+}
+
+function getTransferKey(transfer: { ruleId?: string | null; title: string; destinationAccountId: string }) {
+  return `${transfer.ruleId ?? transfer.title}-${transfer.destinationAccountId}`;
+}
+
+function isRuleDraftValid(rule: MonthlyBudgetRuleDraft) {
+  const amount = Number(rule.amount);
+  const activeMonths = normalizeMonthSelection(rule.activeMonths);
+  const activeFromMonth = rule.activeFromMonth ? Number(rule.activeFromMonth) : null;
+  const activeToMonth = rule.activeToMonth ? Number(rule.activeToMonth) : null;
+  const hasActiveRange = Boolean(rule.activeFromMonth || rule.activeToMonth);
+  const hasValidActiveFromMonth = activeFromMonth != null && Number.isFinite(activeFromMonth) && activeFromMonth >= 1 && activeFromMonth <= 12;
+  const hasValidActiveToMonth = activeToMonth != null && Number.isFinite(activeToMonth) && activeToMonth >= 1 && activeToMonth <= 12;
+  return Boolean(
+    rule.name.trim() &&
+      rule.sourceAccountId &&
+      rule.destinationAccountId &&
+      Number.isFinite(amount) &&
+      amount > 0 &&
+      activeMonths.length === rule.activeMonths.length &&
+      (!rule.activeFromMonth || hasValidActiveFromMonth) &&
+      (!rule.activeToMonth || hasValidActiveToMonth) &&
+      (!hasActiveRange || (rule.activeFromMonth && rule.activeToMonth)),
+  );
 }
 
 function sortRuleDrafts(rules: MonthlyBudgetRuleDraft[]) {
@@ -152,48 +139,6 @@ function sortRuleDrafts(rules: MonthlyBudgetRuleDraft[]) {
 
     return a.name.localeCompare(b.name);
   });
-}
-
-function getSectionBadgeStyle(
-  section: MonthlyBudgetRuleDraft['section'],
-  colors: any,
-) {
-  switch (section) {
-    case 'savings':
-      return { backgroundColor: colors.successSoft, color: colors.success };
-    case 'investments':
-      return { backgroundColor: colors.warningSoft, color: colors.warning };
-    case 'pots':
-      return { backgroundColor: colors.primary, color: colors.primaryForeground };
-    case 'ppr':
-      return { backgroundColor: colors.destructiveSoft, color: colors.destructive };
-    case 'remaining_cash':
-      return { backgroundColor: colors.muted, color: colors.textSecondary };
-    default:
-      return { backgroundColor: colors.surfaceMuted, color: colors.textSecondary };
-  }
-}
-
-function getSectionBadgeIcon(section: MonthlyBudgetRuleDraft['section']) {
-  switch (section) {
-    case 'savings':
-      return 'shield-checkmark-outline';
-    case 'investments':
-      return 'trending-up-outline';
-    case 'pots':
-      return 'save-outline';
-    case 'ppr':
-      return 'shield-outline';
-    case 'remaining_cash':
-      return 'wallet-outline';
-    default:
-      return 'layers-outline';
-  }
-}
-
-function getMemberAccentColor(index: number, colors: any) {
-  const palette = [colors.primary, colors.success, colors.warning, colors.destructive];
-  return palette[index % palette.length];
 }
 
 function createDefaultIncomeDrafts(
@@ -246,10 +191,118 @@ function mapIncomeInputsToDrafts(inputs: any[], members: MemberLike[], accounts:
   });
 }
 
-function shiftMonth(month: string, offset: number) {
-  const [year, monthNumber] = month.slice(0, 7).split('-').map(Number);
-  const shifted = new Date(Date.UTC(year, monthNumber - 1 + offset, 1));
-  return shifted.toISOString().slice(0, 7);
+// A thin, animated fill bar used for the hero allocation meter and the
+// rules section's configured-total meter — width eases in with a spring-like
+// timing curve instead of snapping instantly whenever the underlying numbers
+// change, which reads as a much more considered, "alive" surface.
+function AnimatedProgressBar({
+  percent,
+  color,
+  trackColor,
+  height = spacing(2.5),
+}: {
+  percent: number;
+  color: string;
+  trackColor: string;
+  height?: number;
+}) {
+  const width = useSharedValue(0);
+
+  useEffect(() => {
+    width.value = withTiming(Math.max(0, Math.min(100, percent)), { duration: 550 });
+  }, [percent, width]);
+
+  const animatedStyle = useAnimatedStyle(() => ({ width: `${width.value}%` }));
+
+  return (
+    <View style={{ height, borderRadius: radius.full, overflow: 'hidden', backgroundColor: trackColor } as any}>
+      <Animated.View style={[{ height: '100%', borderRadius: radius.full, backgroundColor: color }, animatedStyle]} />
+    </View>
+  );
+}
+
+// The per-person contribution row in the hero card: press-and-hold gives a
+// subtle scale-down (a cheap way to make an otherwise flat list item feel
+// tappable), and the contribution list fades/slides in on expand instead of
+// popping into place.
+function PersonSummaryRow({
+  row,
+  accentColor,
+  isCollapsed,
+  onToggle,
+}: {
+  row: { id: string; label: string; value: string; contributions: MemberContributionSummary[] };
+  accentColor: string;
+  isCollapsed: boolean;
+  onToggle: () => void;
+}) {
+  const { colors } = useTheme();
+  const hasContributions = row.contributions.length > 0;
+  const scale = useSharedValue(1);
+  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <View
+      style={{
+        gap: spacing(2),
+        paddingVertical: spacing(2),
+        paddingHorizontal: spacing(3),
+        borderRadius: radius.lg,
+        backgroundColor: colors.surfaceMuted,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderLeftWidth: spacing(1),
+        borderLeftColor: accentColor,
+      } as any}
+    >
+      <Animated.View style={pressStyle}>
+        <Pressable
+          onPress={() => hasContributions && onToggle()}
+          onPressIn={() => {
+            if (hasContributions) scale.value = withSpring(0.98, { damping: 16, stiffness: 320 });
+          }}
+          onPressOut={() => {
+            if (hasContributions) scale.value = withSpring(1, { damping: 16, stiffness: 320 });
+          }}
+          accessibilityRole={hasContributions ? 'button' : undefined}
+          accessibilityState={hasContributions ? { expanded: !isCollapsed } : undefined}
+          accessibilityLabel={row.label}
+          style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing(3) } as any}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+            <Ionicons name="person-circle-outline" size={16} color={accentColor} />
+            <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.semibold) } as any}>{row.label}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+            <Text style={{ color: accentColor, fontWeight: String(typography.fontWeight.bold) } as any}>{row.value}</Text>
+            {hasContributions ? (
+              <Ionicons name={isCollapsed ? 'chevron-forward-outline' : 'chevron-down-outline'} size={16} color={colors.textSecondary} />
+            ) : null}
+          </View>
+        </Pressable>
+      </Animated.View>
+      {hasContributions && !isCollapsed ? (
+        <Animated.View entering={FadeInDown.duration(220)} style={{ gap: spacing(1) } as any}>
+          {row.contributions.map((contribution, contributionIndex) => (
+            <View
+              key={`${row.id}-${contribution.section}-${contribution.label}-${contributionIndex}`}
+              style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing(2) } as any}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1) } as any}>
+                <Ionicons name={getSectionBadgeIcon(contribution.section)} size={12} color={colors.textSecondary} />
+                <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
+                  {contribution.label}
+                </Text>
+              </View>
+              <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>
+                {formatCurrency(contribution.amount)}
+              </Text>
+            </View>
+          ))}
+        </Animated.View>
+      ) : null}
+    </View>
+  );
 }
 
 export default function BudgetScreen() {
@@ -305,6 +358,17 @@ export default function BudgetScreen() {
   const [incomeDrafts, setIncomeDrafts] = useState<MonthlyBudgetIncomeDraft[]>([]);
   const [collapsedRuleRowKeys, setCollapsedRuleRowKeys] = useState<string[]>([]);
   const [hasLoadedCollapsedPreference, setHasLoadedCollapsedPreference] = useState(false);
+  // Per-row collapse for the per-person contribution breakdown (Monthly
+  // income inputs, Transfers, and Monthly runs use Section's built-in
+  // `collapsible` prop instead — this one is a list of rows within a
+  // single Section, not a Section of its own).
+  const [collapsedPersonSummaryIds, setCollapsedPersonSummaryIds] = useState<string[]>([]);
+  // Tracks which of this month's preview transfers the user has already
+  // carried out manually (rules only generate a plan — nothing here moves
+  // money automatically), so re-opening the budget later still shows what's
+  // left to do. Keyed per household+month since the transfer list itself is
+  // computed fresh from that month's rules/income each time.
+  const [doneTransferKeys, setDoneTransferKeys] = useState<string[]>([]);
 
   const hydratedConfigId = useRef<string | null>(null);
   const hydratedWorkspaceSignature = useRef<string | null>(null);
@@ -313,6 +377,8 @@ export default function BudgetScreen() {
   const hydratedCollapsedPreferenceKey = useRef<string | null>(null);
   const collapsedPreferenceDirtyRef = useRef(false);
   const collapsedStateKey = householdId ? `smartfinance:monthly-budget:collapsed-rows:${householdId}` : null;
+  const hydratedDoneTransfersKey = useRef<string | null>(null);
+  const doneTransfersStateKey = householdId ? `smartfinance:monthly-budget:done-transfers:${householdId}:${monthKey(month)}` : null;
 
   const currentMonthRun = useMemo(
     () => runs.find((run: any) => monthKey(run.month) === month) ?? null,
@@ -479,6 +545,31 @@ export default function BudgetScreen() {
     setPersistentString(collapsedStateKey, JSON.stringify(collapsedRuleRowKeys));
   }, [collapsedRuleRowKeys, collapsedStateKey, hasLoadedCollapsedPreference]);
 
+  useEffect(() => {
+    if (!doneTransfersStateKey) return;
+    if (hydratedDoneTransfersKey.current === doneTransfersStateKey) return;
+
+    const raw = getPersistentString(doneTransfersStateKey);
+    hydratedDoneTransfersKey.current = doneTransfersStateKey;
+
+    if (!raw) {
+      setDoneTransferKeys([]);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      setDoneTransferKeys(Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : []);
+    } catch {
+      setDoneTransferKeys([]);
+    }
+  }, [doneTransfersStateKey]);
+
+  useEffect(() => {
+    if (!doneTransfersStateKey || hydratedDoneTransfersKey.current !== doneTransfersStateKey) return;
+    setPersistentString(doneTransfersStateKey, JSON.stringify(doneTransferKeys));
+  }, [doneTransferKeys, doneTransfersStateKey]);
+
   const preview = useMemo<MonthlyBudgetPreview>(() => {
     const mappedRules = ruleDrafts.map((rule, index) => ({
       id: rule.id,
@@ -536,26 +627,8 @@ export default function BudgetScreen() {
     ruleDrafts,
   ]);
 
-  const rulesAreValid = ruleDrafts.every((rule) => {
-    const amount = Number(rule.amount);
-    const activeMonths = normalizeMonthSelection(rule.activeMonths);
-    const activeFromMonth = rule.activeFromMonth ? Number(rule.activeFromMonth) : null;
-    const activeToMonth = rule.activeToMonth ? Number(rule.activeToMonth) : null;
-    const hasActiveRange = Boolean(rule.activeFromMonth || rule.activeToMonth);
-    const hasValidActiveFromMonth = activeFromMonth != null && Number.isFinite(activeFromMonth) && activeFromMonth >= 1 && activeFromMonth <= 12;
-    const hasValidActiveToMonth = activeToMonth != null && Number.isFinite(activeToMonth) && activeToMonth >= 1 && activeToMonth <= 12;
-    return Boolean(
-      rule.name.trim() &&
-        rule.sourceAccountId &&
-        rule.destinationAccountId &&
-        Number.isFinite(amount) &&
-        amount > 0 &&
-        activeMonths.length === rule.activeMonths.length &&
-        (!rule.activeFromMonth || hasValidActiveFromMonth) &&
-        (!rule.activeToMonth || hasValidActiveToMonth) &&
-        (!hasActiveRange || (rule.activeFromMonth && rule.activeToMonth)),
-    );
-  });
+  const rulesAreValid = ruleDrafts.every(isRuleDraftValid);
+  const invalidRuleCount = ruleDrafts.filter((rule) => !isRuleDraftValid(rule)).length;
 
   const autoCollapsedRuleRowKeys = !hasLoadedCollapsedPreference && windowWidth < 860
     ? ruleDrafts.map((_, index) => getRuleRowKey(index, ruleDrafts.length, ruleColumns))
@@ -574,6 +647,22 @@ export default function BudgetScreen() {
   const configReady = Boolean(householdId && profile?.id && budgetName.trim() && rulesAreValid);
   const draftReady = Boolean(configId && configReady && preview.validationIssues.length === 0);
   const confirmReady = Boolean(draftReady && currentMonthRun?.status !== 'confirmed');
+
+  // Tells the user why the action buttons above are disabled, since a
+  // greyed-out button with no explanation is easy to get stuck on. Checked
+  // in the same order the buttons unlock: name -> valid rules -> saved
+  // config -> clean preview -> not already confirmed.
+  const actionHint = !budgetName.trim()
+    ? t('budget.hintNeedsName')
+    : invalidRuleCount > 0
+      ? t('budget.hintFixRules', { count: invalidRuleCount })
+      : !configId
+        ? t('budget.hintSaveConfigFirst')
+        : preview.validationIssues.length > 0
+          ? t('budget.hintResolveIssues', { count: preview.validationIssues.length })
+          : currentMonthRun?.status === 'confirmed'
+            ? t('budget.hintMonthConfirmed')
+            : null;
 
   function updateRuleDraft(id: string, patch: Partial<MonthlyBudgetRuleDraft>) {
     setRuleDrafts((current) => current.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule)));
@@ -662,6 +751,18 @@ export default function BudgetScreen() {
 
       return current.filter((item) => item !== rowKey);
     });
+  }
+
+  function togglePersonSummaryCollapsed(id: string) {
+    setCollapsedPersonSummaryIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    );
+  }
+
+  function toggleTransferDone(key: string) {
+    setDoneTransferKeys((current) =>
+      current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
+    );
   }
 
   async function handleSaveConfiguration() {
@@ -880,14 +981,49 @@ export default function BudgetScreen() {
     <Page
       title={t('budget.title')}
       subtitle={t('budget.subtitle')}
-      actions={
-        <View style={{ gap: spacing(2) }}>
-          <Button label={saveConfiguration.isPending ? t('saving') : t('budget.saveConfiguration')} onPress={() => void handleSaveConfiguration()} disabled={!configReady || saveConfiguration.isPending} />
-          <Button label={saveDraft.isPending ? t('saving') : t('budget.saveDraft')} onPress={() => void handleSaveDraft()} variant="secondary" disabled={!draftReady || saveDraft.isPending} />
-          <Button label={confirmRun.isPending || saveDraft.isPending ? t('budget.generating') : t('budget.confirmMonth')} onPress={() => void handleConfirmRun()} disabled={!confirmReady || confirmRun.isPending || saveDraft.isPending} />
+      overlay={
+        // A persistent bottom bar instead of header-only actions: this is a
+        // long, multi-section page, and the save/confirm buttons used to
+        // scroll out of view as soon as you moved past the header. Mirrors
+        // the floating-action-button pattern used on the Transactions screen.
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            paddingHorizontal: spacing(4),
+            paddingTop: spacing(2.5),
+            paddingBottom: spacing(3),
+            gap: spacing(2),
+            backgroundColor: colors.surface,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+          } as any}
+        >
+          {actionHint ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+              <Ionicons name="information-circle-outline" size={14} color={colors.textSecondary} />
+              <Text style={{ flex: 1, color: colors.textSecondary, fontSize: typography.fontSize[12] } as any} numberOfLines={2}>
+                {actionHint}
+              </Text>
+            </View>
+          ) : null}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
+            <View style={{ flex: 1, minWidth: 160 } as any}>
+              <Button label={saveConfiguration.isPending ? t('saving') : t('budget.saveConfiguration')} onPress={() => void handleSaveConfiguration()} disabled={!configReady || saveConfiguration.isPending} />
+            </View>
+            <View style={{ flex: 1, minWidth: 160 } as any}>
+              <Button label={saveDraft.isPending ? t('saving') : t('budget.saveDraft')} onPress={() => void handleSaveDraft()} variant="secondary" disabled={!draftReady || saveDraft.isPending} />
+            </View>
+            <View style={{ flex: 1, minWidth: 160 } as any}>
+              <Button label={confirmRun.isPending || saveDraft.isPending ? t('budget.generating') : t('budget.confirmMonth')} onPress={() => void handleConfirmRun()} disabled={!confirmReady || confirmRun.isPending || saveDraft.isPending} />
+            </View>
+          </View>
         </View>
       }
     >
+      <Animated.View entering={FadeInDown.delay(0).duration(420)}>
       <Card>
         <Section title={t('budget.resumeTitle')} subtitle={t('budget.resumeSubtitle')}>
           <View style={{ gap: spacing(2) } as any}>
@@ -903,27 +1039,45 @@ export default function BudgetScreen() {
                 {t('budget.shared')}
               </Text>
             </View>
-            <View style={{ gap: spacing(2.5), padding: spacing(3.5), borderRadius: radius.xl, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border } as any}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing(3) } as any}>
-                <View style={{ flex: 1, gap: spacing(0.5) } as any}>
-                  <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: typography.letterSpacing[10], fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.extraBold) } as any}>{t('budget.incomeTotal')}</Text>
-                  <Text style={{ color: colors.text, fontSize: typography.fontSize[28], fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(preview.incomeTotal)}</Text>
+            <View style={{ borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' } as any}>
+              <LinearGradient
+                colors={[`${colors.primary}14`, 'transparent']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: spacing(30) } as any}
+              />
+              <View style={{ gap: spacing(3), padding: spacing(4.5), backgroundColor: colors.surfaceMuted } as any}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing(3) } as any}>
+                  <View style={{ flex: 1, gap: spacing(1) } as any}>
+                    <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: typography.letterSpacing[16], fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.extraBold) } as any}>
+                      {t('budget.incomeTotal')}
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.text,
+                        fontSize: typography.fontSize[48],
+                        lineHeight: typography.lineHeight[52],
+                        fontWeight: String(typography.fontWeight.black),
+                        letterSpacing: -0.5,
+                      } as any}
+                    >
+                      {formatCurrency(preview.incomeTotal)}
+                    </Text>
+                  </View>
+                  <View style={{ paddingHorizontal: spacing(2.5), paddingVertical: spacing(1.25), borderRadius: radius.full, backgroundColor: budgetIsOnTrack ? colors.successSoft : colors.destructiveSoft } as any}>
+                    <Text style={{ color: budgetStatusColor, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.extraBold) } as any}>{budgetStatusLabel}</Text>
+                  </View>
                 </View>
-                <View style={{ paddingHorizontal: spacing(2), paddingVertical: spacing(1), borderRadius: radius.full, backgroundColor: budgetIsOnTrack ? colors.successSoft : colors.destructiveSoft } as any}>
-                  <Text style={{ color: budgetStatusColor, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.extraBold) } as any}>{budgetStatusLabel}</Text>
-                </View>
-              </View>
-              <View style={{ height: spacing(2.5), borderRadius: radius.full, overflow: 'hidden', backgroundColor: colors.muted } as any}>
-                <View style={{ width: `${allocationPercent}%`, height: '100%', borderRadius: radius.full, backgroundColor: budgetIsOnTrack ? colors.success : colors.destructive } as any} />
-              </View>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
-                <View style={{ flexGrow: 1, minWidth: 150, gap: spacing(0.5), padding: spacing(2.5), borderRadius: radius.lg, backgroundColor: colors.surface } as any}>
-                  <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.semibold) } as any}>{t('budget.configuredTotal')}</Text>
-                  <Text style={{ color: colors.primary, fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(preview.configuredTotal)}</Text>
-                </View>
-                <View style={{ flexGrow: 1, minWidth: 150, gap: spacing(0.5), padding: spacing(2.5), borderRadius: radius.lg, backgroundColor: colors.surface } as any}>
-                  <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.semibold) } as any}>{t('budget.remainingCash')}</Text>
-                  <Text style={{ color: budgetIsOnTrack ? colors.success : colors.destructive, fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(preview.remainingCash)}</Text>
+                <AnimatedProgressBar percent={allocationPercent} color={budgetIsOnTrack ? colors.success : colors.destructive} trackColor={colors.muted} />
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
+                  <View style={{ flexGrow: 1, minWidth: 150, gap: spacing(0.5), padding: spacing(2.5), borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border } as any}>
+                    <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.semibold) } as any}>{t('budget.configuredTotal')}</Text>
+                    <Text style={{ color: colors.primary, fontSize: typography.fontSize[18], fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(preview.configuredTotal)}</Text>
+                  </View>
+                  <View style={{ flexGrow: 1, minWidth: 150, gap: spacing(0.5), padding: spacing(2.5), borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border } as any}>
+                    <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.semibold) } as any}>{t('budget.remainingCash')}</Text>
+                    <Text style={{ color: budgetIsOnTrack ? colors.success : colors.destructive, fontSize: typography.fontSize[18], fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(preview.remainingCash)}</Text>
+                  </View>
                 </View>
               </View>
             </View>
@@ -946,68 +1100,23 @@ export default function BudgetScreen() {
                 </Text>
               </View>
               <View style={{ gap: spacing(1) } as any}>
-                {memberSummaryRows.map((row, index) => {
-                  const accentColor = getMemberAccentColor(index, colors);
-                  return (
-                  <View
+                {memberSummaryRows.map((row, index) => (
+                  <PersonSummaryRow
                     key={row.id}
-                    style={{
-                      gap: spacing(3),
-                      paddingVertical: spacing(2),
-                      paddingHorizontal: spacing(3),
-                      borderRadius: radius.lg,
-                      backgroundColor: colors.surfaceMuted,
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                      borderLeftWidth: spacing(1),
-                      borderLeftColor: accentColor,
-                    } as any}
-                  >
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing(3) } as any}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
-                        <Ionicons name="person-circle-outline" size={16} color={accentColor} />
-                        <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.semibold) } as any}>
-                          {row.label}
-                        </Text>
-                      </View>
-                      <Text style={{ color: accentColor, fontWeight: String(typography.fontWeight.bold) } as any}>
-                        {row.value}
-                      </Text>
-                    </View>
-                    {row.contributions.length > 0 ? (
-                      <View style={{ gap: spacing(1) } as any}>
-                        {row.contributions.map((contribution, contributionIndex) => (
-                          <View
-                            key={`${row.id}-${contribution.section}-${contribution.label}-${contributionIndex}`}
-                            style={{
-                              flexDirection: 'row',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              gap: spacing(2),
-                            } as any}
-                          >
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1) } as any}>
-                              <Ionicons name={getSectionBadgeIcon(contribution.section)} size={12} color={colors.textSecondary} />
-                              <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
-                                {contribution.label}
-                              </Text>
-                            </View>
-                            <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>
-                              {formatCurrency(contribution.amount)}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    ) : null}
-                  </View>
-                  );
-                })}
+                    row={row}
+                    accentColor={getMemberAccentColor(index, colors)}
+                    isCollapsed={collapsedPersonSummaryIds.includes(row.id)}
+                    onToggle={() => togglePersonSummaryCollapsed(row.id)}
+                  />
+                ))}
               </View>
             </View>
           </View>
         </Section>
       </Card>
+      </Animated.View>
 
+      <Animated.View entering={FadeInDown.delay(60).duration(420)}>
       <Card>
         <Section title={t('budget.householdSettings')} subtitle={t('budget.householdSettingsSubtitle')}>
           <Field label={t('budget.name')} value={budgetName} onChangeText={setBudgetName} placeholder={t('budget.namePlaceholder')} />
@@ -1022,6 +1131,9 @@ export default function BudgetScreen() {
               <Pill key={item} label={t(`budget.incomeModes.${item}`)} active={incomeMode === item} onPress={() => setIncomeMode(item)} />
             ))}
           </View>
+          <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[13] } as any}>
+            {t(`budget.incomeModeHints.${incomeMode}`)}
+          </Text>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
             <Ionicons name="wallet-outline" size={16} color={colors.textSecondary} />
@@ -1032,72 +1144,39 @@ export default function BudgetScreen() {
               <Pill key={item} label={t(`budget.remainingCashStrategies.${item}`)} active={remainingCashStrategy === item} onPress={() => setRemainingCashStrategy(item)} />
             ))}
           </View>
+          <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[13] } as any}>
+            {t(`budget.remainingCashStrategyHints.${remainingCashStrategy}`)}
+          </Text>
 
-          <Field label={t('budget.fixedRemainingCashAmount')} value={fixedRemainingCashAmount} onChangeText={setFixedRemainingCashAmount} keyboardType="numeric" placeholder="0.00" />
+          {remainingCashStrategy === 'fixed' ? (
+            <Field label={t('budget.fixedRemainingCashAmount')} value={fixedRemainingCashAmount} onChangeText={setFixedRemainingCashAmount} keyboardType="numeric" placeholder="0.00" />
+          ) : null}
         </Section>
       </Card>
+      </Animated.View>
 
+      <Animated.View entering={FadeInDown.delay(120).duration(420)}>
       <Card>
-        <Section title={t('budget.monthlyInputs')} subtitle={t('budget.monthlyInputsSubtitle')}>
+        <Section title={t('budget.monthlyInputs')} subtitle={t('budget.monthlyInputsSubtitle')} collapsible>
           <View style={{ gap: spacing(3) }}>
-            {members.map((member) => {
-              const draft = incomeDrafts.find((item) => item.memberId === member.userId);
-              const currentBudgetMonth = monthKey(month);
-              const availableMonth = draft?.availableMonth || currentBudgetMonth;
-
-              return (
-                <View key={member.userId} style={{ gap: spacing(2), paddingBottom: spacing(3), borderBottomWidth: 1, borderBottomColor: colors.border } as any}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
-                    <Ionicons name="person-outline" size={16} color={colors.textSecondary} />
-                    <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>{getMemberLabel(member)}</Text>
-                  </View>
-                  <Field
-                    label={t('budget.salary')}
-                    value={draft?.amount ?? ''}
-                    onChangeText={(value) => updateIncomeDraft(member.userId, { amount: value })}
-                    keyboardType="numeric"
-                    placeholder="0.00"
-                  />
-                  <GroupedAccountSelect
-                    label={t('budget.cashAccount')}
-                    accounts={accounts}
-                    members={members}
-                    value={draft?.cashAccountId ?? ''}
-                    placeholder={t('budget.selectCashAccount')}
-                    hint={t('budget.cashAccountHint')}
-                    allowedTypes={['cash', 'bank']}
-                    sharedLabel={t('budget.shared')}
-                    unassignedLabel={t('settings.unnamedUser')}
-                    closeLabel={t('cancel')}
-                    onChange={(accountId) => updateIncomeDraft(member.userId, { cashAccountId: accountId })}
-                  />
-                  <View style={{ gap: spacing(1.5) }}>
-                    <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
-                      {t('budget.wageAvailability')}
-                    </Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
-                      <Pill
-                        label={t('budget.wageAvailabilityThisMonth')}
-                        active={availableMonth === currentBudgetMonth}
-                        onPress={() => updateIncomeDraft(member.userId, { availableMonth: currentBudgetMonth })}
-                      />
-                      <Pill
-                        label={t('budget.wageAvailabilityNextMonth')}
-                        active={availableMonth === shiftMonth(currentBudgetMonth, 1)}
-                        onPress={() => updateIncomeDraft(member.userId, { availableMonth: shiftMonth(currentBudgetMonth, 1) })}
-                      />
-                    </View>
-                    <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize.sm } as any}>
-                      {t('budget.wageAvailabilityHint')}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
+            {members.map((member, index) => (
+              <MemberIncomeInputCard
+                key={member.userId}
+                member={member}
+                draft={incomeDrafts.find((item) => item.memberId === member.userId)}
+                currentBudgetMonth={monthKey(month)}
+                accounts={accounts}
+                members={members}
+                isLast={index === members.length - 1}
+                onUpdateIncomeDraft={(patch) => updateIncomeDraft(member.userId, patch)}
+              />
+            ))}
           </View>
         </Section>
       </Card>
+      </Animated.View>
 
+      <Animated.View entering={FadeInDown.delay(180).duration(420)}>
       <Card>
         <Section
           title={t('budget.rulesTitle')}
@@ -1120,199 +1199,60 @@ export default function BudgetScreen() {
               </Text>
               <Pill label={budgetStatusLabel} active />
             </View>
-            <View style={{ height: spacing(2), borderRadius: radius.full, backgroundColor: colors.surfaceMuted, overflow: 'hidden' } as any}>
-              <View
-                style={{
-                  width: `${Math.min(100, preview.incomeTotal > 0 ? (preview.configuredTotal / preview.incomeTotal) * 100 : 0)}%`,
-                  height: '100%',
-                  borderRadius: radius.full,
-                  backgroundColor: colors.primary,
-                } as any}
-              />
+            <AnimatedProgressBar
+              percent={preview.incomeTotal > 0 ? (preview.configuredTotal / preview.incomeTotal) * 100 : 0}
+              color={colors.primary}
+              trackColor={colors.surfaceMuted}
+              height={spacing(2)}
+            />
+          </View>
+
+          {ruleDrafts.length === 0 ? (
+            <EmptyState
+              title={t('budget.rulesEmptyTitle')}
+              description={t('budget.rulesEmptyDescription')}
+              icon="layers-outline"
+              actionLabel={t('budget.addRule')}
+              onAction={addRule}
+            />
+          ) : (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) } as any}>
+              {ruleDrafts.map((rule, index) => {
+                const rowStart = ruleColumns === 1 ? index : Math.floor(index / ruleColumns) * ruleColumns;
+                const rowRuleCount = ruleColumns === 1 ? 1 : Math.min(ruleColumns, ruleDrafts.length - rowStart);
+                const rowEnd = rowStart + rowRuleCount - 1;
+                const rowKey = `${rowStart}-${rowEnd}`;
+                const isCollapsed = effectiveCollapsedRuleRowKeys.includes(rowKey);
+
+                return (
+                  <BudgetRuleCard
+                    key={rule.id}
+                    rule={rule}
+                    isCollapsed={isCollapsed}
+                    isValid={isRuleDraftValid(rule)}
+                    style={ruleCardStyle as any}
+                    accounts={accounts}
+                    members={members}
+                    accountNameMap={accountNameMap}
+                    destinationAccountTypeLabels={destinationAccountTypeLabels}
+                    potNameByAccountId={potNameByAccountId}
+                    incomeCashAccounts={incomeCashAccounts}
+                    incomeCashAccountIds={incomeCashAccountIds}
+                    onToggleCollapse={() => toggleRuleCollapsed(rule.id)}
+                    onUpdateRule={(patch) => updateRuleDraft(rule.id, patch)}
+                    onUpdateActiveMonths={(monthValue) => updateRuleActiveMonths(rule.id, monthValue)}
+                    onUpdateDestination={(selection) => updateDestinationDraft(rule.id, selection)}
+                    onRemoveRule={() => removeRule(rule.id)}
+                  />
+                );
+              })}
             </View>
-          </View>
-
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) } as any}>
-            {ruleDrafts.map((rule, index) => {
-              const destinationLabel = accountNameMap.get(rule.destinationAccountId) ?? t('budget.selectDestinationAccount');
-              const activeMonthsLabel = formatMonthSelection(rule.activeMonths);
-              const rowStart = ruleColumns === 1 ? index : Math.floor(index / ruleColumns) * ruleColumns;
-              const rowRuleCount = ruleColumns === 1 ? 1 : Math.min(ruleColumns, ruleDrafts.length - rowStart);
-              const rowEnd = rowStart + rowRuleCount - 1;
-              const rowKey = `${rowStart}-${rowEnd}`;
-              const isCollapsed = effectiveCollapsedRuleRowKeys.includes(rowKey);
-
-              return (
-                <View
-                  key={rule.id}
-                  style={[
-                    { gap: spacing(3), padding: spacing(3.5), borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceMuted },
-                    ruleCardStyle,
-                  ] as any}
-                >
-                  <Pressable
-                    onPress={() => toggleRuleCollapsed(rule.id)}
-                    style={({ pressed }) => [
-                      {
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: spacing(2),
-                        opacity: pressed ? 0.9 : 1,
-                      },
-                    ] as any}
-                  >
-                    <View style={{ flex: 1, gap: spacing(1) } as any}>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing(2) } as any}>
-                        <Ionicons name={getSectionBadgeIcon(rule.section)} size={16} color={colors.textSecondary} />
-                        <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold } as any}>
-                          {rule.name || t('budget.ruleNamePlaceholder')}
-                        </Text>
-                        {(() => {
-                          const badge = getSectionBadgeStyle(rule.section, colors);
-                          return (
-                            <View style={{ paddingHorizontal: spacing(2), paddingVertical: spacing(0.75), borderRadius: radius.full, backgroundColor: badge.backgroundColor } as any}>
-                              <Text style={{ color: badge.color, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.extraBold), letterSpacing: typography.letterSpacing[10], textTransform: 'uppercase' } as any}>
-                                {t(`budget.sections.${rule.section}`)}
-                              </Text>
-                            </View>
-                          );
-                        })()}
-                      </View>
-                      <Text style={{ color: colors.textSecondary } as any}>
-                        {formatCurrency(Number(rule.amount || 0))}
-                        {' · '}
-                        <Ionicons name="swap-horizontal-outline" size={12} color={colors.textSecondary} /> {t('budget.sourceAccount')}: {accountNameMap.get(rule.sourceAccountId) ?? t('budget.selectSourceAccount')}
-                        {' · '}
-                        <Ionicons name="wallet-outline" size={12} color={colors.textSecondary} /> {t('budget.destinationAccount')}: {destinationLabel}
-                      </Text>
-                    </View>
-                    <Ionicons name={isCollapsed ? 'chevron-forward-outline' : 'chevron-down-outline'} size={18} color={colors.textSecondary} />
-                  </Pressable>
-
-                  {!isCollapsed ? (
-                    <>
-                      <Field
-                        label={t('budget.ruleName')}
-                        value={rule.name}
-                        onChangeText={(value) => updateRuleDraft(rule.id, { name: value })}
-                        placeholder={t('budget.ruleNamePlaceholder')}
-                      />
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
-                        <Ionicons name="pricetag-outline" size={14} color={colors.textSecondary} />
-                        <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>{t('budget.section')}</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
-                        {(['savings', 'pots', 'investments', 'ppr', 'remaining_cash'] as const).map((section) => (
-                          <Pill key={section} label={t(`budget.sections.${section}`)} active={rule.section === section} onPress={() => updateRuleDraft(rule.id, { section })} />
-                        ))}
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
-                        <Ionicons name="people-outline" size={14} color={colors.textSecondary} />
-                        <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>{t('budget.owner')}</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
-                        <Pill label={t('budget.shared')} active={!rule.ownerMemberId} onPress={() => updateRuleDraft(rule.id, { ownerMemberId: null })} />
-                        {members.map((member) => (
-                          <Pill key={member.userId} label={getMemberLabel(member)} active={rule.ownerMemberId === member.userId} onPress={() => updateRuleDraft(rule.id, { ownerMemberId: member.userId })} />
-                        ))}
-                      </View>
-                      <View style={{ gap: spacing(2) } as any}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
-                          <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
-                          <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
-                            {t('budget.activeMonths')}
-                          </Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(1.5) }}>
-                          {MONTH_OPTIONS.map((option) => (
-                            <Pill
-                              key={option.value}
-                              label={option.label}
-                              active={rule.activeMonths.includes(option.value)}
-                              onPress={() => updateRuleActiveMonths(rule.id, option.value)}
-                            />
-                          ))}
-                        </View>
-                        <Text style={{ color: colors.textSecondary } as any}>
-                          {activeMonthsLabel}
-                        </Text>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
-                          <Field
-                            label={t('budget.activeFromMonth')}
-                            value={rule.activeFromMonth}
-                            onChangeText={(value) => updateRuleDraft(rule.id, { activeFromMonth: value })}
-                            keyboardType="numeric"
-                            placeholder="1"
-                            style={{ flex: 1, minWidth: 140 }}
-                          />
-                          <Field
-                            label={t('budget.activeToMonth')}
-                            value={rule.activeToMonth}
-                            onChangeText={(value) => updateRuleDraft(rule.id, { activeToMonth: value })}
-                            keyboardType="numeric"
-                            placeholder="12"
-                            style={{ flex: 1, minWidth: 140 }}
-                          />
-                        </View>
-                      </View>
-                      <GroupedAccountSelect
-                        label={t('budget.sourceAccount')}
-                        accounts={incomeCashAccounts.length > 0 ? incomeCashAccounts : accounts}
-                        members={members}
-                        value={rule.sourceAccountId}
-                        placeholder={t('budget.selectSourceAccount')}
-                        hint={t('budget.sourceAccountHint')}
-                        allowedTypes={['cash', 'bank']}
-                        allowedAccountIds={incomeCashAccountIds}
-                        sharedLabel={t('budget.shared')}
-                        unassignedLabel={t('settings.unnamedUser')}
-                        closeLabel={t('cancel')}
-                        onChange={(accountId) => updateRuleDraft(rule.id, { sourceAccountId: accountId })}
-                      />
-                      <GroupedDestinationSelect
-                        label={t('budget.destinationAccount')}
-                        accounts={accounts}
-                        members={members}
-                        value={{ kind: 'account', id: rule.destinationAccountId }}
-                        placeholder={t('budget.selectDestinationAccount')}
-                        hint={t('budget.destinationSelectorHint')}
-                        groupBy="type"
-                        typeLabels={destinationAccountTypeLabels}
-                        sharedLabel={t('budget.shared')}
-                        unassignedLabel={t('settings.unnamedUser')}
-                        closeLabel={t('cancel')}
-                        potNameByAccountId={potNameByAccountId}
-                        potLabel={t('budget.pigBank')}
-                        onChange={(selection) => updateDestinationDraft(rule.id, selection)}
-                      />
-                      <Field
-                        label={t('budget.amount')}
-                        value={rule.amount}
-                        onChangeText={(value) => updateRuleDraft(rule.id, { amount: value })}
-                        keyboardType="numeric"
-                        placeholder="0.00"
-                      />
-                      <Field
-                        label={t('budget.priority')}
-                        value={rule.priority}
-                        onChangeText={(value) => updateRuleDraft(rule.id, { priority: value })}
-                        keyboardType="numeric"
-                        placeholder="0"
-                      />
-                    </>
-                  ) : null}
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
-                    <Pill label={rule.isActive ? t('budget.active') : t('budget.inactive')} active={rule.isActive} onPress={() => updateRuleDraft(rule.id, { isActive: !rule.isActive })} />
-                    <Button label={t('delete')} onPress={() => removeRule(rule.id)} variant="danger" />
-                  </View>
-                </View>
-              );
-            })}
-          </View>
+          )}
         </Section>
       </Card>
+      </Animated.View>
 
+      <Animated.View entering={FadeInDown.delay(240).duration(420)}>
       <Card>
         <Section title={t('budget.previewTitle')} subtitle={t('budget.previewSubtitle')}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) }}>
@@ -1351,74 +1291,137 @@ export default function BudgetScreen() {
             </View>
           ) : null}
 
-          <View style={{ gap: spacing(2) }}>
-            {preview.transfers.map((transfer) => (
-              <View key={`${transfer.ruleId ?? transfer.title}-${transfer.destinationAccountId}`} style={{ padding: spacing(3), borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceMuted } as any}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
-                  <Ionicons name="swap-horizontal-outline" size={16} color={colors.textSecondary} />
-                  <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>{transfer.title}</Text>
-                </View>
-                <Text style={{ color: colors.textSecondary } as any}>
-                  {transfer.section} · {formatCurrency(transfer.amount)} · {' '}
-                  {`${t('budget.destinationAccount')}: ${accountNameMap.get(transfer.destinationAccountId) ?? t('budget.selectDestinationAccount')}`}
-                </Text>
+          {preview.transfers.length > 0 ? (
+            <Section
+              title={t('budget.transfersTitle')}
+              subtitle={t('budget.transfersProgress', {
+                done: preview.transfers.filter((transfer) => doneTransferKeys.includes(getTransferKey(transfer))).length,
+                count: preview.transfers.length,
+              })}
+              collapsible
+              defaultCollapsed={preview.transfers.length > 6}
+            >
+              <View style={{ gap: spacing(2) }}>
+                {preview.transfers.map((transfer) => {
+                  const transferKey = getTransferKey(transfer);
+                  const isDone = doneTransferKeys.includes(transferKey);
+
+                  return (
+                    <Pressable
+                      key={transferKey}
+                      onPress={() => toggleTransferDone(transferKey)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: isDone }}
+                      accessibilityLabel={isDone ? t('budget.transferMarkNotDone') : t('budget.transferMarkDone')}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'flex-start',
+                        gap: spacing(2.5),
+                        padding: spacing(3),
+                        borderRadius: radius.lg,
+                        borderWidth: 1,
+                        borderColor: isDone ? colors.success : colors.border,
+                        backgroundColor: isDone ? colors.successSoft : colors.surfaceMuted,
+                      }}
+                    >
+                      <Ionicons
+                        name={isDone ? 'checkbox' : 'square-outline'}
+                        size={20}
+                        color={isDone ? colors.success : colors.textSecondary}
+                        style={{ marginTop: spacing(0.5) } as any}
+                      />
+                      <View style={{ flex: 1, gap: spacing(0.5) } as any}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                          <Ionicons name="swap-horizontal-outline" size={16} color={colors.textSecondary} />
+                          <Text
+                            style={{
+                              color: colors.text,
+                              fontWeight: String(typography.fontWeight.bold),
+                              textDecorationLine: isDone ? 'line-through' : 'none',
+                              opacity: isDone ? 0.7 : 1,
+                            } as any}
+                          >
+                            {transfer.title}
+                          </Text>
+                          {isDone ? (
+                            <View style={{ paddingHorizontal: spacing(2), paddingVertical: spacing(0.5), borderRadius: radius.full, backgroundColor: colors.success } as any}>
+                              <Text style={{ color: colors.primaryForeground, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.extraBold) } as any}>
+                                {t('budget.transferDone')}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text style={{ color: colors.textSecondary, opacity: isDone ? 0.7 : 1 } as any}>
+                          {transfer.section} · {formatCurrency(transfer.amount)} · {' '}
+                          {`${t('budget.destinationAccount')}: ${accountNameMap.get(transfer.destinationAccountId) ?? t('budget.selectDestinationAccount')}`}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
               </View>
-            ))}
-          </View>
+            </Section>
+          ) : null}
         </Section>
       </Card>
+      </Animated.View>
 
+      <Animated.View entering={FadeInDown.delay(300).duration(420)}>
       <Card>
-        <Section title={t('budget.runsTitle')} subtitle={t('budget.runsSubtitle')}>
+        <Section title={t('budget.runsTitle')} subtitle={t('budget.runsSubtitle')} collapsible defaultCollapsed={runs.length > 3}>
           <View style={{ gap: spacing(2.5) }}>
-            {runs.map((run: any) => {
-              const active = run.id === selectedRun?.id;
-              return (
-                <Pressable
-                  key={run.id}
-                  onPress={() => handleSelectRun(run)}
-                  style={({ pressed }) => [
-                    {
-                      padding: spacing(3.5),
-                      borderRadius: radius.lg,
-                      borderWidth: 1,
-                      borderColor: active ? colors.primary : colors.border,
-                      backgroundColor: active ? colors.primary : colors.surfaceMuted,
-                      opacity: pressed ? 0.9 : 1,
-                    },
-                  ] as any}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
-                    <Ionicons name="calendar-outline" size={16} color={active ? colors.primaryForeground : colors.textSecondary} />
-                    <Text style={{ color: active ? colors.primaryForeground : colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>
-                      {monthKey(run.month)} · {run.status}
-                    </Text>
-                  </View>
-                  <Text style={{ color: active ? colors.primaryForeground : colors.textSecondary } as any}>
-                    {t('budget.runPreview')}: {formatCurrency(Number((run.preview_snapshot as any)?.remainingCash ?? 0))}
-                  </Text>
-                </Pressable>
-              );
-            })}
+            {runs.map((run: any) => (
+              <BudgetRunRow
+                key={run.id}
+                run={run}
+                active={run.id === selectedRun?.id}
+                onPress={() => handleSelectRun(run)}
+              />
+            ))}
           </View>
 
           {selectedRun ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2), alignItems: 'center' }}>
-              <Button label={t('budget.loadDraft')} onPress={() => setSelectedRunId(selectedRun.id)} variant="secondary" />
-              <Button label={cancelRun.isPending ? t('budget.cancelling') : t('budget.cancelRun')} onPress={() => void cancelRun.mutateAsync(selectedRun.id)} variant="danger" disabled={cancelRun.isPending || selectedRun.status !== 'draft'} />
-              <Button label={deleteRunTransactions.isPending ? t('budget.deletingRunTransactions') : t('budget.deleteRunTransactions')} onPress={handleDeleteRunTransactions} variant="danger" disabled={deleteRunTransactions.isPending} />
-              {deleteRunFeedback ? (
-                <Text style={{ color: deleteRunFeedback.type === 'error' ? colors.destructive : colors.success }}>
-                  {deleteRunFeedback.message}
+            <View style={{ gap: spacing(2.5) } as any}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2), alignItems: 'center' } as any}>
+                <Button label={t('budget.loadDraft')} onPress={() => setSelectedRunId(selectedRun.id)} variant="secondary" />
+                <Button label={cancelRun.isPending ? t('budget.cancelling') : t('budget.cancelRun')} onPress={() => void cancelRun.mutateAsync(selectedRun.id)} variant="danger" disabled={cancelRun.isPending || selectedRun.status !== 'draft'} />
+                <Button label={deleteRunTransactions.isPending ? t('budget.deletingRunTransactions') : t('budget.deleteRunTransactions')} onPress={handleDeleteRunTransactions} variant="danger" disabled={deleteRunTransactions.isPending} />
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                <Ionicons name="list-outline" size={14} color={colors.textSecondary} />
+                <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[13] } as any}>
+                  {t('budget.selectedRunInputs')}: {runInputs.length}
                 </Text>
+              </View>
+              {deleteRunFeedback ? (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing(1.5),
+                    padding: spacing(2.5),
+                    borderRadius: radius.lg,
+                    backgroundColor: deleteRunFeedback.type === 'error' ? colors.destructiveSoft : colors.successSoft,
+                  } as any}
+                >
+                  <Ionicons
+                    name={deleteRunFeedback.type === 'error' ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+                    size={16}
+                    color={deleteRunFeedback.type === 'error' ? colors.destructive : colors.success}
+                  />
+                  <Text style={{ flex: 1, color: deleteRunFeedback.type === 'error' ? colors.destructive : colors.success, fontWeight: String(typography.fontWeight.semibold) } as any}>
+                    {deleteRunFeedback.message}
+                  </Text>
+                </View>
               ) : null}
-              <Text style={{ color: colors.textSecondary }}>
-                {t('budget.selectedRunInputs')}: {runInputs.length}
-              </Text>
             </View>
           ) : null}
         </Section>
       </Card>
+      </Animated.View>
+
+      {/* Keeps the last card clear of the fixed bottom action bar above. */}
+      <View style={{ height: spacing(26) } as any} />
     </Page>
   );
 }

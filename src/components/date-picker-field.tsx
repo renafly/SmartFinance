@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, Text, View } from "react-native";
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { useTranslation } from "react-i18next";
@@ -61,12 +61,22 @@ export function DatePickerField({ label, value, onChange, placeholder, granulari
   const [open, setOpen] = useState(false);
   const [draftDate, setDraftDate] = useState(() => parseDateValue(value, granularity) ?? new Date());
   const [calendarMonth, setCalendarMonth] = useState(() => parseDateValue(value, granularity) ?? new Date());
+  // Only re-sync the visible calendar month when the picker actually
+  // transitions from closed to open — not on every render where it merely
+  // *stays* open. Previously this synced off `value`/`open` directly, which
+  // meant any re-render that happened to run this effect while the picker
+  // was already open (e.g. a parent re-render caused by typing elsewhere in
+  // the form) would snap the calendar back to today/the selected date,
+  // undoing the month you'd just navigated to with ‹ / ›.
+  const wasOpenRef = useRef(false);
 
   useEffect(() => {
-    if (!open) return;
-    const selectedDate = parseDateValue(value, granularity) ?? new Date();
-    setDraftDate(selectedDate);
-    setCalendarMonth(selectedDate);
+    if (open && !wasOpenRef.current) {
+      const selectedDate = parseDateValue(value, granularity) ?? new Date();
+      setDraftDate(selectedDate);
+      setCalendarMonth(selectedDate);
+    }
+    wasOpenRef.current = open;
   }, [granularity, open, value]);
 
   const selectedDate = parseDateValue(value, granularity);

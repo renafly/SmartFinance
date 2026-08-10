@@ -2,7 +2,7 @@ import { Platform } from "react-native";
 import { create } from "zustand";
 import { isPreferenceStorageAllowed } from "@/features/cookie-consent/core/storage";
 
-export type ThemeMode = "light" | "dark" | "blue" | "system";
+export type ThemeMode = "light" | "dark" | "blue" | "ultra" | "system";
 
 type ThemeState = {
   mode: ThemeMode;
@@ -36,6 +36,7 @@ function normalizeTheme(value: string | null | undefined): ThemeMode | null {
     value === "light" ||
     value === "dark" ||
     value === "blue" ||
+    value === "ultra" ||
     value === "system"
   ) {
     return value;

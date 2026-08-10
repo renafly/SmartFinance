@@ -1,5 +1,4 @@
 import { Platform } from "react-native";
-import { isPreferenceStorageAllowed } from "@/features/cookie-consent/core/storage";
 
 export type AppLanguage = "en" | "pt";
 
@@ -39,10 +38,17 @@ export function normalizeLanguage(
   return null;
 }
 
+// Unlike theme, the selected UI language is treated as an essential
+// usability preference rather than an optional/analytics-adjacent one:
+// it's what makes the site legible to the person using it. It always
+// persists on web, independent of the "Preferences" cookie-consent
+// category. Someone who rejects optional cookies (or hasn't decided
+// yet) still keeps their chosen language across visits; only theme and
+// analytics stay behind consent. See isPreferenceStorageAllowed() for
+// the gate that still applies to those.
 export function getStoredLanguage(): AppLanguage | null {
   try {
     if (Platform.OS === "web") {
-      if (!isPreferenceStorageAllowed()) return null;
       return normalizeLanguage(
         window.localStorage.getItem(LANGUAGE_STORAGE_KEY),
       );
@@ -59,7 +65,6 @@ export function getStoredLanguage(): AppLanguage | null {
 export function setStoredLanguage(language: AppLanguage) {
   try {
     if (Platform.OS === "web") {
-      if (!isPreferenceStorageAllowed()) return;
       window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
       return;
     }

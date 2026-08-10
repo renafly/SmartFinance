@@ -2,11 +2,15 @@ import { repositories } from "@/repositories";
 import type { CategoryType } from "@/repositories/categories.repository";
 
 class CategoriesService {
-  async getCategories(householdId: string, type?: CategoryType) {
+  async getCategories(
+    householdId: string,
+    type?: CategoryType,
+    includeArchived = false,
+  ) {
     const { data, error } = await repositories.categories.listForHousehold(
       householdId,
       type,
-      false
+      includeArchived
     );
 
     if (error) throw error;
@@ -67,6 +71,7 @@ class CategoriesService {
     type: CategoryType;
     icon?: string | null;
     parent_id?: string | null;
+    is_discretionary?: boolean;
   }) {
     const { data, error } = await repositories.categories.updateCategory(
       input.id,
@@ -75,6 +80,7 @@ class CategoriesService {
         type: input.type,
         icon: input.icon ?? null,
         parent_id: input.parent_id ?? null,
+        is_discretionary: input.is_discretionary ?? false,
       }
     );
 

@@ -147,6 +147,43 @@ describe("buildSavingPotForecasts", () => {
     ]));
   });
 
+  it("skips the current month for a monthly budget rule already confirmed this month", () => {
+    const rule = {
+      id: "monthly-rule",
+      source_account_id: "cash-1",
+      destination_account_id: "pot-account-1",
+      amount: 200,
+      frequency: "monthly" as const,
+      created_at: "2026-01-01T00:00:00.000Z",
+      is_active: true,
+    };
+    const savingPotAccountAssignments = [{ pot_id: "pot-1", account_id: "pot-account-1" }];
+
+    // budget_rules has no next_run column, so without being told this
+    // month's run was already confirmed, the forecast would otherwise
+    // double-count July (the real transfer already happened, plus a
+    // forecasted one).
+    const stillPending = forecast({
+      monthlyBudgetRules: [rule],
+      savingPotAccountAssignments,
+    });
+    expect(stillPending.timeline[0]).toEqual(
+      expect.objectContaining({ month: "2026-07", contribution: 200 }),
+    );
+
+    const alreadyConfirmed = forecast({
+      monthlyBudgetRules: [rule],
+      savingPotAccountAssignments,
+      confirmedRuleIdsForCurrentMonth: ["monthly-rule"],
+    });
+    // July's row is dropped entirely (not shown as $0) since that
+    // contribution already happened and is already reflected in the pot's
+    // current balance — the timeline starts at the next real contribution.
+    expect(alreadyConfirmed.timeline[0]).toEqual(
+      expect.objectContaining({ month: "2026-08", contribution: 200 }),
+    );
+  });
+
   it("does not count a transfer between accounts in the same pot", () => {
     const result = forecast({
       recurringTransfers: [{

@@ -293,6 +293,12 @@ Before a production release, also follow `docs/release-checklist.md`.
 
 ## Graphify and Git checks
 
+Always use Graphify before anything else — query the graph before reading source files or making changes:
+
+```powershell
+graphify query "<task or question>"
+```
+
 Refresh the code graph after changing code:
 
 ```powershell

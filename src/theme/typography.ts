@@ -1,3 +1,7 @@
+// Redesign 2026-08: consolidated on the numeric scale — the old semantic
+// aliases (xs/sm/md/lg/base/xl/2xl/3xl/4xl/5xl, tight/normal/relaxed) were
+// unused everywhere except one call site (now migrated) and duplicated the
+// numeric keys 1:1, so they've been dropped rather than kept in sync.
 export const typography = {
   fontFamily: {
     regular: 'System',
@@ -23,20 +27,12 @@ export const typography = {
     22: 22,
     24: 24,
     28: 28,
-    32: 32,
     30: 30,
+    32: 32,
     34: 34,
+    40: 40,
     48: 48,
-    xs: 12,
-    sm: 13,
-    md: 14,
-    lg: 15,
-    base: 16,
-    xl: 18,
-    '2xl': 24,
-    '3xl': 30,
-    '4xl': 34,
-    '5xl': 48,
+    56: 56,
   },
   lineHeight: {
     16: 16,
@@ -52,10 +48,9 @@ export const typography = {
     38: 38,
     40: 40,
     44: 44,
+    48: 48,
     52: 52,
-    tight: 16,
-    normal: 24,
-    relaxed: 28,
+    60: 60,
   },
   letterSpacing: {
     0: 0,

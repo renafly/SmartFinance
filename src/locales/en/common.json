@@ -2,19 +2,19 @@
   "cookieConsent": {
     "bannerLabel": "Cookie and storage preferences",
     "title": "Your privacy choices",
-    "description": "SmartFinance uses necessary browser storage to keep you signed in and remember essential settings. With your permission, we also use optional analytics.",
+    "description": "SmartFinance stores a few essential things in your browser to keep you signed in and remember your settings. With your OK, we also use optional analytics.",
     "policyLink": "Read our cookie policy.",
     "rejectOptional": "Reject optional",
     "manage": "Manage preferences",
     "acceptAll": "Accept all",
     "preferencesTitle": "Cookie preferences",
-    "preferencesDescription": "Choose which optional technologies SmartFinance may use. Necessary storage is always active because the service depends on it.",
+    "preferencesDescription": "Choose which optional technology SmartFinance can use. Necessary storage stays on, since the app can't run without it.",
     "necessaryTitle": "Necessary",
-    "necessaryDescription": "Authentication, security, consent records, and essential service operation.",
+    "necessaryDescription": "Signing you in, keeping things secure, remembering your language, and remembering your consent choices.",
     "preferenceTitle": "Preferences",
-    "preferenceDescription": "Remember choices such as language and visual theme.",
+    "preferenceDescription": "Remembers things like your app theme.",
     "analyticsTitle": "Analytics",
-    "analyticsDescription": "Allow privacy-conscious performance measurement through Vercel Speed Insights.",
+    "analyticsDescription": "Lets us see how the app is performing, using privacy-friendly Vercel Speed Insights.",
     "readPolicy": "Read the Cookie and Similar Technologies Policy",
     "cancel": "Cancel",
     "save": "Save preferences"
@@ -25,18 +25,18 @@
     "effective": "Effective 30 July 2026",
     "scope": {
       "title": "What this policy covers",
-      "body": "This policy explains how the SmartFinance web app uses cookies and similar browser technologies, including local storage. The native mobile apps use device storage rather than browser cookies."
+      "body": "This policy explains how the SmartFinance web app uses cookies and similar browser technology, including local storage. The mobile apps use device storage instead of browser cookies."
     },
     "necessary": {
       "title": "Necessary storage",
-      "body": "SmartFinance needs some browser storage to provide the service you request. Supabase authentication session information keeps you signed in and refreshes your session. A consent record remembers your privacy choices. These technologies are not used for advertising."
+      "body": "SmartFinance needs some browser storage to work at all. It keeps you signed in and refreshes your session, and it remembers your privacy choices. None of this is used for advertising."
     },
     "optional": {
       "title": "Optional storage and measurement",
-      "body": "Language and theme preferences improve your experience. Vercel Speed Insights helps us understand website performance and is enabled only after you consent to analytics. SmartFinance does not currently use advertising or cross-site marketing cookies."
+      "body": "Your theme preference makes the app nicer to look at. Vercel Speed Insights helps us understand how the site performs, and only runs once you consent to analytics. SmartFinance doesn't use advertising or cross-site marketing cookies."
     },
     "storage": {
-      "title": "Technologies we use",
+      "title": "What we use",
       "type": "Technology",
       "purpose": "Purpose",
       "duration": "Duration",
@@ -45,52 +45,58 @@
         {
           "name": "Supabase authentication session",
           "type": "Browser local storage (not an HttpOnly cookie)",
-          "purpose": "Stores access and refresh session data so you can remain signed in securely.",
-          "duration": "Until sign-out, session expiry, or browser data deletion",
+          "purpose": "Keeps you signed in securely by storing your access and refresh session.",
+          "duration": "Until you sign out, your session expires, or your browser data is cleared",
           "category": "Necessary"
         },
         {
           "name": "SmartFinance consent record",
           "type": "Browser local storage",
-          "purpose": "Remembers whether you accepted or rejected optional technologies.",
-          "duration": "Until the preference is reset, policy version changes, or browser data is deleted",
+          "purpose": "Remembers whether you accepted or rejected optional technology.",
+          "duration": "Until you reset it, the policy changes, or your browser data is cleared",
           "category": "Necessary"
         },
         {
-          "name": "Language and theme preferences",
+          "name": "Language preference",
           "type": "Browser local storage",
-          "purpose": "Remembers your language and visual appearance choices.",
-          "duration": "Until changed or browser data is deleted",
+          "purpose": "Remembers which language you've chosen, so the app opens in your language next time.",
+          "duration": "Until you change it or clear your browser data",
+          "category": "Necessary"
+        },
+        {
+          "name": "Theme preference",
+          "type": "Browser local storage",
+          "purpose": "Remembers how you like the app to look.",
+          "duration": "Until you change it or clear your browser data",
           "category": "Preferences"
         },
         {
           "name": "Vercel Speed Insights",
           "type": "Performance analytics technology",
-          "purpose": "Measures aggregate website responsiveness and loading performance.",
-          "duration": "As specified by Vercel for the measurement data it collects",
+          "purpose": "Measures how responsive and fast the site feels, in aggregate.",
+          "duration": "As set by Vercel for the data it collects",
           "category": "Analytics — consent required"
         }
       ]
     },
     "control": {
       "title": "Manage or withdraw consent",
-      "body": "You can reject optional technologies and continue using core SmartFinance features. You can reopen Cookie preferences at any time to change or withdraw consent. You can also clear site data in your browser; doing so may sign you out and reset saved preferences.",
+      "body": "You can reject optional technology and keep using every core SmartFinance feature. Reopen Cookie preferences anytime to change your mind. You can also clear your browser's site data, though that may sign you out and reset your saved preferences.",
       "action": "Manage cookie preferences"
     },
     "thirdParties": {
-      "title": "Service providers",
-      "body": "Supabase provides authentication and application infrastructure. Vercel provides website hosting and, when analytics consent is granted, Speed Insights. Google participates when you choose Google sign-in and applies its own privacy terms during that process."
+      "title": "Who we work with",
+      "body": "Supabase handles authentication and the app's infrastructure. Vercel hosts the site and, once you consent to analytics, runs Speed Insights. Google is involved when you sign in with Google, under its own privacy terms."
     },
     "changes": {
       "title": "Changes to this policy",
-      "body": "We may update this policy when our technology or legal obligations change. We will update the effective date and ask for your choices again when a change materially affects consent."
+      "body": "We'll update this policy if our technology or legal obligations change. When a change affects your consent in a meaningful way, we'll update the effective date and ask again."
     }
   },
   "drawer": {
     "dashboard": "Dashboard",
     "accounts": "Accounts",
     "transactions": "Transactions",
-    "insights": "Insights",
     "transfers": "Transfers",
     "monthlyBudget": "Monthly Budget",
     "categories": "Categories",
@@ -105,11 +111,12 @@
     "subtitle": "Personal Finance",
     "brand": "SmartFinance",
     "overview": "Overview",
-    "overviewDescription": "Start here and jump to the most-used surfaces.",
+    "overviewDescription": "Start here and jump to what you use most.",
     "moneyMovement": "Money movement",
-    "moneyMovementDescription": "Move funds and review recurring flows.",
+    "moneyMovementDescription": "Move money around and check on recurring transfers.",
     "administration": "Administration",
-    "administrationDescription": "Manage how the household is structured."
+    "administrationDescription": "Manage how your household is set up.",
+    "openMenu": "Open menu"
   },
 
   "tabs": {
@@ -120,35 +127,35 @@
 
   "diagnostics": {
     "title": "Release diagnostics",
-    "subtitle": "Check the production wiring before deploying or sharing links.",
+    "subtitle": "Check the production setup before deploying or sharing links.",
     "configurationTitle": "Production readiness",
-    "configurationSubtitle": "These checks cover Supabase env, OAuth origins, storage, and invite email reachability.",
+    "configurationSubtitle": "Checks Supabase, OAuth origins, storage, and whether invite emails can be sent.",
     "supabaseUrl": "Supabase URL",
-    "supabaseUrlDescription": "Required for auth, database, storage, and Edge Functions.",
+    "supabaseUrlDescription": "Needed for auth, database, storage, and Edge Functions.",
     "supabaseKey": "Supabase publishable key",
-    "supabaseKeyDescription": "Client-safe key used by the Expo bundle.",
+    "supabaseKeyDescription": "The client-safe key used by the Expo bundle.",
     "inviteWebUrl": "Invite web URL",
-    "inviteWebUrlDescription": "Base URL used when creating invitation links.",
+    "inviteWebUrlDescription": "The base URL used when creating invite links.",
     "oauthOrigin": "OAuth origin",
-    "oauthOriginDescription": "Add this origin in Google OAuth for web login and preview testing.",
+    "oauthOriginDescription": "Add this origin to Google OAuth for web login and preview testing.",
     "storageBucket": "Storage bucket",
-    "storageBucketDescription": "Checks whether the {{bucket}} bucket can be reached by the current session.",
+    "storageBucketDescription": "Checks whether the {{bucket}} bucket is reachable from this session.",
     "inviteFunction": "Invite email function",
-    "inviteFunctionDescription": "Checks whether {{functionName}} responds to a safe preflight request.",
+    "inviteFunctionDescription": "Checks whether {{functionName}} responds to a safe test request.",
     "runChecks": "Run live checks",
     "checking": "Checking...",
     "notificationTest": "Notification test",
-    "notificationTestDescription": "Sends an immediate local notification to this device. It does not require remote push configuration.",
+    "notificationTestDescription": "Sends a local notification to this device right away. No remote push setup needed.",
     "triggerNotification": "Trigger notification",
     "triggeringNotification": "Triggering...",
     "notificationTestChannel": "Diagnostics",
     "notificationTestMessageTitle": "Notification test message",
     "notificationTestMessageBody": "Notification test message.",
     "notificationTestSent": "Test notification sent. Check your notification banner.",
-    "notificationPermissionDenied": "Notification permission was not granted.",
-    "notificationBrowserUnsupported": "This browser does not support system notifications.",
-    "notificationSecureContextRequired": "Browser notifications require a secure HTTPS connection.",
-    "notificationNotShown": "The browser accepted the test but did not show it. Check this site's notification permission and your system notification settings.",
+    "notificationPermissionDenied": "Notification permission wasn't granted.",
+    "notificationBrowserUnsupported": "This browser doesn't support system notifications.",
+    "notificationSecureContextRequired": "Browser notifications need a secure HTTPS connection.",
+    "notificationNotShown": "The browser accepted the test but didn't show it. Check this site's notification permission and your system settings.",
     "configured": "Configured",
     "notChecked": "Not checked yet",
     "notAvailable": "Not available",
@@ -186,9 +193,9 @@
 
   "budget": {
     "title": "Monthly Budget",
-    "subtitle": "Configure the household rules, preview the month, and generate the transfers.",
+    "subtitle": "Set your household rules, preview the month, and generate the transfers.",
     "resumeTitle": "Resume",
-    "resumeSubtitle": "A quick summary before you edit the household settings.",
+    "resumeSubtitle": "A quick summary before you edit your household settings.",
     "incomeModeSummary": "Income mode: {{value}}",
     "perPerson": "Per person",
     "defaultName": "Monthly budget",
@@ -197,7 +204,7 @@
     "confirmMonth": "Confirm month",
     "generating": "Generating...",
     "householdSettings": "Household settings",
-    "householdSettingsSubtitle": "These settings drive how the simulation calculates the remaining cash.",
+    "householdSettingsSubtitle": "These settings decide how the simulation works out what cash is left over.",
     "name": "Budget name",
     "namePlaceholder": "Monthly budget",
     "month": "Month",
@@ -206,14 +213,22 @@
       "shared": "Shared",
       "individual": "Individual"
     },
+    "incomeModeHints": {
+      "shared": "All salaries go into one shared pool, regardless of who earns what.",
+      "individual": "Each person's salary and cash account are tracked on their own."
+    },
     "remainingCashStrategy": "Remaining cash strategy",
     "remainingCashStrategies": {
       "keep": "Keep cash",
       "fixed": "Fixed target"
     },
+    "remainingCashStrategyHints": {
+      "keep": "Whatever's left after your rules run simply stays in the account.",
+      "fixed": "Set an exact amount to keep back each month, below."
+    },
     "fixedRemainingCashAmount": "Fixed remaining cash amount",
     "monthlyInputs": "Monthly income inputs",
-    "monthlyInputsSubtitle": "Set each member salary and the cash account that receives it.",
+    "monthlyInputsSubtitle": "Set each member's salary and the cash account it lands in.",
     "salary": "Salary",
     "cashAccount": "Cash account",
     "selectCashAccount": "Select a cash account",
@@ -223,7 +238,10 @@
     "wageAvailabilityNextMonth": "Next month",
     "wageAvailabilityHint": "Choose when this wage can be used by the budget rules.",
     "rulesTitle": "Budget rules",
-    "rulesSubtitle": "Create the monthly transfers that will be generated after salaries arrive.",
+    "rulesSubtitle": "Set up the monthly transfers to generate once salaries arrive.",
+    "rulesEmptyTitle": "No rules yet",
+    "rulesEmptyDescription": "Add a rule to start directing income toward savings, investments, or pots each month.",
+    "ruleIncomplete": "Incomplete",
     "addRule": "Add rule",
     "expandAllRules": "Expand all",
     "collapseAllRules": "Collapse all",
@@ -267,7 +285,12 @@
     "active": "Active",
     "inactive": "Inactive",
     "previewTitle": "Monthly preview",
-    "previewSubtitle": "Review the totals before saving or confirming the run.",
+    "previewSubtitle": "Check the totals before you save or confirm the run.",
+    "transfersTitle": "Transfers",
+    "transfersProgress": "{{done}} of {{count}} marked as done",
+    "transferMarkDone": "Mark as transferred",
+    "transferMarkNotDone": "Mark as not transferred",
+    "transferDone": "Done",
     "incomeTotal": "Income",
     "configuredTotal": "Configured transfers",
     "remainingCash": "Remaining cash",
@@ -277,19 +300,24 @@
     "overBudget": "Over budget",
     "validationTitle": "Please fix these issues",
     "runsTitle": "Monthly runs",
-    "runsSubtitle": "Open a run to inspect its saved inputs, cancel a draft, or remove its generated transactions.",
+    "runsSubtitle": "Open a run to see its saved inputs, cancel a draft, or clear its generated transactions.",
     "runPreview": "Preview remaining cash",
     "loadDraft": "Load draft",
     "cancelRun": "Cancel run",
     "cancelling": "Cancelling...",
     "deleteRunTransactions": "Delete run transactions",
     "deleteRunTransactionsTitle": "Delete this run's transactions?",
-    "deleteRunTransactionsMessage": "This deletes every wage and allocation transaction generated by this monthly run. A confirmed run will return to draft so you can run it again.",
+    "deleteRunTransactionsMessage": "This removes every wage and allocation transaction this run created. The run goes back to draft so you can run it again.",
     "deleteRunTransactionsConfirm": "Delete transactions",
     "deletingRunTransactions": "Deleting...",
-    "deleteRunTransactionsSuccess": "Deleted {{count}} transaction(s). The run is ready to be run again.",
-    "deleteRunTransactionsError": "Could not delete the run transactions: {{detail}}",
+    "deleteRunTransactionsSuccess": "Deleted {{count}} transaction(s). You can run this month again.",
+    "deleteRunTransactionsError": "Couldn't delete the run's transactions: {{detail}}",
     "selectedRunInputs": "Saved income inputs",
+    "hintNeedsName": "Give this budget a name to save it.",
+    "hintFixRules": "Fix {{count}} rule issue(s) before saving.",
+    "hintSaveConfigFirst": "Save your configuration to unlock drafts and monthly runs.",
+    "hintResolveIssues": "Resolve {{count}} issue(s) in the preview before saving a draft.",
+    "hintMonthConfirmed": "This month is already confirmed.",
     "defaults": {
       "tradeRep": "Trade Rep",
       "tradeRepInvestments": "Trade Rep - Investments",
@@ -310,11 +338,11 @@
     "householdManagement": "Household Management",
     "profile": "Profile",
     "feedbackTitle": "Feedback and support",
-    "feedbackSubtitle": "Send an idea, report a bug, or follow an existing conversation.",
+    "feedbackSubtitle": "Share an idea, report a bug, or check on an existing conversation.",
     "openFeedback": "Open feedback",
     "openAdminFeedback": "Open feedback inbox",
     "privacyTitle": "Privacy",
-    "privacySubtitle": "Review how SmartFinance uses browser storage and change your optional consent choices.",
+    "privacySubtitle": "See how SmartFinance uses browser storage and update your optional consent choices.",
     "manageCookiePreferences": "Manage cookie preferences",
     "openCookiePolicy": "Read cookie policy",
     "unnamedUser": "Unnamed user",
@@ -323,17 +351,17 @@
     "editDetails": "Edit details",
     "you": "You",
     "createHousehold": "Create a Household",
-    "createHouseholdSubtitle": "Use this to set up a new household instead of auto-creating one at signup.",
+    "createHouseholdSubtitle": "Set up a new household instead of using the one created for you at signup.",
     "householdName": "Household name",
     "householdPlaceholder": "My household",
     "defaultHousehold": "Default Household",
-    "noHouseholds": "No available households.",
+    "noHouseholds": "No households available.",
     "active": "active",
     "default": "default",
     "setAsDefault": "Set As Default",
     "currentHouseholdLabel": "Current household",
     "myHouseholds": "My households",
-    "myHouseholdsSubtitle": "Rename households you own. Households with transactions are soft deleted; empty ones are removed permanently.",
+    "myHouseholdsSubtitle": "Rename households you own. Ones with transactions are archived rather than deleted; empty ones are removed for good.",
     "owner": "Owner",
     "member": "Member",
     "saveChanges": "Save changes",
@@ -341,18 +369,18 @@
     "deleteHousehold": "Delete household",
     "deleteHouseholdTitle": "Delete household",
     "onlyOwnerHouseholdEdit": "Only the household owner can rename or delete this household.",
-    "deleteHouseholdMessage": "This will delete the household. If it has transactions, it will be archived instead of removed permanently.",
+    "deleteHouseholdMessage": "This deletes the household. If it has transactions, it's archived instead of removed for good.",
     "settingDefault": "Setting...",
     "inviteMember": "Invite Member",
     "onlyAdminsInvite": "Only owners and admins can send invitations.",
     "invalidEmail": "Enter a valid email address.",
-    "alreadyInvited": "This email already has a pending invitation.",
+    "alreadyInvited": "This email already has an invitation pending.",
     "inviteLink": "Invite link",
-    "emailQueued": "Email dispatch requested successfully.",
-    "emailNotAvailable": "Email function is not available yet. Share this link manually for now.",
+    "emailQueued": "Invitation email sent.",
+    "emailNotAvailable": "Email isn't set up yet. Share this link with them directly for now.",
     "sendInvitation": "Send Invitation",
     "myInvitations": "My Invitations",
-    "noMyInvitations": "No invitations pending for your account.",
+    "noMyInvitations": "You don't have any invitations pending.",
     "invitedAs": "Invited as: {{email}}",
     "expires": "Expires: {{date}}",
     "accept": "Accept",
@@ -367,7 +395,7 @@
     "dangerZone": "Danger Zone",
     "leaveHousehold": "Leave Household",
     "leaveTitle": "Leave Household?",
-    "leaveMessage": "Are you sure you want to leave {{householdName}}? You will lose access to all household data.",
+    "leaveMessage": "Are you sure you want to leave {{householdName}}? You'll lose access to all of its data.",
     "cancel": "Cancel",
     "leave": "Leave",
     "success": "Success",
@@ -382,6 +410,7 @@
     "themeDark": "Dark",
     "themeWhite": "White",
     "themeBlue": "Blue",
+    "themeUltra": "Ultra",
     "themeSystem": "System",
     "currency": "Currency",
     "currencySubtitle": "Choose the currency used across the app.",
@@ -389,23 +418,23 @@
     "currencyUsd": "US Dollar (USD)",
     "currencyGbp": "British Pound (GBP)",
     "backupTitle": "Household backup",
-    "backupSubtitle": "Export this household or import a saved backup as a new household.",
-    "backupDescription": "Exports include household settings, accounts, categories, transactions, recurring rules, saving pots, and monthly budget data. Invoice files are not bundled in this version.",
+    "backupSubtitle": "Export this household, or import a saved backup as a new one.",
+    "backupDescription": "Exports include household settings, accounts, categories, transactions, recurring rules, saving pots, and monthly budget data. Invoice files aren't included yet.",
     "backupExport": "Export household",
     "backupExporting": "Exporting...",
     "backupImport": "Import backup",
     "backupImporting": "Importing...",
     "backupConfirmTitle": "Import household backup",
-    "backupConfirmSubtitle": "This will create a new household from {{householdName}}.",
-    "backupConfirmNote": "A new household will be created and set as your current household. Attachment files are skipped; their metadata remains in the export file.",
+    "backupConfirmSubtitle": "This creates a new household from {{householdName}}.",
+    "backupConfirmNote": "A new household will be created and set as your current one. Attachment files are skipped, but their details stay in the export file.",
     "backupConfirmImport": "Create imported household",
     "backupExportUnavailableTitle": "Export unavailable",
-    "backupExportUnavailableMessage": "Household export currently downloads the JSON file on web. Import still works from a JSON file.",
+    "backupExportUnavailableMessage": "On web, exporting downloads a JSON file to your device. Importing from a JSON file still works.",
     "backupInvalidTitle": "Invalid backup file",
     "backupInvalidMessage": "Choose a valid SmartFinance household backup JSON file.",
     "backupErrorTitle": "Backup error",
     "backupUnknownError": "Something went wrong while processing the backup.",
-    "backupSignInRequired": "You must be signed in to import a household backup.",
+    "backupSignInRequired": "Sign in to import a household backup.",
     "backupImportCompleteTitle": "Household imported",
     "backupImportCompleteMessage": "{{householdName}} is now your current household. Imported {{transactions}} transaction(s).",
     "backupCounts": {
@@ -464,18 +493,39 @@
 
   "dashboard": {
     "title": "Dashboard",
-    "subtitle": "Welcome back{{name}}. Your household is ready.",
+    "subtitle": "Welcome back{{name}}. Here's where your household stands.",
     "household": "Household",
     "selectHousehold": "Choose household",
     "trackedFunds": "Tracked funds",
     "netWorthTotal": "Total wealth",
     "netWorthScope": "Investments + savings accounts",
-    "allocationSubtitle": "Saving pots are goals backed by those accounts, so they are shown separately and not added again.",
+    "allocationSubtitle": "Saving pots are goals backed by those accounts, so they're shown separately rather than added on top.",
     "investedTotal": "Invested total",
     "savingsAccountsTotal": "Savings accounts",
     "savingPotsTotal": "Saving pots",
+    "networkTitle": "Accounts network",
+    "networkSubtitle": "Every account, orbiting your household total.",
+    "networkEmptyTitle": "Nothing to show yet",
+    "networkEmptyDescription": "Once your accounts have a balance, they'll show up here as nodes around your household total.",
+    "categoryNetworkTitle": "Category network",
+    "categoryNetworkSubtitle": "Your expense categories for the selected period, with how much you spent in each — bigger sphere, bigger spend.",
+    "categoryNetworkTotalLabel": "Spent in this period",
+    "categoryNetworkEmptyTitle": "Nothing to show yet",
+    "categoryNetworkEmptyDescription": "Once you log expense transactions in categories, they'll show up here as a network.",
+    "categoryNetworkLoadingTitle": "Crunching the numbers",
+    "categoryNetworkLoadingDescription": "Adding up transactions for this period.",
+    "categoryNetworkTransactions_one": "{{count}} transaction",
+    "categoryNetworkTransactions_other": "{{count}} transactions",
+    "categoryNetworkPeriod": {
+      "1m": "1 month",
+      "3m": "3 months",
+      "6m": "6 months",
+      "1y": "1 year"
+    },
+    "hideValues": "Hide values",
+    "showValues": "Show values",
     "byPersonTitle": "By person",
-    "byPersonSubtitle": "Investment accounts, savings accounts, and pots grouped per household member.",
+    "byPersonSubtitle": "Investment accounts, savings accounts, and pots, grouped by household member.",
     "person": "Person",
     "invested": "Invested",
     "savingsAccounts": "Savings accounts",
@@ -494,8 +544,6 @@
     "savingsAccountsSubtitle": "{{count}} savings account(s) in the household.",
     "investmentAndSavingsAccountsTitle": "Investment and savings accounts",
     "investmentAndSavingsAccountsSubtitle": "{{count}} investment and savings account(s) in the household.",
-    "investmentSavingsAndPotsTitle": "Investments, savings and saving pots",
-    "investmentSavingsAndPotsSubtitle": "{{accountCount}} investment and savings account(s), plus {{potCount}} saving pot(s).",
     "savingPotsTitle": "Saving pots",
     "savingPotsSubtitle": "{{count}} pot(s) in the household.",
     "shared": "Shared",
@@ -504,13 +552,12 @@
     "noInvestmentAccounts": "No investment accounts yet.",
     "noSavingsAccounts": "No savings accounts yet.",
     "noInvestmentAndSavingsAccounts": "No investment or savings accounts yet.",
-    "noInvestmentSavingsOrPots": "No investment accounts, savings accounts or saving pots yet.",
     "noSavingPots": "No saving pots yet.",
     "totalBalance": "Total balance",
     "accounts": "Accounts",
     "categories": "Categories",
     "recentTransactions": "Recent transactions",
-    "recentTransactionsSubtitle": "The 10 most recent household transactions, with the same details as the full transaction list.",
+    "recentTransactionsSubtitle": "Your 10 most recent household transactions, with the same detail as the full list.",
     "account": "Account",
     "viewAllAccounts": "View all accounts",
     "incomeTx": "Income tx",
@@ -524,7 +571,7 @@
     "savingsBalance": "Balance: {{balance}}",
     "savingsTarget": "Target: {{target}}",
     "goalsTitle": "Top Spending Categories",
-    "noExpenseData": "No expense data for this month.",
+    "noExpenseData": "No expenses recorded this month.",
     "recentTransactionsTitle": "Recent Transactions",
     "noTransactions": "No transactions yet.",
     "upcomingPaymentsTitle": "Upcoming Payments",
@@ -539,9 +586,9 @@
 
   "accounts": {
     "title": "Accounts",
-    "subtitle": "Manage household accounts using the existing account hooks and service layer.",
+    "subtitle": "Add, edit, and organize every account your household uses.",
     "createTitle": "Create account",
-    "createSubtitle": "This uses the current account creation mutation.",
+    "createSubtitle": "Add a new account to start tracking its balance.",
     "name": "Name",
     "namePlaceholder": "Main checking",
     "type": "Type",
@@ -566,7 +613,7 @@
     "archive": "Archive",
     "accountTransfersLoadingMore": "Loading more transfers...",
     "balanceChartTitle": "Account balance overview",
-    "balanceChartSubtitle": "Current balances grouped by account type, with each saving pot kept separate.",
+    "balanceChartSubtitle": "Current balances grouped by account type, with each saving pot shown separately.",
     "balancePieChart": "Account balance distribution pie chart",
     "savingPotSlice": "Pot · {{name}}",
     "types": {
@@ -582,40 +629,83 @@
   },
 
   "insights": {
-    "title": "Financial insights",
-    "subtitle": "Understand cash flow, recurring commitments and projected balances.",
-    "income": "Income this month",
-    "expenses": "Expenses this month",
-    "netCashFlow": "Net cash flow",
-    "incomeForPeriod": "Income · {{period}}",
-    "expensesForPeriod": "Expenses · {{period}}",
-    "netCashFlowForPeriod": "Net cash flow · {{period}}",
-    "subscriptionMonthly": "Recurring monthly cost",
-    "upcoming": "Upcoming money",
-    "upcomingSubtitle": "Expected income, bills, subscriptions and transfers for this and next month.",
-    "noUpcoming": "No upcoming recurring movements.",
-    "merchants": "Top merchants",
-    "merchantsSubtitle": "Your largest spending destinations in the current month.",
-    "noSpending": "No spending in this period.",
-    "projections": "Projected balances",
-    "projectionsSubtitle": "Current balances after confirmed recurring movements through next month.",
-    "dateRange": "Insights date range",
-    "range3Months": "3 months",
-    "range6Months": "6 months",
-    "range12Months": "12 months",
-    "rangeYtd": "Year to date",
-    "monthlyCashFlow": "Monthly cash flow",
-    "monthlyCashFlowSubtitle": "Income and spending, with net cash flow shown as a line.",
-    "spendingByCategory": "Spending by category",
-    "spendingByCategorySubtitle": "Where household spending went in the selected period.",
-    "savingsRate": "Savings rate",
-    "savingsRateSubtitle": "The share of income left after expenses each month.",
-    "chartIncome": "Income",
-    "chartExpenses": "Expenses",
-    "chartNet": "Net",
-    "notAvailable": "Not available",
-    "unknownCategory": "Unknown category",
-    "uncategorized": "Uncategorized"
+    "wageFlow": {
+      "title": "Wage flow",
+      "subtitle": "How your income for the selected period moved through your accounts, expenses, and savings.",
+      "periodLabel": "Wage flow period",
+      "range1Month": "Current month",
+      "rangeLastMonth": "Last month",
+      "range3Months": "3 months",
+      "range6Months": "6 months",
+      "range9Months": "9 months",
+      "range12Months": "1 year",
+      "range24Months": "2 years",
+      "income": "Income",
+      "expenses": "Expenses",
+      "debtPayments": "Debt Payments",
+      "savingsAndGoals": "Savings and Goals",
+      "discretionary": "Discretionary Spending",
+      "unallocated": "Unallocated",
+      "noIncome": "No income recorded for this period.",
+      "transferFrom": "Transfer from {{account}}",
+      "moreTransactions": "+{{count}} more",
+      "configTitle": "Wage flow categories",
+      "configSubtitle": "Customize what counts toward each category below. Categories are matched top to bottom, so put the most specific ones first.",
+      "configEmpty": "No categories configured yet — add one to start building your wage flow.",
+      "tableName": "Category",
+      "tableRules": "Includes",
+      "tableAmount": "Amount",
+      "tableShare": "Share",
+      "tableActions": "Actions",
+      "addCategory": "Add category",
+      "addAllMainCategories": "Add all main categories",
+      "editCategory": "Edit category",
+      "editCategorySubtitle": "Choose what should count toward this category. A transaction is included if it matches any rule below.",
+      "categoryName": "Name",
+      "categoryNamePlaceholder": "e.g. Rent, Holiday Fund",
+      "color": "Color",
+      "icon": "Icon",
+      "whatToInclude": "What counts toward this category",
+      "whatToIncludeHint": "A transaction is included if it matches any of the rules below. Set multiple rules to combine several accounts, categories, or pots into one category.",
+      "allTransactions": "All transactions",
+      "on": "On",
+      "off": "Off",
+      "specificAccounts": "Specific accounts",
+      "specificAccountsHint": "Spending from, or transfers landing on, these accounts.",
+      "noneSelected": "None selected",
+      "categoriesAndSubcategories": "Categories & subcategories",
+      "categoriesHint": "Selecting a category also includes its subcategories.",
+      "specificPots": "Specific pots / savings accounts",
+      "specificPotsHint": "Track transfers into individual named pots or savings accounts.",
+      "transfersBetweenAccounts": "Transfers between accounts",
+      "transfersIntoPots": "Transfers into pots",
+      "removeCategory": "Remove category",
+      "save": "Save category",
+      "close": "Close",
+      "applySelection": "Apply",
+      "noAccounts": "No accounts available.",
+      "noCategories": "No expense categories available.",
+      "noPots": "No savings, investment, or pot accounts available.",
+      "rules": {
+        "allTransactions": "All transactions",
+        "accounts": "{{count}} account(s)",
+        "categories": "{{count}} categories",
+        "pots": "{{count}} pot(s)",
+        "transfersBetweenAccounts": "Transfers between accounts",
+        "transfersIntoPots": "Transfers into pots",
+        "none": "Nothing yet"
+      },
+      "categoriesMenuLabel": "Categories",
+      "collapseMenu": "Collapse category list",
+      "expandMenu": "Expand category list",
+      "selectedCategory": "selected",
+      "detailsTitle": "Category details",
+      "transactionCount": "{{count}} transaction(s)",
+      "selectCategoryPrompt": "Select a category from the flow to see its details.",
+      "noTransactionsInCategory": "No transactions in this category yet.",
+      "collapseDetails": "Collapse details panel",
+      "expandDetails": "Expand details panel"
+    }
   },
   "transactions": {
     "views": {
@@ -623,10 +713,10 @@
       "scheduled": "Scheduled"
     },
     "title": "Transactions",
-    "subtitle": "Create and review household income, expenses, transfers, and scheduled movements.",
+    "subtitle": "Log and review household income, expenses, transfers, and scheduled movements.",
     "filtersTitle": "Filters",
     "filtersSubtitle": "Combine type, category, account, creator, date, and sorting filters.",
-    "filtersCollapsed": "Open filters to refine the transaction list.",
+    "filtersCollapsed": "Open filters to narrow down the list.",
     "showFilters": "Show filters",
     "hideFilters": "Hide filters",
     "filterType": "Movement type",
@@ -635,24 +725,38 @@
       "newest": "Newest",
       "oldest": "Oldest",
       "amount_desc": "Highest amount",
-      "amount_asc": "Lowest amount"
+      "amount_asc": "Lowest amount",
+      "title_asc": "Name (A-Z)",
+      "title_desc": "Name (Z-A)"
     },
     "dateFrom": "From date",
     "dateTo": "To date",
     "dateFromPlaceholder": "Start date",
     "dateToPlaceholder": "End date",
     "filters": {
+      "movements": "Income & Expenses",
       "all": "All",
       "income": "Income",
       "expense": "Expense",
       "transfer": "Transfer"
     },
     "createTitle": "Add movement",
-    "createSubtitle": "Create an income, expense, or transfer between accounts.",
+    "createSubtitle": "Add an income, expense, or transfer between accounts.",
+    "wizard": {
+      "stepOf": "Step {{current}} of {{total}}",
+      "back": "Back",
+      "next": "Next",
+      "stepTypeTitle": "What kind of movement?",
+      "stepTypeSubtitle": "Choose a type, then add the title, amount, date, and notes.",
+      "stepAccountsTitle": "Accounts & people",
+      "stepAccountsSubtitle": "Where the money moves and who it's for.",
+      "stepExtrasTitle": "Category & attachment",
+      "stepExtrasSubtitle": "Optional - categorize it and attach a receipt if you have one."
+    },
     "titleLabel": "Title",
     "titlePlaceholder": "Salary / Groceries",
     "titleSuggestions": "Transaction name suggestions",
-    "titleSuggestionHint": "Type at least two characters to see names used before. You can always enter a new name.",
+    "titleSuggestionHint": "Type at least two characters to see names you've used before, or just enter a new one.",
     "titleSuggestionUses_one": "Used once",
     "titleSuggestionUses_other": "Used {{count}} times",
     "amountLabel": "Amount",
@@ -667,15 +771,18 @@
     "removeAttachment": "Remove attachment",
     "attachmentsTitle": "Attachments",
     "loadingAttachments": "Loading attachments...",
-    "attachmentsLoadError": "Attachments could not be loaded.",
+    "attachmentsLoadError": "Couldn't load the attachments.",
     "noAttachments": "No attachments for this transaction.",
     "accounts": "Accounts",
     "categories": "Categories",
+    "subcategory": "Subcategory",
+    "subcategoryHint": "Optionally narrow this down to one of the main category's subcategories.",
+    "mainCategoryOnly": "Just the main category",
     "createdBy": "Created by",
     "categorySuggestionLoading": "Finding a category...",
     "categorySuggestionHigh": "Suggested from {{count}} similar transaction(s).",
     "categorySuggestionMedium": "Suggested category: {{category}} - based on {{count}} similar transaction(s).",
-    "categorySuggestionUnavailable": "Category suggestions are temporarily unavailable. You can still create the transaction.",
+    "categorySuggestionUnavailable": "Category suggestions aren't available right now, but you can still create the transaction.",
     "createdByPlaceholder": "Select who owns this transaction",
     "create": "Create transaction",
     "createTransfer": "Create transfer",
@@ -703,16 +810,32 @@
     "categoryFilter": "Category",
     "categoryFilterHint": "Show transactions from one category.",
     "allCategories": "All categories",
+    "transactionDate": "Transaction date",
     "balanceAfter": "Balance after",
     "uncategorized": "Uncategorized",
     "activeFilters": "{{count}} filters active - Clear all",
+    "clearAllFilters": "Clear all",
+    "searchLabel": "Search",
+    "searchPlaceholder": "Search title, notes, or merchant",
+    "searchHint": "Matches title, notes, and merchant name.",
+    "minAmountLabel": "Min amount",
+    "maxAmountLabel": "Max amount",
+    "minAmountPlaceholder": "No minimum",
+    "maxAmountPlaceholder": "No maximum",
+    "summary": {
+      "count_one": "{{count}} result",
+      "count_other": "{{count}} results",
+      "income": "Income",
+      "expense": "Expense",
+      "net": "Net"
+    },
     "accountFilter": "Account",
     "personFilter": "Person",
     "editTitle": "Edit Transaction",
     "dangerZone": "Danger Zone",
     "delete": "Delete Transaction",
     "deleteTitle": "Delete transaction",
-    "deleteMessage": "This action cannot be undone.",
+    "deleteMessage": "This can't be undone.",
     "deleteTransfer": "Delete transfer",
     "deleteTransferTitle": "Delete this transfer?",
     "deleteTransferMessage": "This deletes both sides of “{{title}}” and updates both account balances.",
@@ -733,8 +856,8 @@
       "clearCategory": "Clear category",
       "success_one": "Category updated for {{count}} transaction.",
       "success_other": "Category updated for {{count}} transactions.",
-      "error": "Could not update the selected transactions: {{detail}}",
-      "transferUnavailable": "Transfers cannot be categorized",
+      "error": "Couldn't update the selected transactions: {{detail}}",
+      "transferUnavailable": "Transfers can't be categorized",
       "selectTransaction": "Select {{title}}"
     },
     "newTitle": "New Transaction",
@@ -744,40 +867,32 @@
 
   "categories": {
     "title": "Categories",
-    "subtitle": "Create and manage the category structure used by transactions.",
+    "subtitle": "Create and manage the categories your transactions use.",
     "summaryTitle": "Overview",
-    "summarySubtitle": "A quick look at the current category set.",
+    "summarySubtitle": "A quick look at your current categories.",
     "selectedType": "Selected type",
-    "parentHint": "Use a parent category id if you are creating a nested category.",
+    "parentHint": "Pick a main category to nest this one under it, or leave it as a main category.",
+    "parentHintEmpty": "There's no main category of this type yet, so this one will be created as a main category.",
+    "parentCategory": "Main category",
+    "topLevel": "Top-level (main category)",
+    "topLevelHint": "No parent — this becomes a main category of its own.",
     "noParent": "No parent",
     "icon": "Icon",
-    "iconHint": "Choose an icon to display for this category.",
+    "iconHint": "Choose an icon to show for this category.",
     "searchIcons": "Search icons",
     "noIcon": "No icon",
+    "discretionary": "Discretionary spending",
+    "discretionaryOn": "Discretionary",
+    "discretionaryOff": "Essential",
+    "discretionaryHint": "Discretionary categories are broken out separately in spending breakdowns like the Wage Flow chart, instead of being counted as regular expenses.",
     "createTitle": "Create category",
-    "createSubtitle": "Define a new category and choose its type, parent, and icon.",
+    "createSubtitle": "Set a name, type, parent, and icon for the new category.",
     "editTitle": "Edit category",
     "name": "Name",
-    "parentId": "Parent category id",
-    "optional": "Optional",
     "create": "Create Category",
     "creating": "Creating...",
     "listTitle": "Categories",
-    "listSubtitle": "Showing {{count}} categories.",
-    "filterTitle": "Filter categories",
-    "filterSubtitle": "Switch between income, expense, and account categories without changing the create form.",
-    "emptyFilteredTitle": "No categories match this filter",
-    "emptyFilteredSubtitle": "Try another type or create a category for this section.",
-    "table": {
-      "name": "Name",
-      "type": "Type",
-      "status": "Status",
-      "parent": "Parent",
-      "actions": "Actions"
-    },
-    "parent": "parent",
     "archived": "Archived",
-    "active": "Active",
     "edit": "Edit",
     "archive": "Archive",
     "restore": "Restore",
@@ -786,13 +901,116 @@
       "active": "Active",
       "archived": "Archived"
     },
-    "filters": {
-      "all": "All types"
-    },
     "types": {
       "expense": "Expense",
       "income": "Income",
       "account": "Account"
+    },
+    "seedTitle": "Start with default categories",
+    "seedSubtitle": "Add a ready-made set of 10 main expense categories (each with a few common subcategories) and 10 income categories, so you're not starting from a blank list. Only fills in whichever type is still missing.",
+    "seedAction": "Add default categories",
+    "seedInProgress": "Adding categories...",
+    "browser": {
+      "title": "Category browser",
+      "subtitle": "Find, manage, and see the numbers behind your categories.",
+      "newCategory": "New category",
+      "addChild": "Add Subcategory",
+      "searchLabel": "Search categories",
+      "searchPlaceholder": "e.g. Groceries",
+      "collapseGroup": "Collapse {{name}}",
+      "expandGroup": "Expand {{name}}",
+      "noSelectionTitle": "No category selected",
+      "noSelectionHint": "Select a category from the list on the left to see its spending, transactions, and actions here.",
+      "typeNodeHint": "Select a category (not just its type) to edit, archive, or delete it.",
+      "periodAll": "All time",
+      "totalSpendingLabel": "Total spending",
+      "totalIncomeLabel": "Total income",
+      "totalAmountLabel": "Total amount",
+      "transactionCountLabel": "Transactions",
+      "transactionCount_one": "{{count}} transaction",
+      "transactionCount_other": "{{count}} transactions",
+      "percentOfTotalLabel": "% of total {{type}}",
+      "subcategoriesTitle": "Subcategories",
+      "noSubcategories": "This category has no subcategories.",
+      "recentTransactionsTitle": "Recent transactions",
+      "noRecentTransactions": "No transactions in this period.",
+      "byAccountTitle": "By account",
+      "byUserTitle": "By household member"
+    },
+    "defaults": {
+      "housing": "Housing",
+      "utilities": "Utilities",
+      "groceries": "Groceries",
+      "transportation": "Transportation",
+      "healthWellness": "Health & Wellness",
+      "diningEntertainment": "Dining & Entertainment",
+      "shoppingPersonalCare": "Shopping & Personal Care",
+      "familyEducation": "Family & Education",
+      "savingsInvestments": "Savings & Investments",
+      "debtObligations": "Debt & Financial Obligations"
+    },
+    "defaultsSub": {
+      "housing": {
+        "rentMortgage": "Rent/Mortgage",
+        "homeInsurance": "Home Insurance",
+        "maintenance": "Maintenance & Repairs"
+      },
+      "utilities": {
+        "electricity": "Electricity",
+        "water": "Water",
+        "internetPhone": "Internet & Phone"
+      },
+      "groceries": {
+        "supermarket": "Supermarket",
+        "householdSupplies": "Household Supplies"
+      },
+      "transportation": {
+        "fuel": "Fuel",
+        "publicTransit": "Public Transit",
+        "carMaintenance": "Car Maintenance & Insurance"
+      },
+      "healthWellness": {
+        "doctorPharmacy": "Doctor & Pharmacy",
+        "healthInsurance": "Health Insurance",
+        "fitness": "Fitness"
+      },
+      "diningEntertainment": {
+        "restaurantsTakeout": "Restaurants & Takeout",
+        "streamingSubscriptions": "Streaming & Subscriptions",
+        "leisureHobbies": "Leisure & Hobbies"
+      },
+      "shoppingPersonalCare": {
+        "clothing": "Clothing",
+        "personalCare": "Personal Care",
+        "electronicsGadgets": "Electronics & Gadgets"
+      },
+      "familyEducation": {
+        "childcare": "Childcare",
+        "tuitionCourses": "Tuition & Courses",
+        "kidsActivities": "Kids' Activities"
+      },
+      "savingsInvestments": {
+        "emergencyFund": "Emergency Fund",
+        "investments": "Investments",
+        "retirement": "Retirement"
+      },
+      "debtObligations": {
+        "loanPayments": "Loan Payments",
+        "creditCardPayments": "Credit Card Payments",
+        "taxesFees": "Taxes & Fees"
+      }
+    },
+    "defaultsIncome": {
+      "salary": "Salary",
+      "freelance": "Freelance & Self-Employment",
+      "bonusCommissions": "Bonus & Commissions",
+      "investmentIncome": "Investment Income",
+      "rentalIncome": "Rental Income",
+      "businessIncome": "Business Income",
+      "giftsInheritance": "Gifts & Inheritance",
+      "refundsReimbursements": "Refunds & Reimbursements",
+      "governmentBenefits": "Government Benefits",
+      "otherIncome": "Other Income"
     }
   },
 
@@ -821,13 +1039,13 @@
     "periodLabel": "Period: {{from}} to {{to}}",
     "delete": "Delete Budget",
     "deleteTitle": "Delete budget",
-    "deleteMessage": "This cannot be undone.",
+    "deleteMessage": "This can't be undone.",
     "missingCategory": "Select a category"
   },
 
   "savings": {
     "title": "Savings",
-    "subtitle": "Track saving pots and their balances.",
+    "subtitle": "Track your saving pots and their balances.",
     "createTitle": "Create saving pot",
     "namePlaceholder": "Emergency fund",
     "createdBy": "Created by",
@@ -853,10 +1071,10 @@
     "removePot": "Remove pot",
     "actions": "Actions",
     "editDetails": "Edit details",
-    "editPotSubtitle": "Update the pot name, target and which accounts count towards it.",
+    "editPotSubtitle": "Update the pot's name, target, and which accounts count towards it.",
     "create": "Create saving pot",
     "balancesTitle": "Balances",
-    "balancesSubtitle": "The current balance view from the existing saving pot balances query.",
+    "balancesSubtitle": "How much each pot has saved so far.",
     "saved": "Saved",
     "spent": "Spent",
     "balance": "Balance",
@@ -865,7 +1083,7 @@
     "accountColumn": "Account",
     "balanceColumn": "Balance",
     "currentTitle": "Saving pots",
-    "currentSubtitle": "Delete pots using the existing mutation.",
+    "currentSubtitle": "Remove a pot you no longer need.",
     "name": "Name",
     "targetOptional": "Target (Optional)",
     "targetAmount": "Target amount",
@@ -887,17 +1105,17 @@
     "forecastContributionShort": "Added",
     "forecastBalanceShort": "Balance",
     "forecastUnavailableNoTarget": "Add a target amount to see a completion forecast.",
-    "forecastUnavailableNoContributions": "No active recurring transfers or monthly budget rules target this pot yet.",
-    "forecastUnavailableBeyondHorizon": "This target cannot be forecast within the next 30 years.",
+    "forecastUnavailableNoContributions": "No active recurring transfers or budget rules put money toward this pot yet.",
+    "forecastUnavailableBeyondHorizon": "This target can't be forecast within the next 30 years.",
     "delete": "Delete",
     "deleteTitle": "Delete savings pot",
-    "deleteMessage": "This cannot be undone.",
+    "deleteMessage": "This can't be undone.",
     "empty": "No savings pots yet."
   },
 
   "recurring": {
     "title": "Recurring",
-    "subtitle": "Schedule repeated transactions and manage their activation.",
+    "subtitle": "Schedule repeated transactions and turn them on or off.",
     "createTitle": "Create recurring transaction",
     "rulesTitle": "Recurring rules",
     "rulesSubtitle": "{{count}} rules in this household.",
@@ -929,7 +1147,7 @@
       "custom": "Custom"
     },
     "excludeMonths": "Exclude months",
-    "excludeMonthsHint": "Pick the months when this rule should be skipped.",
+    "excludeMonthsHint": "Pick the months to skip this rule.",
     "customFrequencyAnyMonth": "every month",
     "months": {
       "jan": "Jan",
@@ -964,13 +1182,24 @@
     "formCreate": "Create Transfer",
     "formCreating": "Creating...",
     "howItWorksTitle": "How it works",
-    "howItWorksSubtitle": "Transfers create two linked transaction rows through the transfer RPC.",
-    "howItWorksBody": "The source account is debited as an expense and the destination account is credited as income, keeping balances consistent.",
+    "howItWorksSubtitle": "A transfer creates two linked transactions, so both accounts stay in sync.",
+    "howItWorksBody": "The source account is debited as an expense and the destination account is credited as income, so balances always add up.",
     "movementType": "Movement type",
     "types": {
       "oneOff": "One-off transfer",
       "recurringTransfer": "Recurring transfer",
-      "recurringTransaction": "Recurring income or expense"
+      "recurringTransaction": "Recurring income or expense",
+      "subscription": "Subscriptions",
+      "bill": "Bills & other expenses",
+      "recurringIncome": "Recurring income",
+      "income": "Recurring income",
+      "transfer": "Recurring transfer"
+    },
+    "expenseKind": "Expense kind",
+    "expenseKinds": {
+      "subscription": "Subscription",
+      "bill": "Bill",
+      "other": "Other expense"
     },
     "scheduledTitle": "Scheduled movements",
     "scheduledSubtitle": "{{count}} scheduled movements in this household.",
@@ -993,7 +1222,7 @@
     "saveRecurring": "Save scheduled movement",
     "executionHistory": "Execution history",
     "executionHistoryTitle": "Execution history",
-    "executionHistoryUnavailable": "Execution history will appear here when scheduled execution is available.",
+    "executionHistoryUnavailable": "Execution history will show up here once scheduled runs are available.",
     "executionStatuses": {
       "pending": "Pending",
       "completed": "Completed",
@@ -1007,10 +1236,10 @@
     "transferRoute": "{{from}} to {{to}}",
     "potDestination": "Savings pot: {{name}}",
     "requiresDestination": "Choose a destination for this recurring transfer.",
-    "invalidMovement": "Complete the required fields before saving this movement.",
+    "invalidMovement": "Fill in the required fields before saving this movement.",
     "frequency": "Frequency",
     "excludeMonths": "Exclude months",
-    "excludeMonthsHint": "Pick the months when this movement should be skipped.",
+    "excludeMonthsHint": "Pick the months to skip this movement.",
     "customFrequencyAnyMonth": "every month",
     "nextRunLabel": "next {{value}}",
     "months": {
@@ -1040,7 +1269,7 @@
 
   "members": {
     "title": "Members",
-    "subtitle": "Invite people, manage membership, and transfer ownership.",
+    "subtitle": "Invite people, manage membership, and hand off ownership.",
     "inviteTitle": "Invite a member",
     "email": "Email",
     "sendInvite": "Send invite",
@@ -1054,12 +1283,12 @@
     "transferOwnership": "Transfer ownership to first non-owner",
     "leaveHousehold": "Leave household",
     "pendingTitle": "Invitations",
-    "pendingSubtitle": "Household invitations issued from the app.",
+    "pendingSubtitle": "Household invitations sent from the app.",
     "expires": "expires {{date}}",
     "noDate": "n/a",
     "revoke": "Revoke",
     "myTitle": "My invitations",
-    "mySubtitle": "Invitations addressed to the signed-in user.",
+    "mySubtitle": "Invitations addressed to you.",
     "thisMember": "this member",
     "removeTitle": "Remove member",
     "removeMessage": "Remove {{name}} from this household?",
@@ -1070,7 +1299,7 @@
   "invite": {
     "invalidTitle": "Invalid invitation link",
     "invalidMessage": "This link needs a token to work.",
-    "invalidDescription": "This invitation link is missing a token. Ask the household admin to send a new invite.",
+    "invalidDescription": "This invitation link is missing a token. Ask the household admin to send a new one.",
     "goHome": "Go to Home",
     "welcomeTitle": "You’re invited",
     "acceptTitle": "Accept your invitation",
@@ -1081,14 +1310,14 @@
     "friendlySubtitle": "{{ownerName}} invited you to join {{householdName}}.",
     "sectionTitle": "Invitation",
     "friendlyBody": "{{ownerName}} is inviting you to join {{householdName}}.",
-    "signInBody": "Sign in with the invited account and we’ll finish joining the household automatically.",
+    "signInBody": "Sign in with the invited account and we’ll finish joining the household for you.",
     "joinAs": "You’ll join as {{role}}.",
     "expires": "This invitation expires on {{date}}.",
-    "lookupAfterSignIn": "Once you sign in, we’ll look up the invitation details for the invited account.",
-    "wrongAccount": "This invite was sent to a different Google account. Please switch accounts and try again.",
-    "acceptedMessage": "Invitation accepted. Redirecting you to Settings...",
+    "lookupAfterSignIn": "Once you sign in, we’ll look up the invitation for that account.",
+    "wrongAccount": "This invite was sent to a different Google account. Switch accounts and try again.",
+    "acceptedMessage": "Invitation accepted. Taking you to Settings...",
     "signInTitle": "Sign in",
-    "signInMessage": "Sign in with the invited account and we’ll finish the join automatically.",
+    "signInMessage": "Sign in with the invited account and we’ll finish joining automatically.",
     "accepting": "Accepting...",
     "switchAccount": "Switch account",
     "unknownError": "Unknown error"
@@ -1096,7 +1325,7 @@
 
   "onboarding": {
     "welcomeTitle": "Make your money clearer",
-    "welcomeDescription": "SmartFinance keeps your household accounts, plans, and goals in one place. This short guide shows you where to start.",
+    "welcomeDescription": "SmartFinance keeps your household's accounts, plans, and goals in one place. Here's a short guide to get you started.",
     "progress": "Step {{current}} of {{total}}",
     "next": "Next",
     "back": "Back",
@@ -1105,7 +1334,7 @@
     "start": "Start guide",
     "close": "Close",
     "completionTitle": "You're ready to go",
-    "completionDescription": "You can reopen this guide at any time from Settings, and new features will introduce themselves when they are available.",
+    "completionDescription": "You can reopen this guide anytime from Settings, and new features will introduce themselves when they arrive.",
     "restart": "Review app guide",
     "restartDescription": "See the full SmartFinance guide again.",
     "sectionGuide": "How this section works",
@@ -1113,51 +1342,51 @@
     "guideSeen": "Guide viewed",
     "newFeature": "New",
     "featureGuideTitle": "Learn about {{feature}}",
-    "featureGuideDescription": "This feature is new. Take a quick look at how it works.",
+    "featureGuideDescription": "This feature is new. Here's a quick look at how it works.",
     "dashboard": {
       "title": "Your financial overview",
-      "description": "See your tracked wealth, this month's movement, accounts, goals, and recent activity in one view.",
-      "tip": "Use the section headers to collapse details and focus on what matters now."
+      "description": "See what you're tracking, this month's movement, accounts, goals, and recent activity in one view.",
+      "tip": "Use the section headers to collapse details and focus on what matters right now."
     },
     "accounts": {
       "title": "Keep every account together",
-      "description": "Create bank, savings, cash, investment, credit, and PPR accounts. Assign an owner or leave an account shared.",
-      "tip": "Balances and ownership make it easy to understand individual and shared money."
+      "description": "Create bank, savings, cash, investment, credit, and PPR accounts. Assign an owner, or leave one shared.",
+      "tip": "Balances and ownership make it easy to tell individual and shared money apart."
     },
     "transactions": {
       "title": "Record money in and out",
-      "description": "Add income and expenses with an account, category, date, and optional notes or invoice attachment.",
-      "tip": "Use filters to quickly review a person's spending, an account, or a transaction type."
+      "description": "Add income and expenses with an account, category, date, and optional notes or an invoice attachment.",
+      "tip": "Use filters to quickly check a person's spending, an account, or a transaction type."
     },
     "transfers": {
       "title": "Move money without losing track",
-      "description": "Transfers link the source and destination accounts, keeping both balances consistent. You can also schedule recurring movements.",
-      "tip": "Choose the source and destination carefully: a transfer is recorded as an expense and matching income."
+      "description": "Transfers link the source and destination accounts, so both balances stay in sync. You can also schedule recurring ones.",
+      "tip": "Pick the source and destination carefully: a transfer is recorded as an expense on one side and income on the other."
     },
     "budget": {
       "title": "Plan the month before it starts",
-      "description": "Set household income, recurring budget rules, active months, and destinations. Review the preview before confirming the month.",
-      "tip": "Use active months for seasonal rules, such as summer or Christmas contributions."
+      "description": "Set household income, recurring budget rules, active months, and destinations. Preview the result before confirming.",
+      "tip": "Use active months for seasonal rules, like summer or Christmas contributions."
     },
     "savings": {
       "title": "Turn savings into clear goals",
-      "description": "Create saving pots, set a target, connect the accounts that fund them, and follow progress toward completion.",
-      "tip": "Open a pot's contribution forecast to see the expected monthly or yearly path to its goal."
+      "description": "Create saving pots, set a target, connect the accounts that fund them, and watch your progress.",
+      "tip": "Open a pot's contribution forecast to see the expected path to its goal."
     },
     "categories": {
       "title": "Organise every movement",
-      "description": "Create income, expense, and account categories so reports and transaction lists stay useful.",
-      "tip": "Use parent categories to keep detailed categories organised."
+      "description": "Create income, expense, and account categories so your reports and transaction lists stay useful.",
+      "tip": "Use parent categories to keep detailed categories tidy."
     },
     "members": {
       "title": "Manage your household together",
-      "description": "Invite people to the household, review memberships, and manage access as your household changes.",
+      "description": "Invite people, review who's a member, and manage access as your household changes.",
       "tip": "Owners and admins can send invitations and manage other members."
     },
     "settings": {
       "title": "Control your household setup",
-      "description": "Manage household details, language, theme, currency, invitations, and backups from one place.",
-      "tip": "Return here whenever you want to review the app guide or change your preferences."
+      "description": "Manage household details, language, theme, currency, invitations, and backups, all in one place.",
+      "tip": "Come back here anytime to review the app guide or change your preferences."
     }
   },
 
@@ -1165,19 +1394,19 @@
     "title": "Help shape SmartFinance",
     "subtitle": "Share an idea or report a problem, then follow every update from the team.",
     "newTitle": "Send feedback",
-    "newSubtitle": "A little context helps us understand, reproduce, and act quickly.",
+    "newSubtitle": "A little context helps us understand what's going on and act quickly.",
     "kind": {
       "suggestion": "Suggestion",
-      "suggestionDescription": "Propose an improvement or a new way to work.",
+      "suggestionDescription": "Propose an improvement or a better way to do something.",
       "bug": "Bug report",
-      "bugDescription": "Tell us about something that did not work as expected."
+      "bugDescription": "Tell us about something that didn't work the way you expected."
     },
     "fields": {
       "title": "Short title",
       "titlePlaceholder": "Summarise the idea or problem",
       "description": "Details",
-      "suggestionDescriptionPlaceholder": "What would improve your experience, and why?",
-      "bugDescriptionPlaceholder": "What were you trying to do when the problem happened?",
+      "suggestionDescriptionPlaceholder": "What would make your experience better, and why?",
+      "bugDescriptionPlaceholder": "What were you trying to do when it happened?",
       "expected": "Expected result",
       "expectedPlaceholder": "What should have happened?",
       "actual": "Actual result",
@@ -1203,23 +1432,23 @@
       "duplicate": "Duplicate"
     },
     "screenshotsTitle": "Add screenshots",
-    "screenshotsHelp": "Up to five images. Avoid including passwords or sensitive financial details.",
+    "screenshotsHelp": "Up to five images. Please leave out passwords or sensitive financial details.",
     "addScreenshots": "Choose images",
     "removeScreenshot": "Remove {{name}}",
-    "screenshotErrorTitle": "Could not add screenshots",
-    "screenshotErrorMessage": "Choose the images again.",
-    "privacyNote": "Feedback is linked to your account so we can reply and keep you updated.",
+    "screenshotErrorTitle": "Couldn't add screenshots",
+    "screenshotErrorMessage": "Please choose the images again.",
+    "privacyNote": "Feedback is linked to your account so we can reply and keep you posted.",
     "submit": "Send feedback",
     "submitting": "Sending...",
     "submitted": "Feedback sent. Thank you.",
-    "submitErrorTitle": "Could not send feedback",
+    "submitErrorTitle": "Couldn't send feedback",
     "submitErrorMessage": "Please try again in a moment.",
     "timelineTitle": "Your feedback",
-    "timelineSubtitle": "Track status changes and continue the conversation.",
+    "timelineSubtitle": "Track status changes and keep the conversation going.",
     "loading": "Loading your feedback...",
-    "loadError": "Your feedback could not be loaded.",
+    "loadError": "We couldn't load your feedback.",
     "emptyTitle": "No feedback yet",
-    "emptyBody": "Your suggestions and bug reports will appear here after you send them.",
+    "emptyBody": "Your suggestions and bug reports will show up here once you send them.",
     "resolvedInRelease": "Resolved in release {{release}}",
     "supportTeam": "SmartFinance team",
     "replyLabel": "Reply",
@@ -1227,19 +1456,19 @@
     "sendReply": "Send reply",
     "sendingReply": "Sending...",
     "replySent": "Reply sent.",
-    "replyErrorTitle": "Could not send reply",
+    "replyErrorTitle": "Couldn't send reply",
     "replyErrorMessage": "Please try again.",
     "withdraw": "Withdraw",
     "withdrawTitle": "Withdraw feedback?",
-    "withdrawMessage": "Withdraw “{{title}}”? The conversation will be kept for reference.",
+    "withdrawMessage": "Withdraw “{{title}}”? The conversation stays around for reference.",
     "withdrawn": "Feedback withdrawn.",
-    "withdrawErrorTitle": "Could not withdraw feedback",
+    "withdrawErrorTitle": "Couldn't withdraw feedback",
     "withdrawErrorMessage": "Please try again."
   },
 
   "adminFeedback": {
     "title": "Feedback inbox",
-    "subtitle": "Triage customer context, coordinate ownership, and close the loop with clear release notes.",
+    "subtitle": "Review what customers are telling us, assign an owner, and close the loop with clear notes.",
     "filtersTitle": "Find the next signal",
     "filtersSubtitle": "Search the inbox and combine workflow filters.",
     "searchLabel": "Search",
@@ -1262,11 +1491,11 @@
     },
     "inboxTitle": "Inbox",
     "loading": "Loading the inbox...",
-    "loadError": "The feedback inbox could not be loaded.",
+    "loadError": "We couldn't load the feedback inbox.",
     "emptyTitle": "Nothing matches these filters",
     "emptyBody": "Try widening the filters or clearing the search.",
     "selectTitle": "Select feedback",
-    "selectBody": "Choose an inbox item to review its context and update the workflow.",
+    "selectBody": "Choose an inbox item to see its context and update the workflow.",
     "unknownSubmitter": "Unknown submitter",
     "notProvided": "Not provided",
     "attachments": "Screenshots",
@@ -1285,7 +1514,7 @@
     "addNote": "Add internal note",
     "noteAdded": "Internal note added.",
     "responseTitle": "Customer response",
-    "responseHelp": "This reply is visible to the person who submitted the feedback.",
+    "responseHelp": "This reply is visible to the person who sent the feedback.",
     "responseLabel": "Response",
     "responsePlaceholder": "Share an update, ask a question, or explain the resolution...",
     "sendResponse": "Send response",
@@ -1304,9 +1533,9 @@
     "releasePlaceholder": "For example, 1.4.0",
     "resolve": "Mark resolved",
     "updated": "Feedback updated.",
-    "updateErrorTitle": "Could not update feedback",
+    "updateErrorTitle": "Couldn't update feedback",
     "updateErrorMessage": "Please try again.",
-    "replyErrorTitle": "Could not save the message",
+    "replyErrorTitle": "Couldn't save the message",
     "replyErrorMessage": "Please try again."
   },
 
@@ -1321,14 +1550,18 @@
       "openMenu": "Open navigation menu",
       "closeMenu": "Close navigation menu"
     },
-    "language": { "select": "Select language", "close": "Close language menu" },
+    "language": {
+      "select": "Select language",
+      "close": "Close language menu",
+      "current": "Language: {{language}}. Select language."
+    },
     "hero": {
-      "eyebrow": "Clearer finances, calmer decisions",
-      "title": "Your financial life, organised in one place.",
-      "description": "Bring accounts, spending, budgets and shared goals together. SmartFinance gives your household the clarity to plan with confidence.",
+      "eyebrow": "Know where your money stands",
+      "title": "Everything about your money, in one place.",
+      "description": "Accounts, spending, budgets, and shared goals, all together. SmartFinance helps your household plan without the guesswork.",
       "primary": "Start for free",
       "secondary": "Explore features",
-      "trust": "Private by design. Your financial data stays yours."
+      "trust": "Your financial data stays yours. Always."
     },
     "preview": {
       "label": "Total balance",
@@ -1337,216 +1570,246 @@
     },
     "features": {
       "kicker": "Everything in one view",
-      "title": "Clarity for every money decision",
-      "description": "Simple tools that turn everyday financial activity into a useful, shared picture.",
+      "title": "A clear picture for every money decision",
+      "description": "Simple tools that turn everyday financial activity into something you and your household can actually use.",
       "items": [
         {
           "title": "All your accounts",
-          "description": "Track bank, cash, savings, investments and credit balances from one organised dashboard."
+          "description": "See bank, cash, savings, investment, and credit balances from one dashboard."
         },
         {
-          "title": "Meaningful insights",
-          "description": "Understand where money goes with clear categories, trends and recent activity."
+          "title": "Insights that matter",
+          "description": "See where the money goes, with categories, trends, and recent activity."
         },
         {
           "title": "Budgets and goals",
-          "description": "Plan the month, automate recurring movements and make progress towards savings goals."
+          "description": "Plan the month, automate recurring transfers, and chip away at your savings goals."
         },
         {
           "title": "Built for households",
-          "description": "Coordinate shared finances while keeping individual ownership visible and controlled."
+          "description": "Manage shared finances while keeping who owns what clear and under control."
         }
       ]
     },
     "steps": {
       "kicker": "Simple from day one",
-      "title": "A clearer picture in three steps",
+      "title": "Three steps to a clearer picture",
       "items": [
         {
           "title": "Create your household",
-          "description": "Set up your private financial space and invite the people you trust."
+          "description": "Set up your private space and invite the people you trust."
         },
         {
           "title": "Add your finances",
-          "description": "Organise accounts, transactions, categories, budgets and savings goals."
+          "description": "Bring in accounts, transactions, categories, budgets, and savings goals."
         },
         {
           "title": "Plan together",
-          "description": "Use one reliable overview to make better monthly decisions as a household."
+          "description": "Work from one shared view to make better decisions each month."
         }
       ]
     },
     "news": {
       "kicker": "Latest news",
-      "title": "Ideas and updates from SmartFinance",
-      "items": [
-        {
-          "category": "Product · Dashboard",
-          "title": "Your financial month, explained in one view",
-          "description": "See balances, recent activity, spending distribution and savings progress before deciding what comes next."
-        },
-        {
-          "category": "Guide · Recurring activity",
-          "title": "Turn repeated expenses into a plan",
-          "description": "Make rent, subscriptions, salaries and regular transfers visible before preparing the monthly budget."
-        },
-        {
-          "category": "Product · Savings",
-          "title": "Give every savings goal a next step",
-          "description": "Connect saving pots to their funding accounts and use progress forecasts to adjust contributions."
-        }
-      ]
+      "title": "Ideas and updates from SmartFinance"
     },
     "final": {
       "title": "Ready to make money feel simpler?",
-      "description": "Build a clearer financial picture for yourself and your household today.",
+      "description": "Build a clearer financial picture for yourself and your household, starting today.",
       "action": "Open SmartFinance"
     },
-    "footer": "© 2026 SmartFinance. Personal finance, made clearer."
+    "footer": "© 2026 SmartFinance. Personal finance, made clearer.",
+    "footerCookiePolicy": "Cookie policy"
   },
 
   "publicPages": {
     "backHome": "Back to home",
     "cta": {
-      "title": "Ready for a clearer financial life?",
-      "description": "Bring your household finances together and start planning with confidence.",
       "action": "Open SmartFinance"
     },
     "features": {
       "kicker": "Complete overview",
       "title": "Everything you need to manage money together",
-      "description": "From daily spending to long-term goals, every tool works from the same reliable household view.",
+      "description": "From daily spending to long-term goals, every tool works from the same household view.",
+      "highlight": "8 tools, one connected view",
+      "cta": {
+        "title": "Ready to see everything in one place?",
+        "description": "Bring your accounts, budgets, and goals together and try SmartFinance's tools yourself."
+      },
       "items": [
         {
           "title": "Accounts and balances",
-          "description": "Track bank, cash, savings, investment, credit-card and retirement accounts, with clear individual or shared ownership."
+          "description": "Track bank, cash, savings, investment, credit-card, and retirement accounts, owned individually or shared."
         },
         {
           "title": "Transactions and invoices",
-          "description": "Record income and expenses, add categories and notes, and keep invoice attachments alongside each movement."
+          "description": "Log income and expenses, add categories and notes, and keep invoices attached to each one."
         },
         {
           "title": "Transfers",
-          "description": "Move money between accounts without losing the trail: both sides stay linked and balances remain consistent."
+          "description": "Move money between accounts without losing the trail — both sides stay linked and balances stay accurate."
         },
         {
           "title": "Recurring movements",
-          "description": "Schedule recurring income, expenses and transfers, including custom frequencies and excluded months."
+          "description": "Schedule recurring income, expenses, and transfers, with custom frequencies and months you can exclude."
         },
         {
           "title": "Savings goals",
-          "description": "Create saving pots, connect the accounts funding them and follow progress and contribution forecasts."
+          "description": "Create saving pots, connect the accounts funding them, and follow your progress and forecasts."
         },
         {
           "title": "Monthly budgets",
-          "description": "Model income and household rules, preview the result and confirm a monthly plan only when it feels right."
+          "description": "Model income and household rules, preview the outcome, and confirm the month when it feels right."
         },
         {
           "title": "Household collaboration",
-          "description": "Invite trusted people, assign roles and combine shared visibility with clear personal ownership."
+          "description": "Invite people you trust, assign roles, and keep shared visibility alongside personal ownership."
         },
         {
           "title": "Preferences and backup",
-          "description": "Choose language, theme and currency, and export or restore a portable household backup."
+          "description": "Pick your language, theme, and currency, and export or restore a household backup anytime."
         }
       ]
     },
     "howItWorks": {
       "kicker": "From setup to insight",
-      "title": "A calm, practical workflow for your finances",
-      "description": "SmartFinance turns scattered financial information into a shared plan you can understand and act on.",
+      "title": "A practical workflow for your finances",
+      "description": "SmartFinance turns scattered financial information into a plan you can actually understand and act on.",
+      "highlight": "Most households are set up in under 10 minutes",
+      "cta": {
+        "title": "Ready to set up your first household?",
+        "description": "Create your space, add your accounts, and see your first monthly plan take shape."
+      },
       "items": [
         {
           "title": "1. Create your space",
-          "description": "Sign in securely, create a private household and invite only the people who should have access."
+          "description": "Sign in securely, set up a private household, and invite only the people who should have access."
         },
         {
           "title": "2. Map your accounts",
-          "description": "Add the places where money lives and identify whether each account belongs to one person or everyone."
+          "description": "Add the places where your money lives, and note whether each one belongs to a person or the household."
         },
         {
           "title": "3. Organize activity",
-          "description": "Record transactions and transfers, then use categories and recurring rules to keep the picture useful."
+          "description": "Log transactions and transfers, then use categories and recurring rules to keep things tidy."
         },
         {
           "title": "4. Plan the month",
-          "description": "Add income, priorities and transfer rules. Preview the plan before confirming any monthly run."
+          "description": "Add income, priorities, and transfer rules. Preview the plan before you confirm any monthly run."
         },
         {
           "title": "5. Follow progress",
-          "description": "Use the dashboard, balances, trends and savings forecasts to see what changed and what comes next."
+          "description": "Use the dashboard, balances, trends, and savings forecasts to see what changed and what's next."
         },
         {
           "title": "6. Decide together",
-          "description": "Give everyone the same trustworthy context while maintaining roles, ownership and privacy boundaries."
+          "description": "Give everyone the same trustworthy view, while keeping roles, ownership, and privacy intact."
         }
       ]
     },
     "news": {
       "kicker": "SmartFinance journal",
       "title": "Product updates and practical money guidance",
-      "description": "Practical stories drawn from the tools already available in SmartFinance: planning, saving, recurring activity, collaboration and data protection.",
-      "items": [
-        {
+      "description": "Practical stories about the tools already in SmartFinance: planning, saving, recurring activity, collaboration, and keeping your data safe.",
+      "highlight_one": "{{count}} update so far",
+      "highlight_other": "{{count}} updates so far",
+      "readMore": "Read update",
+      "backToNews": "← Back to news",
+      "publishedOn": "Published {{date}}",
+      "cta": {
+        "title": "Want to follow what's next?",
+        "description": "New guides and product updates land here first — come back anytime to see what's changed."
+      },
+      "posts": {
+        "dashboardOverview": {
           "meta": "Product · Dashboard",
-          "title": "Your financial month, explained in one view",
-          "description": "Account balances, recent movements, spending distribution and savings progress come together on the dashboard, helping you understand where the household stands before making the next decision."
+          "title": "Your financial month, in one view",
+          "description": "Balances, recent movements, spending, and savings progress all live on the dashboard, so you can see where the household stands before deciding what's next.",
+          "body": [
+            "The dashboard pulls every account, recent transaction, and savings pot into one screen, so you don't have to open five different views to understand where your household stands this month.",
+            "It's built to answer one question first: what changed since I last looked? From there, the rest of SmartFinance — transactions, budgets, savings — is one tap away."
+          ]
         },
-        {
+        "recurringPlan": {
           "meta": "Guide · Recurring activity",
           "title": "Turn repeated expenses into a plan",
-          "description": "Rent, subscriptions, salaries and regular transfers can be scheduled with their own frequency. Once the predictable movements are visible, the monthly budget becomes easier to prepare."
+          "description": "Rent, subscriptions, salaries, and regular transfers can each get their own schedule. Once the predictable stuff is visible, the monthly budget gets a lot easier to build.",
+          "body": [
+            "Recurring rules let you put rent, subscriptions, salaries, and regular transfers on a schedule once, instead of re-entering them every month.",
+            "Once the predictable part of your finances is visible and automated, building the monthly budget is mostly about the parts that actually vary."
+          ]
         },
-        {
+        "savingsNextStep": {
           "meta": "Product · Savings",
           "title": "Give every savings goal a next step",
-          "description": "Saving pots connect goals to the accounts funding them. Progress and forecasts make it easier to see whether the current contribution is enough or needs adjusting."
+          "description": "Saving pots connect goals to the accounts that fund them. Progress and forecasts make it easy to see whether your current contribution is enough.",
+          "body": [
+            "Saving pots link a goal — an emergency fund, a holiday, a wedding — to the accounts that actually fund it, so progress isn't just a number you update by hand.",
+            "The forecast takes your current recurring contributions and projects forward, so you can see early whether you're on pace or need to adjust before the deadline arrives."
+          ]
         },
-        {
+        "transferVsExpense": {
           "meta": "Guide · Transfers",
-          "title": "A transfer is not another expense",
-          "description": "SmartFinance links both sides of money moved between your accounts, preserving the trail without counting the same amount as spending twice."
+          "title": "A transfer isn't another expense",
+          "description": "SmartFinance links both sides of a transfer between your accounts, so the trail stays intact and nothing gets counted as spending twice.",
+          "body": [
+            "Move money from checking to savings and it's easy for that to accidentally show up as an expense — inflating your spending totals for no reason.",
+            "SmartFinance links both sides of every transfer, debiting one account and crediting the other, so your spending numbers stay accurate and the trail between accounts stays intact."
+          ]
         },
-        {
+        "householdVisibility": {
           "meta": "Security · Households",
           "title": "Shared visibility with clear boundaries",
-          "description": "Household roles and account ownership help everyone work from the same information while keeping personal and shared responsibilities understandable."
+          "description": "Household roles and account ownership let everyone work from the same information, while keeping personal and shared responsibilities easy to tell apart.",
+          "body": [
+            "A household isn't one wallet — it's several people with their own accounts, some shared, some not. SmartFinance keeps that distinction visible instead of flattening everything into one pool.",
+            "Roles decide who can invite, edit, or just view, so everyone sees the same trustworthy picture without losing track of who owns what."
+          ]
         },
-        {
+        "portableBackup": {
           "meta": "Product · Backup",
           "title": "Your household data can travel with you",
-          "description": "Portable backup and restore tools provide an additional way to preserve household information, preferences and financial records."
+          "description": "Portable backup and restore give you another way to hold on to your household's information, preferences, and financial records.",
+          "body": [
+            "Export a household and you get its accounts, categories, transactions, recurring rules, saving pots, and monthly budget data as a single backup file.",
+            "Import it back in — on any device, at any time — and SmartFinance rebuilds the household from that file, so your financial history isn't locked into one place."
+          ]
         }
-      ]
+      }
     },
     "about": {
       "kicker": "About SmartFinance",
       "title": "Built to make shared finances easier to understand",
-      "description": "SmartFinance exists to replace scattered spreadsheets and unclear conversations with one calm, useful household view.",
+      "description": "SmartFinance exists to replace scattered spreadsheets and unclear conversations with one household view everyone can trust.",
+      "highlight": "Privacy and household boundaries, built in from day one",
+      "cta": {
+        "title": "Ready to see SmartFinance in practice?",
+        "description": "The principles above are easiest to judge once your own household is inside them."
+      },
       "items": [
         {
           "title": "Clarity first",
-          "description": "Financial tools should explain what is happening without requiring accounting expertise or hours of maintenance."
+          "description": "Financial tools should explain what's happening without requiring an accounting degree or hours of upkeep."
         },
         {
           "title": "Privacy by design",
-          "description": "Access, ownership and household boundaries are core product concepts, not details added after the fact."
+          "description": "Access, ownership, and household boundaries are core to the product, not something bolted on afterward."
         },
         {
           "title": "Made for real households",
-          "description": "Individual and shared money can coexist. SmartFinance keeps both visible without pretending every household works the same way."
+          "description": "Individual and shared money can coexist. SmartFinance keeps both visible, without assuming every household works the same way."
         },
         {
           "title": "Available everywhere",
-          "description": "Use the focused mobile experience on Android and iOS or the full web experience when you want more space."
+          "description": "Use the focused mobile app on Android and iOS, or the full web experience when you want more room to work."
         },
         {
           "title": "One trustworthy picture",
-          "description": "Accounts, transactions, transfers, budgets and goals are designed to tell the same financial story instead of becoming disconnected sets of numbers."
+          "description": "Accounts, transactions, transfers, budgets, and goals are built to tell the same story, instead of turning into disconnected sets of numbers."
         },
         {
           "title": "Useful without judgement",
-          "description": "SmartFinance helps households understand choices and consequences. It does not prescribe one lifestyle or assume there is only one correct way to organize money."
+          "description": "SmartFinance helps households understand their choices and the trade-offs. It won't tell you there's only one right way to manage money."
         }
       ]
     }
@@ -1557,7 +1820,7 @@
     "loginSubtitle": "Sign in with Google",
     "loginTitle": "Sign in with Google",
     "loginDescription": "Google signs you in through Supabase so the app can load your session.",
-    "loginFooter": "By continuing you accept the Terms of Service and Privacy Policy.",
+    "loginFooter": "By continuing, you accept the Terms of Service and Privacy Policy.",
     "continueWith": "Continue with",
     "continueWithGoogle": "Continue with Google",
     "googleSignInErrorTitle": "Google sign-in unavailable",
@@ -1566,6 +1829,6 @@
     "preparingDashboard": "Your financial home is taking shape",
     "preparingDashboardDescription": "Connecting your profile, household, and latest numbers.",
     "loadingAccessibilityLabel": "Preparing your SmartFinance dashboard",
-    "googleCallbackErrorMessage": "We could not complete the Google sign-in. Please try again."
+    "googleCallbackErrorMessage": "We couldn't complete the Google sign-in. Please try again."
   }
 }

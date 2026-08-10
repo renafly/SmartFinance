@@ -56,6 +56,7 @@ const themeOptions: { value: ThemeMode; labelKey: string }[] = [
   { value: "dark", labelKey: "settings.themeDark" },
   { value: "light", labelKey: "settings.themeWhite" },
   { value: "blue", labelKey: "settings.themeBlue" },
+  { value: "ultra", labelKey: "settings.themeUltra" },
   { value: "system", labelKey: "settings.themeSystem" },
 ];
 
@@ -133,7 +134,9 @@ export default function SettingsScreen() {
           ? ("sunny-outline" as const)
           : item.value === "blue"
             ? ("water-outline" as const)
-            : ("settings-outline" as const),
+            : item.value === "ultra"
+              ? ("sparkles-outline" as const)
+              : ("settings-outline" as const),
     onPress: () => {
       setTheme(item.value);
       setActiveMenu(null);

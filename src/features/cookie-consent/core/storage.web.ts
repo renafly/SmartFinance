@@ -5,10 +5,11 @@ import {
 } from "./consent";
 import type { CookieConsentStorage } from "./storage";
 
-const OPTIONAL_PREFERENCE_KEYS = [
-  "smartfinance.language",
-  "smartfinance.theme",
-] as const;
+// Language is intentionally excluded here: it's treated as a necessary
+// usability preference (see src/shared/i18n/languages.ts) and isn't
+// cleared when someone rejects optional cookies. Only theme remains
+// gated behind the "Preferences" consent category.
+const OPTIONAL_PREFERENCE_KEYS = ["smartfinance.theme"] as const;
 
 function getBrowserStorage(): Storage | null {
   try {

@@ -6,6 +6,9 @@ import Svg, { Circle } from "react-native-svg";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
+import { useResponsiveMetrics } from "@/theme/responsive";
+import { displayCurrency } from "@/shared/lib/mask-currency";
+import { usePrivacyStore } from "@/stores/privacyStore";
 
 import { Page, Section, Field, Button, Pill, formatCurrency } from "@/components/migrated-page";
 import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from "@/components/data-surface";
@@ -37,6 +40,9 @@ export default function AccountsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]) as any;
   const { t } = useTranslation("common");
+  const responsive = useResponsiveMetrics();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
+  const toggleHideValues = usePrivacyStore((state) => state.toggleHideValues);
   const { householdId, profile } = useAuth();
   const preferredCurrency = usePreferencesStore((state) => state.currency) as AppCurrency;
   const accountsQuery = useAccountsWithBalances();
@@ -136,6 +142,12 @@ export default function AccountsScreen() {
 
     return groups;
   }, []);
+  // Groups render 3-per-row on desktop (accountGroupsGrid/accountGroupWrap
+  // below) and stacked full-width everywhere else, so collapse/expand state
+  // is keyed per row rather than per group: on desktop that syncs every
+  // card sharing a row, and on smaller screens each row only holds one
+  // card, so it naturally behaves as independent per-card toggling.
+  const groupsPerRow = responsive.isDesktop ? 3 : 1;
   const accountGroupTones = [
     { accent: colors.primary, surface: colors.primarySoft },
     { accent: colors.financialPositive, surface: colors.financialPositiveSoft },
@@ -157,6 +169,10 @@ export default function AccountsScreen() {
     colors.destructive,
   ];
   const archivedCount = accounts.filter((item: any) => item.is_archived).length;
+  const totalBalance = filteredAccounts.reduce(
+    (sum: number, account: any) => sum + Number(account.current_balance ?? account.balance ?? 0),
+    0,
+  );
   const activeFilterCount = Number(ownerFilter !== "all") + Number(typeFilter !== "all");
   const visibleAccountsById = new Map(orderedFilteredAccounts.map((account: any) => [account.id, account]));
   const savingPotAssignments = (savingPotAssignmentsQuery.data ?? []) as any[];
@@ -350,8 +366,47 @@ export default function AccountsScreen() {
   );
 
   return (
-    <Page title={t("accounts.title")} subtitle={t("accounts.subtitle")} actions={<Button label={t("accounts.create")} onPress={openCreateDialog} />}>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing(3) }}>
+    <Page
+      title={t("accounts.title")}
+      subtitle={t("accounts.subtitle")}
+      actions={<Button label={t("accounts.create")} onPress={openCreateDialog} />}
+      overlay={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: hideValues }}
+          accessibilityLabel={hideValues ? t("dashboard.showValues") : t("dashboard.hideValues")}
+          onPress={toggleHideValues}
+          style={({ pressed }) => [styles.privacyToggle, { borderColor: colors.primary, backgroundColor: colors.primary }, pressed && styles.pressed]}
+        >
+          <Ionicons name={hideValues ? "eye-off-outline" : "eye-outline"} size={18} color={colors.primaryForeground} />
+        </Pressable>
+      }
+    >
+      <View style={[styles.heroCard, { backgroundColor: colors.primarySoft, borderColor: colors.primary, flexDirection: responsive.isPhone ? "column" : "row", padding: responsive.isPhone ? spacing(4) : spacing(5) }]}>
+        <View style={styles.heroCopy}>
+          <Badge label={t("accounts.filtersByType")} tone="primary" />
+          <Text style={[styles.heroLabel, { color: colors.textSecondary, fontSize: responsive.isPhone ? typography.fontSize[12] : typography.fontSize[13] }]}>
+            {t("accounts.currentTitle")}
+          </Text>
+          <Text
+            style={[
+              styles.heroValue,
+              {
+                color: colors.text,
+                fontSize: responsive.isPhone ? typography.fontSize[34] : typography.fontSize[48],
+                lineHeight: responsive.isPhone ? typography.lineHeight[40] : typography.lineHeight[52],
+              },
+            ]}
+          >
+            {displayCurrency(formatCurrency(totalBalance), hideValues)}
+          </Text>
+          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+            {t("accounts.currentSubtitle", { count: filteredAccounts.length, archived: archivedCount })}
+          </Text>
+        </View>
+      </View>
+
+      <View style={responsive.isPhone ? styles.metricGridPhone : styles.metricGrid}>
         <MetricCard
           label={t("accounts.currentTitle")}
           value={String(filteredAccounts.length)}
@@ -401,7 +456,7 @@ export default function AccountsScreen() {
               </Svg>
               <View pointerEvents="none" style={styles.balanceChartCenter}>
                 <Text style={styles.balanceChartCenterLabel}>{t("dashboard.total")}</Text>
-                <Text style={styles.balanceChartCenterValue}>{formatCurrency(accountBalanceSliceTotal)}</Text>
+                <Text style={styles.balanceChartCenterValue}>{displayCurrency(formatCurrency(accountBalanceSliceTotal), hideValues)}</Text>
               </View>
             </View>
             <View style={styles.balanceChartLegend}>
@@ -414,7 +469,7 @@ export default function AccountsScreen() {
                     key={slice.key}
                     accessibilityRole="button"
                     accessibilityState={{ selected: selectedBalanceSliceKey === slice.key }}
-                    accessibilityLabel={`${slice.label}: ${formatCurrency(slice.value)}`}
+                    accessibilityLabel={`${slice.label}: ${displayCurrency(formatCurrency(slice.value), hideValues)}`}
                     onPress={() => setSelectedBalanceSliceKey(slice.key)}
                     style={({ pressed }) => [
                       styles.balanceChartLegendRow,
@@ -427,39 +482,39 @@ export default function AccountsScreen() {
                       <Text style={styles.balanceChartName} numberOfLines={1}>{slice.label}</Text>
                       <Text style={styles.balanceChartPercentage}>{percentage.toFixed(1)}%</Text>
                     </View>
-                    <Text style={[styles.balanceChartValue, { color: sliceColor }]}>{formatCurrency(slice.value)}</Text>
+                    <Text style={[styles.balanceChartValue, { color: sliceColor }]}>{displayCurrency(formatCurrency(slice.value), hideValues)}</Text>
                   </Pressable>
                 );
               })}
             </View>
-          </View>
-          {selectedBalanceSlice ? (
-            <View style={[styles.balanceChartTooltip, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.balanceChartTooltipHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.balanceChartTooltipTitle}>{selectedBalanceSlice.label}</Text>
-                  <Text style={styles.balanceChartTooltipTotal}>{formatCurrency(selectedBalanceSlice.value)}</Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t("close", { defaultValue: "Close" })}
-                  onPress={() => setSelectedBalanceSliceKey(null)}
-                  style={({ pressed }) => [styles.balanceChartTooltipClose, pressed && styles.pressed]}
-                >
-                  <Ionicons name="close" size={18} color={colors.textSecondary} />
-                </Pressable>
-              </View>
-              {selectedBalanceSlice.details.map((detail) => (
-                <View key={detail.key} style={styles.balanceChartTooltipRow}>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.balanceChartTooltipAccount} numberOfLines={1}>{detail.name}</Text>
-                    <Text style={styles.balanceChartTooltipOwner} numberOfLines={1}>{detail.owner}</Text>
+            {selectedBalanceSlice ? (
+              <View style={[styles.balanceChartTooltip, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={styles.balanceChartTooltipHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.balanceChartTooltipTitle}>{selectedBalanceSlice.label}</Text>
+                    <Text style={styles.balanceChartTooltipTotal}>{displayCurrency(formatCurrency(selectedBalanceSlice.value), hideValues)}</Text>
                   </View>
-                  <Text style={styles.balanceChartTooltipValue}>{formatCurrency(detail.value)}</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t("close", { defaultValue: "Close" })}
+                    onPress={() => setSelectedBalanceSliceKey(null)}
+                    style={({ pressed }) => [styles.balanceChartTooltipClose, pressed && styles.pressed]}
+                  >
+                    <Ionicons name="close" size={18} color={colors.textSecondary} />
+                  </Pressable>
                 </View>
-              ))}
-            </View>
-          ) : null}
+                {selectedBalanceSlice.details.map((detail) => (
+                  <View key={detail.key} style={styles.balanceChartTooltipRow}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.balanceChartTooltipAccount} numberOfLines={1}>{detail.name}</Text>
+                      <Text style={styles.balanceChartTooltipOwner} numberOfLines={1}>{detail.owner}</Text>
+                    </View>
+                    <Text style={styles.balanceChartTooltipValue}>{displayCurrency(formatCurrency(detail.value), hideValues)}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
         </Section>
       ) : null}
 
@@ -502,18 +557,19 @@ export default function AccountsScreen() {
         </View>
 
         {accountGroups.length ? (
-          <View style={styles.accountGroups}>
+          <View style={responsive.isDesktop ? styles.accountGroupsGrid : styles.accountGroups}>
             {accountGroups.map((group, groupIndex) => {
               const tone = accountGroupTones[groupIndex % accountGroupTones.length];
-              const isCollapsed = !expandedAccountGroupKeys.includes(group.key);
+              const rowKey = `row-${Math.floor(groupIndex / groupsPerRow)}`;
+              const isCollapsed = !expandedAccountGroupKeys.includes(rowKey);
 
               return (
-                <View key={group.key} style={[styles.accountGroup, { borderColor: tone.accent, backgroundColor: tone.surface }]}>
+                <View key={group.key} style={[styles.accountGroup, responsive.isDesktop && styles.accountGroupWrap, { borderColor: tone.accent, backgroundColor: tone.surface }]}>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityState={{ expanded: !isCollapsed }}
                     accessibilityLabel={`${group.title}: ${isCollapsed ? t("expand", { defaultValue: "Expand" }) : t("collapse", { defaultValue: "Collapse" })}`}
-                    onPress={() => toggleAccountGroup(group.key)}
+                    onPress={() => toggleAccountGroup(rowKey)}
                     style={({ pressed }) => [styles.accountGroupHeader, pressed && styles.pressed]}
                   >
                     <View style={[styles.accountGroupMarker, { backgroundColor: tone.accent }]} />
@@ -524,9 +580,8 @@ export default function AccountsScreen() {
                   </Pressable>
                   {!isCollapsed ? <Table
                     columns={[
-                      { label: t("accounts.name"), flex: 2.6 },
+                      { label: t("accounts.name"), flex: 1.6 },
                       { label: t("accounts.typeLabel"), flex: 1 },
-                      { label: t("accounts.initialBalance"), align: "right" },
                       { label: t("dashboard.total"), align: "right" },
                       { label: "", flex: 0.35, align: "right" },
                     ]}
@@ -545,7 +600,7 @@ export default function AccountsScreen() {
                             })
                           }
                         >
-                          <TableCell flex={2.6}>
+                          <TableCell flex={1.6}>
                             <View style={styles.accountIdentity}>
                               <View
                                 style={{
@@ -572,10 +627,7 @@ export default function AccountsScreen() {
                             />
                           </TableCell>
                           <TableCell align="right">
-                            <Text style={styles.openingBalance}>{formatCurrency(account.initial_balance ?? 0)}</Text>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Text style={styles.accountBalance}>{formatCurrency(balance)}</Text>
+                            <Text style={styles.accountBalance}>{displayCurrency(formatCurrency(balance), hideValues)}</Text>
                           </TableCell>
                           <TableCell flex={0.35} align="right" mobilePinned>
                             <Pressable
@@ -805,6 +857,21 @@ export default function AccountsScreen() {
                 })}
               </Text>
             </View>
+            <View style={[styles.historyBalanceRow, { backgroundColor: colors.primarySoft, borderColor: colors.primary }]}>
+              <Text style={styles.historyBalanceLabel}>
+                {t("accounts.currentBalanceLabel", { defaultValue: "Current balance" })}
+              </Text>
+              <Text style={[styles.historyBalanceValue, { color: colors.primary }]}>
+                {displayCurrency(
+                  formatCurrency(
+                    accounts.find((item: any) => item.id === accountHistory?.id)?.current_balance ??
+                      accounts.find((item: any) => item.id === accountHistory?.id)?.balance ??
+                      0,
+                  ),
+                  hideValues,
+                )}
+              </Text>
+            </View>
             <ScrollView
               style={styles.historyScroll}
               contentContainerStyle={{ gap: spacing(3) }}
@@ -834,6 +901,12 @@ export default function AccountsScreen() {
                       flex: 1,
                     },
                     { label: t("transactions.amountLabel"), align: "right" },
+                    {
+                      label: t("accounts.balanceAfterLabel", {
+                        defaultValue: "Balance after",
+                      }),
+                      align: "right",
+                    },
                   ]}
                 >
                   {accountTransfers.map((item: any) => (
@@ -843,7 +916,14 @@ export default function AccountsScreen() {
                       <TableCell flex={1}><Badge label={t(`transactions.types.${item.type}`, { defaultValue: item.type })} tone={item.type === "expense" ? "destructive" : "success"} /></TableCell>
                       <TableCell align="right">
                         <Text style={item.type === "expense" ? styles.transferAmountExpense : styles.transferAmountIncome}>
-                          {item.type === "expense" ? "-" : "+"}{formatCurrency(item.amount)}
+                          {item.type === "expense" ? "-" : "+"}{displayCurrency(formatCurrency(item.amount), hideValues)}
+                        </Text>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Text style={styles.accountBalance}>
+                          {item.balance_after_transaction == null
+                            ? "—"
+                            : displayCurrency(formatCurrency(item.balance_after_transaction), hideValues)}
                         </Text>
                       </TableCell>
                     </TableRow>
@@ -880,6 +960,65 @@ export default function AccountsScreen() {
 
 function createStyles(colors: any) {
   return StyleSheet.create({
+    privacyToggle: {
+      position: "absolute" as const,
+      right: spacing(6),
+      bottom: spacing(6),
+      zIndex: 10,
+      width: spacing(12),
+      height: spacing(12),
+      borderRadius: radius.full,
+      borderWidth: 1,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.2,
+      shadowRadius: 10,
+      elevation: 6,
+    },
+    heroCard: {
+      width: "100%",
+      alignSelf: "stretch" as const,
+      borderWidth: 1,
+      borderRadius: radius.xl,
+      gap: spacing(3),
+      alignItems: "flex-start" as const,
+      justifyContent: "space-between" as const,
+      marginBottom: spacing(3),
+    },
+    heroCopy: {
+      flex: 1,
+      minWidth: 0,
+      gap: spacing(2),
+      alignItems: "flex-start" as const,
+    },
+    heroLabel: {
+      textTransform: "uppercase" as const,
+      letterSpacing: typography.letterSpacing[11],
+      fontWeight: String(typography.fontWeight.extraBold),
+    },
+    heroValue: {
+      fontWeight: String(typography.fontWeight.extraBold),
+    },
+    heroSubtitle: {
+      fontSize: typography.fontSize[14],
+      lineHeight: typography.lineHeight[20],
+    },
+    metricGrid: {
+      width: "100%",
+      alignSelf: "stretch" as const,
+      flexDirection: "row" as const,
+      flexWrap: "wrap" as const,
+      gap: spacing(3),
+      marginBottom: spacing(3),
+    },
+    metricGridPhone: {
+      flexDirection: "column" as const,
+      flexWrap: "nowrap" as const,
+      gap: spacing(2),
+      marginBottom: spacing(3),
+    },
     accountHeader: {
       flexDirection: "row" as const,
       alignItems: "flex-start" as const,
@@ -895,10 +1034,6 @@ function createStyles(colors: any) {
       color: colors.textSecondary,
       fontSize: typography.fontSize[12],
     },
-    openingBalance: {
-      color: colors.textSecondary,
-      fontWeight: String(typography.fontWeight.semibold),
-    },
     accountBalance: {
       color: colors.primary,
       fontWeight: String(typography.fontWeight.extraBold),
@@ -909,6 +1044,17 @@ function createStyles(colors: any) {
     },
     accountGroups: {
       gap: spacing(4),
+    },
+    accountGroupsGrid: {
+      flexDirection: "row" as const,
+      flexWrap: "wrap" as const,
+      alignItems: "flex-start" as const,
+      gap: spacing(3),
+    },
+    accountGroupWrap: {
+      flexBasis: "31%",
+      flexGrow: 1,
+      minWidth: spacing(80),
     },
     balanceChartLayout: {
       flexDirection: "row" as const,
@@ -936,6 +1082,7 @@ function createStyles(colors: any) {
     balanceChartLegend: {
       flex: 1,
       minWidth: spacing(55),
+      maxWidth: 420,
       gap: spacing(2.5),
     },
     balanceChartLegendRow: {
@@ -969,7 +1116,9 @@ function createStyles(colors: any) {
       fontVariant: ["tabular-nums"],
     },
     balanceChartTooltip: {
-      marginTop: spacing(4),
+      flex: 1,
+      minWidth: spacing(70),
+      maxWidth: 420,
       padding: spacing(3),
       gap: spacing(2),
       borderWidth: 1,
@@ -1099,6 +1248,24 @@ function createStyles(colors: any) {
     historyScroll: {
       flex: 1,
       minHeight: 0,
+    },
+    historyBalanceRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "space-between" as const,
+      borderWidth: 1,
+      borderRadius: radius.lg,
+      paddingVertical: spacing(2.5),
+      paddingHorizontal: spacing(3.5),
+    },
+    historyBalanceLabel: {
+      color: colors.text,
+      fontSize: typography.fontSize[13],
+      fontWeight: String(typography.fontWeight.semibold),
+    },
+    historyBalanceValue: {
+      fontSize: typography.fontSize[18],
+      fontWeight: String(typography.fontWeight.extraBold),
     },
     menuCard: {
       width: "100%",

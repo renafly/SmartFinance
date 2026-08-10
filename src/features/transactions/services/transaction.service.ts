@@ -94,6 +94,12 @@ class TransactionsService {
     return data ?? [];
   }
 
+  async getMovementsSummary(householdId: string, filters: TransactionMovementFilters = {}) {
+    const { data, error } = await transactionsRepository.summarizeMovements(householdId, filters);
+    if (error) throw error;
+    return data;
+  }
+
   async updateCompletedTransfer(input: UpdateCompletedTransferInput) {
     const { data, error } = await transactionsRepository.updateCompletedTransfer(input);
     if (error) throw error;
