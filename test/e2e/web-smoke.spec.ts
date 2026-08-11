@@ -8,7 +8,7 @@ const unexpectedExternalRequestsByPage = new WeakMap<object, string[]>();
 
 const publicOverviewPages = [
   { path: '/features', nav: /features|funcionalidades/i, heading: /everything you need|tudo o que precisa/i },
-  { path: '/how-it-works', nav: /how it works|como funciona/i, heading: /calm, practical workflow|percurso simples e tranquilo/i },
+  { path: '/how-it-works', nav: /how it works|como funciona/i, heading: /practical workflow|percurso pr[aá]tico/i },
   { path: '/news', nav: /news|not[ií]cias|novidades/i, heading: /product updates|novidades do produto/i },
   { path: '/about', nav: /about|sobre/i, heading: /shared finances easier|finan[cç]as partilhadas mais claras/i },
 ] as const;
@@ -150,7 +150,7 @@ test('mobile hamburger navigation opens a dedicated public page and closes', asy
   await page.getByRole('link', { name: /how it works|como funciona/i }).first().click();
 
   await expect(page).toHaveURL(/\/how-it-works(?:[/?#]|$)/);
-  await expect(page.getByRole('heading', { name: /calm, practical workflow|percurso simples e tranquilo/i }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: /practical workflow|percurso pr[aá]tico/i }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: /open navigation menu|abrir menu de navega[cç][aã]o/i })).toHaveAttribute('aria-expanded', 'false');
 });
 
