@@ -26,7 +26,11 @@ import {
   useUpdateHousehold,
 } from "../../features/households/hooks";
 import type { AppLanguage } from "@/shared/i18n/languages";
-import { useUpdatePreferredCurrency } from "@/features/profiles/hooks";
+import {
+  useUpdatePreferredCurrency,
+  useUpdateLocale,
+  useUpdateTheme,
+} from "@/features/profiles/hooks";
 import { useOnboarding } from "@/features/onboarding";
 import type { ThemeMode } from "@/stores/themeStore";
 import { useThemeStore } from "@/stores/themeStore";
@@ -77,6 +81,8 @@ export default function SettingsScreen() {
   const updateHousehold = useUpdateHousehold();
   const deleteHousehold = useDeleteHousehold();
   const updatePreferredCurrency = useUpdatePreferredCurrency();
+  const updateLocale = useUpdateLocale();
+  const updateTheme = useUpdateTheme();
   const exportHouseholdBackup = useExportHouseholdBackup();
   const importHouseholdBackup = useImportHouseholdBackup();
   const platformAdminQuery = usePlatformAdminAccess();
@@ -111,10 +117,7 @@ export default function SettingsScreen() {
     key: item.value,
     label: t(item.labelKey),
     iconName: item.value === "en" ? "language-outline" : "globe-outline",
-    onPress: () => {
-      setLanguage(item.value);
-      setActiveMenu(null);
-    },
+    onPress: () => void handleSelectLanguage(item.value),
   })) as any[];
 
   const currencyMenuItems = currencyOptions.map((item) => ({
@@ -137,10 +140,7 @@ export default function SettingsScreen() {
             : item.value === "ultra"
               ? ("sparkles-outline" as const)
               : ("settings-outline" as const),
-    onPress: () => {
-      setTheme(item.value);
-      setActiveMenu(null);
-    },
+    onPress: () => void handleSelectTheme(item.value),
   })) as any[];
 
   async function handleCreateHousehold() {
@@ -159,6 +159,30 @@ export default function SettingsScreen() {
     await updatePreferredCurrency.mutateAsync({
       profileId: profile.id,
       currency: nextCurrency,
+    });
+  }
+
+  async function handleSelectLanguage(nextLanguage: AppLanguage) {
+    setLanguage(nextLanguage);
+    setActiveMenu(null);
+
+    if (!profile?.id || profile.locale === nextLanguage) return;
+
+    await updateLocale.mutateAsync({
+      profileId: profile.id,
+      locale: nextLanguage,
+    });
+  }
+
+  async function handleSelectTheme(nextTheme: ThemeMode) {
+    setTheme(nextTheme);
+    setActiveMenu(null);
+
+    if (!profile?.id || profile.theme === nextTheme) return;
+
+    await updateTheme.mutateAsync({
+      profileId: profile.id,
+      theme: nextTheme,
     });
   }
 

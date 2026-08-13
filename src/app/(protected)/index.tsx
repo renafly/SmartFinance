@@ -16,6 +16,7 @@ import { useResponsiveMetrics } from '@/theme/responsive';
 import { radius } from '@/theme/radius';
 import { displayCurrency } from '@/shared/lib/mask-currency';
 import { usePrivacyStore } from '@/stores/privacyStore';
+import { generateColorShades } from '@/shared/lib/color';
 
 import { useAuth } from '../../providers/AuthProvider';
 import { useHouseholdMemberDetails } from '../../features/households/hooks/useHouseholdMemberDetails';
@@ -423,8 +424,9 @@ export default function DashboardScreen() {
         categories: categories as any,
         config: wageFlowConfig,
         range: wageFlowRange,
+        otherCategoryLabel: t('insights.wageFlow.otherSubcategory'),
       }),
-    [accounts, categories, wageFlowConfig, wageFlowRange, wageFlowTransactionsQuery.data],
+    [accounts, categories, t, wageFlowConfig, wageFlowRange, wageFlowTransactionsQuery.data],
   );
   const wageFlowResultById = useMemo(
     () => new Map(wageFlow.categories.map((category) => [category.id, category])),
@@ -432,27 +434,46 @@ export default function DashboardScreen() {
   );
   const wageFlowBuckets: WageFlowChartBucket[] = useMemo(
     () =>
-      wageFlow.categories.map((category) => ({
-        key: category.id,
-        label: category.name,
-        icon: (category.icon as WageFlowChartBucket['icon']) || 'ellipse-outline',
-        amount: category.amount,
-        share: category.share,
-        color: resolveWageFlowColor(
+      wageFlow.categories.map((category) => {
+        const color = resolveWageFlowColor(
           category.colorToken,
           colors as unknown as Record<string, string>,
           colors.financialNeutral,
-        ),
-        matches: category.matches.map((match) => ({
-          id: match.id,
-          title: match.title,
-          amount: match.amount,
-          transactionDate: match.transactionDate,
-          accountLabel: wageFlowAccountLabelById.get(match.accountId) ?? match.accountId,
-          ownerLabel: wageFlowOwnerLabelByAccountId.get(match.accountId) ?? t('dashboard.shared'),
-          isTransfer: match.isTransfer,
-        })),
-      })),
+        );
+        // Split this bucket's flow into one shade per contributing
+        // subcategory (largest first, closest to the true base color) so
+        // the ribbon/bar visually reflects what makes up the total, only
+        // when calculateWageFlow found more than one contributing group.
+        const shades =
+          category.subcategories.length > 1
+            ? generateColorShades(color, category.subcategories.length)
+            : [];
+
+        return {
+          key: category.id,
+          label: category.name,
+          icon: (category.icon as WageFlowChartBucket['icon']) || 'ellipse-outline',
+          amount: category.amount,
+          share: category.share,
+          color,
+          subcategories: category.subcategories.map((sub, index) => ({
+            key: sub.id,
+            label: sub.name,
+            amount: sub.amount,
+            share: sub.share,
+            color: shades[index] ?? color,
+          })),
+          matches: category.matches.map((match) => ({
+            id: match.id,
+            title: match.title,
+            amount: match.amount,
+            transactionDate: match.transactionDate,
+            accountLabel: wageFlowAccountLabelById.get(match.accountId) ?? match.accountId,
+            ownerLabel: wageFlowOwnerLabelByAccountId.get(match.accountId) ?? t('dashboard.shared'),
+            isTransfer: match.isTransfer,
+          })),
+        };
+      }),
     [colors, t, wageFlow.categories, wageFlowAccountLabelById, wageFlowOwnerLabelByAccountId],
   );
   const wageFlowTableRows = useMemo(
@@ -758,6 +779,7 @@ export default function DashboardScreen() {
       >
         <WageFlowConfigTable
           rows={wageFlowTableRows}
+          categoryOptions={wageFlowCategoryOptions}
           onEdit={openEditWageFlowCategory}
           onRemove={removeWageFlowCategory}
           onMoveUp={(id) => moveWageFlowCategory(id, 'up')}

@@ -31,7 +31,7 @@ function getNativeStorage() {
   return themeStorage;
 }
 
-function normalizeTheme(value: string | null | undefined): ThemeMode | null {
+export function normalizeTheme(value: string | null | undefined): ThemeMode | null {
   if (
     value === "light" ||
     value === "dark" ||

@@ -348,6 +348,58 @@ describe("calculateWageFlow", () => {
     expect(bucket(broadFirst, "dining").amount).toBe(0);
   });
 
+  it("does not deduplicate an expense between a tracked-account flow and its own expense category flow", () => {
+    // The reported scenario: Accounts/Investments/Pots tracks a savings
+    // account via potAccountIds, and a separate flow section tracks a
+    // specific expense category (e.g. "Utilities"). A bill paid directly
+    // out of that savings pot must subtract from the pot's net contribution
+    // AND still add to the Utilities category's total -- neither flow
+    // should exclude the transaction just because the other also counted it.
+    const report = calculateWageFlow({
+      transactions: [
+        tx({
+          id: "utility-bill",
+          type: "expense",
+          amount: 120,
+          account_id: "savings-1",
+          category_id: "groceries",
+        }),
+      ],
+      accounts,
+      categories,
+      config: [
+        catchAll({
+          id: "accounts-investments-pots",
+          includeAllTransactions: false,
+          potAccountIds: ["savings-1"],
+        }),
+        catchAll({
+          id: "utilities",
+          includeAllTransactions: false,
+          categoryIds: ["groceries"],
+        }),
+      ],
+    });
+    expect(bucket(report, "accounts-investments-pots").amount).toBe(-120);
+    expect(bucket(report, "utilities").amount).toBe(120);
+  });
+
+  it("still lets an includeAllTransactions catch-all claim a transaction already claimed by a tracked-account flow", () => {
+    const report = calculateWageFlow({
+      transactions: [
+        tx({ id: "direct-spend", type: "expense", amount: 75, account_id: "credit-1" }),
+      ],
+      accounts,
+      categories,
+      config: [
+        catchAll({ id: "debt-payments", includeAllTransactions: false, accountIds: ["credit-1"] }),
+        catchAll({ id: "expenses" }),
+      ],
+    });
+    expect(bucket(report, "debt-payments").amount).toBe(-75);
+    expect(bucket(report, "expenses").amount).toBe(75);
+  });
+
   it("reports unallocated income when categories don't cover everything", () => {
     const report = calculateWageFlow({
       transactions: [
@@ -435,7 +487,11 @@ describe("buildDefaultWageFlowConfig", () => {
     expect(bucket(report, "discretionary").amount).toBe(60);
     expect(bucket(report, "debt-payments").amount).toBe(75); // 150 transfer-in - 75 direct spend (net)
     expect(bucket(report, "savings-and-goals").amount).toBe(100);
-    expect(bucket(report, "expenses").amount).toBe(200); // groceries only, dining claimed already
+    // groceries (200) + the credit-card direct spend (75). The card spend
+    // also nets against debt-payments as an outflow from that tracked
+    // account -- the two flows are not deduplicated against each other, so
+    // the same transaction legitimately counts in both.
+    expect(bucket(report, "expenses").amount).toBe(275);
   });
 
   it("puts credit_card account ids in accountIds without hardcoding any specific id", () => {

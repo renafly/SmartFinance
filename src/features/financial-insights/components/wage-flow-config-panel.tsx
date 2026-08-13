@@ -92,6 +92,78 @@ export function buildHierarchicalCategoryOptions(
   return result;
 }
 
+/** Human-readable description of a category selection, used both by the
+ * "Categories & subcategories" trigger in the category editor and by the
+ * config table's "Includes" column -- so the UI never leaves the user
+ * guessing what a saved selection actually matches. Three cases:
+ *  - a whole main category (its own id is in `categoryIds`) -> shown as
+ *    "{name} (all subcategories)" when it has children, or plain "{name}"
+ *    when it doesn't (nothing to include).
+ *  - a hand-picked subset of a main category's subcategories (their ids are
+ *    in `categoryIds` but the main's own id is not) -> shown as
+ *    "{name}: {sub1, sub2, ...}".
+ *  - anything that doesn't resolve against `categoryOptions` (e.g. a
+ *    category deleted after being selected) falls back to its raw id so it
+ *    stays visible rather than silently disappearing.
+ * Mirrors `expandCategoryIds` in wage-flow.ts: a main id always means "this
+ * category and everything under it", never a mix of main + explicit subset.
+ */
+export function describeWageFlowCategorySelection(
+  categoryIds: string[],
+  categoryOptions: WageFlowCategoryOption[],
+  t: (key: string, params?: Record<string, unknown>) => string,
+): string {
+  if (categoryIds.length === 0) return t("insights.wageFlow.noneSelected");
+
+  const byId = new Map(categoryOptions.map((option) => [option.id, option]));
+  const childrenByParent = new Map<string, WageFlowCategoryOption[]>();
+  for (const option of categoryOptions) {
+    if (!option.parentId) continue;
+    const list = childrenByParent.get(option.parentId) ?? [];
+    list.push(option);
+    childrenByParent.set(option.parentId, list);
+  }
+
+  // A main category counts as "wholly selected" only when its own id is
+  // present -- selecting every child individually is handled as its own
+  // (equivalent) case below, not folded in here.
+  const wholeMainIds = new Set(categoryIds.filter((id) => byId.has(id) && !byId.get(id)!.parentId));
+  const partialByMain = new Map<string, string[]>();
+  for (const id of categoryIds) {
+    const option = byId.get(id);
+    const parentId = option?.parentId;
+    if (!option || !parentId || wholeMainIds.has(parentId)) continue;
+    const list = partialByMain.get(parentId) ?? [];
+    list.push(option.name);
+    partialByMain.set(parentId, list);
+  }
+
+  const labels: string[] = [];
+  for (const id of categoryIds) {
+    if (!wholeMainIds.has(id)) continue;
+    const name = byId.get(id)!.name;
+    const hasChildren = (childrenByParent.get(id) ?? []).length > 0;
+    labels.push(
+      hasChildren ? t("insights.wageFlow.categoryWithAllSubcategories", { name }) : name,
+    );
+  }
+  for (const [parentId, childNames] of partialByMain) {
+    const parentName = byId.get(parentId)?.name ?? parentId;
+    labels.push(
+      t("insights.wageFlow.categoryWithSpecificSubcategories", {
+        name: parentName,
+        subcategories: childNames.join(", "),
+      }),
+    );
+  }
+  // Ids that don't resolve at all (deleted category) -- keep visible.
+  for (const id of categoryIds) {
+    if (!byId.has(id)) labels.push(id);
+  }
+
+  return labels.length > 0 ? labels.join(", ") : t("insights.wageFlow.noneSelected");
+}
+
 /** A fresh, empty Wage Flow category draft for the "add category" flow --
  * shared so every screen that can create one starts from the same
  * defaults (blue, a neutral dot icon, every criterion empty/off). */
@@ -185,18 +257,26 @@ function iconButtonStyle(colors: any, disabled: boolean) {
 }
 
 /** Builds a short, human-readable summary of a flow category's active
- * matching rules, e.g. "All transactions" or "2 accounts, 3 categories,
- * transfers into pots". */
+ * matching rules, e.g. "All transactions" or "2 accounts, Groceries (all
+ * subcategories), transfers into pots". When `categoryOptions` is supplied,
+ * the categories portion uses `describeWageFlowCategorySelection` so the
+ * table row shows the same "whole category" vs "specific subcategories"
+ * distinction as the editor -- otherwise it falls back to a plain count. */
 export function summarizeWageFlowRules(
   config: WageFlowCategoryConfig,
   t: (key: string, params?: Record<string, unknown>) => string,
+  categoryOptions?: WageFlowCategoryOption[],
 ): string {
   const parts: string[] = [];
   if (config.includeAllTransactions) parts.push(t("insights.wageFlow.rules.allTransactions"));
   if (config.accountIds.length > 0)
     parts.push(t("insights.wageFlow.rules.accounts", { count: config.accountIds.length }));
   if (config.categoryIds.length > 0)
-    parts.push(t("insights.wageFlow.rules.categories", { count: config.categoryIds.length }));
+    parts.push(
+      categoryOptions
+        ? describeWageFlowCategorySelection(config.categoryIds, categoryOptions, t)
+        : t("insights.wageFlow.rules.categories", { count: config.categoryIds.length }),
+    );
   if (config.potAccountIds.length > 0)
     parts.push(t("insights.wageFlow.rules.pots", { count: config.potAccountIds.length }));
   if (config.includeTransfersBetweenAccounts)
@@ -207,6 +287,7 @@ export function summarizeWageFlowRules(
 
 export function WageFlowConfigTable({
   rows,
+  categoryOptions,
   onEdit,
   onRemove,
   onMoveUp,
@@ -215,6 +296,10 @@ export function WageFlowConfigTable({
   onAddAllMainCategories,
 }: {
   rows: WageFlowConfigTableRow[];
+  /** Used to describe each row's category selection ("all subcategories"
+   * vs. specific ones) in the "Includes" column -- see
+   * `describeWageFlowCategorySelection`. */
+  categoryOptions: WageFlowCategoryOption[];
   onEdit: (id: string) => void;
   onRemove: (id: string) => void;
   onMoveUp: (id: string) => void;
@@ -276,7 +361,7 @@ export function WageFlowConfigTable({
                 </View>
               </TableCell>
               <TableCell flex={2.2} muted>
-                {summarizeWageFlowRules(row.config, t)}
+                {summarizeWageFlowRules(row.config, t, categoryOptions)}
               </TableCell>
               <TableCell flex={1} align="right">
                 <Text
@@ -360,10 +445,6 @@ export function WageFlowCategoryEditorModal({
 
   const accountNameById = useMemo(() => new Map(accounts.map((a) => [a.id, a.name])), [accounts]);
   const potNameById = useMemo(() => new Map(potAccounts.map((a) => [a.id, a.potLabel || a.name])), [potAccounts]);
-  const categoryNameById = useMemo(
-    () => new Map(categoryOptions.map((c) => [c.id, c.name])),
-    [categoryOptions],
-  );
   const categoryById = useMemo(
     () => new Map(categoryOptions.map((c) => [c.id, c])),
     [categoryOptions],
@@ -427,13 +508,20 @@ export function WageFlowCategoryEditorModal({
     if (kind === "accounts") setPickerDraftIds(draft!.accountIds);
     if (kind === "categories") {
       setPickerDraftIds(draft!.categoryIds);
-      // Auto-expand any group that already has a selected subcategory, so
-      // reopening the picker never hides the current selection.
+      // Auto-expand any group that already has a selected subcategory --
+      // or whose main category is selected wholesale (so the user can see
+      // every child marked as included) -- so reopening the picker never
+      // hides the current selection.
       setExpandedCategoryGroupIds((current) => {
         const next = new Set(current);
         for (const id of draft!.categoryIds) {
-          const parentId = categoryById.get(id)?.parentId;
-          if (parentId) next.add(parentId);
+          const option = categoryById.get(id);
+          if (!option) continue;
+          if (option.parentId) {
+            next.add(option.parentId);
+          } else if ((categoryChildrenByParent.get(option.id) ?? []).length > 0) {
+            next.add(option.id);
+          }
         }
         return next;
       });
@@ -448,6 +536,56 @@ export function WageFlowCategoryEditorModal({
     );
   }
 
+  /** Tapping a main category always selects/deselects the *whole* group --
+   * itself plus every subcategory underneath, matching `expandCategoryIds`
+   * at match time. Any subcategories that were individually selected are
+   * cleared first so a group is never represented as both "whole main" and
+   * a redundant explicit subset at once. */
+  function toggleMainCategory(main: WageFlowCategoryOption, children: WageFlowCategoryOption[]) {
+    setPickerDraftIds((current) => {
+      const childIds = new Set(children.map((child) => child.id));
+      const withoutGroup = current.filter((id) => id !== main.id && !childIds.has(id));
+      return current.includes(main.id) ? withoutGroup : [...withoutGroup, main.id];
+    });
+  }
+
+  /** Tapping a subcategory while its main category is selected wholesale
+   * ("all" mode) means "everything under this main except this one" -- so
+   * the single main id is swapped for an explicit list of its other
+   * children. Tapping a subcategory otherwise is a plain toggle among the
+   * explicitly selected children. If that toggle ends up selecting every
+   * sibling individually, it's collapsed back to the single main id so the
+   * group renders as "whole category selected" again rather than N
+   * separate picks that happen to add up to the same thing. */
+  function toggleChildCategory(
+    main: WageFlowCategoryOption,
+    child: WageFlowCategoryOption,
+    siblings: WageFlowCategoryOption[],
+  ) {
+    setPickerDraftIds((current) => {
+      let next: string[];
+      if (current.includes(main.id)) {
+        const withoutMain = current.filter((id) => id !== main.id);
+        const otherChildIds = siblings
+          .filter((sibling) => sibling.id !== child.id)
+          .map((sibling) => sibling.id);
+        next = [...withoutMain, ...otherChildIds];
+      } else if (current.includes(child.id)) {
+        next = current.filter((id) => id !== child.id);
+      } else {
+        next = [...current, child.id];
+      }
+
+      const allSiblingsSelected =
+        siblings.length > 0 && siblings.every((sibling) => next.includes(sibling.id));
+      if (allSiblingsSelected) {
+        const siblingIds = new Set(siblings.map((sibling) => sibling.id));
+        next = [...next.filter((id) => id !== main.id && !siblingIds.has(id)), main.id];
+      }
+      return next;
+    });
+  }
+
   function confirmPicker() {
     if (activePicker === "accounts") onChange({ accountIds: pickerDraftIds });
     if (activePicker === "categories") onChange({ categoryIds: pickerDraftIds });
@@ -459,10 +597,7 @@ export function WageFlowCategoryEditorModal({
     draft.accountIds.length > 0
       ? draft.accountIds.map((id) => accountNameById.get(id) ?? id).join(", ")
       : t("insights.wageFlow.noneSelected");
-  const categoriesLabel =
-    draft.categoryIds.length > 0
-      ? draft.categoryIds.map((id) => categoryNameById.get(id) ?? id).join(", ")
-      : t("insights.wageFlow.noneSelected");
+  const categoriesLabel = describeWageFlowCategorySelection(draft.categoryIds, categoryOptions, t);
   const potsLabel =
     draft.potAccountIds.length > 0
       ? draft.potAccountIds.map((id) => potNameById.get(id) ?? id).join(", ")
@@ -717,14 +852,35 @@ export function WageFlowCategoryEditorModal({
               {categoryMainList.map((main) => {
                 const children = categoryChildrenByParent.get(main.id) ?? [];
                 const isExpanded = expandedCategoryGroupIds.has(main.id);
+                // Whole-group selection ("main" mode) always wins visually
+                // over any leftover explicit child ids -- the two states are
+                // kept mutually exclusive by toggleMainCategory/
+                // toggleChildCategory, so checking pickerDraftIds for the
+                // main id alone is enough to know which mode this group is in.
+                const isWholeMainSelected = pickerDraftIds.includes(main.id);
+                const selectedChildCount = children.filter((child) =>
+                  pickerDraftIds.includes(child.id),
+                ).length;
+                const mainSubtitle =
+                  children.length === 0
+                    ? undefined
+                    : isWholeMainSelected
+                      ? t("insights.wageFlow.allSubcategoriesIncluded")
+                      : selectedChildCount > 0
+                        ? t("insights.wageFlow.subcategoriesSelectedOfTotal", {
+                            count: selectedChildCount,
+                            total: children.length,
+                          })
+                        : undefined;
                 return (
                   <View key={main.id} style={{ gap: spacing(2) }}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: spacing(2) }}>
                       <View style={{ flex: 1 }}>
                         <SelectionOptionRow
                           title={main.name}
-                          active={pickerDraftIds.includes(main.id)}
-                          onPress={() => toggleDraftId(main.id)}
+                          subtitle={mainSubtitle}
+                          active={isWholeMainSelected}
+                          onPress={() => toggleMainCategory(main, children)}
                           iconName="pricetag-outline"
                         />
                       </View>
@@ -761,8 +917,13 @@ export function WageFlowCategoryEditorModal({
                           <View key={child.id} style={{ marginLeft: spacing(6) }}>
                             <SelectionOptionRow
                               title={child.name}
-                              active={pickerDraftIds.includes(child.id)}
-                              onPress={() => toggleDraftId(child.id)}
+                              subtitle={
+                                isWholeMainSelected
+                                  ? t("insights.wageFlow.includedViaMainCategory")
+                                  : undefined
+                              }
+                              active={isWholeMainSelected || pickerDraftIds.includes(child.id)}
+                              onPress={() => toggleChildCategory(main, child, children)}
                               iconName="pricetag-outline"
                             />
                           </View>

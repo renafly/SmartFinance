@@ -719,6 +719,7 @@ export type Database = {
           avatar_url: string | null;
           preferred_currency: string;
           locale: string;
+          theme: string;
           timezone: string | null;
           default_household_id: string | null;
           onboarding_guides: Json;
@@ -732,6 +733,7 @@ export type Database = {
           avatar_url?: string | null;
           preferred_currency?: string;
           locale?: string;
+          theme?: string;
           timezone?: string | null;
           default_household_id?: string | null;
           onboarding_guides?: Json;
@@ -745,6 +747,7 @@ export type Database = {
           avatar_url?: string | null;
           preferred_currency?: string;
           locale?: string;
+          theme?: string;
           timezone?: string | null;
           default_household_id?: string | null;
           onboarding_guides?: Json;
