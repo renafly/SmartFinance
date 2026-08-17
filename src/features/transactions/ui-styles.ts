@@ -4,7 +4,16 @@ import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 
-export function createStyles(colors: any) {
+type SafeAreaInsets = { top: number; bottom: number; left: number; right: number };
+
+const NO_INSETS: SafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 };
+
+// `insets` defaults to zero so any other caller that doesn't pass device
+// insets still gets the previous, non-safe-area-aware layout rather than
+// breaking. transactions.tsx passes the real useSafeAreaInsets() result so
+// the floating create button and the modal backdrops here clear the iOS
+// home indicator / Android system nav bar instead of sitting under them.
+export function createStyles(colors: any, insets: SafeAreaInsets = NO_INSETS) {
   return StyleSheet.create({
     viewTabs: {
       flexDirection: "row",
@@ -139,7 +148,7 @@ export function createStyles(colors: any) {
     floatingCreateButton: {
       position: "absolute",
       right: spacing(6),
-      bottom: spacing(6),
+      bottom: spacing(6) + insets.bottom,
       zIndex: 10,
       flexDirection: "row",
       alignItems: "center",
@@ -158,7 +167,7 @@ export function createStyles(colors: any) {
       fontWeight: String(typography.fontWeight.extraBold),
     },
     floatingCreateSpacer: {
-      height: spacing(16),
+      height: spacing(16) + insets.bottom,
     },
     filterToggle: {
       flexDirection: "row",
@@ -282,6 +291,8 @@ export function createStyles(colors: any) {
       flex: 1,
       justifyContent: "center",
       padding: spacing(5),
+      paddingTop: spacing(5) + insets.top,
+      paddingBottom: spacing(5) + insets.bottom,
       backgroundColor: "rgba(2, 6, 23, 0.82)",
     },
     modalKeyboardView: {

@@ -1,4 +1,5 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Button } from '@/components/migrated-page';
@@ -50,9 +51,19 @@ type RuleMenuProps = {
 };
 
 export function RuleMenu({ item, onClose, onEdit, onHistory, onToggle, onDelete, t, colors, responsive }: RuleMenuProps) {
+  // ui-styles.ts's `modalBackdrop` is a plain module-level constant
+  // (shared, color-independent), so the safe-area inset is layered on
+  // here at the usage site instead of baking it into that shared object.
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal visible={item !== null} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}>
+      <View
+        style={[
+          styles.modalBackdrop,
+          { backgroundColor: colors.overlay, paddingTop: spacing(4) + insets.top, paddingBottom: spacing(4) + insets.bottom },
+        ]}
+      >
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={onClose}

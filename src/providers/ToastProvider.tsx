@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useState, type PropsWithChildren } from 'react';
 import { Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Toast = { id: number; message: string };
 
@@ -15,6 +16,12 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 // the rest of the app should keep using either way.
 export function ToastProvider({ children }: PropsWithChildren) {
   const [toast, setToast] = useState<Toast | null>(null);
+  // Toasts render above everything (including whatever screen/Modal is on
+  // top), so a fixed bottom offset has to account for the iOS home
+  // indicator and the Android system nav bar itself - a flat `bottom: 48`
+  // put the toast under gesture-nav pills on some Android devices and
+  // right on top of the home indicator on others.
+  const insets = useSafeAreaInsets();
 
   const show = useCallback((message: string) => {
     const id = Date.now();
@@ -28,7 +35,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
     <ToastContext.Provider value={{ show }}>
       {children}
       {toast && (
-        <View style={{ position: 'absolute', bottom: 48, left: 24, right: 24, backgroundColor: '#111', borderRadius: 10, padding: 12 }}>
+        <View style={{ position: 'absolute', bottom: 24 + insets.bottom, left: 24, right: 24, backgroundColor: '#111', borderRadius: 10, padding: 12 }}>
           <Text style={{ color: '#fff', textAlign: 'center' }}>{toast.message}</Text>
         </View>
       )}

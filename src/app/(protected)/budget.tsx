@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -350,6 +351,10 @@ function PersonSummaryRow({
 export default function BudgetScreen() {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
+  // This screen's `overlay` is a fixed bottom action bar (see below), not
+  // scroll content, so it needs its own bottom-inset padding or the save
+  // buttons sit under the Android system nav bar / iOS home indicator.
+  const insets = useSafeAreaInsets();
   const hideValues = usePrivacyStore((state) => state.hideValues);
   const { householdId, profile } = useAuth();
   const { width: windowWidth } = useWindowDimensions();
@@ -1106,7 +1111,7 @@ export default function BudgetScreen() {
             bottom: 0,
             paddingHorizontal: spacing(4),
             paddingTop: spacing(2.5),
-            paddingBottom: spacing(3),
+            paddingBottom: spacing(3) + insets.bottom,
             gap: spacing(2),
             backgroundColor: colors.surface,
             borderTopWidth: 1,
@@ -1535,8 +1540,10 @@ export default function BudgetScreen() {
       </Card>
       </Animated.View>
 
-      {/* Keeps the last card clear of the fixed bottom action bar above. */}
-      <View style={{ height: spacing(26) } as any} />
+      {/* Keeps the last card clear of the fixed bottom action bar above.
+          Grows with the bottom safe-area inset since the bar's own
+          padding (and therefore its rendered height) grows with it too. */}
+      <View style={{ height: spacing(26) + insets.bottom } as any} />
     </Page>
   );
 }

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useState, type PropsWithChildren, type ReactNode } from 'react';
 import { Modal, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PrivacyToggle } from '@/components/migrated-page';
 
@@ -15,6 +16,7 @@ const ModalContext = createContext<ModalContextValue | null>(null);
 // isn't what "Nice Extras" scope calls for here.
 export function ModalProvider({ children }: PropsWithChildren) {
   const [content, setContent] = useState<ReactNode>(null);
+  const insets = useSafeAreaInsets();
 
   const show = useCallback((node: ReactNode) => setContent(node), []);
   const hide = useCallback(() => setContent(null), []);
@@ -23,7 +25,18 @@ export function ModalProvider({ children }: PropsWithChildren) {
     <ModalContext.Provider value={{ show, hide }}>
       {children}
       <Modal visible={content !== null} transparent animationType="fade" onRequestClose={hide}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0,0,0,0.4)',
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom,
+            paddingLeft: insets.left,
+            paddingRight: insets.right,
+          }}
+        >
           {content}
           {/* This is the single shared confirm-dialog/one-off-sheet Modal
               used app-wide via useModal().show(...) — RN Modals present in

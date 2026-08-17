@@ -12,6 +12,7 @@ import {
   type ScrollViewProps,
   type TextInputProps,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import { usePrivacyStore } from '@/stores/privacyStore';
@@ -30,6 +31,21 @@ type PageProps = {
   scrollViewProps?: ScrollViewProps;
 };
 
+type PrivacyToggleProps = {
+  /**
+   * Whether this mount point sits under something that already reserves
+   * the top safe-area inset (e.g. `Page`'s content area, which renders
+   * below the Drawer/Stack header - headers already pad themselves for
+   * the status bar / notch / Dynamic Island). RN's `Modal` renders in its
+   * own full-screen native layer with no header, so every mount inside a
+   * `Modal` needs the real top inset added on top of the design offset or
+   * the button ends up under the status bar/notch. Defaults to true
+   * (safe area applied) since most mount points are inside Modals; `Page`
+   * is the one call site that opts out to avoid double-padding.
+   */
+  topInset?: boolean;
+};
+
 /**
  * The global "hide values" toggle, factored out so it can be dropped into
  * any full-screen overlay — not just `Page`. React Native's `Modal`
@@ -41,11 +57,13 @@ type PageProps = {
  * create/edit modals in transactions.tsx, transfers.tsx, savings.tsx, and
  * accounts.tsx for the other mount points.
  */
-export function PrivacyToggle() {
+export function PrivacyToggle({ topInset = true }: PrivacyToggleProps = {}) {
   const { colors } = useTheme();
   const { t } = useTranslation('common');
+  const insets = useSafeAreaInsets();
   const hideValues = usePrivacyStore((state) => state.hideValues);
   const toggleHideValues = usePrivacyStore((state) => state.toggleHideValues);
+  const top = spacing(6) + (topInset ? insets.top : 0);
 
   return (
     <Pressable
@@ -55,7 +73,7 @@ export function PrivacyToggle() {
       onPress={toggleHideValues}
       style={({ pressed }) => [
         styles.privacyToggle,
-        { borderColor: colors.primary, backgroundColor: colors.primary },
+        { top, borderColor: colors.primary, backgroundColor: colors.primary },
         pressed && styles.pressed,
       ]}
     >
@@ -68,6 +86,14 @@ export function Page({ title, subtitle, children, actions, overlay, scrollViewPr
   const { colors } = useTheme();
   const { t } = useTranslation('common');
   const responsive = useResponsiveMetrics();
+  // Page's content area already renders below the Drawer/Stack header on
+  // native (headerShown is only ever false for the web permanent-drawer
+  // layout, where insets are ~0 anyway), so only the bottom inset needs
+  // adding here - the header already accounts for the top one. Bottom
+  // still needs it: this is a plain ScrollView, and nothing else in the
+  // tree reserves room for the iOS home indicator or the Android system
+  // nav bar, so the last card would otherwise render underneath it.
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={styles.pageShell}>
@@ -80,6 +106,7 @@ export function Page({ title, subtitle, children, actions, overlay, scrollViewPr
           {
             backgroundColor: colors.background,
             padding: responsive.pagePadding,
+            paddingBottom: responsive.pagePadding + insets.bottom,
             gap: responsive.pageGap,
           },
         ]}
@@ -146,7 +173,7 @@ export function Page({ title, subtitle, children, actions, overlay, scrollViewPr
           covers the base page — any screen that opens a native `Modal` over
           this content must render <PrivacyToggle /> again inside that
           Modal, since Modals present in their own layer above this one. */}
-      <PrivacyToggle />
+      <PrivacyToggle topInset={false} />
       {overlay}
     </View>
   );
@@ -489,7 +516,8 @@ const styles = StyleSheet.create({
   privacyToggle: {
     position: 'absolute',
     right: spacing(6),
-    top: spacing(6),
+    // top is applied inline (see PrivacyToggle component) so it can
+    // include the safe-area top inset when rendered inside a Modal.
     zIndex: 10,
     width: spacing(12),
     height: spacing(12),
