@@ -225,6 +225,7 @@ npx supabase functions deploy execute-recurring-movements --no-verify-jwt
 npx supabase functions deploy dispatch-notification --no-verify-jwt
 npx supabase functions deploy purge-read-notifications --no-verify-jwt
 npx supabase functions deploy feedback-maintenance
+npx supabase functions deploy send-household-invitation --no-verify-jwt
 ```
 
 List hosted function secrets without printing their values:

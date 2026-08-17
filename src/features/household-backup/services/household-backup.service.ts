@@ -251,7 +251,7 @@ type CleanMonthlyBudget = {
 export type HouseholdBackupFile = {
   schemaVersion: 1;
   exportedAt: string;
-  sourceApp: "SmartFinance";
+  sourceApp: "Kintally";
   household: CleanHousehold;
   members: CleanMember[];
   accounts: CleanAccount[];
@@ -287,7 +287,8 @@ const rowSchema = z.record(z.string(), z.unknown());
 const backupSchema = z.object({
   schemaVersion: z.literal(1),
   exportedAt: z.string(),
-  sourceApp: z.literal("SmartFinance"),
+  // Accept backups exported before the app was renamed from SmartFinance to Kintally.
+  sourceApp: z.union([z.literal("Kintally"), z.literal("SmartFinance")]),
   household: rowSchema,
   members: z.array(rowSchema),
   accounts: z.array(rowSchema),
@@ -542,7 +543,7 @@ function buildCleanBackup(input: {
   return {
     schemaVersion: 1,
     exportedAt: new Date().toISOString(),
-    sourceApp: "SmartFinance",
+    sourceApp: "Kintally",
     household: {
       name: input.household.name,
       incomeMode: input.household.income_mode,
@@ -1391,7 +1392,7 @@ export class HouseholdBackupService {
     backup: Pick<HouseholdBackupFile, "household" | "exportedAt">,
   ) {
     const day = backup.exportedAt.slice(0, 10);
-    return `smartfinance-household-${safeNamePart(backup.household.name)}-${day}.json`;
+    return `kintally-household-${safeNamePart(backup.household.name)}-${day}.json`;
   }
 
   parseBackup(input: unknown) {

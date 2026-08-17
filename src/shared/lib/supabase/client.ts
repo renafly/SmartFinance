@@ -23,7 +23,7 @@ const supabaseAnonKey = process.env
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
-    "[SmartFinance] Supabase env vars are missing. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY (or EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY) in .env.",
+    "[Kintally] Supabase env vars are missing. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY (or EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY) in .env.",
   );
 }
 

@@ -7,7 +7,7 @@ export type LanguageOption = {
   label: string;
 };
 
-const LANGUAGE_STORAGE_KEY = "smartfinance.language";
+const LANGUAGE_STORAGE_KEY = "kintally.language";
 
 type LanguageStorage = {
   getString: (key: string) => string | undefined;

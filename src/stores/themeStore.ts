@@ -9,7 +9,7 @@ type ThemeState = {
   setMode: (mode: ThemeMode) => void;
 };
 
-const THEME_STORAGE_KEY = "smartfinance.theme";
+const THEME_STORAGE_KEY = "kintally.theme";
 
 type ThemeStorage = {
   getString: (key: string) => string | undefined;

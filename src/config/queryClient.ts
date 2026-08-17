@@ -1,7 +1,7 @@
 import { MutationCache, QueryClient } from '@tanstack/react-query';
 
 // Default options + mutation defaults live here, in one place, so every
-// query/mutation in SmartFinance inherits sane retry/staleTime
+// query/mutation in Kintally inherits sane retry/staleTime
 // behavior instead of each call site repeating it.
 let queryClient: QueryClient;
 

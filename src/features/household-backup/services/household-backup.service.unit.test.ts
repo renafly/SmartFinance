@@ -5,7 +5,7 @@ describe("householdBackupService.parseBackup", () => {
     const backup = householdBackupService.parseBackup({
       schemaVersion: 1,
       exportedAt: "2026-07-10T10:00:00.000Z",
-      sourceApp: "SmartFinance",
+      sourceApp: "Kintally",
       household: {},
       members: [],
       accounts: [],
@@ -31,7 +31,7 @@ describe("householdBackupService.parseBackup", () => {
       householdBackupService.parseBackup({
         schemaVersion: 2,
         exportedAt: "2026-07-09T10:00:00.000Z",
-        sourceApp: "SmartFinance",
+        sourceApp: "Kintally",
         household: {},
         members: [],
         accounts: [],
@@ -55,7 +55,7 @@ describe("householdBackupService.parseBackup", () => {
     const backup = householdBackupService.parseBackup({
       schemaVersion: 1,
       exportedAt: "2026-07-10T10:00:00.000Z",
-      sourceApp: "SmartFinance",
+      sourceApp: "Kintally",
       household: {},
       members: [],
       accounts: [],

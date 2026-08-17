@@ -40,7 +40,7 @@ function setBrowserGlobals(input?: {
   });
   Object.defineProperty(globalThis, "navigator", {
     configurable: true,
-    value: { serviceWorker, userAgent: "SmartFinance test browser" },
+    value: { serviceWorker, userAgent: "Kintally test browser" },
   });
   Object.defineProperty(globalThis, "Notification", {
     configurable: true,
@@ -79,7 +79,7 @@ describe("registerWebPushDevice", () => {
 
     await expect(registerWebPushDevice("user-id")).resolves.toBe("registered");
     expect(serviceWorker.register).toHaveBeenCalledWith(
-      "/smartfinance-notifications-sw.js",
+      "/kintally-notifications-sw.js",
       { scope: "/" },
     );
     expect(pushManager.subscribe).toHaveBeenCalledWith({
@@ -92,7 +92,7 @@ describe("registerWebPushDevice", () => {
       p256dh: "p256dh-key",
       auth: "auth-key",
       expirationTime: null,
-      userAgent: "SmartFinance test browser",
+      userAgent: "Kintally test browser",
     });
   });
 });

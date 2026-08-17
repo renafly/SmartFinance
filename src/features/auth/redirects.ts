@@ -1,4 +1,4 @@
-const PENDING_REDIRECT_KEY = 'smartfinance.pendingRedirectTo';
+const PENDING_REDIRECT_KEY = 'kintally.pendingRedirectTo';
 const DEFAULT_AUTH_REDIRECT = '/(protected)';
 
 function canUseSessionStorage() {

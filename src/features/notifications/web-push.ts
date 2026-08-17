@@ -39,7 +39,7 @@ export async function registerWebPushDevice(
   if (permission !== "granted") return "permission-denied";
 
   await navigator.serviceWorker.register(
-    "/smartfinance-notifications-sw.js",
+    "/kintally-notifications-sw.js",
     { scope: "/" },
   );
   const activeRegistration = await navigator.serviceWorker.ready;

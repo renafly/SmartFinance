@@ -9,7 +9,7 @@ import type { CookieConsentStorage } from "./storage";
 // usability preference (see src/shared/i18n/languages.ts) and isn't
 // cleared when someone rejects optional cookies. Only theme remains
 // gated behind the "Preferences" consent category.
-const OPTIONAL_PREFERENCE_KEYS = ["smartfinance.theme"] as const;
+const OPTIONAL_PREFERENCE_KEYS = ["kintally.theme"] as const;
 
 function getBrowserStorage(): Storage | null {
   try {

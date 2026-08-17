@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "SmartFinance",
-    "slug": "SmartFinance",
-    "scheme": "smartfinance",
+    "name": "Kintally",
+    "slug": "Kintally",
+    "scheme": "kintally",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "com.renafly.smartfinance",
+      "bundleIdentifier": "com.kintally",
       "icon": "./assets/expo.icon",
       "buildNumber": "1"
     },
@@ -20,7 +20,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.renafly.SmartFinance",
+      "package": "com.kintally",
       "versionCode": 1
     },
     "web": {

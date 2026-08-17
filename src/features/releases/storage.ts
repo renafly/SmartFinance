@@ -5,7 +5,7 @@ import {
 
 import { isSemVer } from "./semver";
 
-const LAST_SEEN_VERSION_KEY = "smartfinance.releases.last-seen";
+const LAST_SEEN_VERSION_KEY = "kintally.releases.last-seen";
 
 export function lastSeenVersionStorageKey(channel: string): string {
   return `${LAST_SEEN_VERSION_KEY}.${channel.trim().toLowerCase() || "production"}`;

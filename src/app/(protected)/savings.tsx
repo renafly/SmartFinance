@@ -186,7 +186,7 @@ export default function SavingsScreen() {
     () => new Map((assignmentsQuery.data ?? []).map((assignment) => [assignment.account_id, assignment.pot_id])),
     [assignmentsQuery.data],
   );
-  const collapsedGroupsKey = householdId ? `smartfinance:savings:collapsed-groups:${householdId}` : null;
+  const collapsedGroupsKey = householdId ? `kintally:savings:collapsed-groups:${householdId}` : null;
   const hydratedCollapsedGroupsKey = useRef<string | null>(null);
   const createSelectedAccountsLabel =
     createSelectedAccountIds.length > 0

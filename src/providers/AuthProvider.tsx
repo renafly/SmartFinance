@@ -17,7 +17,7 @@ function isNativeAuthCallback(url: string) {
   const parsedUrl = new URL(url);
   const callbackPath = `${parsedUrl.hostname ? `/${parsedUrl.hostname}` : ''}${parsedUrl.pathname}`;
 
-  return parsedUrl.protocol === 'smartfinance:' && (
+  return parsedUrl.protocol === 'kintally:' && (
     callbackPath === AUTH_CALLBACK_ROUTE || callbackPath === '/google-auth'
   );
 }
