@@ -6,6 +6,8 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
+import { displayCurrency } from '@/shared/lib/mask-currency';
+import { usePrivacyStore } from '@/stores/privacyStore';
 
 import type { SavingPotForecast } from '../services/saving-pot-forecast.service';
 import { buildForecastYearRows, formatForecastMonth, getAccountSummary, type SavingPotAccountOption } from '../ui-utils';
@@ -42,6 +44,8 @@ export function SavingPotCard({
   const { t } = useTranslation('common');
   const { colors } = useTheme();
   const styles = createStyles(colors);
+  const hideValues = usePrivacyStore((state) => state.hideValues);
+  const money = (value: number | string | null | undefined) => displayCurrency(formatCurrency(value), hideValues);
 
   const selectedCount = Number(balance?.selected_account_count ?? 0);
   const targetValue = Number(balance?.target_amount ?? pot.target_amount ?? 0);
@@ -76,21 +80,21 @@ export function SavingPotCard({
           <View style={styles.goalAmountGrid}>
             <View style={styles.goalAmountCell}>
               <Text style={styles.goalAmountLabel}>{t('savings.balance')}</Text>
-              <Text style={styles.goalBalanceValue}>{formatCurrency(currentValue)}</Text>
+              <Text style={styles.goalBalanceValue}>{money(currentValue)}</Text>
             </View>
             <View style={styles.goalAmountCell}>
               <Text style={styles.goalAmountLabel}>{t('savings.targetAmount')}</Text>
-              <Text style={styles.goalAmountValue}>{targetValue > 0 ? formatCurrency(targetValue) : t('savings.noTarget')}</Text>
+              <Text style={styles.goalAmountValue}>{targetValue > 0 ? money(targetValue) : t('savings.noTarget')}</Text>
             </View>
             {targetValue > 0 ? (
               <View style={styles.goalAmountCell}>
                 <Text style={styles.goalAmountLabel}>{t('budgets.remaining', { value: '' })}</Text>
-                <Text style={styles.goalAmountValue}>{formatCurrency(remainingValue)}</Text>
+                <Text style={styles.goalAmountValue}>{money(remainingValue)}</Text>
               </View>
             ) : null}
           </View>
           <Text style={styles.potMeta}>
-            {t('savings.saved')} {formatCurrency(balance?.saved ?? 0)} · {t('savings.spent')} {formatCurrency(balance?.spent ?? 0)}
+            {t('savings.saved')} {money(balance?.saved ?? 0)} · {t('savings.spent')} {money(balance?.spent ?? 0)}
           </Text>
           <Text style={styles.potMeta}>
             {t('savings.accountsUsed')}: {t('savings.scopeAccountSpecific', { count: selectedCount })}
@@ -101,7 +105,7 @@ export function SavingPotCard({
         </View>
         <View style={styles.progressCaption}>
           <Text style={styles.progressText}>{percent !== null ? t('savings.progress', { percent }) : t('savings.noTarget')}</Text>
-          {targetValue > 0 ? <Text style={styles.progressText}>{t('budgets.remaining', { value: formatCurrency(remainingValue) })}</Text> : null}
+          {targetValue > 0 ? <Text style={styles.progressText}>{t('budgets.remaining', { value: money(remainingValue) })}</Text> : null}
         </View>
         <View style={styles.scopeRow}>
           {sharedAccountCount > 0 ? <Text style={styles.scopeChip}>{t('savings.scopeShared')} · {sharedAccountCount}</Text> : null}
@@ -121,7 +125,7 @@ export function SavingPotCard({
                   <Text style={styles.accountBalanceName}>{account.name}</Text>
                   <Text style={styles.accountBalanceMeta}>{getAccountSummary(account, memberLabelMap, t('savings.scopeShared'))}</Text>
                 </View>
-                <Text style={styles.accountBalanceValue}>{formatCurrency(account.current_balance)}</Text>
+                <Text style={styles.accountBalanceValue}>{money(account.current_balance)}</Text>
               </View>
             ))}
           </View>
@@ -142,13 +146,13 @@ export function SavingPotCard({
         {forecast?.monthlyContribution ? (
           <View style={{ gap: spacing(0.5) }}>
             <Text style={styles.potMeta}>
-              {t('savings.forecastMonthlyContribution', { value: formatCurrency(forecast.monthlyContribution) })}
+              {t('savings.forecastMonthlyContribution', { value: money(forecast.monthlyContribution) })}
             </Text>
             {forecast.sources.map((source) => (
               <Text key={source.kind} style={styles.potMeta}>
                 {source.kind === 'recurring_transfer'
-                  ? t('savings.forecastRecurringTransfers', { value: formatCurrency(source.monthlyContribution) })
-                  : t('savings.forecastMonthlyBudget', { value: formatCurrency(source.monthlyContribution) })}
+                  ? t('savings.forecastRecurringTransfers', { value: money(source.monthlyContribution) })
+                  : t('savings.forecastMonthlyBudget', { value: money(source.monthlyContribution) })}
               </Text>
             ))}
           </View>
@@ -202,8 +206,8 @@ export function SavingPotCard({
                     {forecast.timeline.map((item) => (
                       <View key={item.month} style={[styles.forecastRow, item.reachedTarget && styles.forecastRowComplete]}>
                         <Text style={[styles.forecastRowText, styles.forecastLabelPrimary]}>{formatForecastMonth(item.month)}</Text>
-                        <Text style={styles.forecastRowText}>{formatCurrency(item.contribution)}</Text>
-                        <Text style={styles.forecastRowBalance}>{formatCurrency(item.projectedAmount)}</Text>
+                        <Text style={styles.forecastRowText}>{money(item.contribution)}</Text>
+                        <Text style={styles.forecastRowBalance}>{money(item.projectedAmount)}</Text>
                       </View>
                     ))}
                   </View>
@@ -212,8 +216,8 @@ export function SavingPotCard({
                     {forecastYears.map((item) => (
                       <View key={item.year} style={[styles.forecastRow, item.remainingAmount === 0 && styles.forecastRowComplete]}>
                         <Text style={[styles.forecastRowText, styles.forecastLabelPrimary]}>{item.year}</Text>
-                        <Text style={styles.forecastRowText}>{formatCurrency(item.contribution)}</Text>
-                        <Text style={styles.forecastRowBalance}>{formatCurrency(item.projectedAmount)}</Text>
+                        <Text style={styles.forecastRowText}>{money(item.contribution)}</Text>
+                        <Text style={styles.forecastRowBalance}>{money(item.projectedAmount)}</Text>
                       </View>
                     ))}
                   </View>

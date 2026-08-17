@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 
 import { formatCurrency } from "@/components/migrated-page";
+import { displayCurrency } from "@/shared/lib/mask-currency";
+import { usePrivacyStore } from "@/stores/privacyStore";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
@@ -44,6 +46,16 @@ export type WageFlowChartMatch = {
   isTransfer: boolean;
 };
 
+export type WageFlowChartSubcategory = {
+  key: string;
+  label: string;
+  amount: number;
+  /** Share of this bucket's own amount, 0-100 (not of overall income). */
+  share: number;
+  /** A shade of the parent bucket's color -- see `generateColorShades`. */
+  color: string;
+};
+
 export type WageFlowChartBucket = {
   key: string;
   label: string;
@@ -52,6 +64,11 @@ export type WageFlowChartBucket = {
   /** Share of income, 0-100 (not clamped). */
   share: number;
   color: string;
+  /** Breakdown of this bucket by contributing transaction category, largest
+   * first, summing to `amount`. When there are 2+ entries, the bucket's
+   * ribbon/bar is subdivided proportionally into one shaded slice per
+   * entry instead of a single solid segment. Omitted/empty otherwise. */
+  subcategories?: WageFlowChartSubcategory[];
   /** The transactions this category claimed, for the "what funded this"
    * drill-down. Omitted for the synthetic Unallocated segment. */
   matches?: WageFlowChartMatch[];
@@ -61,6 +78,64 @@ const WAGE_FLOW_HEIGHT = 250;
 const WAGE_FLOW_PAD = 16;
 const WAGE_FLOW_BAR_WIDTH = 14;
 const WAGE_FLOW_GAP = 10;
+/** Hairline stroke drawn between adjacent subcategory slices within a
+ * bucket -- thin enough not to eat into the proportional area, just enough
+ * to keep a multi-slice segment readable as distinct parts. */
+const WAGE_FLOW_SLICE_STROKE_WIDTH = 0.75;
+
+function buildRibbonPath({
+  leftX,
+  leftTop,
+  leftBottom,
+  rightX,
+  rightTop,
+  rightBottom,
+  midX,
+}: {
+  leftX: number;
+  leftTop: number;
+  leftBottom: number;
+  rightX: number;
+  rightTop: number;
+  rightBottom: number;
+  midX: number;
+}) {
+  return [
+    `M ${leftX} ${leftTop}`,
+    `C ${midX} ${leftTop}, ${midX} ${rightTop}, ${rightX} ${rightTop}`,
+    `L ${rightX} ${rightBottom}`,
+    `C ${midX} ${rightBottom}, ${midX} ${leftBottom}, ${leftX} ${leftBottom}`,
+    "Z",
+  ].join(" ");
+}
+
+/** Subdivides a segment's [top, bottom] band into one slice per subcategory,
+ * proportional to each one's share of the bucket -- used identically for
+ * the left (income-side) and right (category-side) edges of a ribbon, and
+ * for the category's own bar, since all three share the same fractional
+ * split. Returns null when there's nothing to subdivide (0 or 1 groups),
+ * so callers can fall back to rendering the segment as a single solid
+ * shape. */
+function buildSubSlices<T extends { top: number; bottom: number }>(
+  subcategories: WageFlowChartSubcategory[] | undefined,
+  band: T,
+) {
+  if (!subcategories || subcategories.length < 2) return null;
+
+  const totalShare = subcategories.reduce((sum, item) => sum + item.share, 0);
+  if (totalShare <= 0) return null;
+
+  const bandHeight = band.bottom - band.top;
+  let cursor = band.top;
+
+  return subcategories.map((sub) => {
+    const sliceHeight = (sub.share / totalShare) * bandHeight;
+    const top = cursor;
+    const bottom = cursor + sliceHeight;
+    cursor = bottom;
+    return { ...sub, top, bottom };
+  });
+}
 
 /**
  * A Sankey-style flow diagram: a single "Income" bar on the left, ribbons
@@ -106,6 +181,8 @@ export function WageFlowChart({
   const { t } = useTranslation("common");
   const { colors } = useTheme();
   const { width, onLayout } = useChartWidth();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
+  const maskedCurrency = (amount: number) => displayCurrency(formatCurrency(amount), hideValues);
 
   // Categories tied to a specific account/pot can now report a true signed
   // net (e.g. a savings pot that had more withdrawn than deposited this
@@ -152,14 +229,16 @@ export function WageFlowChart({
     const rightBottom = rightCursor + height;
     leftCursor = leftBottom;
     rightCursor = rightBottom + WAGE_FLOW_GAP;
-    const d = [
-      `M ${leftX + WAGE_FLOW_BAR_WIDTH} ${leftTop}`,
-      `C ${midX} ${leftTop}, ${midX} ${rightTop}, ${rightX} ${rightTop}`,
-      `L ${rightX} ${rightBottom}`,
-      `C ${midX} ${rightBottom}, ${midX} ${leftBottom}, ${leftX + WAGE_FLOW_BAR_WIDTH} ${leftBottom}`,
-      "Z",
-    ].join(" ");
-    return { ...segment, d, rightTop, rightBottom, height };
+    const d = buildRibbonPath({
+      leftX: leftX + WAGE_FLOW_BAR_WIDTH,
+      leftTop,
+      leftBottom,
+      rightX,
+      rightTop,
+      rightBottom,
+      midX,
+    });
+    return { ...segment, d, leftTop, leftBottom, rightTop, rightBottom, height };
   });
   const incomeBarBottom = plotTop + availableHeight;
 
@@ -168,9 +247,9 @@ export function WageFlowChart({
     : t("insights.wageFlow.income");
 
   const summary = [
-    `${incomeLabel}: ${formatCurrency(income)}`,
+    `${incomeLabel}: ${maskedCurrency(income)}`,
     ...buckets.map(
-      (item) => `${item.label}: ${formatCurrency(item.amount)}, ${item.share}%`,
+      (item) => `${item.label}: ${maskedCurrency(item.amount)}, ${item.share}%`,
     ),
   ].join(". ");
 
@@ -194,25 +273,62 @@ export function WageFlowChart({
           {incomeLabel}
         </Text>
         <Text style={{ color: colors.financialPositive, fontWeight: typography.fontWeight.bold }}>
-          {formatCurrency(income)}
+          {maskedCurrency(income)}
         </Text>
       </View>
       <View onLayout={onLayout}>
         <Svg width={width} height={WAGE_FLOW_HEIGHT} viewBox={`0 0 ${width} ${WAGE_FLOW_HEIGHT}`}>
-          {ribbons.map((segment) => {
+          {ribbons.flatMap((segment) => {
             const isSelected = segment.key === selectedKey;
-            return (
-              <Path
-                key={segment.key}
-                d={segment.d}
-                fill={segment.color}
-                fillOpacity={isSelected ? 0.78 : hasSelection ? 0.2 : 0.5}
-                stroke={isSelected ? segment.color : "none"}
-                strokeWidth={isSelected ? 1.5 : 0}
-                {...svgPressProps(() => onSelectKey(segment.key))}
-                accessibilityLabel={`${segment.label}, ${segment.share}%, ${formatCurrency(segment.amount)}`}
-              />
-            );
+            const fillOpacity = isSelected ? 0.78 : hasSelection ? 0.2 : 0.5;
+            const leftSlices = buildSubSlices(segment.subcategories, {
+              top: segment.leftTop,
+              bottom: segment.leftBottom,
+            });
+            const rightSlices = buildSubSlices(segment.subcategories, {
+              top: segment.rightTop,
+              bottom: segment.rightBottom,
+            });
+
+            if (!leftSlices || !rightSlices) {
+              return [
+                <Path
+                  key={segment.key}
+                  d={segment.d}
+                  fill={segment.color}
+                  fillOpacity={fillOpacity}
+                  stroke={isSelected ? segment.color : "none"}
+                  strokeWidth={isSelected ? 1.5 : 0}
+                  {...svgPressProps(() => onSelectKey(segment.key))}
+                  accessibilityLabel={`${segment.label}, ${segment.share}%, ${maskedCurrency(segment.amount)}`}
+                />,
+              ];
+            }
+
+            return leftSlices.map((leftSlice, index) => {
+              const rightSlice = rightSlices[index];
+              const d = buildRibbonPath({
+                leftX: leftX + WAGE_FLOW_BAR_WIDTH,
+                leftTop: leftSlice.top,
+                leftBottom: leftSlice.bottom,
+                rightX,
+                rightTop: rightSlice.top,
+                rightBottom: rightSlice.bottom,
+                midX,
+              });
+              return (
+                <Path
+                  key={`${segment.key}-${leftSlice.key}`}
+                  d={d}
+                  fill={leftSlice.color}
+                  fillOpacity={fillOpacity}
+                  stroke={isSelected ? segment.color : colors.surface}
+                  strokeWidth={isSelected ? 1.5 : WAGE_FLOW_SLICE_STROKE_WIDTH}
+                  {...svgPressProps(() => onSelectKey(segment.key))}
+                  accessibilityLabel={`${segment.label} · ${leftSlice.label}, ${leftSlice.share}%, ${maskedCurrency(leftSlice.amount)}`}
+                />
+              );
+            });
           })}
           <Rect
             x={leftX}
@@ -222,24 +338,49 @@ export function WageFlowChart({
             rx={2}
             fill={colors.financialPositive}
           />
-          {ribbons.map((segment) => {
+          {ribbons.flatMap((segment) => {
             const isSelected = segment.key === selectedKey;
-            return (
+            const barWidth = isSelected ? WAGE_FLOW_BAR_WIDTH + 4 : WAGE_FLOW_BAR_WIDTH;
+            const fillOpacity = hasSelection && !isSelected ? 0.55 : 1;
+            const slices = buildSubSlices(segment.subcategories, {
+              top: segment.rightTop,
+              bottom: segment.rightBottom,
+            });
+
+            if (!slices) {
+              return [
+                <Rect
+                  key={segment.key}
+                  x={rightX}
+                  y={segment.rightTop}
+                  width={barWidth}
+                  height={Math.max(segment.height, 1)}
+                  rx={3}
+                  fill={segment.color}
+                  fillOpacity={fillOpacity}
+                  stroke={isSelected ? colors.text : "none"}
+                  strokeWidth={isSelected ? 1.5 : 0}
+                  {...svgPressProps(() => onSelectKey(segment.key))}
+                  accessibilityLabel={`${segment.label}, ${segment.share}%, ${maskedCurrency(segment.amount)}`}
+                />,
+              ];
+            }
+
+            return slices.map((slice) => (
               <Rect
-                key={segment.key}
+                key={`${segment.key}-${slice.key}`}
                 x={rightX}
-                y={segment.rightTop}
-                width={isSelected ? WAGE_FLOW_BAR_WIDTH + 4 : WAGE_FLOW_BAR_WIDTH}
-                height={Math.max(segment.height, 1)}
-                rx={3}
-                fill={segment.color}
-                fillOpacity={hasSelection && !isSelected ? 0.55 : 1}
-                stroke={isSelected ? colors.text : "none"}
-                strokeWidth={isSelected ? 1.5 : 0}
+                y={slice.top}
+                width={barWidth}
+                height={Math.max(slice.bottom - slice.top, 1)}
+                fill={slice.color}
+                fillOpacity={fillOpacity}
+                stroke={isSelected ? colors.text : colors.surface}
+                strokeWidth={isSelected ? 1.5 : WAGE_FLOW_SLICE_STROKE_WIDTH}
                 {...svgPressProps(() => onSelectKey(segment.key))}
-                accessibilityLabel={`${segment.label}, ${segment.share}%, ${formatCurrency(segment.amount)}`}
+                accessibilityLabel={`${segment.label} · ${slice.label}, ${slice.share}%, ${maskedCurrency(slice.amount)}`}
               />
-            );
+            ));
           })}
         </Svg>
       </View>

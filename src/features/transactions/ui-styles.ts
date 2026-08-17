@@ -205,11 +205,20 @@ export function createStyles(colors: any) {
       flexWrap: "wrap",
       gap: spacing(2),
     },
+    filterRangeRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing(2),
+      width: "100%",
+    },
     activeFiltersRow: {
       flexDirection: "row",
       flexWrap: "wrap",
       alignItems: "center",
       gap: spacing(2),
+      marginBottom: spacing(3),
+    },
+    alwaysVisibleSearchRow: {
       marginBottom: spacing(3),
     },
     activeFilterChip: {

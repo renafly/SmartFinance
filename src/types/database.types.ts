@@ -465,6 +465,93 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_keypairs: {
+        Row: {
+          user_id: string;
+          public_key: string;
+          wrapped_private_key: string;
+          wrap_salt: string;
+          wrap_kdf_params: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          public_key: string;
+          wrapped_private_key: string;
+          wrap_salt: string;
+          wrap_kdf_params?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          public_key?: string;
+          wrapped_private_key?: string;
+          wrap_salt?: string;
+          wrap_kdf_params?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      household_key_wraps: {
+        Row: {
+          household_id: string;
+          member_user_id: string;
+          wrapped_household_key: string;
+          wrapped_by_user_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          household_id: string;
+          member_user_id: string;
+          wrapped_household_key: string;
+          wrapped_by_user_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          household_id?: string;
+          member_user_id?: string;
+          wrapped_household_key?: string;
+          wrapped_by_user_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      household_encryption_status: {
+        Row: {
+          household_id: string;
+          is_enabled: boolean;
+          enabled_at: string | null;
+          enabled_by: string | null;
+          migration_status: string;
+          migration_progress: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          household_id: string;
+          is_enabled?: boolean;
+          enabled_at?: string | null;
+          enabled_by?: string | null;
+          migration_status?: string;
+          migration_progress?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          household_id?: string;
+          is_enabled?: boolean;
+          enabled_at?: string | null;
+          enabled_by?: string | null;
+          migration_status?: string;
+          migration_progress?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       households: {
         Row: {
           id: string;
@@ -538,10 +625,9 @@ export type Database = {
           name: string;
           section: Database["public"]["Enums"]["monthly_budget_section"];
           source_account_id: string;
-          destination_account_id: string;
-          destination_pot_id: string | null;
           owner_member_id: string | null;
           amount: number;
+          allocation_mode: Database["public"]["Enums"]["budget_rule_allocation_mode"];
           frequency: Database["public"]["Enums"]["recurring_frequency"];
           priority: number;
           is_active: boolean;
@@ -558,10 +644,9 @@ export type Database = {
           name: string;
           section: Database["public"]["Enums"]["monthly_budget_section"];
           source_account_id: string;
-          destination_account_id: string;
-          destination_pot_id?: string | null;
           owner_member_id?: string | null;
           amount?: number;
+          allocation_mode?: Database["public"]["Enums"]["budget_rule_allocation_mode"];
           frequency?: Database["public"]["Enums"]["recurring_frequency"];
           priority?: number;
           is_active?: boolean;
@@ -578,10 +663,9 @@ export type Database = {
           name?: string;
           section?: Database["public"]["Enums"]["monthly_budget_section"];
           source_account_id?: string;
-          destination_account_id?: string;
-          destination_pot_id?: string | null;
           owner_member_id?: string | null;
           amount?: number;
+          allocation_mode?: Database["public"]["Enums"]["budget_rule_allocation_mode"];
           frequency?: Database["public"]["Enums"]["recurring_frequency"];
           priority?: number;
           is_active?: boolean;
@@ -589,6 +673,39 @@ export type Database = {
           active_from_month?: number | null;
           active_to_month?: number | null;
           deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      budget_rule_allocations: {
+        Row: {
+          id: string;
+          rule_id: string;
+          destination_account_id: string;
+          amount: number;
+          category_id: string | null;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          rule_id: string;
+          destination_account_id: string;
+          amount?: number;
+          category_id?: string | null;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          rule_id?: string;
+          destination_account_id?: string;
+          amount?: number;
+          category_id?: string | null;
+          sort_order?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -719,6 +836,7 @@ export type Database = {
           avatar_url: string | null;
           preferred_currency: string;
           locale: string;
+          theme: string;
           timezone: string | null;
           default_household_id: string | null;
           onboarding_guides: Json;
@@ -732,6 +850,7 @@ export type Database = {
           avatar_url?: string | null;
           preferred_currency?: string;
           locale?: string;
+          theme?: string;
           timezone?: string | null;
           default_household_id?: string | null;
           onboarding_guides?: Json;
@@ -745,6 +864,7 @@ export type Database = {
           avatar_url?: string | null;
           preferred_currency?: string;
           locale?: string;
+          theme?: string;
           timezone?: string | null;
           default_household_id?: string | null;
           onboarding_guides?: Json;
@@ -1042,6 +1162,39 @@ export type Database = {
           include_transfers_between_accounts?: boolean;
           include_transfers_into_pots?: boolean;
           sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      dashboard_network_configs: {
+        Row: {
+          id: string;
+          profile_id: string;
+          account_ids: string[];
+          investment_account_ids: string[];
+          savings_account_ids: string[];
+          pot_ids: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          account_ids?: string[];
+          investment_account_ids?: string[];
+          savings_account_ids?: string[];
+          pot_ids?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          account_ids?: string[];
+          investment_account_ids?: string[];
+          savings_account_ids?: string[];
+          pot_ids?: string[];
           created_at?: string;
           updated_at?: string;
         };
@@ -1359,6 +1512,14 @@ export type Database = {
         };
         Returns: number;
       };
+      bulk_update_transfer_category: {
+        Args: {
+          p_household_id: string;
+          p_transfer_group_ids: string[];
+          p_category_id?: string | null;
+        };
+        Returns: number;
+      };
       list_transaction_movements: {
         Args: {
           p_household_id: string;
@@ -1637,6 +1798,7 @@ export type Database = {
       account_type:
         "cash" | "bank" | "credit_card" | "savings" | "investment" | "ppr";
       app_release_platform: "ios" | "android" | "web" | "all";
+      budget_rule_allocation_mode: "equal_split" | "custom";
       category_type: "income" | "expense" | "account";
       currency_code: "EUR" | "USD" | "GBP";
       excess_cash_distribution_method: "even_split";

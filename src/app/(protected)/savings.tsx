@@ -19,10 +19,13 @@ import {
   Field,
   formatCurrency,
   Page,
+  PrivacyToggle,
   Section,
 } from "@/components/migrated-page";
 import { typography } from "@/theme/typography";
 import { getPersistentString, setPersistentString } from "@/shared/lib/persistent-storage";
+import { displayCurrency } from "@/shared/lib/mask-currency";
+import { usePrivacyStore } from "@/stores/privacyStore";
 import { useAccountsWithBalances } from "../../features/accounts/hooks";
 import { useHouseholdMemberDetails } from "../../features/households/hooks";
 import {
@@ -116,6 +119,7 @@ export default function SavingsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t } = useTranslation("common");
+  const hideValues = usePrivacyStore((state) => state.hideValues);
   const { householdId, profile } = useAuth();
   const savingPotsQuery = useSavingPots();
   const balancesQuery = useSavingPotBalances();
@@ -454,6 +458,7 @@ export default function SavingsScreen() {
             style={StyleSheet.absoluteFill}
             onPress={() => setEditingPotId(null)}
           />
+          <PrivacyToggle />
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t("savings.editDetails")}</Text>
             <Text style={styles.modalSubtitle}>
@@ -534,6 +539,7 @@ export default function SavingsScreen() {
             style={StyleSheet.absoluteFill}
             onPress={() => setCreateDialogOpen(false)}
           />
+          <PrivacyToggle />
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t("savings.addPot")}</Text>
             <Text style={styles.modalSubtitle}>
@@ -601,6 +607,7 @@ export default function SavingsScreen() {
             style={StyleSheet.absoluteFill}
             onPress={() => setActivePotMenu(null)}
           />
+          <PrivacyToggle />
           <View style={styles.menuCard}>
             <Text style={styles.modalTitle}>{t("savings.actions")}</Text>
             <Pressable
@@ -708,7 +715,7 @@ export default function SavingsScreen() {
                             <View style={{ flex: 1, gap: spacing(1) }}>
                               <Text style={styles.accountName}>{account.name}</Text>
                               <Text style={styles.accountMeta}>
-                                {getAccountSummary(account, memberLabelMap, t("dashboard.shared"))} · {formatCurrency(account.current_balance)}
+                                {getAccountSummary(account, memberLabelMap, t("dashboard.shared"))} · {displayCurrency(formatCurrency(account.current_balance), hideValues)}
                               </Text>
                             </View>
                             <View

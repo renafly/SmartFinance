@@ -7,7 +7,7 @@ type BudgetConfig = Database["public"]["Tables"]["budget_configs"]["Row"];
 type BudgetConfigInsert = Database["public"]["Tables"]["budget_configs"]["Insert"];
 type BudgetConfigUpdate = Database["public"]["Tables"]["budget_configs"]["Update"];
 type BudgetRule = Database["public"]["Tables"]["budget_rules"]["Row"];
-type BudgetRuleInsert = Database["public"]["Tables"]["budget_rules"]["Insert"];
+type BudgetRuleAllocation = Database["public"]["Tables"]["budget_rule_allocations"]["Row"];
 type MonthlyBudgetRun = Database["public"]["Tables"]["monthly_budget_runs"]["Row"];
 type MonthlyBudgetRunInsert =
   Database["public"]["Tables"]["monthly_budget_runs"]["Insert"];
@@ -18,8 +18,12 @@ type MonthlyIncomeInput =
 type MonthlyIncomeInputInsert =
   Database["public"]["Tables"]["monthly_income_inputs"]["Insert"];
 
+export type BudgetRuleWithAllocations = BudgetRule & {
+  allocations: BudgetRuleAllocation[];
+};
+
 export type BudgetConfigWithRules = BudgetConfig & {
-  rules: BudgetRule[];
+  rules: BudgetRuleWithAllocations[];
 };
 
 export class MonthlyBudgetRepository extends BaseRepository<"budget_configs"> {
@@ -61,13 +65,48 @@ export class MonthlyBudgetRepository extends BaseRepository<"budget_configs"> {
     const rulesResult = await this.listRules(configResult.data.id);
     if (rulesResult.error) return { data: null, error: rulesResult.error };
 
+    const rules = rulesResult.data ?? [];
+    const allocationsResult = await this.listAllocationsForRules(rules.map((rule) => rule.id));
+    if (allocationsResult.error) return { data: null, error: allocationsResult.error };
+
+    const allocationsByRuleId = new Map<string, BudgetRuleAllocation[]>();
+    for (const allocation of allocationsResult.data ?? []) {
+      const bucket = allocationsByRuleId.get(allocation.rule_id) ?? [];
+      bucket.push(allocation);
+      allocationsByRuleId.set(allocation.rule_id, bucket);
+    }
+
     return {
       data: {
         ...configResult.data,
-        rules: rulesResult.data ?? [],
+        rules: rules.map((rule) => ({
+          ...rule,
+          allocations: allocationsByRuleId.get(rule.id) ?? [],
+        })),
       },
       error: null,
     };
+  }
+
+  /**
+   * Fetches every destination-account allocation for a set of rule ids, in
+   * stable per-rule order. Rules can fan out to any number of destination
+   * accounts (equal split or custom amounts) — the allocations table is
+   * where those per-account amounts actually live; `budget_rules.amount`
+   * is only the rule's total.
+   */
+  async listAllocationsForRules(ruleIds: string[]): Promise<RepoResult<BudgetRuleAllocation[]>> {
+    if (ruleIds.length === 0) return { data: [], error: null };
+
+    const { data, error } = await this.client
+      .from("budget_rule_allocations")
+      .select("*")
+      .in("rule_id", ruleIds)
+      .order("rule_id", { ascending: true })
+      .order("sort_order", { ascending: true });
+
+    if (error) return { data: null, error };
+    return { data: data ?? [], error: null };
   }
 
   async saveConfig(input: BudgetConfigInsert, id?: string): Promise<RepoResult<BudgetConfig>> {
@@ -114,30 +153,6 @@ export class MonthlyBudgetRepository extends BaseRepository<"budget_configs"> {
 
     if (error) return { data: null, error };
     return { data: data ?? [], error: null };
-  }
-
-  async replaceRules(
-    budgetConfigId: string,
-    rules: BudgetRuleInsert[],
-  ): Promise<RepoResult<BudgetRule[]>> {
-    const deleteResult = await this.client
-      .from("budget_rules")
-      .delete()
-      .eq("budget_config_id", budgetConfigId);
-
-    if (deleteResult.error) return { data: null, error: deleteResult.error };
-
-    if (rules.length === 0) {
-      return { data: [], error: null };
-    }
-
-    const { data, error } = await this.client
-      .from("budget_rules")
-      .insert(rules)
-      .select("*");
-
-    if (error) return { data: null, error };
-    return { data: (data ?? []) as BudgetRule[], error: null };
   }
 
   async restoreRule(id: string): Promise<RepoResult<boolean>> {

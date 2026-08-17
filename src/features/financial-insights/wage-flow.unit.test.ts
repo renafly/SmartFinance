@@ -28,9 +28,9 @@ const accounts = [
 ];
 
 const categories = [
-  { id: "groceries", is_discretionary: false, parent_id: null },
-  { id: "dining-out", is_discretionary: true, parent_id: null },
-  { id: "takeaway", is_discretionary: true, parent_id: "dining-out" },
+  { id: "groceries", name: "Groceries", is_discretionary: false, parent_id: null },
+  { id: "dining-out", name: "Dining out", is_discretionary: true, parent_id: null },
+  { id: "takeaway", name: "Takeaway", is_discretionary: true, parent_id: "dining-out" },
 ];
 
 function catchAll(overrides: Partial<WageFlowCategoryConfig> = {}): WageFlowCategoryConfig {
@@ -116,6 +116,122 @@ describe("calculateWageFlow", () => {
     });
     // Both the parent category and its subcategory should be claimed.
     expect(bucket(report, "dining").amount).toBe(45);
+  });
+
+  it("matches a categorized transfer's outgoing leg by category, e.g. a Monthly Budget allocation tagged 'Investments'", () => {
+    const report = calculateWageFlow({
+      transactions: [
+        tx({
+          id: "budget-out",
+          type: "expense",
+          amount: 200,
+          account_id: "bank-1",
+          category_id: "dining-out",
+          transfer_group_id: "g1",
+        }),
+        tx({
+          id: "budget-in",
+          type: "income",
+          amount: 200,
+          account_id: "investment-1",
+          transfer_group_id: "g1",
+        }),
+      ],
+      accounts,
+      categories,
+      config: [
+        catchAll({
+          id: "investments",
+          includeAllTransactions: false,
+          categoryIds: ["dining-out"],
+        }),
+      ],
+    });
+
+    expect(bucket(report, "investments").amount).toBe(200);
+    expect(bucket(report, "investments").matches).toHaveLength(1);
+    expect(bucket(report, "investments").matches[0].id).toBe("budget-out");
+  });
+
+  it("does not let a categorized transfer leg fall into an includeAllTransactions catch-all", () => {
+    const report = calculateWageFlow({
+      transactions: [
+        tx({
+          id: "budget-out",
+          type: "expense",
+          amount: 200,
+          account_id: "bank-1",
+          category_id: "dining-out",
+          transfer_group_id: "g1",
+        }),
+        tx({ id: "budget-in", type: "income", amount: 200, account_id: "investment-1", transfer_group_id: "g1" }),
+      ],
+      accounts,
+      categories,
+      config: [catchAll()],
+    });
+
+    // includeAllTransactions must never pick up transfer legs, categorized
+    // or not -- that would be a behavior change for every transfer already
+    // in the system.
+    expect(bucket(report, "catch-all").amount).toBe(0);
+  });
+
+  it("leaves an uncategorized transfer's category-pass eligibility unchanged (no category_id, no match)", () => {
+    const report = calculateWageFlow({
+      transactions: [
+        tx({ id: "out", type: "expense", amount: 200, account_id: "bank-1", transfer_group_id: "g1" }),
+        tx({ id: "in", type: "income", amount: 200, account_id: "investment-1", transfer_group_id: "g1" }),
+      ],
+      accounts,
+      categories,
+      config: [
+        catchAll({
+          id: "investments",
+          includeAllTransactions: false,
+          categoryIds: ["dining-out"],
+        }),
+      ],
+    });
+
+    expect(bucket(report, "investments").amount).toBe(0);
+    expect(bucket(report, "investments").matches).toHaveLength(0);
+  });
+
+  it("still lets a categorized transfer's destination leg claim a tracked-account pass independently of the source leg's category pass", () => {
+    const report = calculateWageFlow({
+      transactions: [
+        tx({
+          id: "budget-out",
+          type: "expense",
+          amount: 200,
+          account_id: "bank-1",
+          category_id: "dining-out",
+          transfer_group_id: "g1",
+        }),
+        tx({ id: "budget-in", type: "income", amount: 200, account_id: "investment-1", transfer_group_id: "g1" }),
+      ],
+      accounts,
+      categories,
+      config: [
+        catchAll({
+          id: "investments-category",
+          includeAllTransactions: false,
+          categoryIds: ["dining-out"],
+        }),
+        catchAll({
+          id: "investments-pot",
+          includeAllTransactions: false,
+          includeTransfersIntoPots: true,
+        }),
+      ],
+    });
+
+    // Two independent passes -- the outgoing leg is claimed by the category
+    // bucket, the incoming leg (landing on a pot-type account) is claimed
+    // by the tracked-account bucket, at the same time.
+    expect(bucket(report, "investments-category").amount).toBe(200);
+    expect(bucket(report, "investments-pot").amount).toBe(200);
   });
 
   it("matches specific pot accounts on the incoming transfer leg only", () => {
@@ -348,6 +464,58 @@ describe("calculateWageFlow", () => {
     expect(bucket(broadFirst, "dining").amount).toBe(0);
   });
 
+  it("does not deduplicate an expense between a tracked-account flow and its own expense category flow", () => {
+    // The reported scenario: Accounts/Investments/Pots tracks a savings
+    // account via potAccountIds, and a separate flow section tracks a
+    // specific expense category (e.g. "Utilities"). A bill paid directly
+    // out of that savings pot must subtract from the pot's net contribution
+    // AND still add to the Utilities category's total -- neither flow
+    // should exclude the transaction just because the other also counted it.
+    const report = calculateWageFlow({
+      transactions: [
+        tx({
+          id: "utility-bill",
+          type: "expense",
+          amount: 120,
+          account_id: "savings-1",
+          category_id: "groceries",
+        }),
+      ],
+      accounts,
+      categories,
+      config: [
+        catchAll({
+          id: "accounts-investments-pots",
+          includeAllTransactions: false,
+          potAccountIds: ["savings-1"],
+        }),
+        catchAll({
+          id: "utilities",
+          includeAllTransactions: false,
+          categoryIds: ["groceries"],
+        }),
+      ],
+    });
+    expect(bucket(report, "accounts-investments-pots").amount).toBe(-120);
+    expect(bucket(report, "utilities").amount).toBe(120);
+  });
+
+  it("still lets an includeAllTransactions catch-all claim a transaction already claimed by a tracked-account flow", () => {
+    const report = calculateWageFlow({
+      transactions: [
+        tx({ id: "direct-spend", type: "expense", amount: 75, account_id: "credit-1" }),
+      ],
+      accounts,
+      categories,
+      config: [
+        catchAll({ id: "debt-payments", includeAllTransactions: false, accountIds: ["credit-1"] }),
+        catchAll({ id: "expenses" }),
+      ],
+    });
+    expect(bucket(report, "debt-payments").amount).toBe(-75);
+    expect(bucket(report, "expenses").amount).toBe(75);
+  });
+
   it("reports unallocated income when categories don't cover everything", () => {
     const report = calculateWageFlow({
       transactions: [
@@ -378,6 +546,64 @@ describe("calculateWageFlow", () => {
     });
     expect(report.income).toBe(500);
     expect(bucket(report, "catch-all").amount).toBe(50);
+  });
+});
+
+describe("calculateWageFlow subcategory breakdown", () => {
+  it("sorts subcategories by share of the bucket descending, largest first", () => {
+    const report = calculateWageFlow({
+      transactions: [
+        tx({ id: "t-groceries", type: "expense", amount: 20, account_id: "bank-1", category_id: "groceries" }),
+        tx({ id: "t-dining", type: "expense", amount: 50, account_id: "bank-1", category_id: "dining-out" }),
+        tx({ id: "t-takeaway", type: "expense", amount: 30, account_id: "bank-1", category_id: "takeaway" }),
+      ],
+      accounts,
+      categories,
+      config: [catchAll()],
+    });
+
+    const subs = bucket(report, "catch-all").subcategories;
+    // dining-out (50) and takeaway (30) are separate category ids here since
+    // this bucket isn't filtered to a specific categoryIds rule that would
+    // merge them -- each contributing category shows up as its own group.
+    expect(subs.map((s) => s.id)).toEqual(["dining-out", "takeaway", "groceries"]);
+    expect(subs.map((s) => s.amount)).toEqual([50, 30, 20]);
+    expect(subs.map((s) => s.share)).toEqual([50, 30, 20]);
+  });
+
+  it("breaks a tie in rounded share by the underlying amount, descending", () => {
+    // 100 and 104 both round to a 0.10% share of 100000, but 104 is the
+    // larger contributor and must sort first per the tie-break rule.
+    const report = calculateWageFlow({
+      transactions: [
+        tx({ id: "t-a1", type: "expense", amount: 100, account_id: "bank-1", category_id: "groceries" }),
+        tx({ id: "t-a2", type: "expense", amount: 104, account_id: "bank-1", category_id: "dining-out" }),
+        tx({ id: "t-a3", type: "expense", amount: 99796, account_id: "bank-1", category_id: "takeaway" }),
+      ],
+      accounts,
+      categories,
+      config: [catchAll()],
+    });
+
+    const subs = bucket(report, "catch-all").subcategories;
+    expect(subs.map((s) => s.id)).toEqual(["takeaway", "dining-out", "groceries"]);
+    expect(subs[1].share).toBe(0.1);
+    expect(subs[2].share).toBe(0.1);
+    expect(subs[1].amount).toBe(104);
+    expect(subs[2].amount).toBe(100);
+  });
+
+  it("leaves the breakdown empty when only a single group contributes (no meaningful drilldown)", () => {
+    const report = calculateWageFlow({
+      transactions: [
+        tx({ id: "t-only", type: "expense", amount: 75, account_id: "bank-1", category_id: "groceries" }),
+      ],
+      accounts,
+      categories,
+      config: [catchAll()],
+    });
+
+    expect(bucket(report, "catch-all").subcategories).toEqual([]);
   });
 });
 
@@ -435,7 +661,11 @@ describe("buildDefaultWageFlowConfig", () => {
     expect(bucket(report, "discretionary").amount).toBe(60);
     expect(bucket(report, "debt-payments").amount).toBe(75); // 150 transfer-in - 75 direct spend (net)
     expect(bucket(report, "savings-and-goals").amount).toBe(100);
-    expect(bucket(report, "expenses").amount).toBe(200); // groceries only, dining claimed already
+    // groceries (200) + the credit-card direct spend (75). The card spend
+    // also nets against debt-payments as an outflow from that tracked
+    // account -- the two flows are not deduplicated against each other, so
+    // the same transaction legitimately counts in both.
+    expect(bucket(report, "expenses").amount).toBe(275);
   });
 
   it("puts credit_card account ids in accountIds without hardcoding any specific id", () => {

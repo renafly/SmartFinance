@@ -3,6 +3,9 @@ import * as Linking from 'expo-linking';
 import { supabase } from '../shared/lib/supabase/client';
 import { useSession, type Claims, type UserProfile } from '../shared/session';
 import { usePreferencesStore, type AppCurrency } from '@/stores/preferencesStore';
+import { useThemeStore, normalizeTheme } from '@/stores/themeStore';
+import { usePrivacyStore } from '@/stores/privacyStore';
+import { normalizeLanguage } from '@/shared/i18n/languages';
 import { AUTH_CALLBACK_ROUTE } from '@/features/auth/constants';
 import { shouldRefreshClaimsForAuthEvent } from '@/features/auth/auth-state';
 
@@ -141,6 +144,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return;
       }
 
+      if (event === 'SIGNED_IN') {
+        // Always start a session with values hidden, regardless of what the
+        // user had toggled before — covers both a fresh sign-in and a
+        // restored session on app open. See src/stores/privacyStore.ts.
+        usePrivacyStore.getState().setHideValues(true);
+      }
+
       if (
         !shouldRefreshClaimsForAuthEvent({
           event,
@@ -172,14 +182,33 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const { profile, householdId, loading } = useSession(claims, refreshKey);
   const setCurrency = usePreferencesStore((state) => state.setCurrency);
   const currency = usePreferencesStore((state) => state.currency);
+  const setLanguage = usePreferencesStore((state) => state.setLanguage);
+  const setThemeMode = useThemeStore((state) => state.setMode);
 
+  // The database profile is the source of truth for an authenticated user's
+  // language, theme, and currency. Apply every valid value as soon as the
+  // profile loads so the app reflects the account's saved settings rather
+  // than whatever a local cache (or another account's prior session on this
+  // device) left behind. These setters also refresh that local cache, which
+  // is only ever a fallback for the brief window before the profile loads.
   useEffect(() => {
-    const preferredCurrency = profile?.preferred_currency as AppCurrency | undefined;
+    if (!profile) return;
 
+    const preferredCurrency = profile.preferred_currency as AppCurrency | undefined;
     if (preferredCurrency === 'EUR' || preferredCurrency === 'USD' || preferredCurrency === 'GBP') {
       setCurrency(preferredCurrency);
     }
-  }, [profile?.preferred_currency, setCurrency]);
+
+    const preferredLanguage = normalizeLanguage(profile.locale);
+    if (preferredLanguage) {
+      setLanguage(preferredLanguage);
+    }
+
+    const preferredTheme = normalizeTheme(profile.theme);
+    if (preferredTheme) {
+      setThemeMode(preferredTheme);
+    }
+  }, [profile, setCurrency, setLanguage, setThemeMode]);
 
   async function refreshSession() {
     await syncAuthState();

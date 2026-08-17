@@ -1,6 +1,8 @@
 import { repositories } from '@/repositories';
 import type { OnboardingGuides } from '@/repositories/profiles.repository';
 import type { AppCurrency } from '@/stores/preferencesStore';
+import type { AppLanguage } from '@/shared/i18n/languages';
+import type { ThemeMode } from '@/stores/themeStore';
 
 export type OnboardingGuideDefinition = {
   key: string;
@@ -25,6 +27,26 @@ class ProfilesService {
   async updatePreferredCurrency(profileId: string, currency: AppCurrency) {
     const { data, error } = await repositories.profiles.update(profileId, {
       preferred_currency: currency,
+    });
+
+    if (error) throw error;
+
+    return data;
+  }
+
+  async updateLocale(profileId: string, locale: AppLanguage) {
+    const { data, error } = await repositories.profiles.update(profileId, {
+      locale,
+    });
+
+    if (error) throw error;
+
+    return data;
+  }
+
+  async updateTheme(profileId: string, theme: ThemeMode) {
+    const { data, error } = await repositories.profiles.update(profileId, {
+      theme,
     });
 
     if (error) throw error;

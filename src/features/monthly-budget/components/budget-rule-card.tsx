@@ -5,15 +5,22 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Field, Pill, Button, formatCurrency } from '@/components/migrated-page';
 import { GroupedAccountSelect } from '@/components/grouped-account-select';
-import { GroupedDestinationSelect, type DestinationSelection } from '@/components/grouped-destination-select';
+import { CategoryPicker, type CategoryPickerCategory } from '@/components/category-picker';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
+import { displayCurrency } from '@/shared/lib/mask-currency';
+import { usePrivacyStore } from '@/stores/privacyStore';
 
-import type { MonthlyBudgetRuleDraft } from '../hooks';
+import type {
+  MonthlyBudgetRuleAllocationDraft,
+  MonthlyBudgetRuleDraft,
+} from '../services/monthly-budget.service';
 import type { BudgetAccountLike, BudgetMemberLike } from '../types';
 import { MONTH_OPTIONS, formatMonthSelection, getMemberLabel, getSectionBadgeIcon, getSectionBadgeStyle } from '../ui-utils';
+
+type AllocationMode = MonthlyBudgetRuleDraft['allocationMode'];
 
 type BudgetRuleCardProps = {
   rule: MonthlyBudgetRuleDraft;
@@ -22,17 +29,88 @@ type BudgetRuleCardProps = {
   style?: StyleProp<ViewStyle>;
   accounts: BudgetAccountLike[];
   members: BudgetMemberLike[];
+  /** Expense categories (main + sub) an allocation can optionally be tagged
+   * with — the same list a normal expense transaction would use. Passing
+   * an empty array just hides the picker's options; the field itself
+   * always renders since a category is optional. */
+  categories: CategoryPickerCategory[];
   accountNameMap: Map<string, string>;
   destinationAccountTypeLabels: Record<string, string>;
-  potNameByAccountId: Record<string, string>;
   incomeCashAccounts: BudgetAccountLike[];
   incomeCashAccountIds: string[];
   onToggleCollapse: () => void;
   onUpdateRule: (patch: Partial<MonthlyBudgetRuleDraft>) => void;
   onUpdateActiveMonths: (monthValue: number) => void;
-  onUpdateDestination: (selection: DestinationSelection) => void;
+  onSetAllocationMode: (mode: AllocationMode) => void;
+  onAddAllocation: () => void;
+  onRemoveAllocation: (allocationId: string) => void;
+  onUpdateAllocation: (allocationId: string, patch: Partial<MonthlyBudgetRuleAllocationDraft>) => void;
   onRemoveRule: () => void;
 };
+
+function sumAllocations(allocations: MonthlyBudgetRuleAllocationDraft[]) {
+  return Math.round(allocations.reduce((sum, allocation) => sum + (Number(allocation.amount) || 0), 0) * 100) / 100;
+}
+
+/**
+ * Assigned / remaining (or overallocated) readout for custom allocations.
+ * Equal-split rules always balance by construction, so this only needs to
+ * shout when the mode is custom and the user hasn't finished distributing
+ * the total yet — an underallocated or overallocated rule cannot be saved,
+ * so this has to be impossible to miss.
+ */
+function AllocationSummary({ total, assigned }: { total: number; assigned: number }) {
+  const { t } = useTranslation('common');
+  const { colors } = useTheme();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
+  const money = (value: number | string | null | undefined) => displayCurrency(formatCurrency(value), hideValues);
+  const remaining = Math.round((total - assigned) * 100) / 100;
+  const isBalanced = Math.abs(remaining) < 0.01;
+  const isOver = remaining < -0.01;
+
+  return (
+    <View
+      style={{
+        gap: spacing(1.5),
+        padding: spacing(3),
+        borderRadius: radius.lg,
+        borderWidth: isBalanced ? 1 : 2,
+        borderColor: isBalanced ? colors.border : colors.destructive,
+        backgroundColor: isBalanced ? colors.surface : colors.destructiveSoft,
+      } as any}
+    >
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' } as any}>
+        <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
+          {t('budget.allocationTotal')}
+        </Text>
+        <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>{money(total)}</Text>
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' } as any}>
+        <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
+          {t('budget.allocationAssigned')}
+        </Text>
+        <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>{money(assigned)}</Text>
+      </View>
+      {!isBalanced ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+          <Ionicons name="warning" size={16} color={colors.destructive} />
+          <Text style={{ flex: 1, color: colors.destructive, fontWeight: String(typography.fontWeight.extraBold) } as any}>
+            {isOver
+              ? t('budget.allocationOverBy', { amount: money(Math.abs(remaining)) })
+              : t('budget.allocationRemaining', { amount: money(Math.abs(remaining)) })}
+          </Text>
+        </View>
+      ) : (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+          <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+          <Text style={{ color: colors.success, fontWeight: String(typography.fontWeight.semibold) } as any}>
+            {t('budget.allocationBalanced')}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
 
 export function BudgetRuleCard({
   rule,
@@ -41,22 +119,41 @@ export function BudgetRuleCard({
   style,
   accounts,
   members,
+  categories,
   accountNameMap,
   destinationAccountTypeLabels,
-  potNameByAccountId,
   incomeCashAccounts,
   incomeCashAccountIds,
   onToggleCollapse,
   onUpdateRule,
   onUpdateActiveMonths,
-  onUpdateDestination,
+  onSetAllocationMode,
+  onAddAllocation,
+  onRemoveAllocation,
+  onUpdateAllocation,
   onRemoveRule,
 }: BudgetRuleCardProps) {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
-  const destinationLabel = accountNameMap.get(rule.destinationAccountId) ?? t('budget.selectDestinationAccount');
+  const hideValues = usePrivacyStore((state) => state.hideValues);
   const activeMonthsLabel = formatMonthSelection(rule.activeMonths);
   const badge = getSectionBadgeStyle(rule.section, colors);
+  const totalAmount = Number(rule.amount) || 0;
+  const assignedAmount = sumAllocations(rule.allocations);
+  const isEqualSplit = rule.allocationMode === 'equal_split';
+  const memberByUserId = new Map(members.map((member) => [member.userId, member]));
+  const accountOwnerIdByAccountId = new Map(accounts.map((account) => [account.id, account.owner_profile_id]));
+  const getAccountOwnerLabel = (accountId: string) => {
+    if (!accountId) return '';
+    const ownerId = accountOwnerIdByAccountId.get(accountId);
+    return getMemberLabel(ownerId ? memberByUserId.get(ownerId) : null, t('budget.shared'));
+  };
+  const destinationSummary =
+    rule.allocations.length === 0
+      ? t('budget.selectDestinationAccount')
+      : rule.allocations.length === 1
+        ? (accountNameMap.get(rule.allocations[0].destinationAccountId) ?? t('budget.selectDestinationAccount'))
+        : t('budget.destinationAccountsCount', { count: rule.allocations.length });
 
   return (
     <View
@@ -118,11 +215,11 @@ export function BudgetRuleCard({
             ) : null}
           </View>
           <Text style={{ color: colors.textSecondary } as any}>
-            {formatCurrency(Number(rule.amount || 0))}
+            {displayCurrency(formatCurrency(totalAmount), hideValues)}
             {' · '}
             <Ionicons name="swap-horizontal-outline" size={12} color={colors.textSecondary} /> {t('budget.sourceAccount')}: {accountNameMap.get(rule.sourceAccountId) ?? t('budget.selectSourceAccount')}
             {' · '}
-            <Ionicons name="wallet-outline" size={12} color={colors.textSecondary} /> {t('budget.destinationAccount')}: {destinationLabel}
+            <Ionicons name="wallet-outline" size={12} color={colors.textSecondary} /> {t('budget.destinationAccount')}: {destinationSummary}
           </Text>
         </View>
         <Ionicons name={isCollapsed ? 'chevron-forward-outline' : 'chevron-down-outline'} size={18} color={colors.textSecondary} />
@@ -208,22 +305,6 @@ export function BudgetRuleCard({
             closeLabel={t('cancel')}
             onChange={(accountId) => onUpdateRule({ sourceAccountId: accountId })}
           />
-          <GroupedDestinationSelect
-            label={t('budget.destinationAccount')}
-            accounts={accounts}
-            members={members}
-            value={{ kind: 'account', id: rule.destinationAccountId }}
-            placeholder={t('budget.selectDestinationAccount')}
-            hint={t('budget.destinationSelectorHint')}
-            groupBy="type"
-            typeLabels={destinationAccountTypeLabels}
-            sharedLabel={t('budget.shared')}
-            unassignedLabel={t('settings.unnamedUser')}
-            closeLabel={t('cancel')}
-            potNameByAccountId={potNameByAccountId}
-            potLabel={t('budget.pigBank')}
-            onChange={onUpdateDestination}
-          />
           <Field
             label={t('budget.amount')}
             value={rule.amount}
@@ -231,6 +312,116 @@ export function BudgetRuleCard({
             keyboardType="numeric"
             placeholder="0.00"
           />
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+            <Ionicons name="git-branch-outline" size={14} color={colors.textSecondary} />
+            <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
+              {t('budget.allocationMode')}
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) }}>
+            <Pill label={t('budget.allocationModes.equal_split')} active={isEqualSplit} onPress={() => onSetAllocationMode('equal_split')} />
+            <Pill label={t('budget.allocationModes.custom')} active={!isEqualSplit} onPress={() => onSetAllocationMode('custom')} />
+          </View>
+          <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[13] } as any}>
+            {isEqualSplit ? t('budget.allocationModeHintEqual') : t('budget.allocationModeHintCustom')}
+          </Text>
+
+          <View style={{ gap: spacing(2.5) } as any}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing(2) } as any}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                <Ionicons name="wallet-outline" size={14} color={colors.textSecondary} />
+                <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
+                  {t('budget.destinationAccounts')}
+                </Text>
+              </View>
+              <Button label={t('budget.addDestination')} onPress={onAddAllocation} variant="secondary" />
+            </View>
+
+            {rule.allocations.map((allocation, index) => {
+              const allowedAccountIds = accounts
+                .map((account) => account.id)
+                .filter(
+                  (accountId) =>
+                    accountId === allocation.destinationAccountId ||
+                    !rule.allocations.some((other) => other.id !== allocation.id && other.destinationAccountId === accountId),
+                );
+
+              return (
+                <View
+                  key={allocation.id}
+                  style={{
+                    gap: spacing(2),
+                    padding: spacing(2.5),
+                    borderRadius: radius.lg,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.surface,
+                  } as any}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing(2) } as any}>
+                    <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
+                      {t('budget.destinationAccountIndex', { index: index + 1 })}
+                    </Text>
+                    {rule.allocations.length > 1 ? (
+                      <Pressable
+                        onPress={() => onRemoveAllocation(allocation.id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('budget.removeDestination')}
+                        hitSlop={8}
+                      >
+                        <Ionicons name="close-circle-outline" size={20} color={colors.destructive} />
+                      </Pressable>
+                    ) : null}
+                  </View>
+                  <GroupedAccountSelect
+                    label={t('budget.destinationAccount')}
+                    accounts={accounts}
+                    members={members}
+                    value={allocation.destinationAccountId}
+                    placeholder={t('budget.selectDestinationAccount')}
+                    hint={t('budget.destinationAccountHint')}
+                    groupBy="type"
+                    typeLabels={destinationAccountTypeLabels}
+                    allowedAccountIds={allowedAccountIds}
+                    sharedLabel={t('budget.shared')}
+                    unassignedLabel={t('settings.unnamedUser')}
+                    closeLabel={t('cancel')}
+                    onChange={(accountId) => onUpdateAllocation(allocation.id, { destinationAccountId: accountId })}
+                  />
+                  {allocation.destinationAccountId ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1) } as any}>
+                      <Ionicons name="person-circle-outline" size={12} color={colors.textSecondary} />
+                      <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any}>
+                        {t('budget.destinationAccountOwner', { name: getAccountOwnerLabel(allocation.destinationAccountId) })}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <Field
+                    label={t('budget.allocationAmount')}
+                    value={allocation.amount}
+                    onChangeText={(value) => onUpdateAllocation(allocation.id, { amount: value })}
+                    keyboardType="numeric"
+                    placeholder="0.00"
+                    editable={!isEqualSplit}
+                    style={isEqualSplit ? { opacity: 0.6 } : undefined}
+                  />
+                  <CategoryPicker
+                    label={t('budget.allocationCategory')}
+                    placeholder={t('budget.allocationCategoryPlaceholder')}
+                    hint={t('budget.allocationCategoryHint')}
+                    categories={categories}
+                    selectedId={allocation.categoryId}
+                    clearLabel={t('budget.allocationCategoryNone')}
+                    onChange={(categoryId) => onUpdateAllocation(allocation.id, { categoryId })}
+                  />
+                </View>
+              );
+            })}
+          </View>
+
+          <AllocationSummary total={totalAmount} assigned={assignedAmount} />
+
           <Field
             label={t('budget.priority')}
             value={rule.priority}

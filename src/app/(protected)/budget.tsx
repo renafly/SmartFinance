@@ -7,15 +7,17 @@ import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring, wit
 
 import { Page, Card, Section, Field, Button, Pill, formatCurrency } from '@/components/migrated-page';
 import { EmptyState } from '@/components/data-surface';
-import { type DestinationSelection } from '@/components/grouped-destination-select';
 import { MonthPickerField } from '@/components/date-picker-field';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 import { getPersistentString, setPersistentString } from '@/shared/lib/persistent-storage';
+import { displayCurrency } from '@/shared/lib/mask-currency';
+import { usePrivacyStore } from '@/stores/privacyStore';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAccounts, useAccountsWithBalances } from '../../features/accounts/hooks';
+import { useCategories } from '../../features/categories/hooks';
 import { useHouseholdMemberDetails, useMyHouseholds } from '../../features/households/hooks';
 import { useRecurringTransactions } from '../../features/recurring-transactions/hooks';
 import { useSavingPotAccountAssignments, useSavingPots } from '../../features/saving-pots/hooks';
@@ -31,7 +33,12 @@ import {
   type MonthlyBudgetIncomeDraft,
   type MonthlyBudgetRuleDraft,
 } from '../../features/monthly-budget/hooks';
-import { monthlyBudgetService, type MonthlyBudgetPreview } from '../../features/monthly-budget/services/monthly-budget.service';
+import {
+  distributeEqualSplit,
+  monthlyBudgetService,
+  type MonthlyBudgetPreview,
+  type MonthlyBudgetRuleAllocationDraft,
+} from '../../features/monthly-budget/services/monthly-budget.service';
 import type { BudgetAccountLike, BudgetMemberLike } from '../../features/monthly-budget/types';
 import { getMemberAccentColor, getMemberLabel, getSectionBadgeIcon } from '../../features/monthly-budget/ui-utils';
 import { BudgetRuleCard } from '../../features/monthly-budget/components/budget-rule-card';
@@ -72,17 +79,6 @@ function pickDefaultAccountId(accounts: AccountLike[], ownerId: string | null, a
   return any?.id ?? '';
 }
 
-function buildPotNameByAccountId(
-  assignments: { pot_id: string; account_id: string }[],
-  potNameMap: Map<string, string>,
-) {
-  return assignments.reduce<Record<string, string>>((result, assignment) => {
-    const potName = potNameMap.get(assignment.pot_id);
-    if (potName) result[assignment.account_id] = potName;
-    return result;
-  }, {});
-}
-
 function getSectionRank(section: string) {
   return SECTION_SORT_ORDER[section] ?? 99;
 }
@@ -104,8 +100,34 @@ function getRuleRowKey(index: number, totalRules: number, columns: number) {
   return `${rowStart}-${rowEnd}`;
 }
 
-function getTransferKey(transfer: { ruleId?: string | null; title: string; destinationAccountId: string }) {
-  return `${transfer.ruleId ?? transfer.title}-${transfer.destinationAccountId}`;
+function getTransferKey(transfer: { ruleId?: string | null; allocationId?: string | null; title: string; destinationAccountId: string }) {
+  return `${transfer.ruleId ?? transfer.title}-${transfer.allocationId ?? transfer.destinationAccountId}`;
+}
+
+function generateAllocationId() {
+  return `alloc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function sumAllocationAmounts(allocations: MonthlyBudgetRuleAllocationDraft[]) {
+  return Math.round(allocations.reduce((sum, allocation) => sum + (Number(allocation.amount) || 0), 0) * 100) / 100;
+}
+
+/**
+ * Keeps an equal-split rule's per-account amounts in lockstep with its
+ * total and its destination-account count. No-ops for custom rules — those
+ * amounts are only ever changed by the user directly. This is called after
+ * every edit that could affect the split (total amount, add/remove
+ * destination, switching into equal-split mode) so the editor never shows a
+ * stale equal share.
+ */
+function recalcEqualSplit(rule: MonthlyBudgetRuleDraft): MonthlyBudgetRuleDraft {
+  if (rule.allocationMode !== 'equal_split' || rule.allocations.length === 0) return rule;
+
+  const shares = distributeEqualSplit(Number(rule.amount) || 0, rule.allocations.length);
+  return {
+    ...rule,
+    allocations: rule.allocations.map((allocation, index) => ({ ...allocation, amount: String(shares[index]) })),
+  };
 }
 
 function isRuleDraftValid(rule: MonthlyBudgetRuleDraft) {
@@ -116,12 +138,21 @@ function isRuleDraftValid(rule: MonthlyBudgetRuleDraft) {
   const hasActiveRange = Boolean(rule.activeFromMonth || rule.activeToMonth);
   const hasValidActiveFromMonth = activeFromMonth != null && Number.isFinite(activeFromMonth) && activeFromMonth >= 1 && activeFromMonth <= 12;
   const hasValidActiveToMonth = activeToMonth != null && Number.isFinite(activeToMonth) && activeToMonth >= 1 && activeToMonth <= 12;
+  const destinationIds = rule.allocations.map((allocation) => allocation.destinationAccountId);
+  const hasValidDestinations =
+    rule.allocations.length > 0 &&
+    destinationIds.every((id) => Boolean(id) && id !== rule.sourceAccountId) &&
+    new Set(destinationIds).size === destinationIds.length &&
+    rule.allocations.every((allocation) => Number.isFinite(Number(allocation.amount)) && Number(allocation.amount) > 0);
+  const isBalanced = Math.abs(sumAllocationAmounts(rule.allocations) - (Number.isFinite(amount) ? amount : 0)) < 0.01;
+
   return Boolean(
     rule.name.trim() &&
       rule.sourceAccountId &&
-      rule.destinationAccountId &&
       Number.isFinite(amount) &&
       amount > 0 &&
+      hasValidDestinations &&
+      isBalanced &&
       activeMonths.length === rule.activeMonths.length &&
       (!rule.activeFromMonth || hasValidActiveFromMonth) &&
       (!rule.activeToMonth || hasValidActiveToMonth) &&
@@ -161,22 +192,32 @@ function createDefaultIncomeDrafts(
 }
 
 function mapRulesToDrafts(rules: any[]): MonthlyBudgetRuleDraft[] {
-  return rules.map((rule, index) => ({
-    id: rule.id ?? `${rule.name ?? 'rule'}-${index}`,
-    name: rule.name ?? '',
-    section: rule.section ?? 'savings',
-    sourceAccountId: rule.source_account_id ?? '',
-    destinationAccountId: rule.destination_account_id ?? '',
-    destinationPotId: null,
-    destinationKind: 'account',
-    ownerMemberId: rule.owner_member_id ?? null,
-    amount: String(rule.amount ?? ''),
-    priority: String(rule.priority ?? index),
-    isActive: Boolean(rule.is_active ?? true),
-    activeMonths: normalizeMonthSelection(rule.active_months),
-    activeFromMonth: rule.active_from_month ? String(rule.active_from_month) : '',
-    activeToMonth: rule.active_to_month ? String(rule.active_to_month) : '',
-  }));
+  return rules.map((rule, index) => {
+    const allocations = [...(rule.allocations ?? [])].sort(
+      (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+    );
+
+    return {
+      id: rule.id ?? `${rule.name ?? 'rule'}-${index}`,
+      name: rule.name ?? '',
+      section: rule.section ?? 'savings',
+      sourceAccountId: rule.source_account_id ?? '',
+      amount: String(rule.amount ?? ''),
+      allocationMode: rule.allocation_mode ?? 'equal_split',
+      allocations: allocations.map((allocation: any) => ({
+        id: allocation.id ?? generateAllocationId(),
+        destinationAccountId: allocation.destination_account_id ?? '',
+        amount: String(allocation.amount ?? ''),
+        categoryId: allocation.category_id ?? null,
+      })),
+      ownerMemberId: rule.owner_member_id ?? null,
+      priority: String(rule.priority ?? index),
+      isActive: Boolean(rule.is_active ?? true),
+      activeMonths: normalizeMonthSelection(rule.active_months),
+      activeFromMonth: rule.active_from_month ? String(rule.active_from_month) : '',
+      activeToMonth: rule.active_to_month ? String(rule.active_to_month) : '',
+    };
+  });
 }
 
 function mapIncomeInputsToDrafts(inputs: any[], members: MemberLike[], accounts: AccountLike[]): MonthlyBudgetIncomeDraft[] {
@@ -237,6 +278,7 @@ function PersonSummaryRow({
   onToggle: () => void;
 }) {
   const { colors } = useTheme();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
   const hasContributions = row.contributions.length > 0;
   const scale = useSharedValue(1);
   const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -295,7 +337,7 @@ function PersonSummaryRow({
                 </Text>
               </View>
               <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>
-                {formatCurrency(contribution.amount)}
+                {displayCurrency(formatCurrency(contribution.amount), hideValues)}
               </Text>
             </View>
           ))}
@@ -308,6 +350,7 @@ function PersonSummaryRow({
 export default function BudgetScreen() {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
   const { householdId, profile } = useAuth();
   const { width: windowWidth } = useWindowDimensions();
 
@@ -320,6 +363,12 @@ export default function BudgetScreen() {
   const recurringQuery = useRecurringTransactions();
   const savingPotsQuery = useSavingPots();
   const savingPotAssignmentsQuery = useSavingPotAccountAssignments();
+  // Expense categories only — an allocation's generated transaction is
+  // always the 'expense' leg's counterpart category (see
+  // calculateWageFlow's categoryIds pass, which only ever matches
+  // type === "expense" rows), the same category type a normal expense
+  // transaction is tagged with.
+  const allocationCategoriesQuery = useCategories('expense');
   const saveConfiguration = useSaveMonthlyBudgetConfiguration();
   const saveDraft = useSaveMonthlyBudgetDraft();
   const cancelRun = useCancelMonthlyBudgetRun();
@@ -344,6 +393,7 @@ export default function BudgetScreen() {
   const recurringTransactions = recurringQuery.data ?? [];
   const savingPots = savingPotsQuery.data ?? [];
   const savingPotAssignments = savingPotAssignmentsQuery.data ?? [];
+  const allocationCategories = allocationCategoriesQuery.data ?? [];
 
   const [configId, setConfigId] = useState<string | null>(null);
   const [budgetName, setBudgetName] = useState('');
@@ -409,11 +459,6 @@ export default function BudgetScreen() {
     [t],
   );
   const accountNameMap = useMemo(() => new Map(accounts.map((account) => [account.id, account.name])), [accounts]);
-  const potNameMap = useMemo(() => new Map(savingPots.map((pot: any) => [pot.id, pot.name])), [savingPots]);
-  const potNameByAccountId = useMemo(
-    () => buildPotNameByAccountId(savingPotAssignments, potNameMap),
-    [potNameMap, savingPotAssignments],
-  );
   const ruleColumns = windowWidth >= 980 ? 2 : 1;
   const workspaceSignature = useMemo(
     () =>
@@ -437,7 +482,14 @@ export default function BudgetScreen() {
               priority: rule.priority ?? null,
               amount: rule.amount ?? null,
               sourceAccountId: rule.source_account_id ?? '',
-              destinationAccountId: rule.destination_account_id ?? '',
+              allocationMode: rule.allocation_mode ?? 'equal_split',
+              allocations: [...(rule.allocations ?? [])]
+                .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+                .map((allocation: any) => ({
+                  destinationAccountId: allocation.destination_account_id ?? '',
+                  amount: allocation.amount ?? null,
+                  categoryId: allocation.category_id ?? null,
+                })),
               isActive: rule.is_active ?? true,
               activeMonths: normalizeMonthSelection(rule.active_months),
               activeFromMonth: rule.active_from_month ?? null,
@@ -577,10 +629,9 @@ export default function BudgetScreen() {
       name: rule.name,
       section: rule.section,
       source_account_id: rule.sourceAccountId,
-      destination_account_id: rule.destinationAccountId,
-      destination_pot_id: null,
       owner_member_id: rule.ownerMemberId || null,
       amount: Number(rule.amount),
+      allocation_mode: rule.allocationMode,
       frequency: 'monthly',
       priority: Number.isFinite(Number(rule.priority)) ? Number(rule.priority) : index,
       is_active: rule.isActive,
@@ -589,6 +640,16 @@ export default function BudgetScreen() {
       active_to_month: rule.activeToMonth ? Number(rule.activeToMonth) : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      allocations: rule.allocations.map((allocation, allocationIndex) => ({
+        id: allocation.id,
+        rule_id: rule.id,
+        destination_account_id: allocation.destinationAccountId,
+        amount: Number(allocation.amount),
+        category_id: allocation.categoryId ?? null,
+        sort_order: allocationIndex,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })),
     }));
 
     return monthlyBudgetService.buildPreview({
@@ -665,22 +726,30 @@ export default function BudgetScreen() {
             : null;
 
   function updateRuleDraft(id: string, patch: Partial<MonthlyBudgetRuleDraft>) {
-    setRuleDrafts((current) => current.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule)));
+    setRuleDrafts((current) =>
+      current.map((rule) => (rule.id === id ? recalcEqualSplit({ ...rule, ...patch }) : rule)),
+    );
   }
 
   function addRule() {
+    const sourceAccountId = pickDefaultAccountId(accounts, null, ['cash', 'bank']);
+    const destinationAccountId = pickDefaultAccountId(
+      accounts.filter((account) => account.id !== sourceAccountId),
+      null,
+      ['savings', 'investment', 'ppr', 'cash', 'bank'],
+    );
+
     setRuleDrafts((current) => [
       ...current,
       {
         id: `rule-${Date.now()}`,
         name: '',
         section: 'savings',
-        sourceAccountId: pickDefaultAccountId(accounts, null, ['cash', 'bank']),
-        destinationAccountId: pickDefaultAccountId(accounts, null, ['savings', 'investment', 'ppr', 'cash', 'bank']),
-        destinationPotId: null,
-        destinationKind: 'account',
-        ownerMemberId: members[0]?.userId ?? null,
+        sourceAccountId,
         amount: '0',
+        allocationMode: 'equal_split',
+        allocations: [{ id: generateAllocationId(), destinationAccountId, amount: '0', categoryId: null }],
+        ownerMemberId: members[0]?.userId ?? null,
         priority: String(current.length),
         isActive: true,
         activeMonths: [],
@@ -703,18 +772,61 @@ export default function BudgetScreen() {
     setCollapsedRuleRowKeys(next);
   }
 
-  function updateDestinationDraft(ruleId: string, selection: DestinationSelection) {
+  function setRuleAllocationMode(ruleId: string, mode: MonthlyBudgetRuleDraft['allocationMode']) {
     setRuleDrafts((current) =>
-      current.map((rule) =>
-        rule.id === ruleId
-          ? {
-              ...rule,
-              destinationKind: 'account',
-              destinationPotId: null,
-              destinationAccountId: selection.id,
-            }
-          : rule,
-      ),
+      current.map((rule) => {
+        if (rule.id !== ruleId) return rule;
+        // Equal split: recompute every account's share from the current total
+        // right away. Custom: keep whatever amounts are currently shown (the
+        // just-computed equal shares, if coming from equal split) so the user
+        // edits from a sensible starting point instead of a blank slate.
+        return recalcEqualSplit({ ...rule, allocationMode: mode });
+      }),
+    );
+  }
+
+  function addAllocation(ruleId: string) {
+    setRuleDrafts((current) =>
+      current.map((rule) => {
+        if (rule.id !== ruleId) return rule;
+
+        const usedAccountIds = new Set(rule.allocations.map((allocation) => allocation.destinationAccountId));
+        const nextAccountId = pickDefaultAccountId(
+          accounts.filter((account) => account.id !== rule.sourceAccountId && !usedAccountIds.has(account.id)),
+          null,
+          ['savings', 'investment', 'ppr', 'cash', 'bank'],
+        );
+
+        return recalcEqualSplit({
+          ...rule,
+          allocations: [
+            ...rule.allocations,
+            { id: generateAllocationId(), destinationAccountId: nextAccountId, amount: '0', categoryId: null },
+          ],
+        });
+      }),
+    );
+  }
+
+  function removeAllocation(ruleId: string, allocationId: string) {
+    setRuleDrafts((current) =>
+      current.map((rule) => {
+        if (rule.id !== ruleId || rule.allocations.length <= 1) return rule;
+        return recalcEqualSplit({ ...rule, allocations: rule.allocations.filter((item) => item.id !== allocationId) });
+      }),
+    );
+  }
+
+  function updateAllocation(ruleId: string, allocationId: string, patch: Partial<MonthlyBudgetRuleAllocationDraft>) {
+    setRuleDrafts((current) =>
+      current.map((rule) => {
+        if (rule.id !== ruleId) return rule;
+        const allocations = rule.allocations.map((item) => (item.id === allocationId ? { ...item, ...patch } : item));
+        // Changing which account a row points at doesn't change the split
+        // (still recalculated by count), but keep it consistent through the
+        // same helper as every other allocation edit.
+        return recalcEqualSplit({ ...rule, allocations });
+      }),
     );
   }
 
@@ -941,7 +1053,7 @@ export default function BudgetScreen() {
         .map((member) => ({
           id: member.userId,
           label: getMemberLabel(member),
-          value: formatCurrency(preview.memberTotals[member.userId] ?? 0),
+          value: displayCurrency(formatCurrency(preview.memberTotals[member.userId] ?? 0), hideValues),
           contributions: memberContributionMap.get(member.userId) ?? [],
         }))
         .sort((a, b) => a.label.localeCompare(b.label));
@@ -954,27 +1066,27 @@ export default function BudgetScreen() {
       {
         id: SHARED_SUMMARY_ID,
         label: t('budget.shared'),
-        value: formatCurrency(sharedContributions.reduce((total, item) => total + item.amount, 0)),
+        value: displayCurrency(formatCurrency(sharedContributions.reduce((total, item) => total + item.amount, 0)), hideValues),
         contributions: sharedContributions,
       },
     ];
-  }, [memberContributionMap, members, preview.memberTotals, t]);
+  }, [hideValues, memberContributionMap, members, preview.memberTotals, t]);
   const resumeRows = useMemo(
     () => [
-      { label: t('budget.incomeTotal'), value: formatCurrency(preview.incomeTotal), icon: 'cash-outline' as const },
-      { label: t('budget.recurringNet'), value: formatCurrency(preview.recurringNetTotal), icon: 'repeat-outline' as const },
+      { label: t('budget.incomeTotal'), value: displayCurrency(formatCurrency(preview.incomeTotal), hideValues), icon: 'cash-outline' as const },
+      { label: t('budget.recurringNet'), value: displayCurrency(formatCurrency(preview.recurringNetTotal), hideValues), icon: 'repeat-outline' as const },
       { label: t('budget.budgetStatus'), value: budgetStatusLabel, icon: 'pulse-outline' as const },
     ],
-    [budgetStatusLabel, preview.incomeTotal, preview.recurringNetTotal, t],
+    [budgetStatusLabel, hideValues, preview.incomeTotal, preview.recurringNetTotal, t],
   );
   const previewStats = useMemo(
     () => [
-      { label: t('budget.incomeTotal'), value: formatCurrency(preview.incomeTotal), icon: 'cash-outline' as const },
-      { label: t('budget.configuredTotal'), value: formatCurrency(preview.configuredTotal), icon: 'layers-outline' as const },
-      { label: t('budget.remainingCash'), value: formatCurrency(preview.remainingCash), icon: 'wallet-outline' as const },
-      { label: t('budget.recurringNet'), value: formatCurrency(preview.recurringNetTotal), icon: 'repeat-outline' as const },
+      { label: t('budget.incomeTotal'), value: displayCurrency(formatCurrency(preview.incomeTotal), hideValues), icon: 'cash-outline' as const },
+      { label: t('budget.configuredTotal'), value: displayCurrency(formatCurrency(preview.configuredTotal), hideValues), icon: 'layers-outline' as const },
+      { label: t('budget.remainingCash'), value: displayCurrency(formatCurrency(preview.remainingCash), hideValues), icon: 'wallet-outline' as const },
+      { label: t('budget.recurringNet'), value: displayCurrency(formatCurrency(preview.recurringNetTotal), hideValues), icon: 'repeat-outline' as const },
     ],
-    [preview.configuredTotal, preview.incomeTotal, preview.recurringNetTotal, preview.remainingCash, t],
+    [hideValues, preview.configuredTotal, preview.incomeTotal, preview.recurringNetTotal, preview.remainingCash, t],
   );
 
   return (
@@ -1061,7 +1173,7 @@ export default function BudgetScreen() {
                         letterSpacing: -0.5,
                       } as any}
                     >
-                      {formatCurrency(preview.incomeTotal)}
+                      {displayCurrency(formatCurrency(preview.incomeTotal), hideValues)}
                     </Text>
                   </View>
                   <View style={{ paddingHorizontal: spacing(2.5), paddingVertical: spacing(1.25), borderRadius: radius.full, backgroundColor: budgetIsOnTrack ? colors.successSoft : colors.destructiveSoft } as any}>
@@ -1072,11 +1184,11 @@ export default function BudgetScreen() {
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) } as any}>
                   <View style={{ flexGrow: 1, minWidth: 150, gap: spacing(0.5), padding: spacing(2.5), borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border } as any}>
                     <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.semibold) } as any}>{t('budget.configuredTotal')}</Text>
-                    <Text style={{ color: colors.primary, fontSize: typography.fontSize[18], fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(preview.configuredTotal)}</Text>
+                    <Text style={{ color: colors.primary, fontSize: typography.fontSize[18], fontWeight: String(typography.fontWeight.extraBold) } as any}>{displayCurrency(formatCurrency(preview.configuredTotal), hideValues)}</Text>
                   </View>
                   <View style={{ flexGrow: 1, minWidth: 150, gap: spacing(0.5), padding: spacing(2.5), borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border } as any}>
                     <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.semibold) } as any}>{t('budget.remainingCash')}</Text>
-                    <Text style={{ color: budgetIsOnTrack ? colors.success : colors.destructive, fontSize: typography.fontSize[18], fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(preview.remainingCash)}</Text>
+                    <Text style={{ color: budgetIsOnTrack ? colors.success : colors.destructive, fontSize: typography.fontSize[18], fontWeight: String(typography.fontWeight.extraBold) } as any}>{displayCurrency(formatCurrency(preview.remainingCash), hideValues)}</Text>
                   </View>
                 </View>
               </View>
@@ -1195,7 +1307,7 @@ export default function BudgetScreen() {
           <View style={{ gap: spacing(2.5), marginBottom: spacing(2) } as any}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing(2) } as any}>
               <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold } as any}>
-                {t('budget.configuredTotal')}: {formatCurrency(preview.configuredTotal)}
+                {t('budget.configuredTotal')}: {displayCurrency(formatCurrency(preview.configuredTotal), hideValues)}
               </Text>
               <Pill label={budgetStatusLabel} active />
             </View>
@@ -1233,15 +1345,18 @@ export default function BudgetScreen() {
                     style={ruleCardStyle as any}
                     accounts={accounts}
                     members={members}
+                    categories={allocationCategories}
                     accountNameMap={accountNameMap}
                     destinationAccountTypeLabels={destinationAccountTypeLabels}
-                    potNameByAccountId={potNameByAccountId}
                     incomeCashAccounts={incomeCashAccounts}
                     incomeCashAccountIds={incomeCashAccountIds}
                     onToggleCollapse={() => toggleRuleCollapsed(rule.id)}
                     onUpdateRule={(patch) => updateRuleDraft(rule.id, patch)}
                     onUpdateActiveMonths={(monthValue) => updateRuleActiveMonths(rule.id, monthValue)}
-                    onUpdateDestination={(selection) => updateDestinationDraft(rule.id, selection)}
+                    onSetAllocationMode={(mode) => setRuleAllocationMode(rule.id, mode)}
+                    onAddAllocation={() => addAllocation(rule.id)}
+                    onRemoveAllocation={(allocationId) => removeAllocation(rule.id, allocationId)}
+                    onUpdateAllocation={(allocationId, patch) => updateAllocation(rule.id, allocationId, patch)}
                     onRemoveRule={() => removeRule(rule.id)}
                   />
                 );
@@ -1274,7 +1389,7 @@ export default function BudgetScreen() {
                   <Ionicons name={getSectionBadgeIcon(section as any)} size={16} color={colors.textSecondary} />
                   <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>{t(`budget.sections.${section as any}`)}</Text>
                 </View>
-                <Text style={{ color: colors.primary, fontWeight: String(typography.fontWeight.extraBold) } as any}>{formatCurrency(amount)}</Text>
+                <Text style={{ color: colors.primary, fontWeight: String(typography.fontWeight.extraBold) } as any}>{displayCurrency(formatCurrency(amount), hideValues)}</Text>
               </View>
             ))}
           </View>
@@ -1285,8 +1400,8 @@ export default function BudgetScreen() {
                 <Ionicons name="warning-outline" size={16} color={colors.destructive} />
                 <Text style={{ color: colors.destructive, fontWeight: String(typography.fontWeight.extraBold) } as any}>{t('budget.validationTitle')}</Text>
               </View>
-              {preview.validationIssues.map((issue) => (
-                <Text key={issue} style={{ color: colors.destructive }}>{issue}</Text>
+              {preview.validationIssues.map((issue, index) => (
+                <Text key={`${index}-${issue}`} style={{ color: colors.destructive }}>{issue}</Text>
               ))}
             </View>
           ) : null}
@@ -1352,7 +1467,7 @@ export default function BudgetScreen() {
                           ) : null}
                         </View>
                         <Text style={{ color: colors.textSecondary, opacity: isDone ? 0.7 : 1 } as any}>
-                          {transfer.section} · {formatCurrency(transfer.amount)} · {' '}
+                          {transfer.section} · {displayCurrency(formatCurrency(transfer.amount), hideValues)} · {' '}
                           {`${t('budget.destinationAccount')}: ${accountNameMap.get(transfer.destinationAccountId) ?? t('budget.selectDestinationAccount')}`}
                         </Text>
                       </View>

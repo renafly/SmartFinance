@@ -139,6 +139,23 @@ describe("TransactionsRepository", () => {
     expect(rpc).toHaveBeenCalledWith("update_completed_transfer", expect.objectContaining({ p_transfer_group_id: "group-1", p_source_account_id: "from", p_destination_account_id: "to", p_amount: 42 }));
   });
 
+  it("bulk-updates the category on every leg of the selected transfer groups", async () => {
+    const rpc = jest.fn(async () => ({ data: 2, error: null }));
+    const repository = new TransactionsRepository({ rpc } as any);
+    await expect(
+      repository.bulkUpdateTransferCategory({
+        householdId: "household-1",
+        transferGroupIds: ["group-1", "group-2"],
+        categoryId: "category-1",
+      }),
+    ).resolves.toEqual({ data: 2, error: null });
+    expect(rpc).toHaveBeenCalledWith("bulk_update_transfer_category", {
+      p_household_id: "household-1",
+      p_transfer_group_ids: ["group-1", "group-2"],
+      p_category_id: "category-1",
+    });
+  });
+
   it("deletes both completed transfer legs through one RPC", async () => {
     const rpc = jest.fn(async () => ({ data: 2, error: null }));
     const repository = new TransactionsRepository({ rpc } as any);

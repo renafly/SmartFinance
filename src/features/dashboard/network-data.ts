@@ -1,6 +1,6 @@
 import type { Ionicons } from '@expo/vector-icons';
 
-import type { DashboardAccount, MemberDetails } from './types';
+import type { DashboardAccount, DashboardPot, MemberDetails } from './types';
 import { getPersonLabel } from './utils';
 
 export type AccountNetworkNode = {
@@ -66,4 +66,41 @@ export function buildAccountNetworkNodes(
       color: accentPalette[index % accentPalette.length],
       icon: ACCOUNT_TYPE_ICON[account.type] ?? 'wallet-outline',
     }));
+}
+
+/** Saving pots are a distinct entity from accounts (see `DashboardPot`), so
+ * they get their own node builder -- always a flag icon, and a plain
+ * `potLabel` sublabel (e.g. "Pots") since a pot isn't owned by a single
+ * household member the way an account is. */
+export function buildPotNetworkNodes(
+  pots: DashboardPot[],
+  accentPalette: string[],
+  potLabel: string,
+): AccountNetworkNode[] {
+  return pots
+    .filter((pot) => Number(pot.balance ?? 0) !== 0)
+    .sort((a, b) => Number(b.balance ?? 0) - Number(a.balance ?? 0))
+    .map((pot, index) => ({
+      id: pot.id,
+      label: pot.name,
+      sublabel: potLabel,
+      value: Number(pot.balance ?? 0),
+      color: accentPalette[index % accentPalette.length],
+      icon: 'flag-outline',
+    }));
+}
+
+/** Merges account and pot nodes into a single list for the 3D network,
+ * re-sorted by magnitude and re-colored across the combined set (rather
+ * than keeping each type's own independent color rotation) so the palette
+ * reads as one continuous sequence regardless of how many of each type are
+ * shown. */
+export function combineDashboardNetworkNodes(
+  accountNodes: AccountNetworkNode[],
+  potNodes: AccountNetworkNode[],
+  accentPalette: string[],
+): AccountNetworkNode[] {
+  return [...accountNodes, ...potNodes]
+    .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
+    .map((node, index) => ({ ...node, color: accentPalette[index % accentPalette.length] }));
 }

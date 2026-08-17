@@ -1,9 +1,10 @@
-import { monthlyBudgetRepository } from "@/repositories/monthly-budget.repository";
+import { monthlyBudgetRepository, type BudgetRuleWithAllocations } from "@/repositories/monthly-budget.repository";
 import { supabase } from "@/shared/lib/supabase/client";
 import type { Database } from "@/types/database.types";
 
 type BudgetConfig = Database["public"]["Tables"]["budget_configs"]["Row"];
-type BudgetRule = Database["public"]["Tables"]["budget_rules"]["Row"];
+type BudgetRule = BudgetRuleWithAllocations;
+type AllocationMode = Database["public"]["Enums"]["budget_rule_allocation_mode"];
 type MonthlyBudgetRun = Database["public"]["Tables"]["monthly_budget_runs"]["Row"];
 type Account = Database["public"]["Views"]["account_balances"]["Row"] & {
   owner_profile_id?: string | null;
@@ -27,18 +28,37 @@ const SECTION_SORT_ORDER: Record<string, number> = {
   remaining_cash: 4,
 };
 
+/**
+ * One destination account within a rule's allocation. `amount` always holds
+ * the *resolved* per-account amount — for `equal_split` rules the editor
+ * keeps this in sync with `total / count` (recomputed whenever the total or
+ * the account list changes); for `custom` rules the user edits it directly.
+ * Either way, downstream code (preview building, saving) only ever needs to
+ * read `amount` and never has to special-case the mode.
+ */
+export type MonthlyBudgetRuleAllocationDraft = {
+  /** Stable client-side key (persisted allocation id once saved, otherwise a generated temp id). */
+  id: string;
+  destinationAccountId: string;
+  amount: string;
+  /** Optional category for this allocation's generated transaction, e.g.
+   * "Investments" or "Savings > PPR" — the same category/subcategory model
+   * a manually-entered transaction uses, never a Monthly-Budget-only
+   * concept. Null means "no category," which preserves the exact behavior
+   * that existed before this field was added. */
+  categoryId: string | null;
+};
+
 export type MonthlyBudgetRuleDraft = {
   id: string;
   name: string;
   section: Database["public"]["Enums"]["monthly_budget_section"];
   sourceAccountId: string;
-  destinationAccountId: string;
-  /** @deprecated Kept temporarily so callers can migrate to account-only destinations. */
-  destinationPotId: string | null;
-  /** @deprecated Kept temporarily so callers can migrate to account-only destinations. */
-  destinationKind: DestinationKind;
-  ownerMemberId: string | null;
+  /** The rule's total amount, distributed across `allocations`. */
   amount: string;
+  allocationMode: AllocationMode;
+  allocations: MonthlyBudgetRuleAllocationDraft[];
+  ownerMemberId: string | null;
   priority: string;
   isActive: boolean;
   activeMonths: number[];
@@ -55,17 +75,25 @@ export type MonthlyBudgetIncomeDraft = {
 
 export type MonthlyBudgetTransfer = {
   ruleId: string | null;
+  /** The specific allocation row this transfer was generated from, if any. */
+  allocationId: string | null;
   title: string;
   section: Database["public"]["Enums"]["monthly_budget_section"];
   sourceAccountId: string;
   destinationAccountId: string;
-  /** Always null for newly generated previews. */
+  /** Always null — pot destinations are no longer supported. */
   destinationPotId: string | null;
-  /** Always "account" for newly generated previews. */
+  /** Always "account" — pot destinations are no longer supported. */
   destinationKind: DestinationKind;
   amount: number;
   generatedByRuleId: string | null;
   isSystemGenerated: boolean;
+  /** The allocation's configured category (if any) — carried onto both
+   * legs of the generated transaction by `confirm_monthly_budget_run`, the
+   * same `category_id` column a normal transaction uses. Null for
+   * system-generated transfers (e.g. remaining-cash distribution), which
+   * have no per-allocation category to inherit. */
+  categoryId: string | null;
 };
 
 export type MonthlyBudgetPreview = {
@@ -97,6 +125,28 @@ type BudgetHouseholdSettings = Pick<
 
 function roundMoney(value: number) {
   return Math.round((Number.isFinite(value) ? value : 0) * 100) / 100;
+}
+
+/**
+ * Splits `total` into `count` amounts that sum exactly to `total`, to the
+ * cent. Plain `total / count` drifts under rounding (e.g. €200 / 3 =
+ * €66.666...), so this works in integer cents and hands the leftover cents
+ * to the first accounts in order — the same algorithm the
+ * `save_monthly_budget_configuration` RPC uses server-side, so an
+ * equal-split rule's amounts never disagree between the editor's live
+ * preview and what actually gets persisted.
+ */
+export function distributeEqualSplit(total: number, count: number): number[] {
+  if (!Number.isFinite(total) || count <= 0) return new Array(Math.max(count, 0)).fill(0);
+
+  const totalCents = Math.round(total * 100);
+  const baseCents = Math.trunc(totalCents / count);
+  const remainderCents = totalCents - baseCents * count;
+
+  return Array.from({ length: count }, (_, index) => {
+    const cents = baseCents + (index < remainderCents ? 1 : 0);
+    return roundMoney(cents / 100);
+  });
 }
 
 function normalizeMonth(month: string) {
@@ -244,13 +294,43 @@ export class MonthlyBudgetService {
       const amount = Number(rule.amount);
       if (!rule.name.trim()) throw new Error("Each budget rule needs a name.");
       if (!rule.sourceAccountId) throw new Error(`Rule "${rule.name}" needs a source account.`);
-      if (!rule.destinationAccountId) {
-        throw new Error(`Rule "${rule.name}" needs a destination account.`);
-      }
-      if (rule.sourceAccountId === rule.destinationAccountId) {
-        throw new Error(`Rule "${rule.name}" cannot use the same source and destination account.`);
-      }
       if (!Number.isFinite(amount) || amount <= 0) throw new Error(`Rule "${rule.name}" needs a valid amount.`);
+
+      if (rule.allocations.length === 0) {
+        throw new Error(`Rule "${rule.name}" needs at least one destination account.`);
+      }
+
+      const destinationIds = new Set<string>();
+      for (const allocation of rule.allocations) {
+        if (!allocation.destinationAccountId) {
+          throw new Error(`Rule "${rule.name}" has a destination account that is not set.`);
+        }
+        if (allocation.destinationAccountId === rule.sourceAccountId) {
+          throw new Error(`Rule "${rule.name}" cannot use the same source and destination account.`);
+        }
+        if (destinationIds.has(allocation.destinationAccountId)) {
+          throw new Error(`Rule "${rule.name}" cannot use the same destination account twice.`);
+        }
+        destinationIds.add(allocation.destinationAccountId);
+      }
+
+      if (rule.allocationMode === "custom") {
+        for (const allocation of rule.allocations) {
+          const allocationAmount = Number(allocation.amount);
+          if (!Number.isFinite(allocationAmount) || allocationAmount <= 0) {
+            throw new Error(`Rule "${rule.name}" needs a positive amount for every destination account.`);
+          }
+        }
+
+        const assigned = roundMoney(
+          rule.allocations.reduce((sum, allocation) => sum + (Number(allocation.amount) || 0), 0),
+        );
+        if (Math.abs(assigned - roundMoney(amount)) > 0.01) {
+          throw new Error(
+            `Rule "${rule.name}" allocations (${assigned}) must add up to its total (${roundMoney(amount)}).`,
+          );
+        }
+      }
 
       const activeMonths = getRuleActiveMonths(rule.activeMonths);
       const activeFromMonth = parseMonthField(rule.activeFromMonth);
@@ -267,7 +347,14 @@ export class MonthlyBudgetService {
     }
 
     const rules = sortedRules.map((rule, index) => {
-      const amount = Number(rule.amount);
+      const amount = roundMoney(Number.isFinite(Number(rule.amount)) ? Number(rule.amount) : 0);
+      // Equal-split amounts are always recomputed from the current total and
+      // account count (never trusted from stale draft state); the RPC also
+      // recomputes them server-side, so this is purely so the request we send
+      // matches what will actually be persisted. Custom amounts are sent as
+      // entered — already validated above to sum to the rule's total.
+      const equalShares =
+        rule.allocationMode === "equal_split" ? distributeEqualSplit(amount, rule.allocations.length) : null;
 
       return {
         id: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rule.id)
@@ -276,18 +363,20 @@ export class MonthlyBudgetService {
         name: rule.name.trim(),
         section: rule.section,
         source_account_id: rule.sourceAccountId,
-        destination_account_id: rule.destinationAccountId,
-        // Pots group accounts for reporting only. Budget money must always move
-        // to a concrete account, so legacy pot references are not persisted.
-        destination_pot_id: null,
         owner_member_id: rule.ownerMemberId || null,
-        amount: roundMoney(Number.isFinite(amount) ? amount : 0),
+        amount,
+        allocation_mode: rule.allocationMode,
         frequency: "monthly" as const,
         priority: index,
         is_active: rule.isActive,
         active_months: getRuleActiveMonths(rule.activeMonths),
         active_from_month: parseMonthField(rule.activeFromMonth),
         active_to_month: parseMonthField(rule.activeToMonth),
+        allocations: rule.allocations.map((allocation, allocationIndex) => ({
+          destination_account_id: allocation.destinationAccountId,
+          amount: equalShares ? equalShares[allocationIndex] : roundMoney(Number(allocation.amount) || 0),
+          category_id: allocation.categoryId ?? null,
+        })),
       };
     });
 
@@ -513,7 +602,7 @@ export class MonthlyBudgetService {
     for (const rule of sortedRules) {
       const amount = roundMoney(Number(rule.amount));
       const source = accountsById.get(rule.source_account_id);
-      const destination = accountsById.get(rule.destination_account_id);
+      const allocations = [...rule.allocations].sort((a, b) => a.sort_order - b.sort_order);
 
       if (!Number.isFinite(amount) || amount <= 0) {
         validationIssues.push(`Rule "${rule.name}" needs a valid amount.`);
@@ -523,35 +612,86 @@ export class MonthlyBudgetService {
         validationIssues.push(`Rule "${rule.name}" has no valid source account.`);
         continue;
       }
-      if (!destination) {
-        validationIssues.push(`Rule "${rule.name}" has no valid destination account.`);
+      if (allocations.length === 0) {
+        validationIssues.push(`Rule "${rule.name}" needs at least one destination account.`);
         continue;
       }
-      if (source.id === destination.id) {
-        validationIssues.push(`Rule "${rule.name}" cannot use the same source and destination account.`);
+
+      // Resolve every allocation before touching balances — a rule is
+      // all-or-nothing: if any one of its destination accounts is invalid,
+      // none of its transfers should be generated (mirrors the previous
+      // single-destination behavior, just applied across N destinations).
+      let hasInvalidAllocation = false;
+      const resolvedAllocations: { id: string; destination: Account; amount: number; categoryId: string | null }[] = [];
+
+      for (const allocation of allocations) {
+        const destination = accountsById.get(allocation.destination_account_id);
+        const allocationAmount = roundMoney(Number(allocation.amount));
+
+        if (!destination) {
+          validationIssues.push(`Rule "${rule.name}" has an allocation with no valid destination account.`);
+          hasInvalidAllocation = true;
+          continue;
+        }
+        if (destination.id === source.id) {
+          validationIssues.push(`Rule "${rule.name}" cannot use the same source and destination account.`);
+          hasInvalidAllocation = true;
+          continue;
+        }
+        if (!Number.isFinite(allocationAmount) || allocationAmount <= 0) {
+          validationIssues.push(`Rule "${rule.name}" needs a positive amount for every destination account.`);
+          hasInvalidAllocation = true;
+          continue;
+        }
+
+        resolvedAllocations.push({
+          id: allocation.id,
+          destination,
+          amount: allocationAmount,
+          categoryId: allocation.category_id ?? null,
+        });
+      }
+
+      if (hasInvalidAllocation) continue;
+
+      const allocatedTotal = roundMoney(resolvedAllocations.reduce((sum, item) => sum + item.amount, 0));
+      if (Math.abs(allocatedTotal - amount) > 0.01) {
+        validationIssues.push(
+          allocatedTotal > amount
+            ? `Rule "${rule.name}" allocations (${allocatedTotal}) exceed its total (${amount}) by ${roundMoney(allocatedTotal - amount)}.`
+            : `Rule "${rule.name}" allocations (${allocatedTotal}) are short of its total (${amount}) by ${roundMoney(amount - allocatedTotal)}.`,
+        );
         continue;
       }
 
       const sourceBalance = balances.get(source.id) ?? 0;
-      if (sourceBalance < amount) {
+      if (sourceBalance < allocatedTotal) {
         validationIssues.push(`${source.name} does not have enough available cash for "${rule.name}".`);
       }
 
-      balances.set(source.id, roundMoney(sourceBalance - amount));
-      balances.set(destination.id, roundMoney((balances.get(destination.id) ?? 0) + amount));
-      configuredTotal = roundMoney(configuredTotal + amount);
-      transfers.push({
-        ruleId: rule.id,
-        title: rule.name,
-        section: rule.section,
-        sourceAccountId: source.id,
-        destinationAccountId: destination.id,
-        destinationPotId: null,
-        destinationKind: "account",
-        amount,
-        generatedByRuleId: rule.id,
-        isSystemGenerated: false,
-      });
+      balances.set(source.id, roundMoney(sourceBalance - allocatedTotal));
+      configuredTotal = roundMoney(configuredTotal + allocatedTotal);
+
+      for (const allocation of resolvedAllocations) {
+        balances.set(
+          allocation.destination.id,
+          roundMoney((balances.get(allocation.destination.id) ?? 0) + allocation.amount),
+        );
+        transfers.push({
+          ruleId: rule.id,
+          allocationId: allocation.id,
+          title: rule.name,
+          section: rule.section,
+          sourceAccountId: source.id,
+          destinationAccountId: allocation.destination.id,
+          destinationPotId: null,
+          destinationKind: "account",
+          amount: allocation.amount,
+          generatedByRuleId: rule.id,
+          isSystemGenerated: false,
+          categoryId: allocation.categoryId,
+        });
+      }
     }
 
     let excessCash = 0;
@@ -577,9 +717,11 @@ export class MonthlyBudgetService {
       if (excessCash > 0) {
         const eligibleSavingsAccounts: Account[] = [];
         for (const rule of sortedRules) {
-          const destination = accountsById.get(rule.destination_account_id);
-          if (destination && destination.type === "savings") {
-            eligibleSavingsAccounts.push(destination);
+          for (const allocation of rule.allocations) {
+            const destination = accountsById.get(allocation.destination_account_id);
+            if (destination && destination.type === "savings") {
+              eligibleSavingsAccounts.push(destination);
+            }
           }
         }
 
@@ -644,6 +786,7 @@ export class MonthlyBudgetService {
                 undistributedExcess = roundMoney(undistributedExcess - transferAmount);
                 transfers.push({
                   ruleId: null,
+                  allocationId: null,
                   title: "Remaining cash distribution",
                   section: "remaining_cash",
                   sourceAccountId: source.id,
@@ -653,6 +796,7 @@ export class MonthlyBudgetService {
                   amount: transferAmount,
                   generatedByRuleId: null,
                   isSystemGenerated: true,
+                  categoryId: null,
                 });
               });
             });

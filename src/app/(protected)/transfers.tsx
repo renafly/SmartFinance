@@ -16,12 +16,15 @@ import {
   Card,
   Page,
   Pill,
+  PrivacyToggle,
   Section,
   formatCurrency,
   formatDate,
 } from "@/components/migrated-page";
 import { useAccountsWithBalances } from "@/features/accounts/hooks";
 import { useCategories } from "@/features/categories/hooks";
+import { displayCurrency } from "@/shared/lib/mask-currency";
+import { usePrivacyStore } from "@/stores/privacyStore";
 import { useHouseholdMemberDetails } from "@/features/households/hooks";
 import {
   useCreateRecurringTransaction,
@@ -177,6 +180,7 @@ export function TransfersContent({
   const { t } = useTranslation("common");
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
   const { householdId, profile } = useAuth();
   const accountsQuery = useAccountsWithBalances();
   const membersQuery = useHouseholdMemberDetails();
@@ -538,7 +542,7 @@ export function TransfersContent({
                     <Text
                       style={[styles.ruleAmount, { color: colors.primary }]}
                     >
-                      {formatCurrency(item.amount)}
+                      {displayCurrency(formatCurrency(item.amount), hideValues)}
                     </Text>
                   </TableCell>
                   <TableCell flex={0.35} align="right" mobilePinned>
@@ -622,6 +626,7 @@ export function TransfersContent({
             accessibilityRole="button"
             accessibilityLabel={t("cancel")}
           />
+          <PrivacyToggle />
           <ScrollView
             contentContainerStyle={styles.modalScroll}
             keyboardShouldPersistTaps="handled"
@@ -692,6 +697,7 @@ export function TransfersContent({
             accessibilityRole="button"
             accessibilityLabel={t("cancel")}
           />
+          <PrivacyToggle />
           <View
             style={[
               styles.historyCard,
