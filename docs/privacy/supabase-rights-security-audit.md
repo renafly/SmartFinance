@@ -5,7 +5,7 @@ Scope: repository-only review; no remote Supabase state, schema, data, Auth sett
 
 ## Executive assessment
 
-SmartFinance has a comparatively strong RLS baseline and has explicitly hardened views, grants, RPC execution, attachment storage, feedback storage, notifications, and service-only maintenance. It does **not** yet provide a complete GDPR data-subject export or account-erasure workflow.
+Kintally has a comparatively strong RLS baseline and has explicitly hardened views, grants, RPC execution, attachment storage, feedback storage, notifications, and service-only maintenance. It does **not** yet provide a complete GDPR data-subject export or account-erasure workflow.
 
 The principal blocker is architectural: the client can delete household data, but it cannot safely delete its own `auth.users` record. A trusted server boundary is required for Auth-user deletion and for complete export of Auth identity data. The existing household backup is useful portability functionality, but it is not a complete Article 15/20 export and must not be described as one.
 

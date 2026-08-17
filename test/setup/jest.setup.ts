@@ -49,7 +49,7 @@ jest.mock('expo-document-picker', () => ({
 }));
 
 jest.mock('expo-linking', () => ({
-  createURL: jest.fn((path = '') => `smartfinance://${path}`),
+  createURL: jest.fn((path = '') => `kintally://${path}`),
   openURL: jest.fn(),
 }));
 

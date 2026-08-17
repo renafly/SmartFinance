@@ -1,4 +1,4 @@
-# SmartFinance command helper
+# Kintally command helper
 
 Run these commands from the repository root in PowerShell:
 

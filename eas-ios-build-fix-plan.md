@@ -23,7 +23,7 @@ This is EAS's remote-credentials flow needing to create or validate the iOS Dist
    ```powershell
    npx eas-cli credentials
    ```
-   Select **iOS** → the `production` app/profile → let it inspect the Distribution Certificate. If it reports the certificate as missing, expired, or unvalidated, follow the prompts to generate or re-validate it (this may ask you to log in to the Apple Developer account tied to `com.renafly.smartfinance`). This is the step that actually resolves the failure — everything else below is cleanup, not required to unblock the build.
+   Select **iOS** → the `production` app/profile → let it inspect the Distribution Certificate. If it reports the certificate as missing, expired, or unvalidated, follow the prompts to generate or re-validate it (this may ask you to log in to the Apple Developer account tied to `com.kintally`). This is the step that actually resolves the failure — everything else below is cleanup, not required to unblock the build.
 
 2. **Re-run the real build**, still interactively the first time, to confirm it clears the credentials step:
    ```powershell
@@ -36,7 +36,7 @@ This is EAS's remote-credentials flow needing to create or validate the iOS Dist
 3. **Add the missing encryption-export declaration** to `app.json`, so this stops being flagged on every build and App Store Connect doesn't require manual configuration before testing:
    ```json
    "ios": {
-     "bundleIdentifier": "com.renafly.smartfinance",
+     "bundleIdentifier": "com.kintally",
      "icon": "./assets/expo.icon",
      "buildNumber": "1",
      "infoPlist": {

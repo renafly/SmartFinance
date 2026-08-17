@@ -1,4 +1,4 @@
--- Seed the missing transactions from the exported SmartFinance state.
+-- Seed the missing transactions from the exported Kintally state.
 -- Assumptions:
 -- - 2026-01 values are already reflected in account initial_balance.
 -- - "Renato / PoupancaDespesa" accounts are already represented in initial balance,
