@@ -54,7 +54,7 @@ function createInviteLinks(token: string) {
       : undefined;
 
   const inviteWebBaseUrl = configuredWebBase ?? runtimeWebBase;
-  const nativeInviteLink = `smartfinance://invite/${token}`;
+  const nativeInviteLink = `kintally://invite/${token}`;
   const webInviteLink = inviteWebBaseUrl ? `${inviteWebBaseUrl}/invite/${token}` : null;
 
   return {

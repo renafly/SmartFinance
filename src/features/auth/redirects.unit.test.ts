@@ -58,13 +58,13 @@ describe("auth redirect helpers", () => {
       "/(protected)/transactions?filter=income",
     );
     expect(sessionStorage.setItem).toHaveBeenCalledWith(
-      "smartfinance.pendingRedirectTo",
+      "kintally.pendingRedirectTo",
       "/(protected)/transactions?filter=income",
     );
 
     expect(peekPendingRedirectTo()).toBe("/(protected)/transactions?filter=income");
     expect(consumePendingRedirectTo()).toBe("/(protected)/transactions?filter=income");
-    expect(sessionStorage.removeItem).toHaveBeenCalledWith("smartfinance.pendingRedirectTo");
+    expect(sessionStorage.removeItem).toHaveBeenCalledWith("kintally.pendingRedirectTo");
     expect(peekPendingRedirectTo()).toBeNull();
   });
 

@@ -1,4 +1,4 @@
-# SmartFinance Public Pages — UX Audit
+# Kintally Public Pages — UX Audit
 
 Scope: Home (`/`), Features, How It Works, News, About (all under `src/app/(public)/`, rendered by `src/features/landing/landing-screen.web.tsx` and `src/features/landing/public-overview-screen.web.tsx`), plus the language dropdown (`components/language-menu.web.tsx`).
 
@@ -44,7 +44,7 @@ Given the header is duplicated rather than shared, I'd extract one `<PublicHeade
 
 - Page hierarchy on Features/How It Works/News/About is clear and repeatable: kicker (small, colored, uppercase) → large title → lead paragraph → card grid → CTA band → footer. This repetition is a strength for a multi-page marketing site — visitors always know where they are on the page.
 - Home's hero is denser (eyebrow badge, large title, body copy, two CTAs, trust line, plus a financial-preview mock panel) which is appropriate for a landing page, but the jump in visual complexity from Home to the very plain sub-pages is fairly steep. The sub-pages could borrow a bit more visual interest (e.g. the trust row, or a small stat) without breaking their simplicity.
-- CTA banner ("Ready for a clearer financial life?") appears on all four sub-pages with identical copy and identical button ("Open SmartFinance"), which is fine for consistency but means a visitor who reads Features then How It Works then News then About sees the **exact same closing pitch four times**. Varying the CTA copy per page (or varying just the description line) would reduce the repetition without hurting conversion consistency.
+- CTA banner ("Ready for a clearer financial life?") appears on all four sub-pages with identical copy and identical button ("Open Kintally"), which is fine for consistency but means a visitor who reads Features then How It Works then News then About sees the **exact same closing pitch four times**. Varying the CTA copy per page (or varying just the description line) would reduce the repetition without hurting conversion consistency.
 
 ## 6. Language dropdown
 

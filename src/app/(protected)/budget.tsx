@@ -426,9 +426,9 @@ export default function BudgetScreen() {
   const hydratedIncomeMonth = useRef<string | null>(null);
   const hydratedCollapsedPreferenceKey = useRef<string | null>(null);
   const collapsedPreferenceDirtyRef = useRef(false);
-  const collapsedStateKey = householdId ? `smartfinance:monthly-budget:collapsed-rows:${householdId}` : null;
+  const collapsedStateKey = householdId ? `kintally:monthly-budget:collapsed-rows:${householdId}` : null;
   const hydratedDoneTransfersKey = useRef<string | null>(null);
-  const doneTransfersStateKey = householdId ? `smartfinance:monthly-budget:done-transfers:${householdId}:${monthKey(month)}` : null;
+  const doneTransfersStateKey = householdId ? `kintally:monthly-budget:done-transfers:${householdId}:${monthKey(month)}` : null;
 
   const currentMonthRun = useMemo(
     () => runs.find((run: any) => monthKey(run.month) === month) ?? null,

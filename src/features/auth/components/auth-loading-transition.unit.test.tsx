@@ -12,7 +12,7 @@ describe('AuthLoadingTransition', () => {
       </ThemeProvider>,
     );
 
-    const loader = view.getByRole('progressbar', { name: 'Preparing your SmartFinance dashboard' });
+    const loader = view.getByRole('progressbar', { name: 'Preparing your Kintally dashboard' });
 
     expect(loader.props.accessibilityState).toEqual({ busy: true });
     expect(view.getByText('Your financial home is taking shape')).toBeTruthy();

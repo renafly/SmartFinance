@@ -25,7 +25,7 @@ export function FeatureFlagProvider({ children }: PropsWithChildren) {
     const clientKey = process.env.EXPO_PUBLIC_UNLEASH_CLIENT_KEY;
 
     if (!url || !clientKey) {
-      console.warn('[SmartFinance] Unleash env vars missing, using local fallback flags.');
+      console.warn('[Kintally] Unleash env vars missing, using local fallback flags.');
       setReady(true);
       return;
     }
@@ -33,12 +33,12 @@ export function FeatureFlagProvider({ children }: PropsWithChildren) {
     const unleash = new UnleashClient({
       url,
       clientKey,
-      appName: 'SmartFinance',
+      appName: 'Kintally',
       refreshInterval: 30,
     });
 
     unleash.on('ready', () => setReady(true));
-    unleash.on('error', (err: unknown) => console.warn('[SmartFinance] Unleash error, using local fallback:', err));
+    unleash.on('error', (err: unknown) => console.warn('[Kintally] Unleash error, using local fallback:', err));
     unleash.start();
     setClient(unleash);
 

@@ -1,4 +1,4 @@
-# SmartFinance Transactions — List & Filters UX Audit
+# Kintally Transactions — List & Filters UX Audit
 
 Scope: the "Activity" view of `src/app/(protected)/transactions.tsx` — the Filters card, summary bar, and transaction table/list. Not in scope: the create/edit modals or the Scheduled (recurring transfers) view, which are separate flows. Backed by `useTransactionMovementsInfinite` / `useTransactionMovementsSummary` (`src/features/transactions/hooks/useTransactions.ts`).
 

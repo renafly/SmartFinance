@@ -1,4 +1,4 @@
-# SmartFinance processor and recipient register
+# Kintally processor and recipient register
 
 Status: repository-derived working register, 2026-07-30. Contracts, production configuration, regions and legal roles must be verified by the controller.
 

@@ -1,6 +1,6 @@
 # Privacy legal and business inputs
 
-Status: required before SmartFinance claims GDPR/ePrivacy compliance or
+Status: required before Kintally claims GDPR/ePrivacy compliance or
 publishes a complete privacy notice.
 
 This checklist records facts that cannot be derived reliably from source code.
@@ -9,7 +9,7 @@ evidence, and review date.
 
 ## Controller identity
 
-- [ ] Legal name of the SmartFinance operator
+- [ ] Legal name of the Kintally operator
 - [ ] Registered or business address
 - [ ] Country of establishment
 - [ ] Company or registration number, if applicable
@@ -26,7 +26,7 @@ evidence, and review date.
 - [ ] Countries in which the service is offered
 - [ ] Whether the service is offered to children, and the applicable minimum
       age
-- [ ] Whether SmartFinance is a consumer, employee, household, or business
+- [ ] Whether Kintally is a consumer, employee, household, or business
       service
 - [ ] Whether any regulated financial service is provided, rather than only
       personal finance organization

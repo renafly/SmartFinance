@@ -1,4 +1,4 @@
-# SmartFinance Release Checklist
+# Kintally Release Checklist
 
 Use this checklist before promoting a Vercel deployment to production.
 

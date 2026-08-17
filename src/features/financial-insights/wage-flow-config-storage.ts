@@ -18,7 +18,7 @@ import {
 } from "./wage-flow";
 
 function storageKey(householdId: string) {
-  return `smartfinance:wage-flow:config:${householdId}`;
+  return `kintally:wage-flow:config:${householdId}`;
 }
 
 function isValidConfig(value: unknown): value is WageFlowCategoryConfig[] {

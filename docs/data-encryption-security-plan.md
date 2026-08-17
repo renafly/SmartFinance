@@ -2,7 +2,7 @@
 
 ## Context
 
-SmartFinance is a manual household budgeting app on Supabase (managed Postgres + Auth). It does **not** link to real bank accounts (no Plaid-style integration, no stored account numbers/IBANs/credentials) — the sensitive data is limited to account names, balances, transaction amounts, titles/notes/merchant names, and category labels, all scoped per household via Row Level Security (RLS).
+Kintally is a manual household budgeting app on Supabase (managed Postgres + Auth). It does **not** link to real bank accounts (no Plaid-style integration, no stored account numbers/IBANs/credentials) — the sensitive data is limited to account names, balances, transaction amounts, titles/notes/merchant names, and category labels, all scoped per household via Row Level Security (RLS).
 
 Two protections already exist with zero app changes required:
 

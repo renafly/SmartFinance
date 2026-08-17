@@ -89,7 +89,7 @@ export function NotificationsProvider({ children }: PropsWithChildren) {
       });
       if (Platform.OS === "android") {
         await Notifications.setNotificationChannelAsync("default", {
-          name: "SmartFinance",
+          name: "Kintally",
           importance: Notifications.AndroidImportance.HIGH,
           sound: "default",
           vibrationPattern: [0, 250, 250, 250],

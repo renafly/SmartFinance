@@ -2,13 +2,13 @@
   "cookieConsent": {
     "bannerLabel": "Cookie and storage preferences",
     "title": "Your privacy choices",
-    "description": "SmartFinance stores a few essential things in your browser to keep you signed in and remember your settings. With your OK, we also use optional analytics.",
+    "description": "Kintally stores a few essential things in your browser to keep you signed in and remember your settings. With your OK, we also use optional analytics.",
     "policyLink": "Read our cookie policy.",
     "rejectOptional": "Reject optional",
     "manage": "Manage preferences",
     "acceptAll": "Accept all",
     "preferencesTitle": "Cookie preferences",
-    "preferencesDescription": "Choose which optional technology SmartFinance can use. Necessary storage stays on, since the app can't run without it.",
+    "preferencesDescription": "Choose which optional technology Kintally can use. Necessary storage stays on, since the app can't run without it.",
     "necessaryTitle": "Necessary",
     "necessaryDescription": "Signing you in, keeping things secure, remembering your language, and remembering your consent choices.",
     "preferenceTitle": "Preferences",
@@ -20,20 +20,20 @@
     "save": "Save preferences"
   },
   "cookiePolicy": {
-    "back": "Back to SmartFinance",
+    "back": "Back to Kintally",
     "title": "Cookie and Similar Technologies Policy",
     "effective": "Effective 30 July 2026",
     "scope": {
       "title": "What this policy covers",
-      "body": "This policy explains how the SmartFinance web app uses cookies and similar browser technology, including local storage. The mobile apps use device storage instead of browser cookies."
+      "body": "This policy explains how the Kintally web app uses cookies and similar browser technology, including local storage. The mobile apps use device storage instead of browser cookies."
     },
     "necessary": {
       "title": "Necessary storage",
-      "body": "SmartFinance needs some browser storage to work at all. It keeps you signed in and refreshes your session, and it remembers your privacy choices. None of this is used for advertising."
+      "body": "Kintally needs some browser storage to work at all. It keeps you signed in and refreshes your session, and it remembers your privacy choices. None of this is used for advertising."
     },
     "optional": {
       "title": "Optional storage and measurement",
-      "body": "Your theme preference makes the app nicer to look at. Vercel Speed Insights helps us understand how the site performs, and only runs once you consent to analytics. SmartFinance doesn't use advertising or cross-site marketing cookies."
+      "body": "Your theme preference makes the app nicer to look at. Vercel Speed Insights helps us understand how the site performs, and only runs once you consent to analytics. Kintally doesn't use advertising or cross-site marketing cookies."
     },
     "storage": {
       "title": "What we use",
@@ -50,7 +50,7 @@
           "category": "Necessary"
         },
         {
-          "name": "SmartFinance consent record",
+          "name": "Kintally consent record",
           "type": "Browser local storage",
           "purpose": "Remembers whether you accepted or rejected optional technology.",
           "duration": "Until you reset it, the policy changes, or your browser data is cleared",
@@ -81,7 +81,7 @@
     },
     "control": {
       "title": "Manage or withdraw consent",
-      "body": "You can reject optional technology and keep using every core SmartFinance feature. Reopen Cookie preferences anytime to change your mind. You can also clear your browser's site data, though that may sign you out and reset your saved preferences.",
+      "body": "You can reject optional technology and keep using every core Kintally feature. Reopen Cookie preferences anytime to change your mind. You can also clear your browser's site data, though that may sign you out and reset your saved preferences.",
       "action": "Manage cookie preferences"
     },
     "thirdParties": {
@@ -109,7 +109,7 @@
     "savings": "Savings",
     "investments": "Investments",
     "subtitle": "Personal Finance",
-    "brand": "SmartFinance",
+    "brand": "Kintally",
     "overview": "Overview",
     "overviewDescription": "Start here and jump to what you use most.",
     "moneyMovement": "Money movement",
@@ -357,7 +357,7 @@
     "openFeedback": "Open feedback",
     "openAdminFeedback": "Open feedback inbox",
     "privacyTitle": "Privacy",
-    "privacySubtitle": "See how SmartFinance uses browser storage and update your optional consent choices.",
+    "privacySubtitle": "See how Kintally uses browser storage and update your optional consent choices.",
     "manageCookiePreferences": "Manage cookie preferences",
     "openCookiePolicy": "Read cookie policy",
     "unnamedUser": "Unnamed user",
@@ -446,7 +446,7 @@
     "backupExportUnavailableTitle": "Export unavailable",
     "backupExportUnavailableMessage": "On web, exporting downloads a JSON file to your device. Importing from a JSON file still works.",
     "backupInvalidTitle": "Invalid backup file",
-    "backupInvalidMessage": "Choose a valid SmartFinance household backup JSON file.",
+    "backupInvalidMessage": "Choose a valid Kintally household backup JSON file.",
     "backupErrorTitle": "Backup error",
     "backupUnknownError": "Something went wrong while processing the backup.",
     "backupSignInRequired": "Sign in to import a household backup.",
@@ -1346,7 +1346,7 @@
   },
   "onboarding": {
     "welcomeTitle": "Make your money clearer",
-    "welcomeDescription": "SmartFinance keeps your household's accounts, plans, and goals in one place. Here's a short guide to get you started.",
+    "welcomeDescription": "Kintally keeps your household's accounts, plans, and goals in one place. Here's a short guide to get you started.",
     "progress": "Step {{current}} of {{total}}",
     "next": "Next",
     "back": "Back",
@@ -1357,7 +1357,7 @@
     "completionTitle": "You're ready to go",
     "completionDescription": "You can reopen this guide anytime from Settings, and new features will introduce themselves when they arrive.",
     "restart": "Review app guide",
-    "restartDescription": "See the full SmartFinance guide again.",
+    "restartDescription": "See the full Kintally guide again.",
     "sectionGuide": "How this section works",
     "reviewSectionGuide": "Review guide",
     "guideSeen": "Guide viewed",
@@ -1411,7 +1411,7 @@
     }
   },
   "feedback": {
-    "title": "Help shape SmartFinance",
+    "title": "Help shape Kintally",
     "subtitle": "Share an idea or report a problem, then follow every update from the team.",
     "newTitle": "Send feedback",
     "newSubtitle": "A little context helps us understand what's going on and act quickly.",
@@ -1470,7 +1470,7 @@
     "emptyTitle": "No feedback yet",
     "emptyBody": "Your suggestions and bug reports will show up here once you send them.",
     "resolvedInRelease": "Resolved in release {{release}}",
-    "supportTeam": "SmartFinance team",
+    "supportTeam": "Kintally team",
     "replyLabel": "Reply",
     "replyPlaceholder": "Add context or answer the team...",
     "sendReply": "Send reply",
@@ -1576,7 +1576,7 @@
     "hero": {
       "eyebrow": "Know where your money stands",
       "title": "Everything about your money, in one place.",
-      "description": "Accounts, spending, budgets, and shared goals, all together. SmartFinance helps your household plan without the guesswork.",
+      "description": "Accounts, spending, budgets, and shared goals, all together. Kintally helps your household plan without the guesswork.",
       "primary": "Start for free",
       "secondary": "Explore features",
       "trust": "Your financial data stays yours. Always."
@@ -1629,20 +1629,20 @@
     },
     "news": {
       "kicker": "Latest news",
-      "title": "Ideas and updates from SmartFinance"
+      "title": "Ideas and updates from Kintally"
     },
     "final": {
       "title": "Ready to make money feel simpler?",
       "description": "Build a clearer financial picture for yourself and your household, starting today.",
-      "action": "Open SmartFinance"
+      "action": "Open Kintally"
     },
-    "footer": "© 2026 SmartFinance. Personal finance, made clearer.",
+    "footer": "© 2026 Kintally. Personal finance, made clearer.",
     "footerCookiePolicy": "Cookie policy"
   },
   "publicPages": {
     "backHome": "Back to home",
     "cta": {
-      "action": "Open SmartFinance"
+      "action": "Open Kintally"
     },
     "features": {
       "kicker": "Complete overview",
@@ -1651,7 +1651,7 @@
       "highlight": "8 tools, one connected view",
       "cta": {
         "title": "Ready to see everything in one place?",
-        "description": "Bring your accounts, budgets, and goals together and try SmartFinance's tools yourself."
+        "description": "Bring your accounts, budgets, and goals together and try Kintally's tools yourself."
       },
       "items": [
         {
@@ -1691,7 +1691,7 @@
     "howItWorks": {
       "kicker": "From setup to insight",
       "title": "A practical workflow for your finances",
-      "description": "SmartFinance turns scattered financial information into a plan you can actually understand and act on.",
+      "description": "Kintally turns scattered financial information into a plan you can actually understand and act on.",
       "highlight": "Most households are set up in under 10 minutes",
       "cta": {
         "title": "Ready to set up your first household?",
@@ -1725,9 +1725,9 @@
       ]
     },
     "news": {
-      "kicker": "SmartFinance journal",
+      "kicker": "Kintally journal",
       "title": "Product updates and practical money guidance",
-      "description": "Practical stories about the tools already in SmartFinance: planning, saving, recurring activity, collaboration, and keeping your data safe.",
+      "description": "Practical stories about the tools already in Kintally: planning, saving, recurring activity, collaboration, and keeping your data safe.",
       "highlight_one": "{{count}} update so far",
       "highlight_other": "{{count}} updates so far",
       "readMore": "Read update",
@@ -1744,7 +1744,7 @@
           "description": "Balances, recent movements, spending, and savings progress all live on the dashboard, so you can see where the household stands before deciding what's next.",
           "body": [
             "The dashboard pulls every account, recent transaction, and savings pot into one screen, so you don't have to open five different views to understand where your household stands this month.",
-            "It's built to answer one question first: what changed since I last looked? From there, the rest of SmartFinance — transactions, budgets, savings — is one tap away."
+            "It's built to answer one question first: what changed since I last looked? From there, the rest of Kintally — transactions, budgets, savings — is one tap away."
           ]
         },
         "recurringPlan": {
@@ -1768,10 +1768,10 @@
         "transferVsExpense": {
           "meta": "Guide · Transfers",
           "title": "A transfer isn't another expense",
-          "description": "SmartFinance links both sides of a transfer between your accounts, so the trail stays intact and nothing gets counted as spending twice.",
+          "description": "Kintally links both sides of a transfer between your accounts, so the trail stays intact and nothing gets counted as spending twice.",
           "body": [
             "Move money from checking to savings and it's easy for that to accidentally show up as an expense — inflating your spending totals for no reason.",
-            "SmartFinance links both sides of every transfer, debiting one account and crediting the other, so your spending numbers stay accurate and the trail between accounts stays intact."
+            "Kintally links both sides of every transfer, debiting one account and crediting the other, so your spending numbers stay accurate and the trail between accounts stays intact."
           ]
         },
         "householdVisibility": {
@@ -1779,7 +1779,7 @@
           "title": "Shared visibility with clear boundaries",
           "description": "Household roles and account ownership let everyone work from the same information, while keeping personal and shared responsibilities easy to tell apart.",
           "body": [
-            "A household isn't one wallet — it's several people with their own accounts, some shared, some not. SmartFinance keeps that distinction visible instead of flattening everything into one pool.",
+            "A household isn't one wallet — it's several people with their own accounts, some shared, some not. Kintally keeps that distinction visible instead of flattening everything into one pool.",
             "Roles decide who can invite, edit, or just view, so everyone sees the same trustworthy picture without losing track of who owns what."
           ]
         },
@@ -1789,18 +1789,18 @@
           "description": "Portable backup and restore give you another way to hold on to your household's information, preferences, and financial records.",
           "body": [
             "Export a household and you get its accounts, categories, transactions, recurring rules, saving pots, and monthly budget data as a single backup file.",
-            "Import it back in — on any device, at any time — and SmartFinance rebuilds the household from that file, so your financial history isn't locked into one place."
+            "Import it back in — on any device, at any time — and Kintally rebuilds the household from that file, so your financial history isn't locked into one place."
           ]
         }
       }
     },
     "about": {
-      "kicker": "About SmartFinance",
+      "kicker": "About Kintally",
       "title": "Built to make shared finances easier to understand",
-      "description": "SmartFinance exists to replace scattered spreadsheets and unclear conversations with one household view everyone can trust.",
+      "description": "Kintally exists to replace scattered spreadsheets and unclear conversations with one household view everyone can trust.",
       "highlight": "Privacy and household boundaries, built in from day one",
       "cta": {
-        "title": "Ready to see SmartFinance in practice?",
+        "title": "Ready to see Kintally in practice?",
         "description": "The principles above are easiest to judge once your own household is inside them."
       },
       "items": [
@@ -1814,7 +1814,7 @@
         },
         {
           "title": "Made for real households",
-          "description": "Individual and shared money can coexist. SmartFinance keeps both visible, without assuming every household works the same way."
+          "description": "Individual and shared money can coexist. Kintally keeps both visible, without assuming every household works the same way."
         },
         {
           "title": "Available everywhere",
@@ -1826,13 +1826,13 @@
         },
         {
           "title": "Useful without judgement",
-          "description": "SmartFinance helps households understand their choices and the trade-offs. It won't tell you there's only one right way to manage money."
+          "description": "Kintally helps households understand their choices and the trade-offs. It won't tell you there's only one right way to manage money."
         }
       ]
     }
   },
   "auth": {
-    "brand": "SmartFinance",
+    "brand": "Kintally",
     "loginSubtitle": "Sign in with Google",
     "loginTitle": "Sign in with Google",
     "loginDescription": "Google signs you in through Supabase so the app can load your session.",
@@ -1844,7 +1844,7 @@
     "completingGoogleSignIn": "Completing your Google sign-in...",
     "preparingDashboard": "Your financial home is taking shape",
     "preparingDashboardDescription": "Connecting your profile, household, and latest numbers.",
-    "loadingAccessibilityLabel": "Preparing your SmartFinance dashboard",
+    "loadingAccessibilityLabel": "Preparing your Kintally dashboard",
     "googleCallbackErrorMessage": "We couldn't complete the Google sign-in. Please try again."
   }
 }

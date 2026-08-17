@@ -2,13 +2,13 @@
   "cookieConsent": {
     "bannerLabel": "Preferências de cookies e armazenamento",
     "title": "As suas escolhas de privacidade",
-    "description": "O SmartFinance guarda algumas coisas essenciais no seu navegador para manter a sessão iniciada e lembrar-se das suas definições. Com a sua autorização, também usamos análise opcional.",
+    "description": "O Kintally guarda algumas coisas essenciais no seu navegador para manter a sessão iniciada e lembrar-se das suas definições. Com a sua autorização, também usamos análise opcional.",
     "policyLink": "Leia a nossa política de cookies.",
     "rejectOptional": "Rejeitar opcionais",
     "manage": "Gerir preferências",
     "acceptAll": "Aceitar tudo",
     "preferencesTitle": "Preferências de cookies",
-    "preferencesDescription": "Escolha que tecnologia opcional o SmartFinance pode usar. O armazenamento necessário mantém-se sempre ativo, porque a aplicação não funciona sem ele.",
+    "preferencesDescription": "Escolha que tecnologia opcional o Kintally pode usar. O armazenamento necessário mantém-se sempre ativo, porque a aplicação não funciona sem ele.",
     "necessaryTitle": "Necessários",
     "necessaryDescription": "Iniciar a sua sessão, manter tudo seguro, lembrar-se do seu idioma e das suas escolhas de consentimento.",
     "preferenceTitle": "Preferências",
@@ -20,20 +20,20 @@
     "save": "Guardar preferências"
   },
   "cookiePolicy": {
-    "back": "Voltar ao SmartFinance",
+    "back": "Voltar ao Kintally",
     "title": "Política de Cookies e Tecnologias Semelhantes",
     "effective": "Em vigor desde 30 de julho de 2026",
     "scope": {
       "title": "O que esta política cobre",
-      "body": "Esta política explica como a aplicação web do SmartFinance usa cookies e tecnologias semelhantes do navegador, incluindo armazenamento local. As aplicações móveis usam armazenamento do próprio dispositivo, em vez de cookies do navegador."
+      "body": "Esta política explica como a aplicação web do Kintally usa cookies e tecnologias semelhantes do navegador, incluindo armazenamento local. As aplicações móveis usam armazenamento do próprio dispositivo, em vez de cookies do navegador."
     },
     "necessary": {
       "title": "Armazenamento necessário",
-      "body": "O SmartFinance precisa de algum armazenamento no navegador só para funcionar. Mantém a sua sessão iniciada e renova-a quando necessário, e lembra-se das suas escolhas de privacidade. Nada disto é usado para publicidade."
+      "body": "O Kintally precisa de algum armazenamento no navegador só para funcionar. Mantém a sua sessão iniciada e renova-a quando necessário, e lembra-se das suas escolhas de privacidade. Nada disto é usado para publicidade."
     },
     "optional": {
       "title": "Armazenamento e medição opcionais",
-      "body": "A sua preferência de tema torna a aplicação mais agradável de ver. O Vercel Speed Insights ajuda-nos a perceber o desempenho do site, e só é ativado depois de aceitar a análise. O SmartFinance não usa cookies de publicidade nem de marketing entre sites."
+      "body": "A sua preferência de tema torna a aplicação mais agradável de ver. O Vercel Speed Insights ajuda-nos a perceber o desempenho do site, e só é ativado depois de aceitar a análise. O Kintally não usa cookies de publicidade nem de marketing entre sites."
     },
     "storage": {
       "title": "O que usamos",
@@ -50,7 +50,7 @@
           "category": "Necessário"
         },
         {
-          "name": "Registo de consentimento SmartFinance",
+          "name": "Registo de consentimento Kintally",
           "type": "Armazenamento local do navegador",
           "purpose": "Lembra-se se aceitou ou rejeitou tecnologia opcional.",
           "duration": "Até redefinir a escolha, a política mudar, ou os dados do navegador serem apagados",
@@ -81,7 +81,7 @@
     },
     "control": {
       "title": "Gerir ou retirar o consentimento",
-      "body": "Pode rejeitar tecnologia opcional e continuar a usar todas as funcionalidades principais do SmartFinance. Reabra as Preferências de cookies a qualquer momento para mudar de ideias. Também pode apagar os dados do site no navegador, embora isso possa terminar a sua sessão e repor as preferências guardadas.",
+      "body": "Pode rejeitar tecnologia opcional e continuar a usar todas as funcionalidades principais do Kintally. Reabra as Preferências de cookies a qualquer momento para mudar de ideias. Também pode apagar os dados do site no navegador, embora isso possa terminar a sua sessão e repor as preferências guardadas.",
       "action": "Gerir preferências de cookies"
     },
     "thirdParties": {
@@ -109,7 +109,7 @@
     "savings": "Poupanças",
     "investments": "Investimentos",
     "subtitle": "Finanças Pessoais",
-    "brand": "SmartFinance",
+    "brand": "Kintally",
     "overview": "Visão geral",
     "overviewDescription": "Comece por aqui e vá diretamente às áreas que mais usa.",
     "moneyMovement": "Movimento de dinheiro",
@@ -357,7 +357,7 @@
     "openFeedback": "Abrir feedback",
     "openAdminFeedback": "Abrir caixa de feedback",
     "privacyTitle": "Privacidade",
-    "privacySubtitle": "Veja como o SmartFinance usa o armazenamento do navegador e altere as suas escolhas de consentimento opcional.",
+    "privacySubtitle": "Veja como o Kintally usa o armazenamento do navegador e altere as suas escolhas de consentimento opcional.",
     "manageCookiePreferences": "Gerir preferências de cookies",
     "openCookiePolicy": "Ler política de cookies",
     "unnamedUser": "Utilizador sem nome",
@@ -446,7 +446,7 @@
     "backupExportUnavailableTitle": "Exportação indisponível",
     "backupExportUnavailableMessage": "Na web, exportar descarrega um ficheiro JSON para o seu dispositivo. Importar a partir de um ficheiro JSON continua a funcionar na mesma.",
     "backupInvalidTitle": "Ficheiro de cópia de segurança inválido",
-    "backupInvalidMessage": "Escolha um ficheiro JSON válido de cópia de segurança do SmartFinance.",
+    "backupInvalidMessage": "Escolha um ficheiro JSON válido de cópia de segurança do Kintally.",
     "backupErrorTitle": "Erro na cópia de segurança",
     "backupUnknownError": "Algo correu mal ao processar a cópia de segurança.",
     "backupSignInRequired": "Inicie sessão para importar uma cópia de segurança do agregado.",
@@ -1346,7 +1346,7 @@
   },
   "onboarding": {
     "welcomeTitle": "Torne as suas finanças mais claras",
-    "welcomeDescription": "O SmartFinance reúne as contas, planos e objetivos do seu agregado num só lugar. Aqui fica um guia rápido para começar.",
+    "welcomeDescription": "O Kintally reúne as contas, planos e objetivos do seu agregado num só lugar. Aqui fica um guia rápido para começar.",
     "progress": "Passo {{current}} de {{total}}",
     "next": "Seguinte",
     "back": "Anterior",
@@ -1357,7 +1357,7 @@
     "completionTitle": "Está tudo pronto",
     "completionDescription": "Pode reabrir este guia quando quiser, a partir das Definições, e as novas funcionalidades apresentam-se sozinhas quando chegarem.",
     "restart": "Rever guia da aplicação",
-    "restartDescription": "Veja de novo o guia completo do SmartFinance.",
+    "restartDescription": "Veja de novo o guia completo do Kintally.",
     "sectionGuide": "Como funciona esta secção",
     "reviewSectionGuide": "Rever guia",
     "guideSeen": "Guia visto",
@@ -1411,7 +1411,7 @@
     }
   },
   "feedback": {
-    "title": "Ajude a melhorar o SmartFinance",
+    "title": "Ajude a melhorar o Kintally",
     "subtitle": "Partilhe uma ideia ou reporte um problema, depois acompanhe todas as atualizações da equipa.",
     "newTitle": "Enviar feedback",
     "newSubtitle": "Um pouco de contexto ajuda-nos a perceber o que se passa e a agir depressa.",
@@ -1470,7 +1470,7 @@
     "emptyTitle": "Ainda não enviou feedback",
     "emptyBody": "As suas sugestões e relatos de erro vão aparecer aqui depois de os enviar.",
     "resolvedInRelease": "Resolvido na versão {{release}}",
-    "supportTeam": "Equipa SmartFinance",
+    "supportTeam": "Equipa Kintally",
     "replyLabel": "Resposta",
     "replyPlaceholder": "Acrescente contexto ou responda à equipa...",
     "sendReply": "Enviar resposta",
@@ -1576,7 +1576,7 @@
     "hero": {
       "eyebrow": "Saiba sempre como está o seu dinheiro",
       "title": "Tudo sobre o seu dinheiro, num só lugar.",
-      "description": "Contas, despesas, orçamentos e objetivos partilhados, tudo junto. O SmartFinance ajuda o seu agregado a planear sem adivinhar.",
+      "description": "Contas, despesas, orçamentos e objetivos partilhados, tudo junto. O Kintally ajuda o seu agregado a planear sem adivinhar.",
       "primary": "Começar gratuitamente",
       "secondary": "Explorar funcionalidades",
       "trust": "Os seus dados financeiros continuam a ser seus. Sempre."
@@ -1629,20 +1629,20 @@
     },
     "news": {
       "kicker": "Últimas notícias",
-      "title": "Ideias e novidades do SmartFinance"
+      "title": "Ideias e novidades do Kintally"
     },
     "final": {
       "title": "Pronto para simplificar as suas finanças?",
       "description": "Construa uma visão financeira mais clara para si e para o seu agregado, a partir de hoje.",
-      "action": "Abrir SmartFinance"
+      "action": "Abrir Kintally"
     },
-    "footer": "© 2026 SmartFinance. Finanças pessoais, mais claras.",
+    "footer": "© 2026 Kintally. Finanças pessoais, mais claras.",
     "footerCookiePolicy": "Política de cookies"
   },
   "publicPages": {
     "backHome": "Voltar ao início",
     "cta": {
-      "action": "Abrir SmartFinance"
+      "action": "Abrir Kintally"
     },
     "features": {
       "kicker": "Visão completa",
@@ -1651,7 +1651,7 @@
       "highlight": "8 ferramentas, uma só vista ligada",
       "cta": {
         "title": "Pronto para ver tudo num só lugar?",
-        "description": "Junte contas, orçamentos e objetivos e experimente as ferramentas do SmartFinance por si próprio."
+        "description": "Junte contas, orçamentos e objetivos e experimente as ferramentas do Kintally por si próprio."
       },
       "items": [
         {
@@ -1691,7 +1691,7 @@
     "howItWorks": {
       "kicker": "Da configuração à decisão",
       "title": "Um percurso prático para as suas finanças",
-      "description": "O SmartFinance transforma informação financeira dispersa num plano que consegue mesmo entender e usar.",
+      "description": "O Kintally transforma informação financeira dispersa num plano que consegue mesmo entender e usar.",
       "highlight": "A maioria dos agregados fica pronta em menos de 10 minutos",
       "cta": {
         "title": "Pronto para configurar o seu primeiro agregado?",
@@ -1725,9 +1725,9 @@
       ]
     },
     "news": {
-      "kicker": "Jornal SmartFinance",
+      "kicker": "Jornal Kintally",
       "title": "Novidades do produto e conselhos práticos sobre dinheiro",
-      "description": "Histórias práticas sobre as ferramentas que já existem no SmartFinance: planeamento, poupança, movimentos recorrentes, colaboração, e como manter os seus dados seguros.",
+      "description": "Histórias práticas sobre as ferramentas que já existem no Kintally: planeamento, poupança, movimentos recorrentes, colaboração, e como manter os seus dados seguros.",
       "highlight_one": "{{count}} novidade até agora",
       "highlight_other": "{{count}} novidades até agora",
       "readMore": "Ler novidade",
@@ -1744,7 +1744,7 @@
           "description": "Saldos, movimentos recentes, despesas e progresso das poupanças vivem todos no painel, para ver como está o agregado antes de decidir o que vem a seguir.",
           "body": [
             "O painel junta todas as contas, os movimentos recentes e os mealheiros de poupança num único ecrã, para não ter de abrir cinco vistas diferentes só para perceber como está o agregado.",
-            "Foi pensado para responder primeiro a uma pergunta: o que mudou desde a última vez que olhei? A partir daí, o resto do SmartFinance — transações, orçamentos, poupanças — está a um toque de distância."
+            "Foi pensado para responder primeiro a uma pergunta: o que mudou desde a última vez que olhei? A partir daí, o resto do Kintally — transações, orçamentos, poupanças — está a um toque de distância."
           ]
         },
         "recurringPlan": {
@@ -1768,10 +1768,10 @@
         "transferVsExpense": {
           "meta": "Guia · Transferências",
           "title": "Uma transferência não é mais uma despesa",
-          "description": "O SmartFinance liga os dois lados do dinheiro que passa entre as suas contas, para o rasto se manter intacto e nada ser contado como despesa duas vezes.",
+          "description": "O Kintally liga os dois lados do dinheiro que passa entre as suas contas, para o rasto se manter intacto e nada ser contado como despesa duas vezes.",
           "body": [
             "Mover dinheiro da conta à ordem para a poupança pode facilmente acabar por aparecer como despesa — a inflacionar sem motivo os seus totais de gastos.",
-            "O SmartFinance liga os dois lados de cada transferência, debitando uma conta e creditando a outra, para os seus números de despesa se manterem certos e o rasto entre contas se manter intacto."
+            "O Kintally liga os dois lados de cada transferência, debitando uma conta e creditando a outra, para os seus números de despesa se manterem certos e o rasto entre contas se manter intacto."
           ]
         },
         "householdVisibility": {
@@ -1779,7 +1779,7 @@
           "title": "Visibilidade partilhada, com limites claros",
           "description": "As funções do agregado e a propriedade das contas deixam todos trabalhar com a mesma informação, mantendo fácil distinguir responsabilidades pessoais e partilhadas.",
           "body": [
-            "Um agregado não é uma carteira só — são várias pessoas com as suas próprias contas, algumas partilhadas, outras não. O SmartFinance mantém essa distinção visível, em vez de juntar tudo numa única bolsa.",
+            "Um agregado não é uma carteira só — são várias pessoas com as suas próprias contas, algumas partilhadas, outras não. O Kintally mantém essa distinção visível, em vez de juntar tudo numa única bolsa.",
             "As funções decidem quem pode convidar, editar ou apenas ver, para que todos vejam a mesma imagem de confiança sem perder de vista quem é dono de quê."
           ]
         },
@@ -1789,18 +1789,18 @@
           "description": "As ferramentas de cópia de segurança e restauro dão-lhe mais uma forma de guardar a informação, as preferências e os registos financeiros do agregado.",
           "body": [
             "Exporte um agregado e recebe as suas contas, categorias, transações, regras recorrentes, mealheiros e dados do orçamento mensal num único ficheiro de cópia de segurança.",
-            "Importe-o de volta — em qualquer dispositivo, a qualquer momento — e o SmartFinance reconstrói o agregado a partir desse ficheiro, para o seu histórico financeiro não ficar preso a um único lugar."
+            "Importe-o de volta — em qualquer dispositivo, a qualquer momento — e o Kintally reconstrói o agregado a partir desse ficheiro, para o seu histórico financeiro não ficar preso a um único lugar."
           ]
         }
       }
     },
     "about": {
-      "kicker": "Sobre o SmartFinance",
+      "kicker": "Sobre o Kintally",
       "title": "Criado para tornar as finanças partilhadas mais fáceis de entender",
-      "description": "O SmartFinance existe para substituir folhas de cálculo dispersas e conversas confusas por uma visão do agregado em que toda a gente pode confiar.",
+      "description": "O Kintally existe para substituir folhas de cálculo dispersas e conversas confusas por uma visão do agregado em que toda a gente pode confiar.",
       "highlight": "Privacidade e limites do agregado, incluídos desde o primeiro dia",
       "cta": {
-        "title": "Pronto para ver o SmartFinance na prática?",
+        "title": "Pronto para ver o Kintally na prática?",
         "description": "Os princípios acima são mais fáceis de avaliar quando o seu próprio agregado está dentro deles."
       },
       "items": [
@@ -1814,7 +1814,7 @@
         },
         {
           "title": "Pensado para agregados reais",
-          "description": "Dinheiro individual e partilhado podem coexistir. O SmartFinance mantém os dois visíveis, sem assumir que todos os agregados funcionam da mesma maneira."
+          "description": "Dinheiro individual e partilhado podem coexistir. O Kintally mantém os dois visíveis, sem assumir que todos os agregados funcionam da mesma maneira."
         },
         {
           "title": "Disponível em qualquer lado",
@@ -1826,13 +1826,13 @@
         },
         {
           "title": "Útil sem julgar",
-          "description": "O SmartFinance ajuda os agregados a perceber as suas escolhas e as suas consequências. Não vem dizer-lhe que só há uma forma certa de gerir dinheiro."
+          "description": "O Kintally ajuda os agregados a perceber as suas escolhas e as suas consequências. Não vem dizer-lhe que só há uma forma certa de gerir dinheiro."
         }
       ]
     }
   },
   "auth": {
-    "brand": "SmartFinance",
+    "brand": "Kintally",
     "loginSubtitle": "Inicie sessão com Google",
     "loginTitle": "Inicie sessão com Google",
     "loginDescription": "O Google inicia a sua sessão através do Supabase, para a aplicação carregar os seus dados.",
@@ -1844,7 +1844,7 @@
     "completingGoogleSignIn": "A concluir o início de sessão com Google...",
     "preparingDashboard": "A sua casa financeira está a tomar forma",
     "preparingDashboardDescription": "A ligar o seu perfil, o seu agregado e os números mais recentes.",
-    "loadingAccessibilityLabel": "A preparar o seu painel SmartFinance",
+    "loadingAccessibilityLabel": "A preparar o seu painel Kintally",
     "googleCallbackErrorMessage": "Não conseguimos concluir o início de sessão com Google. Tente novamente."
   }
 }

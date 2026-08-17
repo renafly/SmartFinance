@@ -1,4 +1,4 @@
-# SmartFinance Testing
+# Kintally Testing
 
 Use the fastest checks while developing, then run the release-only gates before promoting a web build.
 

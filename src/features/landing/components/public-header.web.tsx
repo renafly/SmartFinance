@@ -26,7 +26,7 @@ export function PublicBrand() {
           <Text style={styles.logoText}>S</Text>
         </View>
         <Text style={[styles.brandText, { color: colors.text }]}>
-          SmartFinance
+          Kintally
         </Text>
       </Pressable>
     </Link>

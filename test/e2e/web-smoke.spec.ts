@@ -89,7 +89,7 @@ for (const publicPage of publicOverviewPages) {
     await expect(page.getByRole('main')).toBeVisible();
     await expect(page.getByRole('heading', { name: publicPage.heading }).first()).toBeVisible();
     await expect(page.getByRole('main').getByText(/./).first()).toBeVisible();
-    await expect(page.getByRole('link', { name: /sign in|entrar|iniciar sess[aã]o|get started|come[cç]ar|open smartfinance|abrir smartfinance/i }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: /sign in|entrar|iniciar sess[aã]o|get started|come[cç]ar|open kintally|abrir kintally/i }).first()).toBeVisible();
 
     await page.reload();
     await expect(page.getByRole('heading', { name: publicPage.heading }).first()).toBeVisible();

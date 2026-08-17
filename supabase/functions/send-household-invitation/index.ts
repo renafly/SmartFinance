@@ -29,7 +29,7 @@ const INVITE_TOKEN_PATTERN = /^invite_[A-Za-z0-9_-]+$/;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const NATIVE_SCHEME = "smartfinance:";
+const NATIVE_SCHEME = "kintally:";
 
 const baseCorsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -284,7 +284,7 @@ Deno.serve(async (req) => {
   const allowedOrigins = getAllowedOrigins();
   const webInviteOrigin = resolveWebInviteOrigin(payload, allowedOrigins);
   const webInviteLink = webInviteOrigin ? `${webInviteOrigin}/invite/${token}` : null;
-  const nativeInviteLink = `smartfinance://invite/${token}`;
+  const nativeInviteLink = `kintally://invite/${token}`;
   const primaryInviteLink = webInviteLink ?? nativeInviteLink;
 
   const logBase: EmailLogInsert = {
