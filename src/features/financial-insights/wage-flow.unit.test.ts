@@ -28,9 +28,9 @@ const accounts = [
 ];
 
 const categories = [
-  { id: "groceries", is_discretionary: false, parent_id: null },
-  { id: "dining-out", is_discretionary: true, parent_id: null },
-  { id: "takeaway", is_discretionary: true, parent_id: "dining-out" },
+  { id: "groceries", name: "Groceries", is_discretionary: false, parent_id: null },
+  { id: "dining-out", name: "Dining out", is_discretionary: true, parent_id: null },
+  { id: "takeaway", name: "Takeaway", is_discretionary: true, parent_id: "dining-out" },
 ];
 
 function catchAll(overrides: Partial<WageFlowCategoryConfig> = {}): WageFlowCategoryConfig {
