@@ -276,6 +276,14 @@ function toMatch(
  *    same category and net to zero, or land in different categories as a
  *    negative (source) and positive (destination) pair that still nets to
  *    zero across the whole report.
+ *  - A transfer's outgoing leg with an explicit `category_id` (e.g. a
+ *    Monthly Budget allocation tagged "Investments") is *also* eligible for
+ *    the categoryIds/catch-all pass below, on top of the tracked-account
+ *    pass above — the same "one match per pass" rule as any other
+ *    transaction. This is what lets a categorized budget-generated transfer
+ *    show up in a category-filtered bucket. Uncategorized transfers are
+ *    completely unaffected: this pass only ever runs when `category_id` is
+ *    set, and never via `includeAllTransactions`.
  *  - Categories are matched in array order; the first category whose rules
  *    match a transaction/leg claims it -- but tracked-account matching
  *    (`accountIds`/`potAccountIds`/the broad transfer toggles) and
@@ -381,6 +389,35 @@ export function calculateWageFlow(params: {
           break;
         }
       }
+
+      // A transfer's outgoing leg can also carry an explicit category — the
+      // main case being a Monthly Budget allocation tagged e.g.
+      // "Investments" or "Savings > PPR", which generates a normal transfer
+      // under the hood but should still show up in whichever Wage Flow
+      // bucket is filtered to that category. This mirrors the category
+      // pass a plain expense goes through below: an entry that itself
+      // tracks this account is skipped (it already had its chance to claim
+      // the leg above), every other entry is still checked. Only
+      // categoryIds matching applies here — never includeAllTransactions —
+      // so an uncategorized transfer is never swept into a catch-all
+      // bucket; every transfer already in the system today has no category
+      // on either leg, so this is purely additive and changes nothing for
+      // them.
+      if (item.type === "expense" && item.category_id) {
+        for (const entry of entries) {
+          if (matchesTrackedAccount(entry, item.account_id)) continue;
+          if (entry.expandedCategoryIds.has(item.category_id)) {
+            entry.amount += item.amount;
+            entry.matches.push(toMatch(item, false, item.amount));
+            entry.subcategoryAmounts.set(
+              item.category_id,
+              (entry.subcategoryAmounts.get(item.category_id) ?? 0) + item.amount,
+            );
+            break;
+          }
+        }
+      }
+
       continue;
     }
 
@@ -461,12 +498,17 @@ export function calculateWageFlow(params: {
 
     if (groups.length < 2) return [];
 
+    // Sort by each subcategory's share of the bucket descending -- the
+    // largest contributor first -- breaking ties by the underlying amount
+    // descending. Share is computed before sorting so this is an explicit,
+    // literal application of that rule rather than relying on amount order
+    // happening to agree with rounded-share order.
     return groups
-      .sort((a, b) => b.amount - a.amount)
       .map((group) => ({
         ...group,
         share: totalAmount > 0 ? roundMoney((group.amount / totalAmount) * 100) : 0,
-      }));
+      }))
+      .sort((a, b) => b.share - a.share || b.amount - a.amount);
   }
 
   return {

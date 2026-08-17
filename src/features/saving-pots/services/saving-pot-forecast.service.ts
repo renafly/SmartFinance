@@ -37,12 +37,32 @@ type ForecastPot = {
   currentAmount: number | null | undefined;
 };
 
+/**
+ * One destination-account allocation belonging to a monthly budget rule
+ * (`budget_rule_allocations`). A rule's total amount only lives at the rule
+ * level for historical/UI purposes — the *resolved*, per-account amount that
+ * actually gets transferred is what's stored on each allocation, for both
+ * `equal_split` and `custom` modes. See flattenRuleAllocations below.
+ */
+type ForecastRuleAllocation = {
+  destination_account_id: string;
+  amount: number | null | undefined;
+};
+
 type ForecastRule = {
   id: string;
   account_id?: string | null;
   source_account_id?: string | null;
   destination_pot_id?: string | null;
   destination_account_id?: string | null;
+  /**
+   * Multi-account allocations for a monthly budget rule. When present, the
+   * rule's own `amount`/`destination_account_id` are ignored in favor of one
+   * contribution per allocation — a rule that splits "Investments: €200"
+   * across four accounts must be detected as four separate €50 transfers,
+   * each attributed to its own destination account/pot.
+   */
+  allocations?: ForecastRuleAllocation[] | null;
   section?: string | null;
   amount: number | null | undefined;
   frequency: ForecastFrequency;
@@ -292,6 +312,31 @@ function ruleContributesToPot(
   return rule.destination_pot_id === potId;
 }
 
+/**
+ * A monthly budget rule can fan out across N destination accounts via
+ * `budget_rule_allocations` (equal_split or custom) instead of carrying a
+ * single destination/amount pair. Every allocation is an independent
+ * transfer with its own resolved amount, so it must be treated as an
+ * independent contribution to whichever pot owns that destination account —
+ * summing the rule's total against one pot would both misattribute money to
+ * the wrong pot and miss the others entirely.
+ *
+ * Rules without an `allocations` array (recurring transfers, which have no
+ * such concept, or legacy single-destination rules) pass through unchanged
+ * so this is a safe no-op for every other caller.
+ */
+function flattenRuleAllocations(rules: ForecastRule[]): ForecastRule[] {
+  return rules.flatMap((rule) => {
+    if (!rule.allocations || rule.allocations.length === 0) return [rule];
+
+    return rule.allocations.map((allocation) => ({
+      ...rule,
+      destination_account_id: allocation.destination_account_id,
+      amount: allocation.amount,
+    }));
+  });
+}
+
 function findCompletionDate(
   contributions: ForecastContribution[],
   remainingAmount: number,
@@ -403,6 +448,10 @@ export function buildSavingPotForecasts(input: {
     current.push(assignment.pot_id);
     potIdsByAccountId.set(assignment.account_id, current);
   }
+  // Resolve each rule's allocations into independent per-destination
+  // contributions once, up front, so every pot below sees the same flat
+  // list of monthly-budget transfers the execution engine would produce.
+  const flattenedMonthlyBudgetRules = flattenRuleAllocations(input.monthlyBudgetRules);
 
   return new Map<string, SavingPotForecast>(
     input.pots.map((pot): [string, SavingPotForecast] => {
@@ -453,7 +502,7 @@ export function buildSavingPotForecasts(input: {
               ruleContributesToPot(rule, pot.id, potIdsByAccountId),
           )
           .map((rule) => toContribution(rule, "recurring_transfer", asOf, null)),
-        ...input.monthlyBudgetRules
+        ...flattenedMonthlyBudgetRules
           .filter((rule) => {
             if (!rule.is_active) return false;
             return ruleContributesToPot(rule, pot.id, potIdsByAccountId);

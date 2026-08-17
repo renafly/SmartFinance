@@ -5,6 +5,8 @@ import { useTheme } from "@/theme/ThemeProvider";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { formatCurrency } from "@/components/migrated-page";
+import { displayCurrency } from "@/shared/lib/mask-currency";
+import { usePrivacyStore } from "@/stores/privacyStore";
 import { SelectionOptionRow, SelectionShell, SelectionTrigger } from "@/components/selection-shell";
 import {
   SHARED_ACCOUNT_OWNER_KEY,
@@ -54,8 +56,8 @@ function getMemberLabel(member?: MemberLike | null, fallback = "") {
   return member.fullName?.trim() || member.email || fallback;
 }
 
-function getAccountLabel(account: AccountLike) {
-  return `${account.name} · ${formatCurrency(account.current_balance ?? account.balance ?? 0)}`;
+function getAccountLabel(account: AccountLike, hideValues: boolean) {
+  return `${account.name} · ${displayCurrency(formatCurrency(account.current_balance ?? account.balance ?? 0), hideValues)}`;
 }
 
 function getOwnerLabel(
@@ -98,13 +100,14 @@ export function GroupedAccountSelect({
 }: GroupedAccountSelectProps) {
   const [open, setOpen] = useState(false);
   const { colors } = useTheme();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
 
   const selectedAccount = accounts.find((item) => item.id === value);
   const selectedLabel =
     allOption?.value === value
       ? allOption.label
       : selectedAccount
-        ? getAccountLabel(selectedAccount)
+        ? getAccountLabel(selectedAccount, hideValues)
         : placeholder;
 
   const memberMap = useMemo(() => new Map(members.map((member) => [member.userId, member])), [members]);
@@ -207,7 +210,7 @@ export function GroupedAccountSelect({
                         key={account.id}
                         title={account.name}
                         subtitle={getAccountSubtitle(account, memberMap, sharedLabel, unassignedLabel, typeLabels)}
-                        rightLabel={formatCurrency(account.current_balance ?? account.balance ?? 0)}
+                        rightLabel={displayCurrency(formatCurrency(account.current_balance ?? account.balance ?? 0), hideValues)}
                         active={active}
                         iconName="business-outline"
                         onPress={() => {

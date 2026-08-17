@@ -13,6 +13,7 @@ type Account = TableRow<"accounts">;
 type Attachment = TableRow<"attachments">;
 type BudgetConfig = TableRow<"budget_configs">;
 type BudgetRule = TableRow<"budget_rules">;
+type BudgetRuleAllocation = TableRow<"budget_rule_allocations">;
 type Category = TableRow<"categories">;
 type Household = TableRow<"households">;
 type HouseholdMember = TableRow<"household_members">;
@@ -84,6 +85,7 @@ type CleanCategory = {
   icon: string | null;
   color: string | null;
   isDefault: boolean;
+  isDiscretionary: boolean;
   sortOrder: number;
   isArchived: boolean;
   createdAt: string;
@@ -115,22 +117,39 @@ type CleanBudgetConfig = {
   updatedAt: string;
 };
 
+type CleanBudgetRuleAllocation = {
+  destinationAccountKey: string;
+  amount: number;
+  /** Optional category tag for this allocation's generated transaction —
+   * null/absent on older backups, which is exactly the "no category"
+   * behavior that already existed before categories could be assigned. */
+  categoryKey?: string | null;
+  sortOrder: number;
+};
+
 type CleanBudgetRule = {
   key: string;
   budgetConfigKey: string;
   sourceAccountKey: string;
-  destinationAccountKey: string;
-  /** Legacy v1 field accepted during import but omitted from new exports. */
-  destinationPotKey?: string | null;
   ownerMemberKey: string | null;
   name: string;
   section: Database["public"]["Enums"]["monthly_budget_section"];
+  /** The rule's total amount, distributed across `allocations`. */
   amount: number;
+  allocationMode: Database["public"]["Enums"]["budget_rule_allocation_mode"];
+  allocations: CleanBudgetRuleAllocation[];
   frequency: Database["public"]["Enums"]["recurring_frequency"];
   priority: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Legacy v1 field: rules exported before multi-account allocations existed. Accepted during import (converted into a single allocation) but never written by new exports. */
+  destinationAccountKey?: string;
+  /** Legacy v1 field accepted during import but omitted from new exports. */
+  destinationPotKey?: string | null;
+  activeMonths: number[] | null;
+  activeFromMonth: number | null;
+  activeToMonth: number | null;
 };
 
 type CleanMonthlyBudgetRun = {
@@ -204,6 +223,7 @@ type CleanTransaction = {
   createdByMemberKey: string | null;
   budgetSection: Database["public"]["Enums"]["monthly_budget_section"] | null;
   title: string;
+  merchantName: string | null;
   notes: string | null;
   amount: number;
   type: Database["public"]["Enums"]["transaction_type"];
@@ -482,6 +502,7 @@ function buildCleanBackup(input: {
   recurringRunExecutions: RecurringRunExecution[];
   budgetConfigs: BudgetConfig[];
   budgetRules: BudgetRule[];
+  budgetRuleAllocations: BudgetRuleAllocation[];
   budgetRuns: MonthlyBudgetRun[];
   incomeInputs: MonthlyIncomeInput[];
   attachments: Attachment[];
@@ -560,6 +581,7 @@ function buildCleanBackup(input: {
       icon: category.icon,
       color: category.color,
       isDefault: category.is_default,
+      isDiscretionary: category.is_discretionary,
       sortOrder: category.sort_order,
       isArchived: category.is_archived,
       createdAt: category.created_at,
@@ -605,6 +627,7 @@ function buildCleanBackup(input: {
       createdByMemberKey: keyFor(memberKeyMap, transaction.created_by),
       budgetSection: transaction.budget_section,
       title: transaction.title,
+      merchantName: transaction.merchant_name,
       notes: transaction.notes,
       amount: transaction.amount,
       type: transaction.type,
@@ -678,25 +701,41 @@ function buildCleanBackup(input: {
             accountKeyMap,
             rule.source_account_id,
           );
-          const destinationAccountKey = keyFor(
-            accountKeyMap,
-            rule.destination_account_id,
-          );
-          if (!budgetConfigKey || !sourceAccountKey || !destinationAccountKey)
-            return null;
+          if (!budgetConfigKey || !sourceAccountKey) return null;
+
+          const allocations = input.budgetRuleAllocations
+            .filter((allocation) => allocation.rule_id === rule.id)
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .map((allocation) => {
+              const destinationAccountKey = keyFor(accountKeyMap, allocation.destination_account_id);
+              if (!destinationAccountKey) return null;
+
+              return {
+                destinationAccountKey,
+                amount: allocation.amount,
+                categoryKey: keyFor(categoryKeyMap, allocation.category_id),
+                sortOrder: allocation.sort_order,
+              };
+            })
+            .filter(isPresent);
+          if (allocations.length === 0) return null;
 
           return {
             key: requireIdFor(ruleKeyMap, rule.id, "budget rule key"),
             budgetConfigKey,
             sourceAccountKey,
-            destinationAccountKey,
             ownerMemberKey: keyFor(memberKeyMap, rule.owner_member_id),
             name: rule.name,
             section: rule.section,
             amount: rule.amount,
+            allocationMode: rule.allocation_mode,
+            allocations,
             frequency: rule.frequency,
             priority: rule.priority,
             isActive: rule.is_active,
+            activeMonths: rule.active_months,
+            activeFromMonth: rule.active_from_month,
+            activeToMonth: rule.active_to_month,
             createdAt: rule.created_at,
             updatedAt: rule.updated_at,
           };
@@ -769,6 +808,7 @@ function buildCategoryInserts(
     color: category.color,
     parent_id: idFor(categoryMap, category.parentKey),
     is_default: category.isDefault,
+    is_discretionary: category.isDiscretionary ?? false,
     sort_order: category.sortOrder,
     is_archived: category.isArchived,
     created_at: category.createdAt,
@@ -859,24 +899,34 @@ function buildBudgetConfigInserts(
   });
 }
 
+/**
+ * Every rule ships with an `allocations` array. Backups exported before
+ * multi-account allocations existed (schema v1's original shape) instead
+ * carried a single `destinationAccountKey`/`amount` pair directly on the
+ * rule — normalize those into an equivalent single-allocation array so
+ * older backup files still import cleanly.
+ */
+function normalizeRuleAllocations(rule: CleanBudgetRule): CleanBudgetRuleAllocation[] {
+  if (rule.allocations && rule.allocations.length > 0) return rule.allocations;
+  if (rule.destinationAccountKey) {
+    return [{ destinationAccountKey: rule.destinationAccountKey, amount: rule.amount, sortOrder: 0 }];
+  }
+  return [];
+}
+
 function buildBudgetRuleInserts(
   backup: HouseholdBackupFile,
   ruleMap: Map<string, string>,
   configMap: Map<string, string>,
   accountMap: Map<string, string>,
-  potMap: Map<string, string>,
   memberMap: Map<string, string>,
 ) {
   return backup.monthlyBudget.rules
     .map((rule) => {
       const budgetConfigId = idFor(configMap, rule.budgetConfigKey);
       const sourceAccountId = idFor(accountMap, rule.sourceAccountKey);
-      const destinationAccountId = idFor(
-        accountMap,
-        rule.destinationAccountKey,
-      );
-      if (!budgetConfigId || !sourceAccountId || !destinationAccountId)
-        return null;
+      if (!budgetConfigId || !sourceAccountId) return null;
+      if (normalizeRuleAllocations(rule).length === 0) return null;
 
       return {
         id: requireIdFor(ruleMap, rule.key, "budget rule"),
@@ -884,18 +934,50 @@ function buildBudgetRuleInserts(
         name: rule.name,
         section: rule.section,
         source_account_id: sourceAccountId,
-        destination_account_id: destinationAccountId,
-        destination_pot_id: idFor(potMap, rule.destinationPotKey),
         owner_member_id: mapOwner(memberMap, rule.ownerMemberKey),
         amount: rule.amount,
+        allocation_mode: rule.allocationMode ?? "equal_split",
         frequency: rule.frequency,
         priority: rule.priority,
         is_active: rule.isActive,
+        active_months: rule.activeMonths ?? null,
+        active_from_month: rule.activeFromMonth ?? null,
+        active_to_month: rule.activeToMonth ?? null,
         created_at: rule.createdAt,
         updated_at: rule.updatedAt,
       };
     })
     .filter(isPresent);
+}
+
+function buildBudgetRuleAllocationInserts(
+  backup: HouseholdBackupFile,
+  ruleMap: Map<string, string>,
+  accountMap: Map<string, string>,
+  categoryMap: Map<string, string>,
+) {
+  return backup.monthlyBudget.rules.flatMap((rule) => {
+    const ruleId = idFor(ruleMap, rule.key);
+    if (!ruleId) return [];
+
+    return normalizeRuleAllocations(rule)
+      .map((allocation, index) => {
+        const destinationAccountId = idFor(accountMap, allocation.destinationAccountKey);
+        if (!destinationAccountId) return null;
+
+        return {
+          rule_id: ruleId,
+          destination_account_id: destinationAccountId,
+          amount: allocation.amount,
+          // Older backups (pre-category-support) never had this field, so
+          // it's absent rather than null -- idFor(..., undefined) already
+          // resolves to null, same as an explicit null would.
+          category_id: idFor(categoryMap, allocation.categoryKey),
+          sort_order: allocation.sortOrder ?? index,
+        };
+      })
+      .filter(isPresent);
+  });
 }
 
 function buildBudgetRunInserts(
@@ -1087,6 +1169,7 @@ function buildTransactionInserts(
         ),
         budget_section: transaction.budgetSection,
         title: transaction.title,
+        merchant_name: transaction.merchantName ?? null,
         notes: transaction.notes,
         amount: transaction.amount,
         type: transaction.type,
@@ -1243,6 +1326,7 @@ export class HouseholdBackupService {
                 .from("budget_rules")
                 .select("*")
                 .in("budget_config_id", budgetConfigIds)
+                .is("deleted_at", null)
                 .order("priority", { ascending: true })
                 .range(from, to) as any,
           )
@@ -1271,6 +1355,19 @@ export class HouseholdBackupService {
         : Promise.resolve([]),
     ]);
 
+    const budgetRuleIds = budgetRules.map((rule) => rule.id);
+    const budgetRuleAllocations = budgetRuleIds.length
+      ? await fetchPaged<BudgetRuleAllocation>(
+          (from, to) =>
+            supabase
+              .from("budget_rule_allocations")
+              .select("*")
+              .in("rule_id", budgetRuleIds)
+              .order("sort_order", { ascending: true })
+              .range(from, to) as any,
+        )
+      : [];
+
     return buildCleanBackup({
       household,
       members,
@@ -1283,6 +1380,7 @@ export class HouseholdBackupService {
       recurringRunExecutions,
       budgetConfigs,
       budgetRules,
+      budgetRuleAllocations,
       budgetRuns,
       incomeInputs,
       attachments,
@@ -1407,9 +1505,12 @@ export class HouseholdBackupService {
         ruleMap,
         configMap,
         accountMap,
-        potMap,
         memberMap,
       ),
+    );
+    await insertMany(
+      "budget_rule_allocations",
+      buildBudgetRuleAllocationInserts(backup, ruleMap, accountMap, categoryMap),
     );
     const budgetRuns = await insertMany(
       "monthly_budget_runs",

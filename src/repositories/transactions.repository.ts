@@ -177,6 +177,12 @@ export interface BulkUpdateTransactionCategoryInput {
   categoryId: string | null;
 }
 
+export interface BulkUpdateTransferCategoryInput {
+  householdId: string;
+  transferGroupIds: string[];
+  categoryId: string | null;
+}
+
 export class TransactionsRepository extends BaseRepository<"transactions"> {
   constructor(client: SupabaseClient<Database>) {
     super(client, "transactions");
@@ -190,6 +196,26 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
       {
         p_household_id: input.householdId,
         p_transaction_ids: input.transactionIds,
+        p_category_id: input.categoryId,
+      },
+    );
+    if (error) return { data: null, error };
+    return { data: data as number, error: null };
+  }
+
+  /** Applies one category to every leg of each selected transfer group.
+   * Mirrors bulkUpdateCategory's shape, but the RPC updates two rows per
+   * requested id (the source and destination legs) and returns the count of
+   * transfer groups updated, not raw rows -- so the result stays comparable
+   * to how many transfers the caller actually selected. */
+  async bulkUpdateTransferCategory(
+    input: BulkUpdateTransferCategoryInput,
+  ): Promise<RepoResult<number>> {
+    const { data, error } = await this.client.rpc(
+      "bulk_update_transfer_category",
+      {
+        p_household_id: input.householdId,
+        p_transfer_group_ids: input.transferGroupIds,
         p_category_id: input.categoryId,
       },
     );

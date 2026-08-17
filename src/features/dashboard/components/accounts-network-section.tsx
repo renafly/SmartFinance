@@ -22,5 +22,5 @@ export function AccountsNetworkSection({ nodes, totalValue }: AccountsNetworkSec
     return <EmptyState title={t('dashboard.networkEmptyTitle')} description={t('dashboard.networkEmptyDescription')} icon="git-network-outline" />;
   }
 
-  return <AccountsNetwork3D nodes={nodes} totalLabel={t('dashboard.netWorthTotal')} totalValue={totalValue} />;
+  return <AccountsNetwork3D nodes={nodes} totalLabel={t('dashboard.networkTrackedTotal')} totalValue={totalValue} />;
 }

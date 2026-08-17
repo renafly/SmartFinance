@@ -7,6 +7,8 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
+import { displayCurrency } from '@/shared/lib/mask-currency';
+import { usePrivacyStore } from '@/stores/privacyStore';
 
 function monthKey(value: string) {
   return value.slice(0, 7);
@@ -21,6 +23,7 @@ type BudgetRunRowProps = {
 export function BudgetRunRow({ run, active, onPress }: BudgetRunRowProps) {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
 
   return (
     <Pressable
@@ -46,7 +49,7 @@ export function BudgetRunRow({ run, active, onPress }: BudgetRunRowProps) {
         </Text>
       </View>
       <Text style={{ color: active ? colors.primaryForeground : colors.textSecondary } as any}>
-        {t('budget.runPreview')}: {formatCurrency(Number((run.preview_snapshot as any)?.remainingCash ?? 0))}
+        {t('budget.runPreview')}: {displayCurrency(formatCurrency(Number((run.preview_snapshot as any)?.remainingCash ?? 0)), hideValues)}
       </Text>
     </Pressable>
   );

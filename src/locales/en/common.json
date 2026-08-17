@@ -118,13 +118,11 @@
     "administrationDescription": "Manage how your household is set up.",
     "openMenu": "Open menu"
   },
-
   "tabs": {
     "home": "Home",
     "explore": "Explore",
     "docs": "Docs"
   },
-
   "diagnostics": {
     "title": "Release diagnostics",
     "subtitle": "Check the production setup before deploying or sharing links.",
@@ -171,7 +169,6 @@
       "checking": "Checking"
     }
   },
-
   "ok": "OK",
   "cancel": "Cancel",
   "delete": "Delete",
@@ -190,7 +187,6 @@
   "weekly": "Weekly",
   "monthly": "Monthly",
   "yearly": "Yearly",
-
   "budget": {
     "title": "Monthly Budget",
     "subtitle": "Set your household rules, preview the month, and generate the transfers.",
@@ -267,7 +263,6 @@
     "selectDestinationAccount": "Select a destination account",
     "destinationAccountHint": "Choose the account that receives the transfer.",
     "destinationSelectorHint": "Choose the account that receives the transfer.",
-    "pigBank": "Pig bank",
     "destinationGroups": {
       "accounts": "Accounts",
       "cash": "Cash accounts",
@@ -278,8 +273,6 @@
       "ppr": "PPR accounts",
       "pigBanks": "Pig banks"
     },
-    "selectDestinationPot": "Select a pig bank",
-    "destinationPotHint": "Choose the pig bank that receives the transfer.",
     "amount": "Amount",
     "priority": "Priority",
     "active": "Active",
@@ -330,9 +323,31 @@
       "despesasMes": "Monthly expenses",
       "saude": "Health",
       "ppr": "PPR"
-    }
+    },
+    "allocationMode": "Allocation mode",
+    "allocationModes": {
+      "equal_split": "Equal split",
+      "custom": "Custom amounts"
+    },
+    "allocationModeHintEqual": "Splits the total evenly across every destination account below.",
+    "allocationModeHintCustom": "Set your own amount for each destination account below.",
+    "destinationAccounts": "Destination accounts",
+    "destinationAccountIndex": "Destination {{index}}",
+    "destinationAccountsCount": "{{count}} accounts",
+    "addDestination": "Add destination",
+    "removeDestination": "Remove destination",
+    "allocationAmount": "Amount",
+    "allocationCategory": "Category",
+    "allocationCategoryPlaceholder": "No category",
+    "allocationCategoryHint": "Optional — tag the transaction this allocation generates, e.g. \"Investments\" or \"Savings > PPR\".",
+    "allocationCategoryNone": "No category",
+    "allocationTotal": "Total",
+    "allocationAssigned": "Assigned",
+    "allocationRemaining": "{{amount}} left to assign",
+    "allocationOverBy": "{{amount}} over the total",
+    "allocationBalanced": "Fully assigned",
+    "destinationAccountOwner": "Owner: {{name}}"
   },
-
   "settings": {
     "title": "Household Settings",
     "householdManagement": "Household Management",
@@ -469,7 +484,6 @@
       "owner": "owner"
     }
   },
-
   "common": {
     "ok": "OK",
     "cancel": "Cancel",
@@ -490,7 +504,6 @@
     "monthly": "Monthly",
     "yearly": "Yearly"
   },
-
   "dashboard": {
     "title": "Dashboard",
     "subtitle": "Welcome back{{name}}. Here's where your household stands.",
@@ -507,6 +520,17 @@
     "networkSubtitle": "Every account, orbiting your household total.",
     "networkEmptyTitle": "Nothing to show yet",
     "networkEmptyDescription": "Once your accounts have a balance, they'll show up here as nodes around your household total.",
+    "networkTrackedTotal": "Tracked total",
+    "networkConfigButtonLabel": "Configure accounts network",
+    "networkConfigTitle": "Configure accounts network",
+    "networkConfigSubtitle": "Choose exactly which accounts and pots appear in the 3D network below.",
+    "networkConfigAccountsHint": "Bank, cash, and credit card accounts.",
+    "networkConfigNoneAvailable": "None available",
+    "networkConfigAllSelected": "All {{count}} selected",
+    "networkConfigSomeSelected": "{{selected}} of {{total}} selected",
+    "networkConfigShowEverything": "Show everything",
+    "networkConfigSelectAll": "Select all",
+    "networkConfigSelectNone": "Select none",
     "categoryNetworkTitle": "Category network",
     "categoryNetworkSubtitle": "Your expense categories for the selected period, with how much you spent in each — bigger sphere, bigger spend.",
     "categoryNetworkTotalLabel": "Spent in this period",
@@ -583,7 +607,6 @@
     "uncategorized": "Uncategorized",
     "nextRun": "next run"
   },
-
   "accounts": {
     "title": "Accounts",
     "subtitle": "Add, edit, and organize every account your household uses.",
@@ -627,7 +650,6 @@
       "ppr": "PPR"
     }
   },
-
   "insights": {
     "wageFlow": {
       "title": "Wage flow",
@@ -706,6 +728,7 @@
       "expandMenu": "Expand category list",
       "selectedCategory": "selected",
       "detailsTitle": "Category details",
+      "subcategoriesBreakdownTitle": "Breakdown by subcategory",
       "transactionCount": "{{count}} transaction(s)",
       "selectCategoryPrompt": "Select a category from the flow to see its details.",
       "noTransactionsInCategory": "No transactions in this category yet.",
@@ -804,6 +827,7 @@
     },
     "latestTitle": "Latest transactions",
     "latestSubtitle": "{{count}} rows from the current household.",
+    "latestSubtitleLoaded": "Showing {{loaded}} of {{total}} rows from the current household.",
     "account": "Account",
     "accountOwner": "Account owner",
     "allAccounts": "All accounts",
@@ -852,7 +876,7 @@
       "cancelSelection": "Cancel selection",
       "selected_one": "{{count}} transaction selected",
       "selected_other": "{{count}} transactions selected",
-      "chooseTypeHint": "Select an income or expense transaction to begin.",
+      "chooseTypeHint": "Select an income, expense, or transfer to begin.",
       "sameTypeHint": "Only {{type}} transactions can be selected together.",
       "selectLoaded": "Select loaded",
       "category": "New category",
@@ -870,7 +894,6 @@
     "new": "+ New",
     "empty": "No transactions found."
   },
-
   "categories": {
     "title": "Categories",
     "subtitle": "Create and manage the categories your transactions use.",
@@ -1019,7 +1042,6 @@
       "otherIncome": "Other Income"
     }
   },
-
   "budgets": {
     "title": "Budgets",
     "subtitle": "Track limits for payments and transfers",
@@ -1048,7 +1070,6 @@
     "deleteMessage": "This can't be undone.",
     "missingCategory": "Select a category"
   },
-
   "savings": {
     "title": "Savings",
     "subtitle": "Track your saving pots and their balances.",
@@ -1118,7 +1139,6 @@
     "deleteMessage": "This can't be undone.",
     "empty": "No savings pots yet."
   },
-
   "recurring": {
     "title": "Recurring",
     "subtitle": "Schedule repeated transactions and turn them on or off.",
@@ -1171,7 +1191,6 @@
     },
     "nextRunLabel": "next {{value}}"
   },
-
   "transfers": {
     "title": "Transfers",
     "subtitle": "Move money between accounts",
@@ -1263,7 +1282,6 @@
       "dec": "Dec"
     }
   },
-
   "notifications": {
     "title": "Notifications",
     "empty": "You have no notifications.",
@@ -1272,7 +1290,6 @@
     "softDelete": "Soft delete",
     "softDeleteShort": "X"
   },
-
   "members": {
     "title": "Members",
     "subtitle": "Invite people, manage membership, and hand off ownership.",
@@ -1301,7 +1318,6 @@
     "sending": "Sending...",
     "removing": "Removing..."
   },
-
   "invite": {
     "invalidTitle": "Invalid invitation link",
     "invalidMessage": "This link needs a token to work.",
@@ -1328,7 +1344,6 @@
     "switchAccount": "Switch account",
     "unknownError": "Unknown error"
   },
-
   "onboarding": {
     "welcomeTitle": "Make your money clearer",
     "welcomeDescription": "SmartFinance keeps your household's accounts, plans, and goals in one place. Here's a short guide to get you started.",
@@ -1395,7 +1410,6 @@
       "tip": "Come back here anytime to review the app guide or change your preferences."
     }
   },
-
   "feedback": {
     "title": "Help shape SmartFinance",
     "subtitle": "Share an idea or report a problem, then follow every update from the team.",
@@ -1471,7 +1485,6 @@
     "withdrawErrorTitle": "Couldn't withdraw feedback",
     "withdrawErrorMessage": "Please try again."
   },
-
   "adminFeedback": {
     "title": "Feedback inbox",
     "subtitle": "Review what customers are telling us, assign an owner, and close the loop with clear notes.",
@@ -1544,7 +1557,6 @@
     "replyErrorTitle": "Couldn't save the message",
     "replyErrorMessage": "Please try again."
   },
-
   "landing": {
     "nav": {
       "features": "Features",
@@ -1627,7 +1639,6 @@
     "footer": "© 2026 SmartFinance. Personal finance, made clearer.",
     "footerCookiePolicy": "Cookie policy"
   },
-
   "publicPages": {
     "backHome": "Back to home",
     "cta": {
@@ -1820,7 +1831,6 @@
       ]
     }
   },
-
   "auth": {
     "brand": "SmartFinance",
     "loginSubtitle": "Sign in with Google",

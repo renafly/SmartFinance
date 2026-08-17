@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useState, type PropsWithChildren, type ReactNode } from 'react';
 import { Modal, View } from 'react-native';
 
+import { PrivacyToggle } from '@/components/migrated-page';
+
 type ModalContextValue = {
   show: (content: ReactNode) => void;
   hide: () => void;
@@ -23,6 +25,11 @@ export function ModalProvider({ children }: PropsWithChildren) {
       <Modal visible={content !== null} transparent animationType="fade" onRequestClose={hide}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}>
           {content}
+          {/* This is the single shared confirm-dialog/one-off-sheet Modal
+              used app-wide via useModal().show(...) — RN Modals present in
+              their own layer above everything else, so the global privacy
+              toggle needs its own mount point here too. */}
+          <PrivacyToggle />
         </View>
       </Modal>
     </ModalContext.Provider>

@@ -10,8 +10,9 @@ jest.mock("@/shared/lib/supabase/client", () => ({
   supabase: {},
 }));
 
-import { MonthlyBudgetService } from "./monthly-budget.service";
+import { MonthlyBudgetService, distributeEqualSplit, type MonthlyBudgetRuleDraft } from "./monthly-budget.service";
 import { monthlyBudgetRepository } from "@/repositories/monthly-budget.repository";
+import { supabase } from "@/shared/lib/supabase/client";
 
 const service = new MonthlyBudgetService();
 
@@ -33,17 +34,46 @@ function account(overrides: Record<string, unknown>) {
   } as any;
 }
 
-function rule(overrides: Record<string, unknown>) {
+function allocation(overrides: Record<string, unknown> = {}) {
+  return {
+    id: `allocation-${Math.random().toString(36).slice(2, 8)}`,
+    rule_id: "rule-1",
+    destination_account_id: "savings-1",
+    amount: 500,
+    sort_order: 0,
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  } as any;
+}
+
+/**
+ * `destination_account_id` is accepted as shorthand for "this rule has a
+ * single allocation to this account" so most existing single-destination
+ * fixtures barely need to change under the multi-allocation schema — only
+ * tests that actually exercise multiple destinations build `allocations`
+ * explicitly.
+ */
+function rule(overrides: Record<string, unknown> = {}) {
+  const { allocations, amount, destination_account_id, ...rest } = overrides as Record<string, unknown> & {
+    allocations?: unknown[];
+    amount?: number;
+    destination_account_id?: string;
+  };
+  const totalAmount = amount ?? 500;
+  const resolvedAllocations =
+    allocations ??
+    [allocation({ destination_account_id: destination_account_id ?? "savings-1", amount: totalAmount })];
+
   return {
     id: "rule-1",
     budget_config_id: "config-1",
     name: "Monthly saving",
     section: "savings",
     source_account_id: "cash-1",
-    destination_account_id: "savings-1",
-    destination_pot_id: null,
     owner_member_id: member.userId,
-    amount: 500,
+    amount: totalAmount,
+    allocation_mode: "equal_split",
     frequency: "monthly",
     priority: 0,
     is_active: true,
@@ -51,7 +81,8 @@ function rule(overrides: Record<string, unknown>) {
     active_from_month: null,
     active_to_month: null,
     created_at: "2026-01-01T00:00:00.000Z",
-    ...overrides,
+    allocations: resolvedAllocations,
+    ...rest,
   } as any;
 }
 
@@ -120,7 +151,33 @@ describe("MonthlyBudgetService.buildPreview", () => {
         destinationAccountId: "savings-1",
         amount: 500,
         isSystemGenerated: false,
+        categoryId: null,
       }),
+    ]);
+  });
+
+  it("carries an allocation's category onto its generated transfer, and defaults to null when unset", () => {
+    const result = preview({
+      rules: [
+        rule({
+          allocations: [
+            allocation({ destination_account_id: "savings-1", amount: 300, category_id: "cat-investments" }),
+            allocation({ id: "allocation-2", destination_account_id: "savings-2", amount: 200, category_id: null }),
+          ],
+          amount: 500,
+        }),
+      ],
+      accounts: [
+        account({ id: "cash-1", name: "Main cash", type: "bank", current_balance: 500 }),
+        account({ id: "savings-1", name: "Savings", type: "savings", current_balance: 0 }),
+        account({ id: "savings-2", name: "PPR", type: "ppr", current_balance: 0 }),
+      ],
+    });
+
+    expect(result.validationIssues).toEqual([]);
+    expect(result.transfers).toEqual([
+      expect.objectContaining({ destinationAccountId: "savings-1", amount: 300, categoryId: "cat-investments" }),
+      expect.objectContaining({ destinationAccountId: "savings-2", amount: 200, categoryId: null }),
     ]);
   });
 
@@ -192,51 +249,6 @@ describe("MonthlyBudgetService.buildPreview", () => {
     expect(result.remainingCash).toBe(3000);
   });
 
-  it("requires a concrete destination account instead of resolving a pig bank", () => {
-    const result = preview({
-      rules: [
-        rule({
-          destination_account_id: null,
-          destination_pot_id: "pot-1",
-        }),
-      ],
-      savingPots: [{ id: "pot-1", name: "House", household_id: "household-1" } as any],
-      savingPotAccountAssignments: [
-        { pot_id: "pot-1", account_id: "savings-1" } as any,
-      ],
-    });
-
-    expect(result.validationIssues).toEqual([
-      'Rule "Monthly saving" has no valid destination account.',
-    ]);
-    expect(result.transfers).toEqual([]);
-  });
-
-  it("creates an account-only preview even when legacy pot data is present", () => {
-    const result = preview({
-      rules: [
-        rule({
-          destination_account_id: "savings-1",
-          destination_pot_id: "pot-1",
-        }),
-      ],
-      savingPots: [{ id: "pot-1", name: "House", household_id: "household-1" } as any],
-      savingPotAccountAssignments: [
-        { pot_id: "pot-1", account_id: "cash-1" } as any,
-      ],
-    });
-
-    expect(result.validationIssues).toEqual([]);
-    expect(result.transfers).toEqual([
-      expect.objectContaining({
-        sourceAccountId: "cash-1",
-        destinationAccountId: "savings-1",
-        destinationPotId: null,
-        destinationKind: "account",
-      }),
-    ]);
-  });
-
   it("reports a rule whose source account does not exist", () => {
     const result = preview({
       rules: [rule({ source_account_id: "missing-account" })],
@@ -246,6 +258,141 @@ describe("MonthlyBudgetService.buildPreview", () => {
       'Rule "Monthly saving" has no valid source account.',
     ]);
     expect(result.transfers).toEqual([]);
+  });
+
+  it("reports a rule with no destination accounts at all", () => {
+    const result = preview({
+      rules: [rule({ allocations: [] })],
+    });
+
+    expect(result.validationIssues).toEqual([
+      'Rule "Monthly saving" needs at least one destination account.',
+    ]);
+    expect(result.transfers).toEqual([]);
+  });
+
+  it("reports an allocation whose destination account does not exist", () => {
+    const result = preview({
+      rules: [
+        rule({
+          allocations: [allocation({ destination_account_id: "missing-account", amount: 500 })],
+        }),
+      ],
+    });
+
+    expect(result.validationIssues).toEqual([
+      'Rule "Monthly saving" has an allocation with no valid destination account.',
+    ]);
+    expect(result.transfers).toEqual([]);
+  });
+
+  it("splits a rule equally across multiple destination accounts", () => {
+    const result = preview({
+      rules: [
+        rule({
+          amount: 200,
+          allocation_mode: "equal_split",
+          allocations: [
+            allocation({ destination_account_id: "savings-1", amount: 50, sort_order: 0 }),
+            allocation({ destination_account_id: "savings-2", amount: 50, sort_order: 1 }),
+            allocation({ destination_account_id: "savings-3", amount: 50, sort_order: 2 }),
+            allocation({ destination_account_id: "savings-4", amount: 50, sort_order: 3 }),
+          ],
+        }),
+      ],
+      accounts: [
+        account({ id: "cash-1", name: "Main cash", type: "bank", current_balance: 500 }),
+        account({ id: "savings-1", name: "S1", type: "savings" }),
+        account({ id: "savings-2", name: "S2", type: "savings" }),
+        account({ id: "savings-3", name: "S3", type: "savings" }),
+        account({ id: "savings-4", name: "S4", type: "savings" }),
+      ],
+    });
+
+    expect(result.validationIssues).toEqual([]);
+    expect(result.configuredTotal).toBe(200);
+    expect(result.transfers).toHaveLength(4);
+    expect(result.transfers.every((transfer) => transfer.amount === 50)).toBe(true);
+    expect(new Set(result.transfers.map((transfer) => transfer.destinationAccountId))).toEqual(
+      new Set(["savings-1", "savings-2", "savings-3", "savings-4"]),
+    );
+    expect(result.transfers.every((transfer) => transfer.generatedByRuleId === "rule-1")).toBe(true);
+  });
+
+  it("supports custom per-account amounts that differ per destination", () => {
+    const result = preview({
+      rules: [
+        rule({
+          amount: 200,
+          allocation_mode: "custom",
+          allocations: [
+            allocation({ destination_account_id: "savings-1", amount: 100, sort_order: 0 }),
+            allocation({ destination_account_id: "savings-2", amount: 40, sort_order: 1 }),
+            allocation({ destination_account_id: "savings-3", amount: 60, sort_order: 2 }),
+          ],
+        }),
+      ],
+      accounts: [
+        account({ id: "cash-1", name: "Main cash", type: "bank", current_balance: 500 }),
+        account({ id: "savings-1", name: "S1", type: "savings" }),
+        account({ id: "savings-2", name: "S2", type: "savings" }),
+        account({ id: "savings-3", name: "S3", type: "savings" }),
+      ],
+    });
+
+    expect(result.validationIssues).toEqual([]);
+    expect(result.configuredTotal).toBe(200);
+    expect(result.transfers.map((transfer) => transfer.amount).sort((a, b) => a - b)).toEqual([40, 60, 100]);
+  });
+
+  it("reports an underallocated custom rule and drops its transfers", () => {
+    const result = preview({
+      rules: [
+        rule({
+          amount: 200,
+          allocation_mode: "custom",
+          allocations: [
+            allocation({ destination_account_id: "savings-1", amount: 100, sort_order: 0 }),
+            allocation({ destination_account_id: "savings-2", amount: 70, sort_order: 1 }),
+          ],
+        }),
+      ],
+      accounts: [
+        account({ id: "cash-1", name: "Main cash", type: "bank", current_balance: 500 }),
+        account({ id: "savings-1", name: "S1", type: "savings" }),
+        account({ id: "savings-2", name: "S2", type: "savings" }),
+      ],
+    });
+
+    expect(result.transfers).toEqual([]);
+    expect(result.validationIssues).toEqual([
+      'Rule "Monthly saving" allocations (170) are short of its total (200) by 30.',
+    ]);
+  });
+
+  it("reports an overallocated custom rule and drops its transfers", () => {
+    const result = preview({
+      rules: [
+        rule({
+          amount: 200,
+          allocation_mode: "custom",
+          allocations: [
+            allocation({ destination_account_id: "savings-1", amount: 120, sort_order: 0 }),
+            allocation({ destination_account_id: "savings-2", amount: 100, sort_order: 1 }),
+          ],
+        }),
+      ],
+      accounts: [
+        account({ id: "cash-1", name: "Main cash", type: "bank", current_balance: 500 }),
+        account({ id: "savings-1", name: "S1", type: "savings" }),
+        account({ id: "savings-2", name: "S2", type: "savings" }),
+      ],
+    });
+
+    expect(result.transfers).toEqual([]);
+    expect(result.validationIssues).toEqual([
+      'Rule "Monthly saving" allocations (220) exceed its total (200) by 20.',
+    ]);
   });
 
   it("rejects confirmation of a preview with a legacy pig bank transfer", async () => {
@@ -263,6 +410,7 @@ describe("MonthlyBudgetService.buildPreview", () => {
         validationIssues: [],
         transfers: [{
           ruleId: "rule-1",
+          allocationId: "allocation-1",
           title: "Monthly saving",
           section: "savings",
           sourceAccountId: "cash-1",
@@ -272,6 +420,7 @@ describe("MonthlyBudgetService.buildPreview", () => {
           amount: 500,
           generatedByRuleId: "rule-1",
           isSystemGenerated: false,
+          categoryId: null,
         }],
       },
     })).rejects.toThrow('Budget transfer "Monthly saving" must use two different valid accounts.');
@@ -294,6 +443,48 @@ describe("MonthlyBudgetService.buildPreview", () => {
       runId: "run-1",
       preview: runPreview,
     })).resolves.toBe(expectedRun);
+    expect(monthlyBudgetRepository.confirmRunAtomically).toHaveBeenCalledWith(
+      "run-1",
+      runPreview.transfers,
+      runPreview,
+    );
+  });
+
+  it("confirms a rule that fans out to multiple destination accounts as a single atomic call", async () => {
+    const expectedRun = { id: "run-1", status: "confirmed" };
+    Object.assign(monthlyBudgetRepository, {
+      confirmRunAtomically: jest.fn().mockResolvedValue({
+        data: expectedRun,
+        error: null,
+      }),
+    });
+    const runPreview = preview({
+      recurringTransactions: [],
+      incomeInputs: [{ memberId: member.userId, cashAccountId: "cash-1", amount: "3000" }],
+      rules: [
+        rule({
+          amount: 200,
+          allocations: [
+            allocation({ destination_account_id: "savings-1", amount: 50, sort_order: 0 }),
+            allocation({ destination_account_id: "savings-2", amount: 50, sort_order: 1 }),
+            allocation({ destination_account_id: "savings-3", amount: 50, sort_order: 2 }),
+            allocation({ destination_account_id: "savings-4", amount: 50, sort_order: 3 }),
+          ],
+        }),
+      ],
+      accounts: [
+        account({ id: "cash-1", name: "Main cash", type: "bank", current_balance: 500 }),
+        account({ id: "savings-1", name: "S1", type: "savings" }),
+        account({ id: "savings-2", name: "S2", type: "savings" }),
+        account({ id: "savings-3", name: "S3", type: "savings" }),
+        account({ id: "savings-4", name: "S4", type: "savings" }),
+      ],
+    });
+
+    expect(runPreview.transfers).toHaveLength(4);
+
+    await expect(service.confirmRun({ runId: "run-1", preview: runPreview })).resolves.toBe(expectedRun);
+    expect(monthlyBudgetRepository.confirmRunAtomically).toHaveBeenCalledTimes(1);
     expect(monthlyBudgetRepository.confirmRunAtomically).toHaveBeenCalledWith(
       "run-1",
       runPreview.transfers,
@@ -416,7 +607,7 @@ describe("MonthlyBudgetService.buildPreview", () => {
     expect(result.remainingCash).toBe(1100);
   });
 
-  it("counts pot transfers into bank accounts as allocations outside remaining cash", () => {
+  it("counts multi-account rule allocations into bank accounts as allocations outside remaining cash", () => {
     const savingsRules = ["savings-1", "savings-2", "savings-3", "savings-4"].map((destinationId, index) =>
       rule({ id: `savings-rule-${index}`, destination_account_id: destinationId, amount: 650, priority: index }),
     );
@@ -625,5 +816,239 @@ describe("MonthlyBudgetService.buildPreview", () => {
     expect(result.validationIssues).toEqual(["Alex Finance is missing a monthly salary input."]);
     expect(result.incomeTotal).toBe(0);
     expect(result.memberTotals).toEqual({ [member.userId]: 0 });
+  });
+});
+
+describe("distributeEqualSplit", () => {
+  it("distributes the remainder cent-by-cent so the shares always sum exactly to the total", () => {
+    expect(distributeEqualSplit(100, 3)).toEqual([33.34, 33.33, 33.33]);
+    expect(distributeEqualSplit(50, 4)).toEqual([12.5, 12.5, 12.5, 12.5]);
+    expect(distributeEqualSplit(0.01, 3)).toEqual([0.01, 0, 0]);
+    expect(distributeEqualSplit(10, 1)).toEqual([10]);
+  });
+
+  it("never drifts from the original total, for arbitrary totals and account counts", () => {
+    const cases: Array<[number, number]> = [
+      [199.99, 7],
+      [0.03, 4],
+      [1234.56, 12],
+      [165, 2],
+      [50, 4],
+    ];
+
+    for (const [total, count] of cases) {
+      const shares = distributeEqualSplit(total, count);
+      expect(shares).toHaveLength(count);
+      const sum = Math.round(shares.reduce((acc, share) => acc + share, 0) * 100) / 100;
+      expect(sum).toBe(total);
+    }
+  });
+});
+
+describe("MonthlyBudgetService.saveConfiguration", () => {
+  function ruleDraft(overrides: Partial<MonthlyBudgetRuleDraft> = {}): MonthlyBudgetRuleDraft {
+    return {
+      id: "draft-rule-1",
+      name: "Investments",
+      section: "investments",
+      sourceAccountId: "cash-1",
+      amount: "200",
+      allocationMode: "equal_split",
+      allocations: [
+        { id: "a1", destinationAccountId: "xtb", amount: "0", categoryId: null },
+        { id: "a2", destinationAccountId: "trading212", amount: "0", categoryId: null },
+        { id: "a3", destinationAccountId: "trade-republic", amount: "0", categoryId: null },
+        { id: "a4", destinationAccountId: "ppr-account", amount: "0", categoryId: null },
+      ],
+      ownerMemberId: null,
+      priority: "0",
+      isActive: true,
+      activeMonths: [],
+      activeFromMonth: "",
+      activeToMonth: "",
+      ...overrides,
+    };
+  }
+
+  function saveInput(rules: MonthlyBudgetRuleDraft[]) {
+    return {
+      householdId: "household-1",
+      configId: null,
+      name: "Household budget",
+      incomeMode: "shared" as const,
+      remainingCashStrategy: "keep" as const,
+      fixedRemainingCashAmount: 0,
+      excessCashDistributionMethod: "even_split" as const,
+      rules,
+    };
+  }
+
+  it("rejects a rule with no destination accounts", async () => {
+    await expect(
+      service.saveConfiguration(saveInput([ruleDraft({ allocations: [] })])),
+    ).rejects.toThrow('Rule "Investments" needs at least one destination account.');
+  });
+
+  it("rejects a destination account that matches the source account", async () => {
+    await expect(
+      service.saveConfiguration(saveInput([
+        ruleDraft({ allocations: [{ id: "a1", destinationAccountId: "cash-1", amount: "200", categoryId: null }] }),
+      ])),
+    ).rejects.toThrow('Rule "Investments" cannot use the same source and destination account.');
+  });
+
+  it("rejects the same destination account used twice in one rule", async () => {
+    await expect(
+      service.saveConfiguration(saveInput([
+        ruleDraft({
+          allocations: [
+            { id: "a1", destinationAccountId: "xtb", amount: "100", categoryId: null },
+            { id: "a2", destinationAccountId: "xtb", amount: "100", categoryId: null },
+          ],
+        }),
+      ])),
+    ).rejects.toThrow('Rule "Investments" cannot use the same destination account twice.');
+  });
+
+  it("rejects a custom allocation whose amounts do not add up to the rule total", async () => {
+    await expect(
+      service.saveConfiguration(saveInput([
+        ruleDraft({
+          allocationMode: "custom",
+          allocations: [
+            { id: "a1", destinationAccountId: "xtb", amount: "100", categoryId: null },
+            { id: "a2", destinationAccountId: "trading212", amount: "40", categoryId: null },
+          ],
+        }),
+      ])),
+    ).rejects.toThrow('Rule "Investments" allocations (140) must add up to its total (200).');
+  });
+
+  it("recomputes equal-split allocation amounts server-side, ignoring stale drafted amounts", async () => {
+    const rpc = jest.fn().mockResolvedValue({ data: "config-1", error: null });
+    const single = jest.fn().mockResolvedValue({ data: { id: "household-1" }, error: null });
+    const eq = jest.fn().mockReturnValue({ single });
+    const select = jest.fn().mockReturnValue({ eq });
+    const from = jest.fn().mockReturnValue({ select });
+    Object.assign(supabase as any, { rpc, from });
+    Object.assign(monthlyBudgetRepository, {
+      getActiveConfigWithRules: jest.fn().mockResolvedValue({
+        data: { id: "config-1", rules: [] },
+        error: null,
+      }),
+    });
+
+    await service.saveConfiguration(saveInput([
+      ruleDraft({
+        allocations: [
+          { id: "a1", destinationAccountId: "xtb", amount: "999", categoryId: null },
+          { id: "a2", destinationAccountId: "trading212", amount: "1", categoryId: null },
+          { id: "a3", destinationAccountId: "trade-republic", amount: "0", categoryId: null },
+          { id: "a4", destinationAccountId: "ppr-account", amount: "0", categoryId: null },
+        ],
+      }),
+    ]));
+
+    expect(rpc).toHaveBeenCalledWith(
+      "save_monthly_budget_configuration",
+      expect.objectContaining({
+        p_rules: [
+          expect.objectContaining({
+            amount: 200,
+            allocation_mode: "equal_split",
+            allocations: [
+              { destination_account_id: "xtb", amount: 50, category_id: null },
+              { destination_account_id: "trading212", amount: 50, category_id: null },
+              { destination_account_id: "trade-republic", amount: 50, category_id: null },
+              { destination_account_id: "ppr-account", amount: 50, category_id: null },
+            ],
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("carries each allocation's optional category through to the save payload", async () => {
+    const rpc = jest.fn().mockResolvedValue({ data: "config-1", error: null });
+    const single = jest.fn().mockResolvedValue({ data: { id: "household-1" }, error: null });
+    const eq = jest.fn().mockReturnValue({ single });
+    const select = jest.fn().mockReturnValue({ eq });
+    const from = jest.fn().mockReturnValue({ select });
+    Object.assign(supabase as any, { rpc, from });
+    Object.assign(monthlyBudgetRepository, {
+      getActiveConfigWithRules: jest.fn().mockResolvedValue({
+        data: { id: "config-1", rules: [] },
+        error: null,
+      }),
+    });
+
+    await service.saveConfiguration(saveInput([
+      ruleDraft({
+        allocationMode: "custom",
+        allocations: [
+          { id: "a1", destinationAccountId: "xtb", amount: "150", categoryId: "cat-investments" },
+          { id: "a2", destinationAccountId: "ppr-account", amount: "50", categoryId: null },
+        ],
+      }),
+    ]));
+
+    expect(rpc).toHaveBeenCalledWith(
+      "save_monthly_budget_configuration",
+      expect.objectContaining({
+        p_rules: [
+          expect.objectContaining({
+            allocations: [
+              { destination_account_id: "xtb", amount: 150, category_id: "cat-investments" },
+              { destination_account_id: "ppr-account", amount: 50, category_id: null },
+            ],
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("sends custom amounts as entered once they have been validated", async () => {
+    const rpc = jest.fn().mockResolvedValue({ data: "config-1", error: null });
+    const single = jest.fn().mockResolvedValue({ data: { id: "household-1" }, error: null });
+    const eq = jest.fn().mockReturnValue({ single });
+    const select = jest.fn().mockReturnValue({ eq });
+    const from = jest.fn().mockReturnValue({ select });
+    Object.assign(supabase as any, { rpc, from });
+    Object.assign(monthlyBudgetRepository, {
+      getActiveConfigWithRules: jest.fn().mockResolvedValue({
+        data: { id: "config-1", rules: [] },
+        error: null,
+      }),
+    });
+
+    await service.saveConfiguration(saveInput([
+      ruleDraft({
+        allocationMode: "custom",
+        allocations: [
+          { id: "a1", destinationAccountId: "xtb", amount: "50", categoryId: null },
+          { id: "a2", destinationAccountId: "trading212", amount: "50", categoryId: null },
+          { id: "a3", destinationAccountId: "trade-republic", amount: "75", categoryId: null },
+          { id: "a4", destinationAccountId: "ppr-account", amount: "25", categoryId: null },
+        ],
+      }),
+    ]));
+
+    expect(rpc).toHaveBeenCalledWith(
+      "save_monthly_budget_configuration",
+      expect.objectContaining({
+        p_rules: [
+          expect.objectContaining({
+            amount: 200,
+            allocation_mode: "custom",
+            allocations: [
+              { destination_account_id: "xtb", amount: 50, category_id: null },
+              { destination_account_id: "trading212", amount: 50, category_id: null },
+              { destination_account_id: "trade-republic", amount: 75, category_id: null },
+              { destination_account_id: "ppr-account", amount: 25, category_id: null },
+            ],
+          }),
+        ],
+      }),
+    );
   });
 });

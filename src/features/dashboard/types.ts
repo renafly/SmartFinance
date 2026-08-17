@@ -17,6 +17,11 @@ export type DashboardPot = {
   balance?: number | null;
   target_amount?: number | null;
   created_by?: string | null;
+  /** Only present on rows from the `saving_pot_balances` view (see
+   * `savingPotsService.getBalances`) -- not on plain `saving_pots` rows. */
+  color?: string | null;
+  icon?: string | null;
+  selected_account_count?: number | null;
 };
 
 export type MemberDetails = {

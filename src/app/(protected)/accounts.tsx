@@ -10,7 +10,7 @@ import { useResponsiveMetrics } from "@/theme/responsive";
 import { displayCurrency } from "@/shared/lib/mask-currency";
 import { usePrivacyStore } from "@/stores/privacyStore";
 
-import { Page, Section, Field, Button, Pill, formatCurrency } from "@/components/migrated-page";
+import { Page, Section, Field, Button, Pill, PrivacyToggle, formatCurrency } from "@/components/migrated-page";
 import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from "@/components/data-surface";
 import { HouseholdMemberSelect } from "@/components/household-member-select";
 import { useAuth } from "../../providers/AuthProvider";
@@ -42,7 +42,6 @@ export default function AccountsScreen() {
   const { t } = useTranslation("common");
   const responsive = useResponsiveMetrics();
   const hideValues = usePrivacyStore((state) => state.hideValues);
-  const toggleHideValues = usePrivacyStore((state) => state.toggleHideValues);
   const { householdId, profile } = useAuth();
   const preferredCurrency = usePreferencesStore((state) => state.currency) as AppCurrency;
   const accountsQuery = useAccountsWithBalances();
@@ -370,17 +369,6 @@ export default function AccountsScreen() {
       title={t("accounts.title")}
       subtitle={t("accounts.subtitle")}
       actions={<Button label={t("accounts.create")} onPress={openCreateDialog} />}
-      overlay={
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ selected: hideValues }}
-          accessibilityLabel={hideValues ? t("dashboard.showValues") : t("dashboard.hideValues")}
-          onPress={toggleHideValues}
-          style={({ pressed }) => [styles.privacyToggle, { borderColor: colors.primary, backgroundColor: colors.primary }, pressed && styles.pressed]}
-        >
-          <Ionicons name={hideValues ? "eye-off-outline" : "eye-outline"} size={18} color={colors.primaryForeground} />
-        </Pressable>
-      }
     >
       <View style={[styles.heroCard, { backgroundColor: colors.primarySoft, borderColor: colors.primary, flexDirection: responsive.isPhone ? "column" : "row", padding: responsive.isPhone ? spacing(4) : spacing(5) }]}>
         <View style={styles.heroCopy}>
@@ -669,6 +657,7 @@ export default function AccountsScreen() {
       <Modal visible={createDialogOpen} transparent animationType="fade" onRequestClose={() => setCreateDialogOpen(false)}>
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.backdropPressable} onPress={() => setCreateDialogOpen(false)} />
+          <PrivacyToggle />
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t("accounts.createTitle")}</Text>
             <View style={styles.modalTitleRow}>
@@ -725,6 +714,7 @@ export default function AccountsScreen() {
       <Modal visible={menuAccount !== null} transparent animationType="fade" onRequestClose={() => setMenuAccount(null)}>
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.backdropPressable} onPress={() => setMenuAccount(null)} />
+          <PrivacyToggle />
           <View style={styles.menuCard}>
             <View style={styles.modalTitleRow}>
               <Ionicons name="settings-outline" size={18} color={colors.primary} />
@@ -773,6 +763,7 @@ export default function AccountsScreen() {
       <Modal visible={editAccount !== null} transparent animationType="fade" onRequestClose={() => setEditAccount(null)}>
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.backdropPressable} onPress={() => setEditAccount(null)} />
+          <PrivacyToggle />
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t("settings.editDetails")}</Text>
             <View style={styles.modalTitleRow}>
@@ -847,6 +838,7 @@ export default function AccountsScreen() {
       <Modal visible={accountHistory !== null} transparent animationType="fade" onRequestClose={() => setAccountHistory(null)}>
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.backdropPressable} onPress={() => setAccountHistory(null)} />
+          <PrivacyToggle />
           <View style={styles.historyModalCard}>
             <Text style={styles.modalTitle}>{accountHistory?.name ?? t("accounts.title")}</Text>
             <View style={styles.modalTitleRow}>
@@ -960,23 +952,6 @@ export default function AccountsScreen() {
 
 function createStyles(colors: any) {
   return StyleSheet.create({
-    privacyToggle: {
-      position: "absolute" as const,
-      right: spacing(6),
-      bottom: spacing(6),
-      zIndex: 10,
-      width: spacing(12),
-      height: spacing(12),
-      borderRadius: radius.full,
-      borderWidth: 1,
-      alignItems: "center" as const,
-      justifyContent: "center" as const,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.2,
-      shadowRadius: 10,
-      elevation: 6,
-    },
     heroCard: {
       width: "100%",
       alignSelf: "stretch" as const,

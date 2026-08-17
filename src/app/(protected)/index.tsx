@@ -31,7 +31,28 @@ import { AllocationDonut } from '../../features/dashboard/components/allocation-
 import { AllocationLegend } from '../../features/dashboard/components/allocation-legend';
 import { AccountsNetworkSection } from '../../features/dashboard/components/accounts-network-section';
 import { getPersonLabel, sumBalances, formatLocalDate } from '../../features/dashboard/utils';
-import { buildAccountAccentPalette, buildAccountNetworkNodes } from '../../features/dashboard/network-data';
+import {
+  buildAccountAccentPalette,
+  buildAccountNetworkNodes,
+  buildPotNetworkNodes,
+  combineDashboardNetworkNodes,
+} from '../../features/dashboard/network-data';
+import {
+  buildDefaultDashboardNetworkConfig,
+  excludePotAssignedAccounts,
+  filterAccountsByDashboardNetworkConfig,
+  filterPotsByDashboardNetworkConfig,
+  getAccountNetworkGroup,
+  type DashboardNetworkConfigGroup,
+} from '../../features/dashboard/network-config';
+import {
+  useDashboardNetworkConfigQuery,
+  useSaveDashboardNetworkConfig,
+} from '../../features/dashboard/hooks/useDashboardNetworkConfig';
+import {
+  DashboardNetworkConfigPanel,
+  type DashboardNetworkConfigGroupDef,
+} from '../../features/dashboard/components/dashboard-network-config-panel';
 import type { DashboardAccount, DashboardPot, MemberDetails, AllocationSegment } from '../../features/dashboard/types';
 
 import { useCategories } from '../../features/categories/hooks';
@@ -80,7 +101,6 @@ export default function DashboardScreen() {
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
   const hideValues = usePrivacyStore((state) => state.hideValues);
-  const toggleHideValues = usePrivacyStore((state) => state.toggleHideValues);
   const membersQuery = useHouseholdMemberDetails();
   const householdsQuery = useMyHouseholds();
   const setDefaultHousehold = useDefaultHousehold();
@@ -120,9 +140,21 @@ export default function DashboardScreen() {
     enabled: !!householdId,
   });
 
+  // Which accounts back a saving pot -- needed up here (rather than beside
+  // Wage Flow further down, where this hook used to live) so the
+  // investment/savings/everyday account totals below can exclude
+  // pot-backed accounts and avoid double-counting the same balance under
+  // both a pot and its backing account's bucket.
+  const savingPotAssignmentsQuery = useSavingPotAccountAssignments();
+
   // Filtered to expense categories since that's the only kind Wage Flow
   // category rules (and the old category network section) ever needed.
   const categoriesQuery = useCategories('expense');
+
+  // Personal, per-profile display preference for the 3D accounts network --
+  // declared up here (rather than beside where it's used, further down) so
+  // it can gate `isPreparingDashboard` the same way the other queries do.
+  const dashboardNetworkConfigQuery = useDashboardNetworkConfigQuery();
 
   const isPreparingDashboard = [
     accountsQuery,
@@ -132,6 +164,8 @@ export default function DashboardScreen() {
     membersQuery,
     householdsQuery,
     categoriesQuery,
+    dashboardNetworkConfigQuery,
+    savingPotAssignmentsQuery,
   ].some((query) => query.isPending && query.fetchStatus === 'fetching');
 
   const accounts = (accountsQuery.data ?? []) as DashboardAccount[];
@@ -159,9 +193,28 @@ export default function DashboardScreen() {
     }
     return map;
   }, [members]);
+
+  // Accounts assigned to a saving pot are already fully represented by that
+  // pot's balance (see the `saving_pot_balances` view -- a pot's balance is
+  // the sum of its assigned accounts' *entire* current balance, and an
+  // account can back at most one pot). Every Dashboard total/card/graph
+  // built from account-type buckets below (investment/savings/every-day)
+  // must exclude these accounts, or that same money gets counted a second
+  // time under its account-type bucket on top of the Pots total/nodes.
+  // Doesn't touch Wage Flow, which intentionally still lists every account
+  // (with its pot as metadata) since "pot" means something different there.
+  const potAssignedAccountIds = useMemo(
+    () => new Set((savingPotAssignmentsQuery.data ?? []).map((assignment: any) => assignment.account_id)),
+    [savingPotAssignmentsQuery.data],
+  );
+  const dashboardEligibleAccounts = useMemo(
+    () => excludePotAssignedAccounts(accounts, potAssignedAccountIds),
+    [accounts, potAssignedAccountIds],
+  );
+
   const investmentAccounts = useMemo(
     () =>
-      accounts
+      dashboardEligibleAccounts
         .filter((account) => account.type === 'investment' || account.type === 'ppr')
         .slice()
         .sort((a, b) => {
@@ -174,12 +227,12 @@ export default function DashboardScreen() {
             a.name.localeCompare(b.name)
           );
         }),
-    [accounts, memberMap, t],
+    [dashboardEligibleAccounts, memberMap, t],
   );
 
   const savingsAccounts = useMemo(
-    () => accounts.filter((account) => account.type === 'savings'),
-    [accounts],
+    () => dashboardEligibleAccounts.filter((account) => account.type === 'savings'),
+    [dashboardEligibleAccounts],
   );
 
   const investmentMonthlyChange = useMemo(
@@ -251,17 +304,160 @@ export default function DashboardScreen() {
       }),
     [colors.destructive, colors.financialAttention, colors.financialGoal, colors.financialNeutral, colors.financialPositive, colors.info, colors.primary, colors.warning],
   );
-  const accountNetworkNodes = useMemo(
-    () =>
-      buildAccountNetworkNodes(
-        accounts,
-        memberMap,
-        accountAccentPalette,
-        t('dashboard.shared'),
-        t('dashboard.unnamedPerson'),
-      ),
-    [accountAccentPalette, accounts, memberMap, t],
+  const everydayAccounts = useMemo(
+    () => dashboardEligibleAccounts.filter((account) => getAccountNetworkGroup(account.type) === 'accountIds'),
+    [dashboardEligibleAccounts],
   );
+
+  // ---- Accounts network 3D config (which accounts/pots appear as nodes) --
+  // Personal, per-profile display preference persisted in the
+  // `dashboard_network_configs` Supabase table -- see
+  // `useDashboardNetworkConfig` for why this isn't shared household data
+  // the way Wage Flow categories are.
+  const dashboardNetworkConfigAccounts = useMemo(
+    () => dashboardEligibleAccounts.map((account) => ({ id: account.id, type: account.type })),
+    [dashboardEligibleAccounts],
+  );
+  const dashboardNetworkConfigPots = useMemo(
+    () => savingPotBalances.map((pot) => ({ id: pot.id })),
+    [savingPotBalances],
+  );
+  const dashboardNetworkDefaultConfig = useMemo(
+    () =>
+      buildDefaultDashboardNetworkConfig({
+        accounts: dashboardNetworkConfigAccounts,
+        pots: dashboardNetworkConfigPots,
+      }),
+    [dashboardNetworkConfigAccounts, dashboardNetworkConfigPots],
+  );
+  const saveDashboardNetworkConfig = useSaveDashboardNetworkConfig();
+  // `undefined` (still loading) and `null` (profile has never customized
+  // the network) both fall back to "everything selected".
+  const dashboardNetworkConfig = dashboardNetworkConfigQuery.data ?? dashboardNetworkDefaultConfig;
+  function setDashboardNetworkGroupSelection(group: DashboardNetworkConfigGroup, ids: string[]) {
+    saveDashboardNetworkConfig.mutate({ ...dashboardNetworkConfig, [group]: ids });
+  }
+  function resetDashboardNetworkConfig() {
+    saveDashboardNetworkConfig.mutate(dashboardNetworkDefaultConfig);
+  }
+  const [networkConfigOpen, setNetworkConfigOpen] = useState(false);
+
+  const filteredNetworkAccounts = useMemo(
+    () => filterAccountsByDashboardNetworkConfig(dashboardEligibleAccounts, dashboardNetworkConfig),
+    [dashboardEligibleAccounts, dashboardNetworkConfig],
+  );
+  const filteredNetworkPots = useMemo(
+    () => filterPotsByDashboardNetworkConfig(savingPotBalances, dashboardNetworkConfig),
+    [savingPotBalances, dashboardNetworkConfig],
+  );
+  const dashboardNetworkNodes = useMemo(() => {
+    const accountNodes = buildAccountNetworkNodes(
+      filteredNetworkAccounts,
+      memberMap,
+      accountAccentPalette,
+      t('dashboard.shared'),
+      t('dashboard.unnamedPerson'),
+    );
+    const potNodes = buildPotNetworkNodes(filteredNetworkPots, accountAccentPalette, t('dashboard.pots'));
+    return combineDashboardNetworkNodes(accountNodes, potNodes, accountAccentPalette);
+  }, [accountAccentPalette, filteredNetworkAccounts, filteredNetworkPots, memberMap, t]);
+  const dashboardNetworkTotal = useMemo(
+    () => sumBalances(dashboardNetworkNodes, (node) => node.value),
+    [dashboardNetworkNodes],
+  );
+
+  const dashboardNetworkAccountOptions = useMemo(
+    () =>
+      everydayAccounts.map((account) => ({
+        id: account.id,
+        name: account.name,
+        subtitle: account.owner_profile_id
+          ? getPersonLabel(memberMap.get(account.owner_profile_id), t('dashboard.unnamedPerson'))
+          : t('dashboard.shared'),
+        balance: Number(account.current_balance ?? account.balance ?? 0),
+      })),
+    [everydayAccounts, memberMap, t],
+  );
+  const dashboardNetworkInvestmentOptions = useMemo(
+    () =>
+      investmentAccounts.map((account) => ({
+        id: account.id,
+        name: account.name,
+        subtitle: account.owner_profile_id
+          ? getPersonLabel(memberMap.get(account.owner_profile_id), t('dashboard.unnamedPerson'))
+          : t('dashboard.shared'),
+        balance: Number(account.current_balance ?? account.balance ?? 0),
+      })),
+    [investmentAccounts, memberMap, t],
+  );
+  const dashboardNetworkSavingsOptions = useMemo(
+    () =>
+      savingsAccounts.map((account) => ({
+        id: account.id,
+        name: account.name,
+        subtitle: account.owner_profile_id
+          ? getPersonLabel(memberMap.get(account.owner_profile_id), t('dashboard.unnamedPerson'))
+          : t('dashboard.shared'),
+        balance: Number(account.current_balance ?? account.balance ?? 0),
+      })),
+    [savingsAccounts, memberMap, t],
+  );
+  const dashboardNetworkPotOptions = useMemo(
+    () =>
+      savingPotBalances.map((pot) => ({
+        id: pot.id,
+        name: pot.name,
+        balance: Number(pot.balance ?? 0),
+      })),
+    [savingPotBalances],
+  );
+  const dashboardNetworkConfigGroups: DashboardNetworkConfigGroupDef[] = useMemo(
+    () => [
+      {
+        group: 'accountIds',
+        label: t('dashboard.accounts'),
+        hint: t('dashboard.networkConfigAccountsHint'),
+        emptyLabel: t('insights.wageFlow.noAccounts'),
+        iconName: 'wallet-outline',
+        options: dashboardNetworkAccountOptions,
+      },
+      {
+        group: 'investmentAccountIds',
+        label: t('dashboard.investmentAccountsTitle'),
+        hint: t('dashboard.investmentAccountsSubtitle', { count: investmentAccounts.length }),
+        emptyLabel: t('dashboard.noInvestmentAccounts'),
+        iconName: 'trending-up-outline',
+        options: dashboardNetworkInvestmentOptions,
+      },
+      {
+        group: 'savingsAccountIds',
+        label: t('dashboard.savingsAccountsTitle'),
+        hint: t('dashboard.savingsAccountsSubtitle', { count: savingsAccounts.length }),
+        emptyLabel: t('dashboard.noSavingsAccounts'),
+        iconName: 'file-tray-full-outline',
+        options: dashboardNetworkSavingsOptions,
+      },
+      {
+        group: 'potIds',
+        label: t('dashboard.savingPotsTitle'),
+        hint: t('dashboard.savingPotsSubtitle', { count: savingPotBalances.length }),
+        emptyLabel: t('dashboard.noSavingPots'),
+        iconName: 'flag-outline',
+        options: dashboardNetworkPotOptions,
+      },
+    ],
+    [
+      dashboardNetworkAccountOptions,
+      dashboardNetworkInvestmentOptions,
+      dashboardNetworkPotOptions,
+      dashboardNetworkSavingsOptions,
+      investmentAccounts.length,
+      savingPotBalances.length,
+      savingsAccounts.length,
+      t,
+    ],
+  );
+  // ---- end accounts network 3D config -----------------------------------
 
   const totalInvestmentAccounts = investmentAccounts.length;
   const totalSavingsAccounts = savingsAccounts.length;
@@ -288,7 +484,6 @@ export default function DashboardScreen() {
     from: wageFlowRange.from,
     to: wageFlowRange.to,
   });
-  const savingPotAssignmentsQuery = useSavingPotAccountAssignments();
 
   const potLabelByAccountId = useMemo(() => {
     const potNames = new Map(savingPots.map((pot) => [pot.id, pot.name]));
@@ -548,21 +743,6 @@ export default function DashboardScreen() {
           onPress={() => setHouseholdPickerOpen(true)}
         />
       }
-      overlay={
-        // Fixed in place over the whole screen (not just scrolled content)
-        // so it stays reachable no matter how far down the dashboard you've
-        // scrolled, and masks every currency figure on the page at once via
-        // the shared privacy store — not just the account network diagram.
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ selected: hideValues }}
-          accessibilityLabel={hideValues ? t('dashboard.showValues') : t('dashboard.hideValues')}
-          onPress={toggleHideValues}
-          style={({ pressed }) => [styles.privacyToggle, { borderColor: colors.primary, backgroundColor: colors.primary }, pressed && styles.pressed]}
-        >
-          <Ionicons name={hideValues ? 'eye-off-outline' : 'eye-outline'} size={18} color={colors.primaryForeground} />
-        </Pressable>
-      }
     >
       <View style={[styles.heroCard, { backgroundColor: colors.primarySoft, borderColor: colors.primary, flexDirection: responsive.isPhone ? 'column' : 'row', padding: responsive.isPhone ? spacing(4) : spacing(5) }]}>
         <View style={styles.heroCopy}>
@@ -615,8 +795,30 @@ export default function DashboardScreen() {
             title={t('dashboard.networkTitle')}
             subtitle={t('dashboard.networkSubtitle')}
             collapsible
+            action={
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('dashboard.networkConfigButtonLabel')}
+                onPress={() => setNetworkConfigOpen(true)}
+                style={({ pressed }) => [
+                  {
+                    width: spacing(9),
+                    height: spacing(9),
+                    borderRadius: radius.lg,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.surfaceMuted,
+                  },
+                  pressed && { opacity: 0.85 },
+                ]}
+              >
+                <Ionicons name="settings-outline" size={18} color={colors.textSecondary} />
+              </Pressable>
+            }
           >
-            <AccountsNetworkSection nodes={accountNetworkNodes} totalValue={netWorthTotal} />
+            <AccountsNetworkSection nodes={dashboardNetworkNodes} totalValue={dashboardNetworkTotal} />
           </Section>
         </View>
 
@@ -802,6 +1004,15 @@ export default function DashboardScreen() {
         onDelete={deleteWageFlowDraft}
       />
 
+      <DashboardNetworkConfigPanel
+        visible={networkConfigOpen}
+        onClose={() => setNetworkConfigOpen(false)}
+        config={dashboardNetworkConfig}
+        groups={dashboardNetworkConfigGroups}
+        onChangeGroup={setDashboardNetworkGroupSelection}
+        onShowEverything={resetDashboardNetworkConfig}
+      />
+
       <SelectionShell
         visible={householdPickerOpen}
         title={t('dashboard.selectHousehold')}
@@ -828,36 +1039,11 @@ export default function DashboardScreen() {
           ))}
         </View>
       </SelectionShell>
-
-      <View style={styles.privacyToggleSpacer} />
     </Page>
   );
 }
 
 const styles = StyleSheet.create({
-  privacyToggle: {
-    position: 'absolute',
-    right: spacing(6),
-    bottom: spacing(6),
-    zIndex: 10,
-    width: spacing(12),
-    height: spacing(12),
-    borderRadius: radius.full,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  privacyToggleSpacer: {
-    height: spacing(16),
-  },
-  pressed: {
-    opacity: 0.75,
-  },
   heroCard: {
     width: '100%',
     alignSelf: 'stretch',

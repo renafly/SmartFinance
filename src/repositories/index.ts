@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { AccountsRepository } from "./accounts.repository";
 import { AttachmentsRepository } from "./attachments.repository";
 import { CategoriesRepository } from "./categories.repository";
+import { DashboardNetworkConfigRepository } from "./dashboard-network-config.repository";
 import { HouseholdsRepository } from "./households.repository";
 import { MonthlyBudgetRepository } from "./monthly-budget.repository";
 import { ProfilesRepository } from "./profiles.repository";
@@ -18,6 +19,7 @@ export * from "./accounts.repository";
 export * from "./attachments.repository";
 export * from "./base.repository";
 export * from "./categories.repository";
+export * from "./dashboard-network-config.repository";
 export * from "./households.repository";
 export * from "./monthly-budget.repository";
 export * from "./profiles.repository";
@@ -34,6 +36,7 @@ export function createRepositories(
     accounts: new AccountsRepository(client),
     attachments: new AttachmentsRepository(client),
     categories: new CategoriesRepository(client),
+    dashboardNetworkConfig: new DashboardNetworkConfigRepository(client),
     households: new HouseholdsRepository(client),
     monthlyBudget: new MonthlyBudgetRepository(client),
     profiles: new ProfilesRepository(client),

@@ -118,6 +118,122 @@ describe("calculateWageFlow", () => {
     expect(bucket(report, "dining").amount).toBe(45);
   });
 
+  it("matches a categorized transfer's outgoing leg by category, e.g. a Monthly Budget allocation tagged 'Investments'", () => {
+    const report = calculateWageFlow({
+      transactions: [
+        tx({
+          id: "budget-out",
+          type: "expense",
+          amount: 200,
+          account_id: "bank-1",
+          category_id: "dining-out",
+          transfer_group_id: "g1",
+        }),
+        tx({
+          id: "budget-in",
+          type: "income",
+          amount: 200,
+          account_id: "investment-1",
+          transfer_group_id: "g1",
+        }),
+      ],
+      accounts,
+      categories,
+      config: [
+        catchAll({
+          id: "investments",
+          includeAllTransactions: false,
+          categoryIds: ["dining-out"],
+        }),
+      ],
+    });
+
+    expect(bucket(report, "investments").amount).toBe(200);
+    expect(bucket(report, "investments").matches).toHaveLength(1);
+    expect(bucket(report, "investments").matches[0].id).toBe("budget-out");
+  });
+
+  it("does not let a categorized transfer leg fall into an includeAllTransactions catch-all", () => {
+    const report = calculateWageFlow({
+      transactions: [
+        tx({
+          id: "budget-out",
+          type: "expense",
+          amount: 200,
+          account_id: "bank-1",
+          category_id: "dining-out",
+          transfer_group_id: "g1",
+        }),
+        tx({ id: "budget-in", type: "income", amount: 200, account_id: "investment-1", transfer_group_id: "g1" }),
+      ],
+      accounts,
+      categories,
+      config: [catchAll()],
+    });
+
+    // includeAllTransactions must never pick up transfer legs, categorized
+    // or not -- that would be a behavior change for every transfer already
+    // in the system.
+    expect(bucket(report, "catch-all").amount).toBe(0);
+  });
+
+  it("leaves an uncategorized transfer's category-pass eligibility unchanged (no category_id, no match)", () => {
+    const report = calculateWageFlow({
+      transactions: [
+        tx({ id: "out", type: "expense", amount: 200, account_id: "bank-1", transfer_group_id: "g1" }),
+        tx({ id: "in", type: "income", amount: 200, account_id: "investment-1", transfer_group_id: "g1" }),
+      ],
+      accounts,
+      categories,
+      config: [
+        catchAll({
+          id: "investments",
+          includeAllTransactions: false,
+          categoryIds: ["dining-out"],
+        }),
+      ],
+    });
+
+    expect(bucket(report, "investments").amount).toBe(0);
+    expect(bucket(report, "investments").matches).toHaveLength(0);
+  });
+
+  it("still lets a categorized transfer's destination leg claim a tracked-account pass independently of the source leg's category pass", () => {
+    const report = calculateWageFlow({
+      transactions: [
+        tx({
+          id: "budget-out",
+          type: "expense",
+          amount: 200,
+          account_id: "bank-1",
+          category_id: "dining-out",
+          transfer_group_id: "g1",
+        }),
+        tx({ id: "budget-in", type: "income", amount: 200, account_id: "investment-1", transfer_group_id: "g1" }),
+      ],
+      accounts,
+      categories,
+      config: [
+        catchAll({
+          id: "investments-category",
+          includeAllTransactions: false,
+          categoryIds: ["dining-out"],
+        }),
+        catchAll({
+          id: "investments-pot",
+          includeAllTransactions: false,
+          includeTransfersIntoPots: true,
+        }),
+      ],
+    });
+
+    // Two independent passes -- the outgoing leg is claimed by the category
+    // bucket, the incoming leg (landing on a pot-type account) is claimed
+    // by the tracked-account bucket, at the same time.
+    expect(bucket(report, "investments-category").amount).toBe(200);
+    expect(bucket(report, "investments-pot").amount).toBe(200);
+  });
+
   it("matches specific pot accounts on the incoming transfer leg only", () => {
     const report = calculateWageFlow({
       transactions: [
@@ -430,6 +546,64 @@ describe("calculateWageFlow", () => {
     });
     expect(report.income).toBe(500);
     expect(bucket(report, "catch-all").amount).toBe(50);
+  });
+});
+
+describe("calculateWageFlow subcategory breakdown", () => {
+  it("sorts subcategories by share of the bucket descending, largest first", () => {
+    const report = calculateWageFlow({
+      transactions: [
+        tx({ id: "t-groceries", type: "expense", amount: 20, account_id: "bank-1", category_id: "groceries" }),
+        tx({ id: "t-dining", type: "expense", amount: 50, account_id: "bank-1", category_id: "dining-out" }),
+        tx({ id: "t-takeaway", type: "expense", amount: 30, account_id: "bank-1", category_id: "takeaway" }),
+      ],
+      accounts,
+      categories,
+      config: [catchAll()],
+    });
+
+    const subs = bucket(report, "catch-all").subcategories;
+    // dining-out (50) and takeaway (30) are separate category ids here since
+    // this bucket isn't filtered to a specific categoryIds rule that would
+    // merge them -- each contributing category shows up as its own group.
+    expect(subs.map((s) => s.id)).toEqual(["dining-out", "takeaway", "groceries"]);
+    expect(subs.map((s) => s.amount)).toEqual([50, 30, 20]);
+    expect(subs.map((s) => s.share)).toEqual([50, 30, 20]);
+  });
+
+  it("breaks a tie in rounded share by the underlying amount, descending", () => {
+    // 100 and 104 both round to a 0.10% share of 100000, but 104 is the
+    // larger contributor and must sort first per the tie-break rule.
+    const report = calculateWageFlow({
+      transactions: [
+        tx({ id: "t-a1", type: "expense", amount: 100, account_id: "bank-1", category_id: "groceries" }),
+        tx({ id: "t-a2", type: "expense", amount: 104, account_id: "bank-1", category_id: "dining-out" }),
+        tx({ id: "t-a3", type: "expense", amount: 99796, account_id: "bank-1", category_id: "takeaway" }),
+      ],
+      accounts,
+      categories,
+      config: [catchAll()],
+    });
+
+    const subs = bucket(report, "catch-all").subcategories;
+    expect(subs.map((s) => s.id)).toEqual(["takeaway", "dining-out", "groceries"]);
+    expect(subs[1].share).toBe(0.1);
+    expect(subs[2].share).toBe(0.1);
+    expect(subs[1].amount).toBe(104);
+    expect(subs[2].amount).toBe(100);
+  });
+
+  it("leaves the breakdown empty when only a single group contributes (no meaningful drilldown)", () => {
+    const report = calculateWageFlow({
+      transactions: [
+        tx({ id: "t-only", type: "expense", amount: 75, account_id: "bank-1", category_id: "groceries" }),
+      ],
+      accounts,
+      categories,
+      config: [catchAll()],
+    });
+
+    expect(bucket(report, "catch-all").subcategories).toEqual([]);
   });
 });
 

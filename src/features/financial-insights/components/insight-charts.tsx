@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 
 import { formatCurrency } from "@/components/migrated-page";
+import { displayCurrency } from "@/shared/lib/mask-currency";
+import { usePrivacyStore } from "@/stores/privacyStore";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
@@ -179,6 +181,8 @@ export function WageFlowChart({
   const { t } = useTranslation("common");
   const { colors } = useTheme();
   const { width, onLayout } = useChartWidth();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
+  const maskedCurrency = (amount: number) => displayCurrency(formatCurrency(amount), hideValues);
 
   // Categories tied to a specific account/pot can now report a true signed
   // net (e.g. a savings pot that had more withdrawn than deposited this
@@ -243,9 +247,9 @@ export function WageFlowChart({
     : t("insights.wageFlow.income");
 
   const summary = [
-    `${incomeLabel}: ${formatCurrency(income)}`,
+    `${incomeLabel}: ${maskedCurrency(income)}`,
     ...buckets.map(
-      (item) => `${item.label}: ${formatCurrency(item.amount)}, ${item.share}%`,
+      (item) => `${item.label}: ${maskedCurrency(item.amount)}, ${item.share}%`,
     ),
   ].join(". ");
 
@@ -269,7 +273,7 @@ export function WageFlowChart({
           {incomeLabel}
         </Text>
         <Text style={{ color: colors.financialPositive, fontWeight: typography.fontWeight.bold }}>
-          {formatCurrency(income)}
+          {maskedCurrency(income)}
         </Text>
       </View>
       <View onLayout={onLayout}>
@@ -296,7 +300,7 @@ export function WageFlowChart({
                   stroke={isSelected ? segment.color : "none"}
                   strokeWidth={isSelected ? 1.5 : 0}
                   {...svgPressProps(() => onSelectKey(segment.key))}
-                  accessibilityLabel={`${segment.label}, ${segment.share}%, ${formatCurrency(segment.amount)}`}
+                  accessibilityLabel={`${segment.label}, ${segment.share}%, ${maskedCurrency(segment.amount)}`}
                 />,
               ];
             }
@@ -321,7 +325,7 @@ export function WageFlowChart({
                   stroke={isSelected ? segment.color : colors.surface}
                   strokeWidth={isSelected ? 1.5 : WAGE_FLOW_SLICE_STROKE_WIDTH}
                   {...svgPressProps(() => onSelectKey(segment.key))}
-                  accessibilityLabel={`${segment.label} · ${leftSlice.label}, ${leftSlice.share}%, ${formatCurrency(leftSlice.amount)}`}
+                  accessibilityLabel={`${segment.label} · ${leftSlice.label}, ${leftSlice.share}%, ${maskedCurrency(leftSlice.amount)}`}
                 />
               );
             });
@@ -357,7 +361,7 @@ export function WageFlowChart({
                   stroke={isSelected ? colors.text : "none"}
                   strokeWidth={isSelected ? 1.5 : 0}
                   {...svgPressProps(() => onSelectKey(segment.key))}
-                  accessibilityLabel={`${segment.label}, ${segment.share}%, ${formatCurrency(segment.amount)}`}
+                  accessibilityLabel={`${segment.label}, ${segment.share}%, ${maskedCurrency(segment.amount)}`}
                 />,
               ];
             }
@@ -374,7 +378,7 @@ export function WageFlowChart({
                 stroke={isSelected ? colors.text : colors.surface}
                 strokeWidth={isSelected ? 1.5 : WAGE_FLOW_SLICE_STROKE_WIDTH}
                 {...svgPressProps(() => onSelectKey(segment.key))}
-                accessibilityLabel={`${segment.label} · ${slice.label}, ${slice.share}%, ${formatCurrency(slice.amount)}`}
+                accessibilityLabel={`${segment.label} · ${slice.label}, ${slice.share}%, ${maskedCurrency(slice.amount)}`}
               />
             ));
           })}

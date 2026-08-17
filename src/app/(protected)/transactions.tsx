@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -18,6 +19,8 @@ import { useToast } from "@/providers/ToastProvider";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
 import { useResponsiveMetrics } from "@/theme/responsive";
+import { displayCurrency } from "@/shared/lib/mask-currency";
+import { usePrivacyStore } from "@/stores/privacyStore";
 
 import {
   Page,
@@ -26,6 +29,7 @@ import {
   Field,
   Button,
   Pill,
+  PrivacyToggle,
   formatCurrency,
   formatDate,
 } from "@/components/migrated-page";
@@ -56,6 +60,7 @@ import { useUpdateCompletedTransfer } from "../../features/transactions/hooks/us
 import { useCreateTransfer } from "../../features/transfers/hooks";
 import { useUpdateTransaction } from "../../features/transactions/hooks/useUpdateTransaction";
 import { useBulkUpdateTransactionCategories } from "../../features/transactions/hooks/useBulkUpdateTransactionCategories";
+import { useBulkUpdateTransferCategories } from "../../features/transactions/hooks/useBulkUpdateTransferCategories";
 import { useTransactionAttachments } from "../../features/transactions/attachments/useTransactionAttachments";
 import { useTransactionCategorySuggestion } from "../../features/transactions/category-suggestions";
 import { useTransactionTitleSuggestions } from "../../features/transactions/title-suggestions";
@@ -147,6 +152,7 @@ export default function TransactionsScreen() {
   const responsive = useResponsiveMetrics();
   const { t } = useTranslation("common");
   const { show } = useToast();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
   const { householdId, profile } = useAuth();
   const accountsQuery = useAccountsWithBalances();
   const membersQuery = useHouseholdMemberDetails();
@@ -154,6 +160,9 @@ export default function TransactionsScreen() {
   const createTransfer = useCreateTransfer();
   const updateTransaction = useUpdateTransaction();
   const bulkUpdateCategories = useBulkUpdateTransactionCategories();
+  const bulkUpdateTransferCategories = useBulkUpdateTransferCategories();
+  const isBulkApplyPending =
+    bulkUpdateCategories.isPending || bulkUpdateTransferCategories.isPending;
   const deleteTransaction = useDeleteTransaction();
   const deleteCompletedTransfer = useDeleteCompletedTransfer();
   const updateCompletedTransfer = useUpdateCompletedTransfer();
@@ -214,7 +223,7 @@ export default function TransactionsScreen() {
   );
   const [bulkSelectionOpen, setBulkSelectionOpen] = useState(false);
   const [bulkSelectionType, setBulkSelectionType] = useState<
-    "income" | "expense" | null
+    "income" | "expense" | "transfer" | null
   >(null);
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<
     Set<string>
@@ -332,7 +341,15 @@ export default function TransactionsScreen() {
     [allCategories, activeCategoryType],
   );
   const bulkCategories = useMemo(
-    () => allCategories.filter((category: any) => category.type === bulkSelectionType),
+    () =>
+      bulkSelectionType === "transfer"
+        // Same rule as the single-transfer edit modal: a transfer's category
+        // can be either an "account" category (its original purpose) or an
+        // "expense" category (what a Monthly Budget allocation assigns).
+        ? allCategories.filter(
+            (category: any) => category.type === "account" || category.type === "expense",
+          )
+        : allCategories.filter((category: any) => category.type === bulkSelectionType),
     [allCategories, bulkSelectionType],
   );
   // Filter category list shown in the "Category" filter dropdown, with a
@@ -341,7 +358,12 @@ export default function TransactionsScreen() {
   const filterCategories = useMemo(() => {
     const source =
       filtersType === "transfer"
-        ? allCategories.filter((category: any) => category.type === "account")
+        // Transfers can carry either an "account" category (the original,
+        // narrower "which external context" tag) or an "expense" category
+        // (what a Monthly Budget allocation assigns, e.g. "Investments") --
+        // both need to be selectable here or a categorized budget-generated
+        // transfer could never be found through this filter.
+        ? allCategories.filter((category: any) => category.type === "account" || category.type === "expense")
         : filtersType === "income" || filtersType === "expense"
           ? allCategories.filter((category: any) => category.type === filtersType)
           : allCategories.filter((category: any) => category.type !== "account");
@@ -364,6 +386,13 @@ export default function TransactionsScreen() {
       ),
     [membersQuery.data],
   );
+  // In a single-member household, "Account owner" and "Created by" are
+  // always the same person on every row -- the columns carry no
+  // information, just extra height per row (especially on the mobile card
+  // layout, where every column becomes its own labeled line). Hide them
+  // there; multi-member households keep both, where they're genuinely
+  // useful.
+  const isSingleMemberHousehold = acceptedMembers.length <= 1;
   const accountMemberOptions = useMemo(
     () =>
       acceptedMembers.map((member) => ({
@@ -459,6 +488,13 @@ export default function TransactionsScreen() {
         onClear: () => setFiltersType("movements"),
       });
     }
+    if (sortBy !== "newest") {
+      chips.push({
+        key: "sortBy",
+        label: `${t("transactions.sortBy")}: ${t(`transactions.sorts.${sortBy}`)}`,
+        onClear: () => setSortBy("newest"),
+      });
+    }
     if (accountFilter !== "all") {
       const account = (accounts as any[]).find(
         (entry) => entry.id === accountFilter,
@@ -544,6 +580,7 @@ export default function TransactionsScreen() {
     return chips;
   }, [
     filtersType,
+    sortBy,
     accountFilter,
     sourceAccountFilter,
     destinationAccountFilter,
@@ -706,10 +743,22 @@ export default function TransactionsScreen() {
     setBulkCategoryId("");
   }
 
+  // A row's bulk-selection "type" -- what has to match for it to be
+  // selectable alongside whatever's already selected. Transfers get their
+  // own bucket ("transfer") distinct from the income/expense type of either
+  // leg, since a transfer's category rules (account/expense-type only) and
+  // the RPC that applies them are entirely separate from a plain
+  // transaction's.
+  function getBulkItemType(item: any): "income" | "expense" | "transfer" {
+    return item.movement_kind === "transfer" ? "transfer" : item.type;
+  }
+
   function openBulkSelection() {
     setBulkSelectionOpen(true);
     setBulkSelectionType(
-      filtersType === "income" || filtersType === "expense"
+      filtersType === "income" ||
+        filtersType === "expense" ||
+        filtersType === "transfer"
         ? filtersType
         : null,
     );
@@ -718,8 +767,7 @@ export default function TransactionsScreen() {
   }
 
   function toggleBulkTransaction(item: any) {
-    if (item.movement_kind === "transfer") return;
-    const itemType = item.type as "income" | "expense";
+    const itemType = getBulkItemType(item);
     if (bulkSelectionType && bulkSelectionType !== itemType) return;
 
     setBulkSelectionType((current) => current ?? itemType);
@@ -729,7 +777,9 @@ export default function TransactionsScreen() {
       else next.add(item.id);
       if (next.size === 0) {
         setBulkSelectionType(
-          filtersType === "income" || filtersType === "expense"
+          filtersType === "income" ||
+            filtersType === "expense" ||
+            filtersType === "transfer"
             ? filtersType
             : null,
         );
@@ -744,11 +794,7 @@ export default function TransactionsScreen() {
     setSelectedTransactionIds(
       new Set(
         transactions
-          .filter(
-            (item: any) =>
-              item.movement_kind !== "transfer" &&
-              item.type === bulkSelectionType,
-          )
+          .filter((item: any) => getBulkItemType(item) === bulkSelectionType)
           .map((item: any) => item.id),
       ),
     );
@@ -758,11 +804,21 @@ export default function TransactionsScreen() {
     if (!householdId || selectedTransactionIds.size === 0) return;
     const selectedCount = selectedTransactionIds.size;
     try {
-      const updatedCount = await bulkUpdateCategories.mutateAsync({
-        householdId,
-        transactionIds: [...selectedTransactionIds],
-        categoryId,
-      });
+      // Transfer rows carry the transfer_group_id as their `id` (see
+      // list_transaction_movements), so the selected-id set doubles as the
+      // group-id list the transfer RPC needs -- no separate lookup required.
+      const updatedCount =
+        bulkSelectionType === "transfer"
+          ? await bulkUpdateTransferCategories.mutateAsync({
+              householdId,
+              transferGroupIds: [...selectedTransactionIds],
+              categoryId,
+            })
+          : await bulkUpdateCategories.mutateAsync({
+              householdId,
+              transactionIds: [...selectedTransactionIds],
+              categoryId,
+            });
       closeBulkSelection();
       show(
         t("transactions.bulk.success", {
@@ -977,6 +1033,15 @@ export default function TransactionsScreen() {
     setTransferEdit(null);
   }
 
+  const latestSectionSubtitle =
+    movementsSummaryQuery.data &&
+    transactions.length < movementsSummaryQuery.data.movement_count
+      ? t("transactions.latestSubtitleLoaded", {
+          loaded: transactions.length,
+          total: movementsSummaryQuery.data.movement_count,
+        })
+      : t("transactions.latestSubtitle", { count: transactions.length });
+
   return (
     <Page
       title={t("transactions.title")}
@@ -1058,6 +1123,14 @@ export default function TransactionsScreen() {
                 </Pressable>
               }
             >
+              <View style={styles.alwaysVisibleSearchRow}>
+                <Field
+                  label={t("transactions.searchLabel")}
+                  value={searchFilter}
+                  onChangeText={setSearchFilter}
+                  placeholder={t("transactions.searchPlaceholder")}
+                />
+              </View>
               {activeFilterChips.length > 0 ? (
                 <View style={styles.activeFiltersRow}>
                   {activeFilterChips.map((chip) => (
@@ -1138,6 +1211,8 @@ export default function TransactionsScreen() {
                               if (item !== "transfer") {
                                 setSourceAccountFilter("all");
                                 setDestinationAccountFilter("all");
+                              } else {
+                                setAccountFilter("all");
                               }
                             }}
                           />
@@ -1264,42 +1339,44 @@ export default function TransactionsScreen() {
                       ))}
                     </View>
                   </View>
-                  <View
-                    style={[
-                      styles.filterGridItem,
-                      {
-                        flexBasis: filterItemWidth,
-                        maxWidth: filterItemWidth,
-                      },
-                    ]}
-                  >
-                    <GroupedAccountSelect
-                      label={t("transactions.account")}
-                      accounts={accounts as any}
-                      members={acceptedMembers as any}
-                      value={accountFilter}
-                      placeholder={t("transactions.allAccounts")}
-                      hint={t("transactions.selectAccountHint", {
-                        defaultValue: t("transactions.account"),
-                      })}
-                      onChange={setAccountFilter}
-                      closeLabel={t("close", { defaultValue: "Close" })}
-                      sharedLabel={t("dashboard.shared")}
-                      unassignedLabel={t("settings.unnamedUser")}
-                      allOption={{
-                        value: "all",
-                        label: t("transactions.allAccounts"),
-                      }}
-                      typeLabels={{
-                        bank: t("accounts.types.bank"),
-                        cash: t("accounts.types.cash"),
-                        savings: t("accounts.types.savings"),
-                        credit_card: t("accounts.types.credit_card"),
-                        investment: t("accounts.types.investment"),
-                        ppr: t("accounts.types.ppr"),
-                      }}
-                    />
-                  </View>
+                  {filtersType !== "transfer" ? (
+                    <View
+                      style={[
+                        styles.filterGridItem,
+                        {
+                          flexBasis: filterItemWidth,
+                          maxWidth: filterItemWidth,
+                        },
+                      ]}
+                    >
+                      <GroupedAccountSelect
+                        label={t("transactions.account")}
+                        accounts={accounts as any}
+                        members={acceptedMembers as any}
+                        value={accountFilter}
+                        placeholder={t("transactions.allAccounts")}
+                        hint={t("transactions.selectAccountHint", {
+                          defaultValue: t("transactions.account"),
+                        })}
+                        onChange={setAccountFilter}
+                        closeLabel={t("close", { defaultValue: "Close" })}
+                        sharedLabel={t("dashboard.shared")}
+                        unassignedLabel={t("settings.unnamedUser")}
+                        allOption={{
+                          value: "all",
+                          label: t("transactions.allAccounts"),
+                        }}
+                        typeLabels={{
+                          bank: t("accounts.types.bank"),
+                          cash: t("accounts.types.cash"),
+                          savings: t("accounts.types.savings"),
+                          credit_card: t("accounts.types.credit_card"),
+                          investment: t("accounts.types.investment"),
+                          ppr: t("accounts.types.ppr"),
+                        }}
+                      />
+                    </View>
+                  ) : null}
                   <View
                     style={[
                       styles.filterGridItem,
@@ -1360,12 +1437,24 @@ export default function TransactionsScreen() {
                       },
                     ]}
                   >
-                    <DateFilterField
-                      label={t("transactions.dateFrom")}
-                      value={dateFrom}
-                      onChange={setDateFrom}
-                      placeholder={t("transactions.dateFromPlaceholder")}
-                    />
+                    <View style={styles.filterRangeRow}>
+                      <View style={{ flex: 1, minWidth: spacing(30) }}>
+                        <DateFilterField
+                          label={t("transactions.dateFrom")}
+                          value={dateFrom}
+                          onChange={setDateFrom}
+                          placeholder={t("transactions.dateFromPlaceholder")}
+                        />
+                      </View>
+                      <View style={{ flex: 1, minWidth: spacing(30) }}>
+                        <DateFilterField
+                          label={t("transactions.dateTo")}
+                          value={dateTo}
+                          onChange={setDateTo}
+                          placeholder={t("transactions.dateToPlaceholder")}
+                        />
+                      </View>
+                    </View>
                   </View>
                   <View
                     style={[
@@ -1376,62 +1465,26 @@ export default function TransactionsScreen() {
                       },
                     ]}
                   >
-                    <DateFilterField
-                      label={t("transactions.dateTo")}
-                      value={dateTo}
-                      onChange={setDateTo}
-                      placeholder={t("transactions.dateToPlaceholder")}
-                    />
-                  </View>
-                  <View
-                    style={[
-                      styles.filterGridItem,
-                      {
-                        flexBasis: filterItemWidth,
-                        maxWidth: filterItemWidth,
-                      },
-                    ]}
-                  >
-                    <Field
-                      label={t("transactions.searchLabel")}
-                      value={searchFilter}
-                      onChangeText={setSearchFilter}
-                      placeholder={t("transactions.searchPlaceholder")}
-                    />
-                  </View>
-                  <View
-                    style={[
-                      styles.filterGridItem,
-                      {
-                        flexBasis: filterItemWidth,
-                        maxWidth: filterItemWidth,
-                      },
-                    ]}
-                  >
-                    <Field
-                      label={t("transactions.minAmountLabel")}
-                      value={minAmountFilter}
-                      onChangeText={setMinAmountFilter}
-                      placeholder={t("transactions.minAmountPlaceholder")}
-                      keyboardType="decimal-pad"
-                    />
-                  </View>
-                  <View
-                    style={[
-                      styles.filterGridItem,
-                      {
-                        flexBasis: filterItemWidth,
-                        maxWidth: filterItemWidth,
-                      },
-                    ]}
-                  >
-                    <Field
-                      label={t("transactions.maxAmountLabel")}
-                      value={maxAmountFilter}
-                      onChangeText={setMaxAmountFilter}
-                      placeholder={t("transactions.maxAmountPlaceholder")}
-                      keyboardType="decimal-pad"
-                    />
+                    <View style={styles.filterRangeRow}>
+                      <View style={{ flex: 1, minWidth: spacing(30) }}>
+                        <Field
+                          label={t("transactions.minAmountLabel")}
+                          value={minAmountFilter}
+                          onChangeText={setMinAmountFilter}
+                          placeholder={t("transactions.minAmountPlaceholder")}
+                          keyboardType="decimal-pad"
+                        />
+                      </View>
+                      <View style={{ flex: 1, minWidth: spacing(30) }}>
+                        <Field
+                          label={t("transactions.maxAmountLabel")}
+                          value={maxAmountFilter}
+                          onChangeText={setMaxAmountFilter}
+                          placeholder={t("transactions.maxAmountPlaceholder")}
+                          keyboardType="decimal-pad"
+                        />
+                      </View>
+                    </View>
                   </View>
                 </View>
               ) : null}
@@ -1451,6 +1504,7 @@ export default function TransactionsScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={t("cancel")}
               />
+              <PrivacyToggle />
               <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
                 style={styles.modalKeyboardView}
@@ -2050,8 +2104,22 @@ export default function TransactionsScreen() {
           </Modal>
 
           {movementsSummaryQuery.data ? (
-            <View style={styles.summaryBar}>
-              <View style={styles.summaryBarItem}>
+            <>
+              {movementsSummaryQuery.isFetching ? (
+                <Text
+                  style={
+                    {
+                      color: colors.textSecondary,
+                      fontSize: typography.fontSize[12],
+                      marginBottom: spacing(1),
+                    } as any
+                  }
+                >
+                  {t("transactions.updating", { defaultValue: "Updating..." })}
+                </Text>
+              ) : null}
+              <View style={styles.summaryBar}>
+                <View style={styles.summaryBarItem}>
                 <Text style={styles.summaryBarLabel}>
                   {t("transactions.summary.count", {
                     count: movementsSummaryQuery.data.movement_count,
@@ -2071,7 +2139,7 @@ export default function TransactionsScreen() {
                     { color: colors.financialPositive },
                   ]}
                 >
-                  {formatCurrency(movementsSummaryQuery.data.income_total)}
+                  {displayCurrency(formatCurrency(movementsSummaryQuery.data.income_total), hideValues)}
                 </Text>
               </View>
               <View style={styles.summaryBarItem}>
@@ -2084,7 +2152,7 @@ export default function TransactionsScreen() {
                     { color: colors.destructive },
                   ]}
                 >
-                  {formatCurrency(movementsSummaryQuery.data.expense_total)}
+                  {displayCurrency(formatCurrency(movementsSummaryQuery.data.expense_total), hideValues)}
                 </Text>
               </View>
               <View style={styles.summaryBarItem}>
@@ -2102,17 +2170,16 @@ export default function TransactionsScreen() {
                     },
                   ]}
                 >
-                  {formatCurrency(movementsSummaryQuery.data.net_total)}
+                  {displayCurrency(formatCurrency(movementsSummaryQuery.data.net_total), hideValues)}
                 </Text>
               </View>
-            </View>
+              </View>
+            </>
           ) : null}
 
           <Section
             title={t("transactions.latestTitle")}
-            subtitle={t("transactions.latestSubtitle", {
-              count: transactions.length,
-            })}
+            subtitle={latestSectionSubtitle}
             action={
               <View style={styles.sectionActions}>
                 <Button
@@ -2133,7 +2200,23 @@ export default function TransactionsScreen() {
               </View>
             }
           >
-            {transactions.length ? (
+            {transactionsQuery.isPending ? (
+              <View
+                style={
+                  {
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingVertical: spacing(8),
+                    gap: spacing(2),
+                  } as any
+                }
+              >
+                <ActivityIndicator color={colors.primary} />
+                <Text style={{ color: colors.textSecondary } as any}>
+                  {t("loading", { defaultValue: "Loading transactions..." })}
+                </Text>
+              </View>
+            ) : transactions.length ? (
               <>
                 {bulkSelectionOpen ? (
                   <View style={styles.bulkActionBar}>
@@ -2146,9 +2229,12 @@ export default function TransactionsScreen() {
                       <Text style={styles.bulkActionHint}>
                         {bulkSelectionType
                           ? t("transactions.bulk.sameTypeHint", {
-                              type: t(
-                                `transactions.types.${bulkSelectionType}`,
-                              ),
+                              type:
+                                bulkSelectionType === "transfer"
+                                  ? t("transactions.movementKinds.transfer")
+                                  : t(
+                                      `transactions.types.${bulkSelectionType}`,
+                                    ),
                             })
                           : t("transactions.bulk.chooseTypeHint")}
                       </Text>
@@ -2171,14 +2257,14 @@ export default function TransactionsScreen() {
                     </View>
                     <Button
                       label={
-                        bulkUpdateCategories.isPending
+                        isBulkApplyPending
                           ? t("saving")
                           : t("transactions.bulk.applyCategory")
                       }
                       disabled={
                         selectedTransactionIds.size === 0 ||
                         !bulkCategoryId ||
-                        bulkUpdateCategories.isPending
+                        isBulkApplyPending
                       }
                       onPress={() => void applyBulkCategory(bulkCategoryId)}
                     />
@@ -2187,23 +2273,31 @@ export default function TransactionsScreen() {
                       variant="secondary"
                       disabled={
                         selectedTransactionIds.size === 0 ||
-                        bulkUpdateCategories.isPending
+                        isBulkApplyPending
                       }
                       onPress={() => void applyBulkCategory(null)}
                     />
                   </View>
                 ) : null}
                 <Table
-                  columns={[
-                    { label: t("transactions.titleLabel"), flex: 1.9 },
-                    { label: t("transactions.transactionDate"), flex: 1.1 },
-                    { label: t("transactions.account"), flex: 1.3 },
-                    { label: t("transactions.accountOwner"), flex: 1.15 },
-                    { label: t("transactions.createdBy"), flex: 1.15 },
-                    { label: t("transactions.amountLabel"), align: "right" },
-                    { label: t("transactions.balanceAfter"), align: "right" },
-                    { label: "", flex: 0.35, align: "right" },
-                  ]}
+                  columns={
+                    [
+                      { label: t("transactions.titleLabel"), flex: 1.9 },
+                      { label: t("transactions.transactionDate"), flex: 1.1 },
+                      { label: t("transactions.account"), flex: 1.3 },
+                      !isSingleMemberHousehold && {
+                        label: t("transactions.accountOwner"),
+                        flex: 1.15,
+                      },
+                      !isSingleMemberHousehold && {
+                        label: t("transactions.createdBy"),
+                        flex: 1.15,
+                      },
+                      { label: t("transactions.amountLabel"), align: "right" },
+                      { label: t("transactions.balanceAfter"), align: "right" },
+                      { label: "", flex: 0.35, align: "right" },
+                    ].filter(Boolean) as any
+                  }
                 >
                   {transactions.map((item: any) => {
                     // Use the movement's own kind, not the stored amount's
@@ -2225,7 +2319,8 @@ export default function TransactionsScreen() {
                         backgroundColor={rowTone.surface}
                         accentColor={rowTone.accent}
                       >
-                        <TableCell flex={1.9}>
+                        {[
+                        <TableCell key="title" flex={1.9}>
                           <View style={styles.transactionIdentity}>
                             <View
                               style={[
@@ -2240,10 +2335,17 @@ export default function TransactionsScreen() {
                             >
                               <Ionicons
                                 name={
-                                  movementKind === "transfer"
-                                    ? "swap-horizontal-outline"
-                                    : ((item.category?.icon ??
-                                        "pricetag-outline") as any)
+                                  // A transfer only falls back to the plain
+                                  // swap icon when it has no category of its
+                                  // own -- e.g. a Monthly Budget allocation
+                                  // tagged "Investments" shows that
+                                  // category's icon here exactly like a
+                                  // manually-entered expense would, instead
+                                  // of always being flattened to "Transfer".
+                                  (item.category?.icon ??
+                                    (movementKind === "transfer"
+                                      ? "swap-horizontal-outline"
+                                      : "pricetag-outline")) as any
                                 }
                                 size={18}
                                 color={movementAmountColor(
@@ -2257,51 +2359,55 @@ export default function TransactionsScreen() {
                                 {item.title}
                               </Text>
                               <Text style={styles.transactionContext}>
-                                {movementKind === "transfer"
-                                  ? t("transactions.filters.transfer")
-                                  : (item.category?.name ??
-                                    t("transactions.uncategorized"))}
+                                {item.category?.name ??
+                                  (movementKind === "transfer"
+                                    ? t("transactions.filters.transfer")
+                                    : t("transactions.uncategorized"))}
                               </Text>
                             </View>
                           </View>
-                        </TableCell>
-                        <TableCell flex={1.1}>
+                        </TableCell>,
+                        <TableCell key="date" flex={1.1}>
                           <Text style={styles.transactionAccount}>
                             {formatDate(item.transaction_date)}
                           </Text>
-                        </TableCell>
-                        <TableCell flex={1.3}>
+                        </TableCell>,
+                        <TableCell key="account" flex={1.3}>
                           <Text style={styles.transactionAccount}>
                             {movementKind === "transfer"
                               ? `${item.source_account?.name ?? t("transactions.sourceAccount")} → ${item.destination_account?.name ?? t("transactions.destinationAccount")}`
                               : getTransactionAccountLabel(item)}
                           </Text>
-                        </TableCell>
-                        <TableCell flex={1.15}>
-                          <View style={styles.personIdentity}>
-                            <Ionicons
-                              name="person-outline"
-                              size={15}
-                              color={rowTone.accent}
-                            />
-                            <Text style={styles.transactionAccount}>
-                              {getTransactionAccountOwnerLabel(item)}
-                            </Text>
-                          </View>
-                        </TableCell>
-                        <TableCell flex={1.15}>
-                          <View style={styles.personIdentity}>
-                            <Ionicons
-                              name="create-outline"
-                              size={15}
-                              color={colors.primary}
-                            />
-                            <Text style={styles.transactionCreator}>
-                              {getTransactionCreatorLabel(item)}
-                            </Text>
-                          </View>
-                        </TableCell>
-                        <TableCell align="right">
+                        </TableCell>,
+                        !isSingleMemberHousehold && (
+                          <TableCell key="owner" flex={1.15}>
+                            <View style={styles.personIdentity}>
+                              <Ionicons
+                                name="person-outline"
+                                size={15}
+                                color={rowTone.accent}
+                              />
+                              <Text style={styles.transactionAccount}>
+                                {getTransactionAccountOwnerLabel(item)}
+                              </Text>
+                            </View>
+                          </TableCell>
+                        ),
+                        !isSingleMemberHousehold && (
+                          <TableCell key="creator" flex={1.15}>
+                            <View style={styles.personIdentity}>
+                              <Ionicons
+                                name="create-outline"
+                                size={15}
+                                color={colors.primary}
+                              />
+                              <Text style={styles.transactionCreator}>
+                                {getTransactionCreatorLabel(item)}
+                              </Text>
+                            </View>
+                          </TableCell>
+                        ),
+                        <TableCell key="amount" align="right">
                           <Text
                             style={[
                               styles.transactionAmount,
@@ -2309,58 +2415,50 @@ export default function TransactionsScreen() {
                             ]}
                           >
                             {movementAmountSign(movementKind)}
-                            {formatCurrency(item.amount)}
+                            {displayCurrency(formatCurrency(item.amount), hideValues)}
                           </Text>
-                        </TableCell>
-                        <TableCell align="right">
+                        </TableCell>,
+                        <TableCell key="balance" align="right">
                           <Text style={styles.transactionBalance}>
                             {item.movement_kind === "transfer" ||
                             item.balance_after_transaction == null
                               ? "—"
-                              : formatCurrency(item.balance_after_transaction)}
+                              : displayCurrency(formatCurrency(item.balance_after_transaction), hideValues)}
                           </Text>
-                        </TableCell>
-                        <TableCell flex={0.35} align="right" mobilePinned>
+                        </TableCell>,
+                        <TableCell key="actions" flex={0.35} align="right" mobilePinned>
                           {bulkSelectionOpen ? (
                             <Pressable
                               accessibilityRole="checkbox"
                               accessibilityState={{
                                 checked: selectedTransactionIds.has(item.id),
                                 disabled:
-                                  item.movement_kind === "transfer" ||
-                                  (bulkSelectionType !== null &&
-                                    item.type !== bulkSelectionType),
+                                  bulkSelectionType !== null &&
+                                  getBulkItemType(item) !== bulkSelectionType,
                               }}
-                              accessibilityLabel={
-                                item.movement_kind === "transfer"
-                                  ? t("transactions.bulk.transferUnavailable")
-                                  : t("transactions.bulk.selectTransaction", {
-                                      title: item.title,
-                                    })
-                              }
+                              accessibilityLabel={t(
+                                "transactions.bulk.selectTransaction",
+                                { title: item.title },
+                              )}
                               disabled={
-                                item.movement_kind === "transfer" ||
-                                (bulkSelectionType !== null &&
-                                  item.type !== bulkSelectionType)
+                                bulkSelectionType !== null &&
+                                getBulkItemType(item) !== bulkSelectionType
                               }
                               onPress={() => toggleBulkTransaction(item)}
                               style={[
                                 styles.bulkCheckbox,
                                 selectedTransactionIds.has(item.id) &&
                                   styles.bulkCheckboxSelected,
-                                (item.movement_kind === "transfer" ||
-                                  (bulkSelectionType !== null &&
-                                    item.type !== bulkSelectionType)) &&
+                                bulkSelectionType !== null &&
+                                  getBulkItemType(item) !== bulkSelectionType &&
                                   styles.bulkCheckboxDisabled,
                               ]}
                             >
                               <Ionicons
                                 name={
-                                  item.movement_kind === "transfer"
-                                    ? "remove-outline"
-                                    : selectedTransactionIds.has(item.id)
-                                      ? "checkmark"
-                                      : "ellipse-outline"
+                                  selectedTransactionIds.has(item.id)
+                                    ? "checkmark"
+                                    : "ellipse-outline"
                                 }
                                 size={18}
                                 color={
@@ -2447,7 +2545,8 @@ export default function TransactionsScreen() {
                               </Pressable>
                             </View>
                           )}
-                        </TableCell>
+                        </TableCell>,
+                        ].filter(Boolean)}
                       </TableRow>
                     );
                   })}
@@ -2503,6 +2602,7 @@ export default function TransactionsScreen() {
             accessibilityRole="button"
             accessibilityLabel={t("cancel")}
           />
+          <PrivacyToggle />
           <ScrollView contentContainerStyle={styles.modalScroll}>
             <View
               style={[
@@ -2604,8 +2704,15 @@ export default function TransactionsScreen() {
                     label={t("transactions.categoryFilter")}
                     placeholder={t("none")}
                     categories={
+                      // "account" categories are this field's original
+                      // purpose; "expense" categories are what a Monthly
+                      // Budget allocation assigns (e.g. "Investments",
+                      // "Savings > PPR") -- both must be selectable here,
+                      // or a budget-generated transfer's already-assigned
+                      // category would show as unselected, and saving would
+                      // silently clear it.
                       allCategories.filter(
-                        (category: any) => category.type === "account",
+                        (category: any) => category.type === "account" || category.type === "expense",
                       ) as any
                     }
                     selectedId={transferEdit.categoryId ?? null}
@@ -2664,6 +2771,7 @@ export default function TransactionsScreen() {
             accessibilityRole="button"
             accessibilityLabel={t("cancel")}
           />
+          <PrivacyToggle />
           <View style={styles.modalCard}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
               {t("transactions.deleteTransferTitle")}
@@ -2715,6 +2823,7 @@ export default function TransactionsScreen() {
             accessibilityRole="button"
             accessibilityLabel={t("cancel")}
           />
+          <PrivacyToggle />
           <View style={[styles.modalCard, styles.editModalCard]}>
             <ScrollView
               keyboardShouldPersistTaps="handled"

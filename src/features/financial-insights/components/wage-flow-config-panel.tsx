@@ -10,6 +10,8 @@ import {
   SelectionShell,
   SelectionTrigger,
 } from "@/components/selection-shell";
+import { displayCurrency } from "@/shared/lib/mask-currency";
+import { usePrivacyStore } from "@/stores/privacyStore";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
@@ -182,11 +184,15 @@ export function blankWageFlowCategory(): WageFlowCategoryConfig {
   };
 }
 
-function accountOptionSubtitle(account: WageFlowAccountOption, includePotLabel: boolean): string {
+function accountOptionSubtitle(
+  account: WageFlowAccountOption,
+  includePotLabel: boolean,
+  hideValues: boolean,
+): string {
   const parts: string[] = [];
   if (includePotLabel && account.potLabel) parts.push(account.potLabel);
   parts.push(account.ownerLabel);
-  parts.push(formatCurrency(account.currentBalance));
+  parts.push(displayCurrency(formatCurrency(account.currentBalance), hideValues));
   return parts.join(" · ");
 }
 
@@ -312,6 +318,7 @@ export function WageFlowConfigTable({
 }) {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
 
   return (
     <View style={{ gap: spacing(3) }}>
@@ -372,7 +379,7 @@ export function WageFlowConfigTable({
                   }}
                 >
                   {row.amount < 0 ? "" : "+"}
-                  {formatCurrency(row.amount)}
+                  {displayCurrency(formatCurrency(row.amount), hideValues)}
                 </Text>
               </TableCell>
               <TableCell flex={0.7} align="right" muted>
@@ -437,6 +444,7 @@ export function WageFlowCategoryEditorModal({
 }) {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
   const [activePicker, setActivePicker] = useState<PickerKind>(null);
   const [pickerDraftIds, setPickerDraftIds] = useState<string[]>([]);
   const [expandedCategoryGroupIds, setExpandedCategoryGroupIds] = useState<Set<string>>(
@@ -821,7 +829,7 @@ export function WageFlowCategoryEditorModal({
                         <SelectionOptionRow
                           key={account.id}
                           title={account.name}
-                          subtitle={accountOptionSubtitle(account, true)}
+                          subtitle={accountOptionSubtitle(account, true, hideValues)}
                           active={pickerDraftIds.includes(account.id)}
                           onPress={() => toggleDraftId(account.id)}
                           iconName="wallet-outline"
@@ -976,8 +984,8 @@ export function WageFlowCategoryEditorModal({
                       </Text>
                       {typeGroup.accounts.map((account) => {
                         const subtitle = account.potLabel
-                          ? `${account.name} · ${accountOptionSubtitle(account, false)}`
-                          : accountOptionSubtitle(account, false);
+                          ? `${account.name} · ${accountOptionSubtitle(account, false, hideValues)}`
+                          : accountOptionSubtitle(account, false, hideValues);
                         return (
                           <SelectionOptionRow
                             key={account.id}

@@ -4,6 +4,7 @@ import { supabase } from '../shared/lib/supabase/client';
 import { useSession, type Claims, type UserProfile } from '../shared/session';
 import { usePreferencesStore, type AppCurrency } from '@/stores/preferencesStore';
 import { useThemeStore, normalizeTheme } from '@/stores/themeStore';
+import { usePrivacyStore } from '@/stores/privacyStore';
 import { normalizeLanguage } from '@/shared/i18n/languages';
 import { AUTH_CALLBACK_ROUTE } from '@/features/auth/constants';
 import { shouldRefreshClaimsForAuthEvent } from '@/features/auth/auth-state';
@@ -141,6 +142,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
           setRefreshKey((current) => current + 1);
         }
         return;
+      }
+
+      if (event === 'SIGNED_IN') {
+        // Always start a session with values hidden, regardless of what the
+        // user had toggled before — covers both a fresh sign-in and a
+        // restored session on app open. See src/stores/privacyStore.ts.
+        usePrivacyStore.getState().setHideValues(true);
       }
 
       if (

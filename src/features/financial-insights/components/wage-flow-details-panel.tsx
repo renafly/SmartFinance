@@ -3,7 +3,12 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 
 import { formatCurrency, formatDate } from "@/components/migrated-page";
-import type { WageFlowChartBucket } from "@/features/financial-insights/components/insight-charts";
+import type {
+  WageFlowChartBucket,
+  WageFlowChartSubcategory,
+} from "@/features/financial-insights/components/insight-charts";
+import { displayCurrency } from "@/shared/lib/mask-currency";
+import { usePrivacyStore } from "@/stores/privacyStore";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
@@ -135,9 +140,89 @@ export function WageFlowDetailsPanel({
   );
 }
 
+/**
+ * Drill-down list shown inside a selected main category's details, breaking
+ * its total down by the real transaction categories that contributed to it
+ * (plus a synthetic "Other" leftover -- see `buildSubcategories` in
+ * `wage-flow.ts`). The parent's own summary (icon, name, total, share of
+ * income, transaction list) stays rendered above/below this, unchanged --
+ * this is purely an additional breakdown, not a replacement view.
+ *
+ * `subcategories` is expected pre-sorted by `calculateWageFlow` (share of
+ * the bucket descending, ties broken by amount descending), so this just
+ * renders them in the order given rather than re-deriving that order.
+ */
+function WageFlowSubcategoryBreakdown({
+  subcategories,
+}: {
+  subcategories: WageFlowChartSubcategory[];
+}) {
+  const { t } = useTranslation("common");
+  const { colors } = useTheme();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
+
+  return (
+    <View style={{ gap: spacing(2) }}>
+      <Text
+        style={{
+          color: colors.textSecondary,
+          fontSize: 11,
+          fontWeight: typography.fontWeight.semibold,
+          textTransform: "uppercase",
+          letterSpacing: 0.4,
+        }}
+      >
+        {t("insights.wageFlow.subcategoriesBreakdownTitle")}
+      </Text>
+      <View style={{ gap: spacing(2) }}>
+        {subcategories.map((sub) => (
+          <View
+            key={sub.key}
+            style={{ flexDirection: "row", alignItems: "center", gap: spacing(2) }}
+          >
+            <View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: sub.color,
+              }}
+            />
+            <Text
+              style={{
+                flex: 1,
+                color: colors.text,
+                fontSize: 12.5,
+                fontWeight: typography.fontWeight.medium,
+              }}
+              numberOfLines={1}
+            >
+              {sub.label}
+            </Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+              {displayCurrency(formatCurrency(sub.amount), hideValues)}
+            </Text>
+            <Text
+              style={{
+                color: colors.textSecondary,
+                fontSize: 12,
+                minWidth: 38,
+                textAlign: "right",
+              }}
+            >
+              {`${sub.share}%`}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function WageFlowDetailsBody({ category }: { category: WageFlowChartBucket }) {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
   const matches = category.matches ?? [];
 
   return (
@@ -194,13 +279,17 @@ function WageFlowDetailsBody({ category }: { category: WageFlowChartBucket }) {
             }}
           >
             {category.amount < 0 ? "" : "+"}
-            {formatCurrency(category.amount)}
+            {displayCurrency(formatCurrency(category.amount), hideValues)}
           </Text>
           <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
             {t("insights.wageFlow.transactionCount", { count: matches.length })}
           </Text>
         </View>
       </View>
+
+      {category.subcategories && category.subcategories.length > 0 ? (
+        <WageFlowSubcategoryBreakdown subcategories={category.subcategories} />
+      ) : null}
 
       {matches.length === 0 ? (
         <Text
@@ -257,7 +346,7 @@ function WageFlowDetailsBody({ category }: { category: WageFlowChartBucket }) {
                     }}
                   >
                     {match.amount < 0 ? "" : "+"}
-                    {formatCurrency(match.amount)}
+                    {displayCurrency(formatCurrency(match.amount), hideValues)}
                   </Text>
                 </View>
               );

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { usePreferencesStore } from '@/stores/preferencesStore';
+import { usePrivacyStore } from '@/stores/privacyStore';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
 import { radius } from '@/theme/radius';
@@ -28,6 +29,40 @@ type PageProps = {
   overlay?: ReactNode;
   scrollViewProps?: ScrollViewProps;
 };
+
+/**
+ * The global "hide values" toggle, factored out so it can be dropped into
+ * any full-screen overlay — not just `Page`. React Native's `Modal`
+ * component presents in its own native layer above everything else in the
+ * JS view tree, so a toggle rendered only inside `Page` becomes unreachable
+ * behind any `<Modal>` (create/edit forms, `SelectionShell` pickers, etc.).
+ * Every screen that opens a `Modal` over money-bearing content should
+ * render this again inside that Modal — see SelectionShell.tsx and the
+ * create/edit modals in transactions.tsx, transfers.tsx, savings.tsx, and
+ * accounts.tsx for the other mount points.
+ */
+export function PrivacyToggle() {
+  const { colors } = useTheme();
+  const { t } = useTranslation('common');
+  const hideValues = usePrivacyStore((state) => state.hideValues);
+  const toggleHideValues = usePrivacyStore((state) => state.toggleHideValues);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: hideValues }}
+      accessibilityLabel={hideValues ? t('dashboard.showValues') : t('dashboard.hideValues')}
+      onPress={toggleHideValues}
+      style={({ pressed }) => [
+        styles.privacyToggle,
+        { borderColor: colors.primary, backgroundColor: colors.primary },
+        pressed && styles.pressed,
+      ]}
+    >
+      <Ionicons name={hideValues ? 'eye-off-outline' : 'eye-outline'} size={18} color={colors.primaryForeground} />
+    </Pressable>
+  );
+}
 
 export function Page({ title, subtitle, children, actions, overlay, scrollViewProps }: PageProps) {
   const { colors } = useTheme();
@@ -101,6 +136,17 @@ export function Page({ title, subtitle, children, actions, overlay, scrollViewPr
         <View style={[styles.pageBody, { gap: responsive.pageGap }]}>{children}</View>
         </View>
       </ScrollView>
+      {/* Global "hide values" toggle, rendered on every screen that uses
+          Page. Fixed at top-right (not bottom-right) deliberately — several
+          screens already use `overlay` for a bottom-right FAB or a
+          full-width bottom action bar, so top-right is the one corner that
+          never collides with a per-screen overlay. Masks every currency
+          figure app-wide via the shared privacy store; state always starts
+          hidden on login (see src/stores/privacyStore.ts). Note this only
+          covers the base page — any screen that opens a native `Modal` over
+          this content must render <PrivacyToggle /> again inside that
+          Modal, since Modals present in their own layer above this one. */}
+      <PrivacyToggle />
       {overlay}
     </View>
   );
@@ -439,6 +485,23 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.85,
+  },
+  privacyToggle: {
+    position: 'absolute',
+    right: spacing(6),
+    top: spacing(6),
+    zIndex: 10,
+    width: spacing(12),
+    height: spacing(12),
+    borderRadius: radius.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
   },
   button: {
     borderRadius: radius.md,

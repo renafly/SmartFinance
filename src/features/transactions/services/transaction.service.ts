@@ -1,6 +1,6 @@
 import { repositories } from "@/repositories";
 import { TransactionFilters, transactionsRepository } from "@/repositories/transactions.repository";
-import type { BulkUpdateTransactionCategoryInput, TransactionMovementFilters, UpdateCompletedTransferInput } from "@/repositories/transactions.repository";
+import type { BulkUpdateTransactionCategoryInput, BulkUpdateTransferCategoryInput, TransactionMovementFilters, UpdateCompletedTransferInput } from "@/repositories/transactions.repository";
 import type {
   CreateTransactionDTO,
   UpdateTransactionDTO,
@@ -96,6 +96,12 @@ class TransactionsService {
 
   async getMovementsSummary(householdId: string, filters: TransactionMovementFilters = {}) {
     const { data, error } = await transactionsRepository.summarizeMovements(householdId, filters);
+    if (error) throw error;
+    return data;
+  }
+
+  async bulkUpdateTransferCategory(input: BulkUpdateTransferCategoryInput) {
+    const { data, error } = await transactionsRepository.bulkUpdateTransferCategory(input);
     if (error) throw error;
     return data;
   }

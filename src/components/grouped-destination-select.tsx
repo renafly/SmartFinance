@@ -5,6 +5,8 @@ import { useTheme } from "@/theme/ThemeProvider";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { formatCurrency } from "@/components/migrated-page";
+import { displayCurrency } from "@/shared/lib/mask-currency";
+import { usePrivacyStore } from "@/stores/privacyStore";
 import { SelectionOptionRow, SelectionShell, SelectionTrigger } from "@/components/selection-shell";
 
 type MemberLike = {
@@ -48,9 +50,9 @@ function getMemberLabel(member?: MemberLike | null, fallback = "") {
   return member.fullName?.trim() || member.email || fallback;
 }
 
-function getAccountLabel(account: AccountLike, potName?: string, potLabel = "") {
+function getAccountLabel(account: AccountLike, hideValues: boolean, potName?: string, potLabel = "") {
   const potSuffix = potName && potLabel ? ` · ${potLabel}: ${potName}` : "";
-  return `${account.name}${potSuffix} · ${formatCurrency(account.current_balance ?? account.balance ?? 0)}`;
+  return `${account.name}${potSuffix} · ${displayCurrency(formatCurrency(account.current_balance ?? account.balance ?? 0), hideValues)}`;
 }
 
 function getOwnerLabel(account: AccountLike, memberMap: Map<string, MemberLike>, sharedLabel: string, unassignedLabel: string) {
@@ -65,11 +67,12 @@ function getAccountSubtitle(
   sharedLabel: string,
   unassignedLabel: string,
   typeLabels: Record<string, string>,
+  hideValues: boolean,
   potName?: string,
   potLabel = "",
 ) {
   const potSuffix = potName && potLabel ? ` · ${potLabel}: ${potName}` : "";
-  return `${getOwnerLabel(account, memberMap, sharedLabel, unassignedLabel)} · ${typeLabels[account.type] ?? account.type}${potSuffix} · ${formatCurrency(account.current_balance ?? account.balance ?? 0)}`;
+  return `${getOwnerLabel(account, memberMap, sharedLabel, unassignedLabel)} · ${typeLabels[account.type] ?? account.type}${potSuffix} · ${displayCurrency(formatCurrency(account.current_balance ?? account.balance ?? 0), hideValues)}`;
 }
 
 export function GroupedDestinationSelect({
@@ -92,12 +95,13 @@ export function GroupedDestinationSelect({
 }: GroupedDestinationSelectProps) {
   const [open, setOpen] = useState(false);
   const { colors } = useTheme();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
 
   const selectedLabel = useMemo(() => {
     if (!value) return placeholder;
     const account = accounts.find((item) => item.id === value.id);
-    return account ? getAccountLabel(account, potNameByAccountId[account.id], potLabel) : placeholder;
-  }, [accounts, placeholder, potLabel, potNameByAccountId, value]);
+    return account ? getAccountLabel(account, hideValues, potNameByAccountId[account.id], potLabel) : placeholder;
+  }, [accounts, hideValues, placeholder, potLabel, potNameByAccountId, value]);
 
   const memberMap = useMemo(() => new Map(members.map((member) => [member.userId, member])), [members]);
   const groupedAccounts = useMemo(() => {
@@ -161,7 +165,7 @@ export function GroupedDestinationSelect({
                     <SelectionOptionRow
                       key={account.id}
                       title={account.name}
-                      subtitle={getAccountSubtitle(account, memberMap, sharedLabel, unassignedLabel, typeLabels, potNameByAccountId[account.id], potLabel)}
+                      subtitle={getAccountSubtitle(account, memberMap, sharedLabel, unassignedLabel, typeLabels, hideValues, potNameByAccountId[account.id], potLabel)}
                       active={active}
                       iconName="business-outline"
                       onPress={() => {

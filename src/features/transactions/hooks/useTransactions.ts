@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
 import { transactionsService } from "../services/transaction.service";
 import { TRANSACTION_RELATIONS_QUERY_VERSION } from "../constants";
@@ -22,6 +22,10 @@ export function useTransactionMovementsInfinite(
     getNextPageParam: (lastPage, pages) =>
       lastPage.length < pageSize ? undefined : pages.length * pageSize,
     staleTime: 0,
+    // Keep the previous filter/sort's pages on screen while the next query
+    // key's fetch resolves, instead of dropping to `undefined` and flashing
+    // the empty state on every filter change.
+    placeholderData: keepPreviousData,
     // Do not keep every page a user has ever scrolled through. Otherwise an
     // infinite query refetches all cached pages when this screen is opened
     // again, which defeats server-side lazy loading.
@@ -48,6 +52,10 @@ export function useTransactionMovementsSummary(
     queryKey: ["transaction-movements-summary", householdId, filters],
     queryFn: () => transactionsService.getMovementsSummary(householdId!, filters),
     staleTime: 0,
+    // Keep the previous summary totals on screen while the next query key's
+    // fetch resolves, instead of dropping to `undefined` on every filter
+    // change.
+    placeholderData: keepPreviousData,
     enabled: (options?.enabled ?? true) && !!householdId && !isLoading,
   });
 }

@@ -6,6 +6,7 @@ import {
   monthlyBudgetService,
   type MonthlyBudgetIncomeDraft,
   type MonthlyBudgetPreview,
+  type MonthlyBudgetRuleAllocationDraft,
   type MonthlyBudgetRuleDraft,
 } from "../services/monthly-budget.service";
 
@@ -99,5 +100,6 @@ export function useDeleteMonthlyBudgetRunTransactions() {
 export type {
   MonthlyBudgetIncomeDraft,
   MonthlyBudgetPreview,
+  MonthlyBudgetRuleAllocationDraft,
   MonthlyBudgetRuleDraft,
 };

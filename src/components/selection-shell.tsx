@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 
-import { Button } from "@/components/migrated-page";
+import { Button, PrivacyToggle } from "@/components/migrated-page";
 import { radius } from "@/theme/radius";
 import { useResponsiveMetrics } from "@/theme/responsive";
 import { spacing } from "@/theme/spacing";
@@ -134,6 +134,12 @@ export function SelectionShell({
         ]}
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        {/* SelectionShell backs nearly every picker/dropdown in the app
+            (account/category/member selects, etc.), and RN's Modal renders
+            in its own layer above Page — so the global toggle has to be
+            re-mounted here too, or it's unreachable while any picker is
+            open. See PrivacyToggle's doc comment in migrated-page.tsx. */}
+        <PrivacyToggle />
         <View
           style={[
             styles.modalCard,
