@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect } from "expo-router";
@@ -180,6 +181,10 @@ export function TransfersContent({
   const { t } = useTranslation("common");
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
+  // ui-styles.ts's `modalBackdrop`/`modalScroll` are plain module-level
+  // constants shared across this file and RuleMenu, so the safe-area
+  // inset is layered on at each usage site instead.
+  const insets = useSafeAreaInsets();
   const hideValues = usePrivacyStore((state) => state.hideValues);
   const { householdId, profile } = useAuth();
   const accountsQuery = useAccountsWithBalances();
@@ -618,7 +623,14 @@ export function TransfersContent({
         onRequestClose={() => setEditing(null)}
       >
         <View
-          style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}
+          style={[
+            styles.modalBackdrop,
+            {
+              backgroundColor: colors.overlay,
+              paddingTop: spacing(4) + insets.top,
+              paddingBottom: spacing(4) + insets.bottom,
+            },
+          ]}
         >
           <Pressable
             style={StyleSheet.absoluteFill}
@@ -689,7 +701,14 @@ export function TransfersContent({
         onRequestClose={() => setHistoryRule(null)}
       >
         <View
-          style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}
+          style={[
+            styles.modalBackdrop,
+            {
+              backgroundColor: colors.overlay,
+              paddingTop: spacing(4) + insets.top,
+              paddingBottom: spacing(4) + insets.bottom,
+            },
+          ]}
         >
           <Pressable
             style={StyleSheet.absoluteFill}

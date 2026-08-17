@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
@@ -38,7 +39,8 @@ type AccountHistoryMode = {
 
 export default function AccountsScreen() {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]) as any;
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets), [colors, insets]) as any;
   const { t } = useTranslation("common");
   const responsive = useResponsiveMetrics();
   const hideValues = usePrivacyStore((state) => state.hideValues);
@@ -950,7 +952,7 @@ export default function AccountsScreen() {
   );
 }
 
-function createStyles(colors: any) {
+function createStyles(colors: any, insets: { top: number; bottom: number } = { top: 0, bottom: 0 }) {
   return StyleSheet.create({
     heroCard: {
       width: "100%",
@@ -1194,6 +1196,8 @@ function createStyles(colors: any) {
       flex: 1,
       justifyContent: "center" as const,
       padding: spacing(5),
+      paddingTop: spacing(5) + insets.top,
+      paddingBottom: spacing(5) + insets.bottom,
       backgroundColor: "rgba(2, 6, 23, 0.82)",
     },
     backdropPressable: StyleSheet.absoluteFill,

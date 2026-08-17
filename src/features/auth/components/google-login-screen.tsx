@@ -6,15 +6,31 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Platform, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import GoogleSignInButton from "./google-sign-in-button";
 
 export function GoogleLoginScreen() {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
   const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
+  // The (auth) Stack renders with headerShown: false, so unlike the
+  // Page-based app screens there's no header reserving the top inset here
+  // - this screen owns its own safe-area padding on every edge.
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.screen,
+        {
+          backgroundColor: colors.background,
+          paddingTop: Math.max(spacing(6), insets.top),
+          paddingBottom: Math.max(spacing(6), insets.bottom),
+          paddingLeft: Math.max(spacing(6), insets.left),
+          paddingRight: Math.max(spacing(6), insets.right),
+        },
+      ]}
+    >
       {/* Decorative glow */}
       <LinearGradient
         colors={[colors.primary + "26", colors.primary + "00"]}

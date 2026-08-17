@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button, PrivacyToggle } from "@/components/migrated-page";
 import { radius } from "@/theme/radius";
@@ -115,6 +116,13 @@ export function SelectionShell({
 }: SelectionShellProps) {
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
+  // On phone this backdrop docks the card to the bottom of the screen
+  // (a bottom sheet), so its bottom padding needs the real safe-area
+  // inset added or the close/confirm row ends up under the iOS home
+  // indicator or the Android system nav bar. Centered (tablet/desktop)
+  // layouts get the same treatment for consistency - harmless there since
+  // insets are ~0 on those form factors anyway.
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal
@@ -129,6 +137,8 @@ export function SelectionShell({
           {
             backgroundColor: colors.overlay,
             padding: responsive.modalPadding,
+            paddingTop: responsive.modalPadding + insets.top,
+            paddingBottom: responsive.modalPadding + insets.bottom,
             justifyContent: responsive.isPhone ? "flex-end" : "center",
           },
         ]}

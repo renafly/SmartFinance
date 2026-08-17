@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Modal, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { useCookieConsent } from "@/features/cookie-consent/core";
@@ -20,11 +21,12 @@ export function CookieConsentBanner() {
   } = useCookieConsent();
   const [preferences, setPreferences] = useState(consent?.preferences ?? false);
   const [analytics, setAnalytics] = useState(consent?.analytics ?? false);
+  const insets = useSafeAreaInsets();
 
   return (
     <>
       {status === "undecided" ? (
-        <View style={[styles.banner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.banner, { backgroundColor: colors.surface, borderColor: colors.border, bottom: 12 + insets.bottom }]}>
           <Text style={[styles.title, { color: colors.text }]}>{t("cookieConsent.title")}</Text>
           <Text style={[styles.body, { color: colors.textSecondary }]}>{t("cookieConsent.description")}</Text>
           <View style={styles.actions}>
@@ -36,7 +38,12 @@ export function CookieConsentBanner() {
       ) : null}
 
       <Modal visible={isPreferencesOpen} transparent animationType="fade" onRequestClose={closePreferences}>
-        <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+        <View
+          style={[
+            styles.backdrop,
+            { backgroundColor: colors.overlay, paddingTop: 18 + insets.top, paddingBottom: 18 + insets.bottom },
+          ]}
+        >
           <View style={[styles.dialog, { backgroundColor: colors.background, borderColor: colors.border }]}>
             <Text style={[styles.dialogTitle, { color: colors.text }]}>{t("cookieConsent.preferencesTitle")}</Text>
             <Text style={[styles.body, { color: colors.textSecondary }]}>{t("cookieConsent.preferencesDescription")}</Text>
@@ -90,7 +97,8 @@ const styles = StyleSheet.create({
     elevation: 24,
     left: 12,
     right: 12,
-    bottom: 12,
+    // bottom is applied inline above so it can include the safe-area
+    // bottom inset (iOS home indicator / Android system nav bar).
     borderWidth: 1,
     borderRadius: 18,
     padding: 18,

@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import * as DocumentPicker from "expo-document-picker";
 import { Ionicons } from "@expo/vector-icons";
@@ -148,7 +149,8 @@ const WIZARD_STEP_COPY: Record<WizardStepKey, { titleKey: string; subtitleKey: s
 
 export default function TransactionsScreen() {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets), [colors, insets]);
   const responsive = useResponsiveMetrics();
   const { t } = useTranslation("common");
   const { show } = useToast();

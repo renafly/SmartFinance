@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HouseholdMemberSelect } from "@/components/household-member-select";
 import { MultiSelectShell, SelectionTrigger } from "@/components/selection-shell";
 import {
@@ -117,7 +118,8 @@ function buildSelectionMap(rows: { pot_id: string; account_id: string }[]) {
 
 export default function SavingsScreen() {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets), [colors, insets]);
   const { t } = useTranslation("common");
   const hideValues = usePrivacyStore((state) => state.hideValues);
   const { householdId, profile } = useAuth();
@@ -743,7 +745,7 @@ export default function SavingsScreen() {
   );
 }
 
-function createStyles(colors: any) {
+function createStyles(colors: any, insets: { top: number; bottom: number } = { top: 0, bottom: 0 }) {
   return StyleSheet.create({
     scopePill: {
       paddingHorizontal: spacing(3),
@@ -864,6 +866,8 @@ function createStyles(colors: any) {
       backgroundColor: "rgba(2, 6, 23, 0.82)",
       justifyContent: "center",
       padding: spacing(5),
+      paddingTop: spacing(5) + insets.top,
+      paddingBottom: spacing(5) + insets.bottom,
     },
     modalCard: {
       width: "100%",

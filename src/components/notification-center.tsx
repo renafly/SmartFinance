@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -17,6 +18,7 @@ export function NotificationCenter() {
   const markRead = useMarkNotificationRead();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const insets = useSafeAreaInsets();
   const unread = (notifications.data ?? []).filter((item) => !item.read_at).length;
 
   return (
@@ -27,7 +29,7 @@ export function NotificationCenter() {
         {unread ? <View style={[styles.count, { backgroundColor: colors.primary }]}><Text style={[styles.countText, { color: colors.primaryForeground }]}>{unread}</Text></View> : null}
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+        <View style={[styles.backdrop, { backgroundColor: colors.overlay, paddingTop: spacing(4) + insets.top, paddingBottom: spacing(4) + insets.bottom }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
           <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
             <Text style={[styles.title, { color: colors.text }]}>{t("notifications.title")}</Text>

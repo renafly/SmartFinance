@@ -1,4 +1,5 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/theme/ThemeProvider';
@@ -17,6 +18,10 @@ export function GuideModal({ locale }: GuideModalProps) {
   const { colors } = useTheme();
   const { t, i18n } = useTranslation('common');
   const { visible, currentGuide, currentStep, currentStepIndex, previous, next, dismiss } = useOnboarding();
+  // This Modal sets statusBarTranslucent (Android), which deliberately
+  // draws it under the status bar - so unlike a translucent-less Modal,
+  // it genuinely needs the top inset added, not just the bottom one.
+  const insets = useSafeAreaInsets();
 
   if (!currentGuide || !currentStep) return null;
 
@@ -42,7 +47,16 @@ export function GuideModal({ locale }: GuideModalProps) {
       statusBarTranslucent
       accessibilityViewIsModal
     >
-      <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+      <View
+        style={[
+          styles.backdrop,
+          {
+            backgroundColor: colors.overlay,
+            paddingTop: spacing(5) + insets.top,
+            paddingBottom: spacing(5) + insets.bottom,
+          },
+        ]}
+      >
         <View
           accessibilityRole="alert"
           accessibilityLabel={`${text.guide}: ${copy.title}`}
