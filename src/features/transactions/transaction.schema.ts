@@ -5,9 +5,9 @@ import { z } from "zod";
 // the `create_transfer` RPC (which writes two linked transaction rows), not
 // through this form's single-row insert/update path.
 export const transactionSchema = z.object({
-  account_id: z.string().uuid({ message: "Please select an account" }),
-  category_id: z.string().uuid().nullable(),
-  pot_id: z.string().uuid().nullable().optional(),
+  account_id: z.uuid({ error: "Please select an account" }),
+  category_id: z.uuid().nullable(),
+  pot_id: z.uuid().nullable().optional(),
 
   type: z.enum(["income", "expense"], {
     error: "Please select a type",
