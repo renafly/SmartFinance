@@ -16,9 +16,12 @@ import {
  * Forecasts are always computed over the longest period the UI offers
  * (see FORECAST_PERIOD_OPTIONS in ui-utils.ts) and sliced down for shorter
  * selections, so switching the period in the UI is just an array slice —
- * no refetch or recomputation needed.
+ * no refetch or recomputation needed. +1 because buildForecastNormalizedData
+ * drops the current (mostly-elapsed) calendar month before the UI ever sees
+ * it, so fetching one extra month keeps the longest period option (24)
+ * showing a full 24 real future months rather than 23.
  */
-const FORECAST_HORIZON_MONTHS = 24;
+const FORECAST_HORIZON_MONTHS = 25;
 
 /**
  * Computes a month-by-month balance forecast for every non-archived

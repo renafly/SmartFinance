@@ -578,5 +578,43 @@ export function createStyles(colors: any, insets: SafeAreaInsets = NO_INSETS) {
     pressed: {
       opacity: 0.85,
     },
+    splitBadgeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing(1),
+      alignSelf: "flex-start",
+      marginTop: spacing(0.5),
+    },
+    splitBreakdown: {
+      width: "100%",
+      alignSelf: "stretch",
+      borderWidth: 1,
+      borderRadius: radius.lg,
+      padding: spacing(3),
+      gap: spacing(2),
+      marginTop: -spacing(1),
+      marginBottom: spacing(2),
+    },
+    splitBreakdownHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing(1),
+      flexWrap: "wrap",
+    },
+    splitBreakdownHeaderLabel: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[12],
+      fontWeight: String(typography.fontWeight.bold),
+      textTransform: "uppercase",
+    },
+    splitBreakdownEntryRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing(2),
+      flexWrap: "wrap",
+      paddingTop: spacing(1.5),
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
   } as any);
 }

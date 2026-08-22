@@ -21,6 +21,7 @@ const HOUSEHOLD_QUERY_KEYS = [
   ["monthly-budget-runs"],
   ["monthly-budget-income-inputs"],
   ["notifications"],
+  ["replenishments"],
 ] as const;
 
 export function invalidateHouseholdData(queryClient: QueryClient) {

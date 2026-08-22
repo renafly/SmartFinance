@@ -242,8 +242,17 @@ export function buildForecastNormalizedData(
   combined: BalanceForecast,
   ownerOrder?: string[],
 ): ForecastNormalizedData {
-  const types = buildForecastTypeBreakdown(entities);
-  const ownersRaw = buildForecastOwnerBreakdown(entities);
+  // The first timeline entry is always the current calendar month — mostly
+  // or entirely elapsed already, so it's normally flat (today's balance
+  // carried forward with whatever's left of this month's activity) and
+  // isn't a meaningful "future" data point. Dropped once, here, so every
+  // aggregation level (List and Graph both read from this single builder)
+  // starts from the next real future month.
+  const futureEntities = entities.map((entity) => ({ ...entity, timeline: entity.timeline.slice(1) }));
+  const futureCombined: BalanceForecast = { ...combined, timeline: combined.timeline.slice(1) };
+
+  const types = buildForecastTypeBreakdown(futureEntities);
+  const ownersRaw = buildForecastOwnerBreakdown(futureEntities);
   const owners = ownerOrder
     ? [...ownersRaw].sort((left, right) => {
         const leftRank = ownerOrder.indexOf(left.key);
@@ -253,7 +262,7 @@ export function buildForecastNormalizedData(
     : ownersRaw;
 
   return {
-    combined,
+    combined: futureCombined,
     accounts: types.flatMap((group) => group.accounts),
     types,
     owners,

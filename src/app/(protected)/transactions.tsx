@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -35,6 +35,7 @@ import {
   formatDate,
 } from "@/components/migrated-page";
 import {
+  Badge,
   EmptyState,
   Table,
   TableCell,
@@ -91,6 +92,24 @@ import { RecurringTransferCreateForm, TransfersContent } from "./transfers";
 import { createStyles } from "@/features/transactions/ui-styles";
 import { DropdownField, type DropdownFieldProps } from "@/features/transactions/components/dropdown-field";
 import { DateFilterField, DatePickerField, formatDateInputValue, parseDateInputValue } from "@/features/transactions/components/transaction-date-field";
+import { SplitAllocationsEditor, type SplitInputMode } from "@/features/transactions/components/split-allocations-editor";
+import {
+  useSavingPotAccountAssignments,
+  useSavingPots,
+} from "@/features/saving-pots/hooks";
+import {
+  useSaveTransactionAllocations,
+  useTransactionAllocations,
+} from "@/features/transactions/hooks/useTransactionAllocations";
+import {
+  allocationEntriesShareOneOwner,
+  allocationEntryName,
+  createEmptyAllocationDraft,
+  resolveAllocationOwnerProfileId,
+  validateAllocations,
+  type AllocationDraft,
+  type AllocationMovementEntry,
+} from "@/features/transactions/utils/transaction-allocations";
 
 type TransactionEditDraft = {
   id: string;
@@ -168,6 +187,33 @@ export default function TransactionsScreen() {
   const deleteTransaction = useDeleteTransaction();
   const deleteCompletedTransfer = useDeleteCompletedTransfer();
   const updateCompletedTransfer = useUpdateCompletedTransfer();
+  const savingPotsQuery = useSavingPots();
+  const splitPots = useMemo(
+    () => (savingPotsQuery.data ?? []).map((pot) => ({ id: pot.id, name: pot.name })),
+    [savingPotsQuery.data],
+  );
+  const saveTransactionAllocations = useSaveTransactionAllocations();
+  // Which accounts/pots a split transaction is funded by is available on
+  // the list row itself (list_transaction_movements' `allocations` column,
+  // see 20260821090000_transaction_movements_allocations.sql) -- resolving
+  // "whose money" for a pot allocation still needs the pot -> backing
+  // account mapping, which the list doesn't carry per-row.
+  const potAccountAssignmentsQuery = useSavingPotAccountAssignments();
+  const potAccountAssignments = useMemo(
+    () => potAccountAssignmentsQuery.data ?? [],
+    [potAccountAssignmentsQuery.data],
+  );
+  const [expandedTransactionIds, setExpandedTransactionIds] = useState<
+    Set<string>
+  >(new Set());
+  const toggleTransactionExpanded = useCallback((id: string) => {
+    setExpandedTransactionIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
   const [type, setType] = useState<"income" | "expense">("expense");
   const [createMovementKind, setCreateMovementKind] = useState<
     "transaction" | "transfer" | "recurring-transfer"
@@ -185,6 +231,9 @@ export default function TransactionsScreen() {
   const [date, setDate] = useState(() => getLocalCalendarDate());
   const [notes, setNotes] = useState("");
   const [attachment, setAttachment] = useState<AttachmentDraft | null>(null);
+  const [splitEnabled, setSplitEnabled] = useState(false);
+  const [splitAllocations, setSplitAllocations] = useState<AllocationDraft[]>([]);
+  const [splitInputMode, setSplitInputMode] = useState<SplitInputMode>("value");
   const [activeView, setActiveView] = useState<"activity" | "scheduled">(
     "activity",
   );
@@ -218,6 +267,50 @@ export default function TransactionsScreen() {
   const [editTransaction, setEditTransaction] =
     useState<TransactionEditDraft | null>(null);
   const editAttachmentsQuery = useTransactionAttachments(editTransaction?.id);
+  const [editSplitEnabled, setEditSplitEnabled] = useState(false);
+  const [editSplitAllocations, setEditSplitAllocations] = useState<AllocationDraft[]>([]);
+  const [editSplitInputMode, setEditSplitInputMode] = useState<SplitInputMode>("value");
+  // True when the transaction being edited already had allocations when the
+  // edit modal opened -- distinguishes "user turned split off" (needs an
+  // empty-array save to revert is_split) from "was never split and still
+  // isn't" (nothing to save), so a plain non-split edit never fires an
+  // extra round-trip.
+  const [editSplitWasOriginallySplit, setEditSplitWasOriginallySplit] = useState(false);
+  const editAllocationsQuery = useTransactionAllocations(editTransaction?.id, {
+    enabled: !!editTransaction,
+  });
+  // Syncs the loaded allocations into local edit-draft state exactly once
+  // per opened transaction (not on every background refetch, which would
+  // otherwise clobber whatever the user is actively typing).
+  const syncedEditAllocationsIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!editTransaction) {
+      syncedEditAllocationsIdRef.current = null;
+      return;
+    }
+    if (syncedEditAllocationsIdRef.current === editTransaction.id) return;
+    if (editAllocationsQuery.isLoading) return;
+    syncedEditAllocationsIdRef.current = editTransaction.id;
+    const rows = editAllocationsQuery.data ?? [];
+    if (rows.length > 0) {
+      setEditSplitEnabled(true);
+      setEditSplitWasOriginallySplit(true);
+      setEditSplitAllocations(
+        rows.map((row) => ({
+          id: row.id,
+          sourceType: row.source_type as "account" | "pot",
+          accountId: row.account_id,
+          potId: row.pot_id,
+          amount: Number(row.amount),
+        })),
+      );
+    } else {
+      setEditSplitEnabled(false);
+      setEditSplitWasOriginallySplit(false);
+      setEditSplitAllocations([]);
+    }
+    setEditSplitInputMode("value");
+  }, [editTransaction, editAllocationsQuery.data, editAllocationsQuery.isLoading]);
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [transferToDelete, setTransferToDelete] = useState<any | null>(null);
   const [transferEdit, setTransferEdit] = useState<TransferEditDraft | null>(
@@ -628,15 +721,24 @@ export default function TransactionsScreen() {
     effectiveCreatedById === currentUserId
       ? currentUserLabel
       : (memberLabelMap.get(effectiveCreatedById) ?? t("settings.unnamedUser"));
+  const splitValidationErrors = useMemo(
+    () =>
+      splitEnabled && Number.isFinite(parsedAmount)
+        ? validateAllocations(parsedAmount, splitAllocations)
+        : [],
+    [splitEnabled, parsedAmount, splitAllocations],
+  );
   const canCreateTransaction =
     !createTransaction.isPending &&
+    !saveTransactionAllocations.isPending &&
     Boolean(householdId) &&
     Boolean(profile?.id) &&
     Boolean(effectiveAccountId) &&
     title.trim().length > 0 &&
     Number.isFinite(parsedAmount) &&
     parsedAmount > 0 &&
-    /^\d{4}-\d{2}-\d{2}$/.test(date);
+    /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+    (!splitEnabled || splitValidationErrors.length === 0);
   const canCreateMovement =
     canCreateTransaction &&
     (createMovementKind === "transaction" ||
@@ -716,6 +818,52 @@ export default function TransactionsScreen() {
       : (memberLabelMap.get(creatorId) ??
           item.created_by_profile?.full_name ??
           t("settings.unnamedUser"));
+  };
+  // ------------------------------------------------------------
+  // Split / multi-account transaction detail (the `allocations` column
+  // list_transaction_movements returns for split rows -- see
+  // 20260821090000_transaction_movements_allocations.sql).
+  // ------------------------------------------------------------
+  const accountOwnerById = useMemo(
+    () =>
+      new Map(
+        (accounts as any[]).map((account) => [
+          account.id,
+          account.owner_profile_id ?? null,
+        ]),
+      ),
+    [accounts],
+  );
+  const getAllocationEntries = (item: any): AllocationMovementEntry[] =>
+    Array.isArray(item.allocations) ? (item.allocations as AllocationMovementEntry[]) : [];
+  const getAllocationMemberLabel = (entry: AllocationMovementEntry) => {
+    const ownerId = resolveAllocationOwnerProfileId(
+      entry,
+      potAccountAssignments,
+      accountOwnerById,
+    );
+    if (!ownerId) return t("dashboard.shared");
+    if (ownerId === profile?.id) return currentUserLabel;
+    return memberLabelMap.get(ownerId) ?? t("settings.unnamedUser");
+  };
+  const getSplitOwnerSummaryLabel = (item: any) => {
+    const entries = getAllocationEntries(item);
+    if (entries.length === 0) return getTransactionAccountOwnerLabel(item);
+    return allocationEntriesShareOneOwner(entries, potAccountAssignments, accountOwnerById)
+      ? getAllocationMemberLabel(entries[0])
+      : t("transactions.split.multipleMembers");
+  };
+  const getCategoryBreadcrumb = (item: any, movementKind: string) => {
+    if (!item.category) {
+      return movementKind === "transfer"
+        ? t("transactions.filters.transfer")
+        : t("transactions.uncategorized");
+    }
+    const category = (categories as any[]).find((c) => c.id === item.category.id);
+    const parent = category?.parent_id
+      ? (categories as any[]).find((c) => c.id === category.parent_id)
+      : null;
+    return parent ? `${parent.name} › ${category?.name ?? item.category.name}` : (category?.name ?? item.category.name);
   };
   const handleTransactionsScroll = useCallback(
     (event: any) => {
@@ -873,6 +1021,9 @@ export default function TransactionsScreen() {
     setDate(reset.date);
     setNotes(reset.notes);
     setAttachment(reset.attachment);
+    setSplitEnabled(false);
+    setSplitAllocations([]);
+    setSplitInputMode("value");
   }
 
   function openCreateTransaction() {
@@ -913,7 +1064,11 @@ export default function TransactionsScreen() {
         categoryId: null,
       });
     } else {
-      await createTransaction.mutateAsync({
+      if (splitEnabled && validateAllocations(parsedAmount, splitAllocations).length > 0) {
+        return;
+      }
+
+      const created = await createTransaction.mutateAsync({
         household_id: householdId,
         created_by: createdById || profile.id,
         account_id: effectiveAccountId,
@@ -925,6 +1080,14 @@ export default function TransactionsScreen() {
         transaction_date: date,
         attachment,
       } as any);
+
+      if (splitEnabled && created?.id) {
+        await saveTransactionAllocations.mutateAsync({
+          transactionId: created.id,
+          totalAmount: parsedAmount,
+          allocations: splitAllocations,
+        });
+      }
     }
 
     if (keepOpen) {
@@ -988,6 +1151,13 @@ export default function TransactionsScreen() {
       return;
     }
 
+    if (
+      editSplitEnabled &&
+      validateAllocations(nextAmount, editSplitAllocations).length > 0
+    ) {
+      return;
+    }
+
     await updateTransaction.mutateAsync({
       id: editTransaction.id,
       data: {
@@ -1004,6 +1174,19 @@ export default function TransactionsScreen() {
           editTransaction.createdById,
       } as any,
     });
+
+    // The transaction's own amount just changed above; keep the funding-
+    // source breakdown consistent with it (see
+    // TransactionAllocationsService.replace's ordering-contract docstring).
+    // `editSplitWasOriginallySplit` covers the "user just turned split off"
+    // case, where this write clears out the previously-saved allocations.
+    if (editSplitEnabled || editSplitWasOriginallySplit) {
+      await saveTransactionAllocations.mutateAsync({
+        transactionId: editTransaction.id,
+        totalAmount: nextAmount,
+        allocations: editSplitEnabled ? editSplitAllocations : [],
+      });
+    }
 
     setEditTransaction(null);
   }
@@ -1970,6 +2153,35 @@ export default function TransactionsScreen() {
                           </View>
                         ) : null}
                         {createMovementKind === "transaction" ? (
+                          <SplitAllocationsEditor
+                            enabled={splitEnabled}
+                            onToggleEnabled={setSplitEnabled}
+                            totalAmount={parsedAmount}
+                            accounts={accounts as any}
+                            members={
+                              (membersQuery.data ?? []).filter(
+                                (member) => member.status === "accepted",
+                              ) as any
+                            }
+                            pots={splitPots}
+                            allocations={splitAllocations}
+                            onChangeAllocations={setSplitAllocations}
+                            inputMode={splitInputMode}
+                            onChangeInputMode={setSplitInputMode}
+                            accountTypeLabels={{
+                              bank: t("accounts.types.bank"),
+                              cash: t("accounts.types.cash"),
+                              savings: t("accounts.types.savings"),
+                              credit_card: t("accounts.types.credit_card"),
+                              investment: t("accounts.types.investment"),
+                              ppr: t("accounts.types.ppr"),
+                            }}
+                            sharedLabel={t("dashboard.shared")}
+                            unassignedLabel={t("settings.unnamedUser")}
+                            closeLabel={t("close", { defaultValue: "Close" })}
+                          />
+                        ) : null}
+                        {createMovementKind === "transaction" ? (
                           <View style={{ gap: spacing(2) } as any}>
                             <View
                               style={{
@@ -2314,10 +2526,16 @@ export default function TransactionsScreen() {
                             accent: colors.financialNeutral,
                           }
                         : ownerTone;
+                    const allocationEntries = getAllocationEntries(item);
+                    const isExpandedSplit =
+                      item.is_split && expandedTransactionIds.has(item.id);
+                    const visibleAllocationEntries = allocationEntries.slice(0, 2);
+                    const hiddenAllocationCount =
+                      allocationEntries.length - visibleAllocationEntries.length;
 
                     return (
+                      <Fragment key={item.id}>
                       <TableRow
-                        key={item.id}
                         backgroundColor={rowTone.surface}
                         accentColor={rowTone.accent}
                       >
@@ -2366,6 +2584,35 @@ export default function TransactionsScreen() {
                                     ? t("transactions.filters.transfer")
                                     : t("transactions.uncategorized"))}
                               </Text>
+                              {item.is_split ? (
+                                <Pressable
+                                  accessibilityRole="button"
+                                  accessibilityLabel={t(
+                                    isExpandedSplit
+                                      ? "transactions.split.hideBreakdown"
+                                      : "transactions.split.viewBreakdown",
+                                  )}
+                                  onPress={() => toggleTransactionExpanded(item.id)}
+                                  style={({ pressed }) =>
+                                    [
+                                      styles.splitBadgeRow,
+                                      pressed && styles.pressed,
+                                    ] as any
+                                  }
+                                >
+                                  <Badge label={t("transactions.split.badge")} tone="primary" />
+                                  <Text style={styles.transactionContext}>
+                                    {t("transactions.split.entriesCount", {
+                                      count: allocationEntries.length,
+                                    })}
+                                  </Text>
+                                  <Ionicons
+                                    name={isExpandedSplit ? "chevron-up" : "chevron-down"}
+                                    size={13}
+                                    color={colors.textSecondary}
+                                  />
+                                </Pressable>
+                              ) : null}
                             </View>
                           </View>
                         </TableCell>,
@@ -2375,11 +2622,33 @@ export default function TransactionsScreen() {
                           </Text>
                         </TableCell>,
                         <TableCell key="account" flex={1.3}>
-                          <Text style={styles.transactionAccount}>
-                            {movementKind === "transfer"
-                              ? `${item.source_account?.name ?? t("transactions.sourceAccount")} → ${item.destination_account?.name ?? t("transactions.destinationAccount")}`
-                              : getTransactionAccountLabel(item)}
-                          </Text>
+                          {item.is_split && allocationEntries.length > 0 ? (
+                            <View style={{ gap: spacing(0.5) }}>
+                              {visibleAllocationEntries.map((entry) => (
+                                <Text
+                                  key={entry.id}
+                                  style={styles.transactionAccount}
+                                  numberOfLines={1}
+                                >
+                                  {allocationEntryName(entry)} ·{" "}
+                                  {displayCurrency(formatCurrency(entry.amount), hideValues)}
+                                </Text>
+                              ))}
+                              {hiddenAllocationCount > 0 ? (
+                                <Text style={styles.transactionContext}>
+                                  {t("transactions.split.moreSources", {
+                                    count: hiddenAllocationCount,
+                                  })}
+                                </Text>
+                              ) : null}
+                            </View>
+                          ) : (
+                            <Text style={styles.transactionAccount}>
+                              {movementKind === "transfer"
+                                ? `${item.source_account?.name ?? t("transactions.sourceAccount")} → ${item.destination_account?.name ?? t("transactions.destinationAccount")}`
+                                : getTransactionAccountLabel(item)}
+                            </Text>
+                          )}
                         </TableCell>,
                         !isSingleMemberHousehold && (
                           <TableCell key="owner" flex={1.15}>
@@ -2390,7 +2659,9 @@ export default function TransactionsScreen() {
                                 color={rowTone.accent}
                               />
                               <Text style={styles.transactionAccount}>
-                                {getTransactionAccountOwnerLabel(item)}
+                                {item.is_split
+                                  ? getSplitOwnerSummaryLabel(item)
+                                  : getTransactionAccountOwnerLabel(item)}
                               </Text>
                             </View>
                           </TableCell>
@@ -2550,6 +2821,64 @@ export default function TransactionsScreen() {
                         </TableCell>,
                         ].filter(Boolean)}
                       </TableRow>
+                      {isExpandedSplit ? (
+                        <View
+                          style={[
+                            styles.splitBreakdown,
+                            {
+                              backgroundColor: colors.surfaceMuted,
+                              borderColor: colors.border,
+                            },
+                          ] as any}
+                        >
+                          <View style={styles.splitBreakdownHeaderRow}>
+                            <Ionicons
+                              name="pricetag-outline"
+                              size={14}
+                              color={colors.textSecondary}
+                            />
+                            <Text style={styles.splitBreakdownHeaderLabel}>
+                              {t("transactions.split.breakdownCategoryLabel")}:{" "}
+                            </Text>
+                            <Text style={styles.transactionAccount}>
+                              {getCategoryBreadcrumb(item, movementKind)}
+                            </Text>
+                          </View>
+                          {allocationEntries.map((entry) => (
+                            <View key={entry.id} style={styles.splitBreakdownEntryRow}>
+                              <Ionicons
+                                name={
+                                  entry.source_type === "pot"
+                                    ? "wallet-outline"
+                                    : "card-outline"
+                                }
+                                size={15}
+                                color={colors.primary}
+                              />
+                              <Text
+                                style={[styles.transactionAccount, { flex: 1.4 }] as any}
+                                numberOfLines={1}
+                              >
+                                {allocationEntryName(entry)}
+                              </Text>
+                              <View style={styles.personIdentity}>
+                                <Ionicons
+                                  name="person-outline"
+                                  size={13}
+                                  color={colors.textSecondary}
+                                />
+                                <Text style={styles.transactionContext}>
+                                  {getAllocationMemberLabel(entry)}
+                                </Text>
+                              </View>
+                              <Text style={styles.transactionAmount}>
+                                {displayCurrency(formatCurrency(entry.amount), hideValues)}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      ) : null}
+                      </Fragment>
                     );
                   })}
                 </Table>
@@ -2971,6 +3300,33 @@ export default function TransactionsScreen() {
                       )
                     }
                   />
+                  <SplitAllocationsEditor
+                    enabled={editSplitEnabled}
+                    onToggleEnabled={setEditSplitEnabled}
+                    totalAmount={Number(editTransaction.amount) || 0}
+                    accounts={accounts as any}
+                    members={
+                      (membersQuery.data ?? []).filter(
+                        (member) => member.status === "accepted",
+                      ) as any
+                    }
+                    pots={splitPots}
+                    allocations={editSplitAllocations}
+                    onChangeAllocations={setEditSplitAllocations}
+                    inputMode={editSplitInputMode}
+                    onChangeInputMode={setEditSplitInputMode}
+                    accountTypeLabels={{
+                      bank: t("accounts.types.bank"),
+                      cash: t("accounts.types.cash"),
+                      savings: t("accounts.types.savings"),
+                      credit_card: t("accounts.types.credit_card"),
+                      investment: t("accounts.types.investment"),
+                      ppr: t("accounts.types.ppr"),
+                    }}
+                    sharedLabel={t("dashboard.shared")}
+                    unassignedLabel={t("settings.unnamedUser")}
+                    closeLabel={t("close", { defaultValue: "Close" })}
+                  />
                   <View style={styles.editAttachmentsSection}>
                     <View style={styles.editAttachmentsHeading}>
                       <Ionicons
@@ -3093,7 +3449,13 @@ export default function TransactionsScreen() {
                         onPress={() => void handleSaveTransaction()}
                         disabled={
                           updateTransaction.isPending ||
-                          deleteTransaction.isPending
+                          deleteTransaction.isPending ||
+                          saveTransactionAllocations.isPending ||
+                          (editSplitEnabled &&
+                            validateAllocations(
+                              Number(editTransaction.amount) || 0,
+                              editSplitAllocations,
+                            ).length > 0)
                         }
                       />
                     </View>

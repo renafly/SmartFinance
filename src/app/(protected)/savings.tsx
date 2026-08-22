@@ -42,6 +42,8 @@ import {
 import { useAuth } from "../../providers/AuthProvider";
 import { SavingPotCard, type ForecastViewMode } from "../../features/saving-pots/components/saving-pot-card";
 import { getAccountSummary, type SavingPotAccountOption } from "../../features/saving-pots/ui-utils";
+import { usePotBalanceForecasts } from "../../features/forecast/hooks";
+import { DEFAULT_FORECAST_PERIOD_MONTHS, type ForecastPeriodMonths } from "../../features/forecast/ui-utils";
 
 type AccountOption = SavingPotAccountOption;
 
@@ -129,6 +131,7 @@ export default function SavingsScreen() {
   const accountsQuery = useAccountsWithBalances();
   const membersQuery = useHouseholdMemberDetails();
   const savingPotForecasts = useSavingPotForecasts();
+  const { forecasts: potBalanceForecasts } = usePotBalanceForecasts();
   const createSavingPot = useCreateSavingPot();
   const deleteSavingPot = useDeleteSavingPot();
   const updateSavingPot = useUpdateSavingPot();
@@ -155,6 +158,9 @@ export default function SavingsScreen() {
   const [editingPotId, setEditingPotId] = useState<string | null>(null);
   const [expandedForecastPotId, setExpandedForecastPotId] = useState<string | null>(null);
   const [forecastViewMode, setForecastViewMode] = useState<ForecastViewMode>("monthly");
+  const [expandedBalanceForecastPotId, setExpandedBalanceForecastPotId] = useState<string | null>(null);
+  const [balanceForecastPeriod, setBalanceForecastPeriod] = useState<ForecastPeriodMonths>(DEFAULT_FORECAST_PERIOD_MONTHS);
+  const [balanceForecastViewMode, setBalanceForecastViewMode] = useState<ForecastViewMode>("monthly");
 
   const parsedTargetAmount = targetAmount.trim() ? Number(targetAmount) : null;
   const canCreateSavingPot =
@@ -435,14 +441,21 @@ export default function SavingsScreen() {
                 pot={pot}
                 balance={balance}
                 forecast={forecast}
+                balanceForecast={potBalanceForecasts.get(pot.id)}
                 selectedAccounts={!accountsQuery.isPending && !assignmentsQuery.isPending ? selectedAccounts : []}
                 memberLabelMap={memberLabelMap}
                 createdByLabel={createdByLabel}
                 isForecastExpanded={expandedForecastPotId === pot.id}
                 forecastViewMode={forecastViewMode}
+                isBalanceForecastExpanded={expandedBalanceForecastPotId === pot.id}
+                balanceForecastPeriod={balanceForecastPeriod}
+                balanceForecastViewMode={balanceForecastViewMode}
                 onOpenMenu={() => setActivePotMenu({ id: pot.id, name: pot.name })}
                 onToggleForecast={() => setExpandedForecastPotId((current) => (current === pot.id ? null : pot.id))}
                 onSetForecastViewMode={setForecastViewMode}
+                onToggleBalanceForecast={() => setExpandedBalanceForecastPotId((current) => (current === pot.id ? null : pot.id))}
+                onSetBalanceForecastPeriod={setBalanceForecastPeriod}
+                onSetBalanceForecastViewMode={setBalanceForecastViewMode}
               />
             );
           })}

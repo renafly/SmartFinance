@@ -303,7 +303,16 @@ function WageFlowDetailsBody({ category }: { category: WageFlowChartBucket }) {
           {t("insights.wageFlow.noTransactionsInCategory")}
         </Text>
       ) : (
-        <ScrollView style={{ maxHeight: LIST_MAX_HEIGHT }} showsVerticalScrollIndicator={false}>
+        // Same nested-scroll-on-Android gap as the category menu's list in
+        // insight-charts.tsx (WageFlowCategoryMenu) -- this panel also lives
+        // inside the Dashboard's outer Page ScrollView, so without
+        // `nestedScrollEnabled` Android never lets the transaction list
+        // itself scroll once it's taller than LIST_MAX_HEIGHT.
+        <ScrollView
+          style={{ maxHeight: LIST_MAX_HEIGHT }}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+        >
           <View style={{ gap: spacing(2.5) }}>
             {matches.map((match) => {
               const title = match.isTransfer

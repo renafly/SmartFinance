@@ -435,8 +435,12 @@ export function MultiSelectShell({
   confirmDisabled,
   children,
 }: MultiSelectShellProps) {
-  const responsive = useResponsiveMetrics();
-
+  // Close + Confirm live in SelectionShell's own fixed footer (via
+  // primaryAction) instead of a second button row rendered here — this
+  // used to render both: this component's own Close/Confirm row *and*
+  // SelectionShell's default Close button underneath it, so every
+  // multi-select picker in the app showed two Close buttons in two
+  // different places (one scrolling with the content, one pinned below).
   return (
     <SelectionShell
       visible={visible}
@@ -444,24 +448,9 @@ export function MultiSelectShell({
       subtitle={subtitle}
       closeLabel={closeLabel}
       onClose={onClose}
+      primaryAction={{ label: confirmLabel, onPress: onConfirm, disabled: confirmDisabled }}
     >
-      <View style={{ gap: spacing(3) }}>
-        {children}
-        <View
-          style={{
-            flexDirection: responsive.isPhone ? "column-reverse" : "row",
-            justifyContent: "flex-end",
-            gap: spacing(2),
-          }}
-        >
-          <Button label={closeLabel} variant="secondary" onPress={onClose} />
-          <Button
-            label={confirmLabel}
-            onPress={onConfirm}
-            disabled={confirmDisabled}
-          />
-        </View>
-      </View>
+      {children}
     </SelectionShell>
   );
 }

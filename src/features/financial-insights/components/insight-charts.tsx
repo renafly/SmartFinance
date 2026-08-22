@@ -497,7 +497,25 @@ export function WageFlowCategoryMenu({
           />
         </Pressable>
       </View>
-      <ScrollView style={{ maxHeight: CATEGORY_LIST_MAX_HEIGHT }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ maxHeight: CATEGORY_LIST_MAX_HEIGHT }}
+        showsVerticalScrollIndicator={false}
+        // This list sits inside the Dashboard's outer `Page` ScrollView
+        // (see migrated-page.tsx). iOS's UIScrollView and the web's native
+        // `overflow` scrolling both hand touch/wheel gestures to whichever
+        // nested scrollable is under the pointer automatically, so nesting
+        // "just works" there. Android's ScrollView does not: by default the
+        // ancestor ScrollView claims the vertical pan gesture before it ever
+        // reaches a nested vertical ScrollView, so this list is silently
+        // unscrollable on Android once it has more categories than fit in
+        // CATEGORY_LIST_MAX_HEIGHT -- the content is present, it's just
+        // unreachable. `nestedScrollEnabled` opts this ScrollView into
+        // Android's nested-scrolling protocol (it's a no-op on iOS/web) so it
+        // scrolls internally until it hits its own top/bottom, then hands
+        // the gesture back to the Dashboard scroll -- matching iOS/web
+        // behavior instead of adding an Android-only layout workaround.
+        nestedScrollEnabled
+      >
         <View style={{ gap: spacing(1.5) }}>
           {buckets.map((item) => {
             const isSelected = item.key === selectedKey;

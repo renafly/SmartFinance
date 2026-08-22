@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,6 +22,10 @@ import { usePreferencesStore, type AppCurrency } from "@/stores/preferencesStore
 import { typography } from "@/theme/typography";
 import { useTransactionsInfinite } from "../../features/transactions/hooks/useTransactions";
 import { ACCOUNT_TYPE_ORDER, SHARED_ACCOUNT_OWNER_KEY, compareAccountsByOwnerThenType, getAccountOwnerKey } from "../../features/accounts/account-ordering";
+import { useAccountBalanceForecasts, usePotBalanceForecasts } from "../../features/forecast/hooks";
+import { BalanceForecastPanel, CombinedForecastPanel, type CombinedForecastEntity, type ForecastViewMode } from "../../features/forecast/components";
+import { DEFAULT_FORECAST_PERIOD_MONTHS, type ForecastPeriodMonths } from "../../features/forecast/ui-utils";
+import type { BalanceForecast } from "../../features/forecast/services/balance-forecast.service";
 
 const accountTypes = ACCOUNT_TYPE_ORDER;
 const currencyOptions: AppCurrency[] = ["EUR", "USD", "GBP"];
@@ -51,6 +55,8 @@ export default function AccountsScreen() {
   const householdsQuery = useMyHouseholds();
   const savingPotBalancesQuery = useSavingPotBalances();
   const savingPotAssignmentsQuery = useSavingPotAccountAssignments();
+  const { forecasts: accountForecasts } = useAccountBalanceForecasts();
+  const { forecasts: potForecasts } = usePotBalanceForecasts();
   const createAccount = useCreateAccount();
   const archiveAccount = useArchiveAccount();
   const deleteAccount = useDeleteAccount();
@@ -59,6 +65,9 @@ export default function AccountsScreen() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [menuAccount, setMenuAccount] = useState<EditMode | null>(null);
   const [accountHistory, setAccountHistory] = useState<AccountHistoryMode | null>(null);
+  const [accountHistoryTab, setAccountHistoryTab] = useState<"history" | "forecast">("history");
+  const [accountForecastPeriod, setAccountForecastPeriod] = useState<ForecastPeriodMonths>(DEFAULT_FORECAST_PERIOD_MONTHS);
+  const [accountForecastViewMode, setAccountForecastViewMode] = useState<ForecastViewMode>("monthly");
   const [editAccount, setEditAccount] = useState<{
     id: string;
     name: string;
@@ -242,6 +251,32 @@ export default function AccountsScreen() {
   ];
   const accountBalanceSliceTotal = accountBalanceSlices.reduce((sum, slice) => sum + slice.value, 0);
   const selectedBalanceSlice = accountBalanceSlices.find((slice) => slice.key === selectedBalanceSliceKey) ?? null;
+  const zeroForecast: BalanceForecast = { currentBalance: 0, monthlyMovement: 0, sources: [], timeline: [] };
+  const combinedForecastEntities: CombinedForecastEntity[] = useMemo(() => {
+    const accountEntities: CombinedForecastEntity[] = accounts
+      .filter((account: any) => !account.is_archived)
+      .map((account: any) => ({
+        id: account.id,
+        kind: "account",
+        name: account.name,
+        type: account.type,
+        ownerProfileId: account.owner_profile_id ?? null,
+        forecast: accountForecasts.get(account.id) ?? zeroForecast,
+      }));
+    const potEntities: CombinedForecastEntity[] = ((savingPotBalancesQuery.data ?? []) as any[]).map((pot: any) => ({
+      id: pot.id,
+      kind: "pot",
+      name: pot.name,
+      type: null,
+      ownerProfileId: null,
+      forecast: potForecasts.get(pot.id) ?? zeroForecast,
+    }));
+    return [...accountEntities, ...potEntities];
+  }, [accounts, accountForecasts, savingPotBalancesQuery.data, potForecasts]);
+  const combinedForecastMembers = members.map((member) => ({
+    id: member.userId,
+    label: memberLabelMap.get(member.userId) ?? member.userId,
+  }));
   const parsedInitialBalance = Number(initialBalance);
   const accountTransfersQuery = useTransactionsInfinite(
     accountHistory ? { accountId: accountHistory.id } : {},
@@ -439,7 +474,9 @@ export default function AccountsScreen() {
                       strokeDasharray={`${sliceLength} ${circumference - sliceLength}`}
                       strokeDashoffset={-offset}
                       transform="rotate(-90 100 100)"
-                      onPress={() => setSelectedBalanceSliceKey(slice.key)}
+                      {...(Platform.OS === "web"
+                        ? { onClick: () => setSelectedBalanceSliceKey(slice.key) }
+                        : { onPress: () => setSelectedBalanceSliceKey(slice.key) })}
                     />
                   );
                 })}
@@ -583,12 +620,13 @@ export default function AccountsScreen() {
                       return (
                         <TableRow
                           key={account.id}
-                          onPress={() =>
+                          onPress={() => {
                             setAccountHistory({
                               id: account.id,
                               name: account.name,
-                            })
-                          }
+                            });
+                            setAccountHistoryTab("history");
+                          }}
                         >
                           <TableCell flex={1.6}>
                             <View style={styles.accountIdentity}>
@@ -654,6 +692,15 @@ export default function AccountsScreen() {
             onAction={openCreateDialog}
           />
         )}
+      </Section>
+
+      <Section title={t("forecast.combinedTitle")} subtitle={t("forecast.combinedSubtitle")}>
+        <CombinedForecastPanel
+          entities={combinedForecastEntities}
+          members={combinedForecastMembers}
+          getAccountTypeLabel={(type) => t(`accounts.types.${type}`)}
+          sharedLabel={t("dashboard.shared")}
+        />
       </Section>
 
       <Modal visible={createDialogOpen} transparent animationType="fade" onRequestClose={() => setCreateDialogOpen(false)}>
@@ -846,11 +893,44 @@ export default function AccountsScreen() {
             <View style={styles.modalTitleRow}>
               <Ionicons name="swap-horizontal-outline" size={18} color={colors.primary} />
               <Text style={styles.modalSubtitle}>
-                {t("accounts.accountTransfersSubtitle", {
-                  defaultValue: "Transfers for this account, newest first.",
-                })}
+                {accountHistoryTab === "history"
+                  ? t("accounts.accountTransfersSubtitle", {
+                      defaultValue: "Transfers for this account, newest first.",
+                    })
+                  : t("forecast.subtitle")}
               </Text>
             </View>
+            <View style={styles.viewToggle}>
+              {(["history", "forecast"] as const).map((tab) => (
+                <Pressable
+                  key={tab}
+                  onPress={() => setAccountHistoryTab(tab)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: accountHistoryTab === tab }}
+                  style={({ pressed }) => [
+                    styles.viewToggleButton,
+                    accountHistoryTab === tab && styles.viewToggleButtonActive,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={accountHistoryTab === tab ? styles.viewToggleTextActive : styles.viewToggleText}>
+                    {tab === "history" ? t("forecast.tabHistory") : t("forecast.tabForecast")}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            {accountHistoryTab === "forecast" ? (
+              <ScrollView style={styles.historyScroll} contentContainerStyle={{ gap: spacing(3) }}>
+                <BalanceForecastPanel
+                  forecast={accountHistory ? accountForecasts.get(accountHistory.id) ?? null : null}
+                  periodMonths={accountForecastPeriod}
+                  onChangePeriod={setAccountForecastPeriod}
+                  viewMode={accountForecastViewMode}
+                  onChangeViewMode={setAccountForecastViewMode}
+                />
+              </ScrollView>
+            ) : (
+              <>
             <View style={[styles.historyBalanceRow, { backgroundColor: colors.primarySoft, borderColor: colors.primary }]}>
               <Text style={styles.historyBalanceLabel}>
                 {t("accounts.currentBalanceLabel", { defaultValue: "Current balance" })}
@@ -944,6 +1024,8 @@ export default function AccountsScreen() {
                 />
               ) : null}
             </ScrollView>
+              </>
+            )}
             <Button label={t("close", { defaultValue: "Close" })} variant="secondary" onPress={() => setAccountHistory(null)} />
           </View>
         </View>
@@ -1175,6 +1257,31 @@ function createStyles(colors: any, insets: { top: number; bottom: number } = { t
     transferAmountExpense: {
       color: colors.destructive,
       fontWeight: String(typography.fontWeight.extraBold),
+    },
+    viewToggle: {
+      flexDirection: "row" as const,
+      alignSelf: "flex-start" as const,
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: "hidden" as const,
+    },
+    viewToggleButton: {
+      paddingHorizontal: spacing(3),
+      paddingVertical: spacing(1.5),
+    },
+    viewToggleButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    viewToggleText: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[13],
+      fontWeight: String(typography.fontWeight.bold),
+    },
+    viewToggleTextActive: {
+      color: colors.primaryForeground,
+      fontSize: typography.fontSize[13],
+      fontWeight: String(typography.fontWeight.bold),
     },
     menuButton: {
       width: spacing(10.5),

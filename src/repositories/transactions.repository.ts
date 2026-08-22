@@ -3,7 +3,7 @@ import {
   type RepoResult,
 } from "@/repositories/base.repository";
 import { supabase } from "@/shared/lib/supabase/client";
-import type { Database } from "@/types/database.types";
+import type { Database, Json } from "@/types/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
@@ -112,6 +112,7 @@ export type TransactionMovement = {
   amount: number;
   balance_after_transaction: number | null;
   transaction_date: string;
+  is_split: boolean;
   created_at: string;
   updated_at: string;
   monthly_budget_run_id: string | null;
@@ -123,6 +124,14 @@ export type TransactionMovement = {
   destination_account: TransactionWithRelations["account"];
   category: TransactionWithRelations["category"];
   created_by_profile: TransactionWithRelations["created_by_profile"];
+  /**
+   * Funding-source breakdown for a split transaction (array of
+   * {id, source_type, account_id, account_name, account_owner_profile_id,
+   * pot_id, pot_name, amount}, ordered by sort_order). Null for non-split
+   * rows and for every transfer -- see
+   * 20260821090000_transaction_movements_allocations.sql.
+   */
+  allocations: Json | null;
 };
 
 export interface TransactionMovementFilters extends Omit<TransactionFilters, "type"> {
@@ -136,6 +145,13 @@ export interface TransactionMovementFilters extends Omit<TransactionFilters, "ty
    * populated instead of being trimmed after the fact on the client.
    */
   excludeTransfers?: boolean;
+  /**
+   * Matches a movement touching ANY of the given accounts (account_id,
+   * source_account_id, or destination_account_id). Distinct from
+   * `accountId` (a single exact match) -- used by the replenishment wizard
+   * to show transactions across multiple "accounts to replenish" at once.
+   */
+  accountIds?: string[];
 }
 
 export type TransactionMovementSummary = {
@@ -245,6 +261,7 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
       p_search: filters.search?.trim() || null,
       p_min_amount: filters.minAmount ?? null,
       p_max_amount: filters.maxAmount ?? null,
+      p_account_ids: filters.accountIds?.length ? filters.accountIds : null,
     });
     if (error) return { data: null, error };
 
@@ -277,6 +294,7 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
         p_search: filters.search?.trim() || null,
         p_min_amount: filters.minAmount ?? null,
         p_max_amount: filters.maxAmount ?? null,
+        p_account_ids: filters.accountIds?.length ? filters.accountIds : null,
       },
     );
     if (error) return { data: null, error };

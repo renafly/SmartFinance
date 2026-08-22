@@ -1396,6 +1396,7 @@ export type Database = {
           amount: number;
           type: Database["public"]["Enums"]["transaction_type"];
           transaction_date: string;
+          is_split: boolean;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -1418,6 +1419,7 @@ export type Database = {
           amount: number;
           type: Database["public"]["Enums"]["transaction_type"];
           transaction_date?: string;
+          is_split?: boolean;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -1440,7 +1442,47 @@ export type Database = {
           amount?: number;
           type?: Database["public"]["Enums"]["transaction_type"];
           transaction_date?: string;
+          is_split?: boolean;
           created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      transaction_allocations: {
+        Row: {
+          id: string;
+          household_id: string;
+          transaction_id: string;
+          source_type: string;
+          account_id: string | null;
+          pot_id: string | null;
+          amount: number;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          transaction_id: string;
+          source_type: string;
+          account_id?: string | null;
+          pot_id?: string | null;
+          amount: number;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          household_id?: string;
+          transaction_id?: string;
+          source_type?: string;
+          account_id?: string | null;
+          pot_id?: string | null;
+          amount?: number;
+          sort_order?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -1539,6 +1581,7 @@ export type Database = {
           p_search?: string | null;
           p_min_amount?: number | null;
           p_max_amount?: number | null;
+          p_account_ids?: string[] | null;
         };
         Returns: {
           movement_id: string;
@@ -1559,6 +1602,7 @@ export type Database = {
           amount: number;
           balance_after_transaction: number | null;
           transaction_date: string;
+          is_split: boolean;
           created_at: string;
           updated_at: string;
           monthly_budget_run_id: string | null;
@@ -1571,7 +1615,15 @@ export type Database = {
           destination_account: Json | null;
           category: Json | null;
           created_by_profile: Json | null;
+          allocations: Json | null;
         }[];
+      };
+      save_transaction_allocations: {
+        Args: {
+          p_transaction_id: string;
+          p_allocations: Json;
+        };
+        Returns: undefined;
       };
       summarize_transaction_movements: {
         Args: {
