@@ -309,7 +309,7 @@ function createStyles(colors: any) {
     trendTrack: { flex: 1, justifyContent: 'flex-end' },
     trendBar: { width: '100%', minHeight: spacing(0.5), borderRadius: radius.sm },
     trendEdgeLabels: { flexDirection: 'row', justifyContent: 'space-between' },
-    trendEdgeLabel: { color: colors.textSecondary, fontSize: typography.fontSize[11] },
+    trendEdgeLabel: { color: colors.textSecondary, fontSize: typography.fontSize[12] },
     monthList: { gap: 0 },
     monthBlock: { borderBottomWidth: 1, borderBottomColor: colors.border },
     monthRow: {
@@ -347,8 +347,8 @@ function createStyles(colors: any) {
     typeLabel: { color: colors.text, fontSize: typography.fontSize[13], fontWeight: typography.fontWeight.bold, flexShrink: 1 },
     typeRowRight: { flexDirection: 'row', alignItems: 'baseline', gap: spacing(1.5) },
     typeBalance: { color: colors.text, fontSize: typography.fontSize[13], fontWeight: typography.fontWeight.extraBold, fontVariant: ['tabular-nums'] },
-    typeVariation: { fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold, fontVariant: ['tabular-nums'] },
-    chevronSmall: { color: colors.textSecondary, fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.bold },
+    typeVariation: { fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold, fontVariant: ['tabular-nums'] },
+    chevronSmall: { color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.bold },
     accountList: { paddingLeft: spacing(3.5), paddingBottom: spacing(1) },
     accountRowGroup: { paddingVertical: spacing(1.25) },
     accountRow: {
@@ -359,11 +359,11 @@ function createStyles(colors: any) {
     },
     accountRowLeft: { flex: 1, minWidth: 0 },
     accountName: { color: colors.text, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold },
-    accountOwner: { color: colors.textSecondary, fontSize: typography.fontSize[11] },
+    accountOwner: { color: colors.textSecondary, fontSize: typography.fontSize[12] },
     accountRowRight: { alignItems: 'flex-end' },
     accountBalance: { color: colors.text, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.bold, fontVariant: ['tabular-nums'] },
-    accountVariation: { fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold, fontVariant: ['tabular-nums'] },
-    accountGoalCaption: { color: colors.financialGoal, fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold, marginTop: spacing(0.5) },
+    accountVariation: { fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold, fontVariant: ['tabular-nums'] },
+    accountGoalCaption: { color: colors.financialGoal, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold, marginTop: spacing(0.5) },
     pressed: { opacity: 0.85 },
   });
 }

@@ -335,7 +335,7 @@ function createStyles(colors: any) {
       textTransform: 'uppercase',
       letterSpacing: typography.letterSpacing[10],
     },
-    groupCount: { color: colors.textSecondary, fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold },
+    groupCount: { color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold },
     bulkRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing(1.5) },
     entityRow: {
       flexDirection: 'row',
@@ -346,7 +346,7 @@ function createStyles(colors: any) {
       borderBottomColor: colors.border,
     },
     entityName: { color: colors.text, fontSize: typography.fontSize[13], fontWeight: typography.fontWeight.bold },
-    entityMeta: { color: colors.textSecondary, fontSize: typography.fontSize[11] },
+    entityMeta: { color: colors.textSecondary, fontSize: typography.fontSize[12] },
     checkbox: {
       width: spacing(5.5),
       height: spacing(5.5),

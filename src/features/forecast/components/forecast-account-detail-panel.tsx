@@ -160,9 +160,9 @@ function createStyles(colors: any) {
     },
     summaryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) },
     summaryCell: { gap: spacing(0.5), minWidth: spacing(24) },
-    summaryLabel: { color: colors.textSecondary, fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold },
+    summaryLabel: { color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold },
     summaryValue: { color: colors.text, fontSize: typography.fontSize[16], fontWeight: typography.fontWeight.extraBold, fontVariant: ['tabular-nums'] },
-    goalStateText: { fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold },
+    goalStateText: { fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold },
     monthList: { gap: 0 },
     monthRow: {
       flexDirection: 'row',
@@ -177,7 +177,7 @@ function createStyles(colors: any) {
     monthNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing(1) },
     monthName: { color: colors.text, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold },
     monthValues: { flexDirection: 'row', alignItems: 'baseline', gap: spacing(2) },
-    monthChange: { fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold, fontVariant: ['tabular-nums'] },
+    monthChange: { fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold, fontVariant: ['tabular-nums'] },
     monthBalance: { color: colors.text, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.bold, fontVariant: ['tabular-nums'] },
   });
 }
