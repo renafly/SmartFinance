@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Stop, Text as SvgText } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
@@ -294,26 +294,40 @@ export function ForecastGraphView({ normalized, periodMonths, onChangePeriod }: 
     return null;
   }, [highlightedKey, highlightedGroupKey, level, typeSections]);
 
-  // Goal reference line/marker — only for a single individually-highlighted
-  // account-level pot series (never for a whole selected type-group, and
-  // never on the "Monthly change" metric, where a balance target has no
-  // meaningful axis position). This is the "progressive disclosure" half of
-  // the spec's "don't overcrowd the graph with goal markers" instruction:
-  // rather than drawing a line per pot with a goal, only the one pot the
-  // user has actually selected ever gets one. Reuses the exact same
+  // Every currently-visible account-level pot with a configured goal, and
+  // its goal status — computed once, shared by every goal-aware element
+  // below (small "milestone" markers on every visible pot's line, the
+  // bigger hero pin + dashed reference line for whichever one is actually
+  // selected, and the goal readout in the below-graph breakdown). Never
+  // computed for type/owner/total levels (no single pot to anchor a goal
+  // against there) or the "Monthly change" metric (a balance target has no
+  // meaningful position on a change axis). Reuses the exact same
   // getForecastPotGoalStatus calculation as the List view and the account
   // detail panel — never recomputed per-surface.
-  const highlightedGoalStatus = useMemo(() => {
-    if (level !== 'account' || metric !== 'balance' || !highlightedSeries || highlightedSeries.targetAmount == null) return null;
-    return getForecastPotGoalStatus(highlightedSeries.timeline.slice(0, pointCount), highlightedSeries.targetAmount, highlightedSeries.currentBalance ?? 0);
-  }, [level, metric, highlightedSeries, pointCount]);
+  const visiblePotGoals = useMemo(() => {
+    if (level !== 'account' || metric !== 'balance') return [];
+    return visibleSeries
+      .filter((series) => series.targetAmount != null)
+      .map((series) => ({
+        series,
+        status: getForecastPotGoalStatus(series.timeline.slice(0, pointCount), series.targetAmount as number, series.currentBalance ?? 0),
+      }));
+  }, [level, metric, visibleSeries, pointCount]);
+
+  const highlightedGoalStatus = highlightedSeries ? (visiblePotGoals.find((entry) => entry.series.key === highlightedSeries.key)?.status ?? null) : null;
   const highlightedGoalTarget = highlightedGoalStatus?.targetAmount ?? null;
 
   const extent = useMemo(() => {
     const values = visibleSeries.flatMap((series) =>
       series.timeline.slice(0, pointCount).map((item) => (metric === 'balance' ? item.balance : item.movement)),
     );
-    if (metric === 'balance' && highlightedGoalTarget != null) values.push(highlightedGoalTarget);
+    // Every visible pot's goal line/marker must fit on-screen, not just the
+    // highlighted one's dashed reference line — otherwise a milestone
+    // marker for a pot whose target sits above/below the plotted balance
+    // range would silently clip off the edge of the chart.
+    if (metric === 'balance' && visiblePotGoals.length > 0) {
+      visiblePotGoals.forEach((entry) => values.push(entry.status.targetAmount));
+    }
     if (values.length === 0) return { min: 0, max: 1 };
 
     if (metric === 'change') {
@@ -338,7 +352,7 @@ export function ForecastGraphView({ normalized, periodMonths, onChangePeriod }: 
     }
     const pad = (rawMax - rawMin) * 0.12;
     return { min: rawMin - pad, max: rawMax + pad };
-  }, [visibleSeries, pointCount, metric, highlightedGoalTarget]);
+  }, [visibleSeries, pointCount, metric, visiblePotGoals]);
 
   const plotWidth = Math.max(1, chartWidth - PAD_SIDE * 2);
   const zeroY = yFor(0, extent.min, extent.max);
@@ -552,8 +566,9 @@ export function ForecastGraphView({ normalized, periodMonths, onChangePeriod }: 
           ) : null}
           {/* Goal reference line — subtle dashed horizontal line at the pot's
               target amount, only ever shown for the one individually
-              highlighted account-level pot series (see highlightedGoalTarget
-              above for why). */}
+              highlighted/selected account-level pot series, so it never
+              competes with the milestone markers below for every other
+              visible pot (see visiblePotGoals above). */}
           {highlightedGoalTarget != null ? (
             <>
               <Line
@@ -623,21 +638,68 @@ export function ForecastGraphView({ normalized, periodMonths, onChangePeriod }: 
               />
             );
           })}
-          {/* Goal achievement marker — a single distinct dot at the first
-              month the highlighted pot's projected balance reaches its
-              target, drawn last so it always sits on top of the line/month
-              dots. Omitted for a pot that never reaches its goal within the
-              selected period (achievedMonthIndex is null in that case). */}
-          {highlightedGoalStatus && highlightedGoalStatus.achievedMonthIndex != null ? (
-            <Circle
-              cx={xFor(highlightedGoalStatus.achievedMonthIndex, pointCount, plotWidth)}
-              cy={yFor(highlightedGoalTarget ?? 0, extent.min, extent.max)}
-              r={5.5}
-              fill={colors.financialGoal}
-              stroke={colors.surface}
-              strokeWidth={2}
-            />
-          ) : null}
+          {/* Goal milestone markers — a small pin/flag directly on the line at
+              the first month each visible pot's projected balance reaches
+              its target (or at the very first point, for a pot already at
+              or above its goal today). Drawn last so they always sit on top
+              of the line/month dots. Every currently-visible pot with a
+              goal gets a small, muted flag (satisfies "show markers only
+              for visible series" without a per-pot opt-in); the one pot
+              actually selected/highlighted gets a bigger flag plus its own
+              "Goal reached ..." label (the "reveal progressively when
+              selected" half of the spec) so the chart doesn't turn into a
+              wall of text when several pots have goals. A pot that never
+              reaches its goal within the selected period gets no marker at
+              all (achievedMonthIndex stays null and it isn't already
+              achieved). */}
+          {visiblePotGoals.map(({ series, status }) => {
+            const isHero = highlightedSeries?.key === series.key;
+            // "Already achieved" always anchors to the first plotted point —
+            // the timeline itself might dip below the target in a later
+            // month before recovering, but the achievement happened today,
+            // not then (see getForecastPotGoalStatus's alreadyAchieved).
+            const markerMonthIndex = status.alreadyAchieved ? 0 : status.achievedMonthIndex;
+            if (markerMonthIndex == null || pointCount === 0) return null;
+            const value = seriesValueAt(series, markerMonthIndex, 'balance');
+            if (value === null) return null;
+
+            const isDimmed = emphasizedKeys !== null && !isHero;
+            const cx = xFor(markerMonthIndex, pointCount, plotWidth);
+            const cy = yFor(value, extent.min, extent.max);
+            const stemHeight = isHero ? 22 : 13;
+            const topY = Math.max(14, cy - stemHeight);
+            const flagW = isHero ? 12 : 7;
+            const flagH = isHero ? 9 : 6;
+            // Flip the flag (and its label) to point/read toward the center
+            // of the chart whenever the marker sits in the right half, so
+            // neither ever runs off the plot's edge.
+            const pointLeft = cx > PAD_SIDE + plotWidth / 2;
+            const flagTipX = pointLeft ? cx - flagW : cx + flagW;
+            const opacity = isHero ? 1 : isDimmed ? 0.28 : 0.55;
+
+            return (
+              <G key={`goal-${series.key}`} opacity={opacity}>
+                <Line x1={cx} y1={cy} x2={cx} y2={topY} stroke={colors.financialGoal} strokeWidth={isHero ? 2 : 1.5} />
+                <Path
+                  d={`M ${cx} ${topY} L ${flagTipX} ${topY + flagH / 2} L ${cx} ${topY + flagH} Z`}
+                  fill={colors.financialGoal}
+                />
+                <Circle cx={cx} cy={cy} r={isHero ? 4.5 : 3} fill={colors.financialGoal} stroke={colors.surface} strokeWidth={1.5} />
+                {isHero ? (
+                  <SvgText
+                    x={pointLeft ? flagTipX - 4 : flagTipX + 4}
+                    y={topY + flagH / 2 + 3.5}
+                    fontSize={10}
+                    fontWeight="bold"
+                    fill={colors.financialGoal}
+                    textAnchor={pointLeft ? 'end' : 'start'}
+                  >
+                    {status.alreadyAchieved ? t('forecast.goalAlreadyAchieved') : t('forecast.goalReachedInMonth', { month: formatForecastMonth(status.achievedMonth ?? '') })}
+                  </SvgText>
+                ) : null}
+              </G>
+            );
+          })}
           <SvgText x={PAD_SIDE} y={PAD_TOP - 8} fontSize={10} fill={colors.textSecondary}>
             {money(extent.max)}
           </SvgText>
@@ -864,13 +926,17 @@ function GoalCaption({
   const goalState = getForecastPotGoalStateAtMonth(goalStatus, monthIndex);
   const goalAchieved = goalState === 'already_achieved' || goalState === 'reached_by_month';
   const balanceAtMonth = timeline[monthIndex]?.balance ?? currentBalance;
-  const percent = targetAmount !== 0 ? (balanceAtMonth / targetAmount) * 100 : null;
+  // Percent-to-goal only means something before the goal is reached — once
+  // it's hit, "€2,150 / €2,000" already says everything a ">100%" figure
+  // would, per the spec's own worked examples (no percent shown there for
+  // the reached case).
+  const percent = !goalAchieved && targetAmount !== 0 ? (balanceAtMonth / targetAmount) * 100 : null;
 
   return (
     <View style={styles.goalCaptionGroup}>
       <Text style={[styles.goalCaptionLine, { color: goalAchieved ? colors.success : colors.textSecondary }]} numberOfLines={1}>
         {money(balanceAtMonth)} / {money(targetAmount)}
-        {percent !== null ? ` · ${Math.round(percent)}%` : ''}
+        {percent !== null ? ` · ${Math.round(percent)}% complete` : ''}
       </Text>
       <Text style={[styles.goalCaptionLine, { color: colors.financialGoal }]} numberOfLines={1}>
         {getForecastGoalStatePhrase(goalState, goalStatus.achievedMonth, t)}

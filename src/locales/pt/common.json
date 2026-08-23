@@ -1244,8 +1244,8 @@
     "projectedTotalLabel": "Total projetado — {{month}}",
     "goalLabel": "Objetivo",
     "goalAlreadyAchieved": "Objetivo já alcançado",
-    "goalReachedInMonth": "Objetivo alcançado em {{month}}",
-    "goalExpectedInMonth": "Objetivo previsto para {{month}}",
+    "goalReachedInMonth": "Objetivo alcançado: {{month}}",
+    "goalExpectedInMonth": "Objetivo previsto: {{month}}",
     "goalNotReachedInPeriod": "Objetivo não alcançado neste período"
   },
   "recurring": {
