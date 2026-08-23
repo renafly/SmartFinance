@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop, Text as SvgText } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,18 +17,29 @@ import type { BalanceForecastTimelineItem } from '../services/balance-forecast.s
 import {
   FORECAST_PERIOD_OPTIONS,
   formatForecastMonth,
+  getForecastGoalStatePhrase,
   getForecastMonthPercentChange,
+  getForecastPercentVsCurrent,
+  getForecastPotGoalStateAtMonth,
+  getForecastPotGoalStatus,
   getForecastSeriesColor,
+  getForecastTypeColor,
   type ForecastNormalizedData,
   type ForecastPeriodMonths,
 } from '../ui-utils';
 import { AccountDetailPanel, type AccountDetailPanelAccount } from './forecast-account-detail-panel';
 
-// See react-native-svg's web shim note in insight-charts.tsx — only relevant
-// when a press handler sits directly on an <Svg>/<Path> element. Here the
-// whole chart is wrapped in a plain RN Pressable instead (so we get
-// locationX/locationY for free on every platform), so that workaround isn't
-// needed.
+// Whole-chart tap handling: the chart is wrapped in a plain RN Pressable
+// rather than attaching press handlers to individual <Svg>/<Path> elements
+// (see the react-native-svg web shim note in insight-charts.tsx for why that
+// approach is fragile). BUT react-native-web's Pressable does NOT give
+// locationX/locationY "for free" the way native RN does — see
+// react-native-web/dist/modules/usePressEvents/PressResponder.js: on web,
+// onPress is wired straight to the browser's `click` event, and its
+// nativeEvent is a plain DOM MouseEvent (no RN-style locationX/locationY at
+// all). handleChartPress is called with locationX/locationY already
+// resolved — see the Pressable's onPress below for how that's done on each
+// platform.
 
 type GraphLevel = 'account' | 'type' | 'owner' | 'total';
 type GraphMetric = 'balance' | 'change';
@@ -42,6 +53,8 @@ type GraphSeries = {
   ownerLabel?: string;
   typeLabel?: string;
   currentBalance?: number;
+  /** Savings-pot goal amount — set only for an individual account-level pot series with a configured target; undefined at every other level/series. Drives the dashed goal reference line and achievement marker below. */
+  targetAmount?: number | null;
   color: string;
   timeline: BalanceForecastTimelineItem[];
 };
@@ -86,6 +99,7 @@ function buildSeries(normalized: ForecastNormalizedData, level: GraphLevel, colo
     ownerLabel: account.ownerLabel,
     typeLabel: account.typeLabel,
     currentBalance: account.currentBalance,
+    targetAmount: account.targetAmount,
     color: getForecastSeriesColor(colors, index),
     timeline: account.timeline,
   }));
@@ -125,13 +139,24 @@ function useChartWidth() {
 }
 
 function xFor(index: number, count: number, plotWidth: number) {
-  if (count <= 1) return PAD_SIDE + plotWidth / 2;
-  return PAD_SIDE + (index / (count - 1)) * plotWidth;
+  // Belt-and-suspenders: react-native-svg's web renderer throws on a
+  // non-finite coordinate rather than silently no-op'ing like native does,
+  // so every input is defended here, not just at the source in
+  // handleChartPress — plotWidth in particular is measured off a layout
+  // event and could in principle not have fired yet on some render.
+  const safeIndex = Number.isFinite(index) ? index : 0;
+  const safeCount = Number.isFinite(count) && count > 0 ? count : 1;
+  const safePlotWidth = Number.isFinite(plotWidth) ? plotWidth : 0;
+  if (safeCount <= 1) return PAD_SIDE + safePlotWidth / 2;
+  return PAD_SIDE + (safeIndex / (safeCount - 1)) * safePlotWidth;
 }
 
 function yFor(value: number, min: number, max: number) {
-  const range = max - min || 1;
-  return PAD_TOP + (1 - (value - min) / range) * PLOT_HEIGHT;
+  const safeValue = Number.isFinite(value) ? value : 0;
+  const safeMin = Number.isFinite(min) ? min : 0;
+  const safeMax = Number.isFinite(max) ? max : 1;
+  const range = safeMax - safeMin || 1;
+  return PAD_TOP + (1 - (safeValue - safeMin) / range) * PLOT_HEIGHT;
 }
 
 function seriesValueAt(series: GraphSeries, index: number, metric: GraphMetric): number | null {
@@ -197,6 +222,11 @@ export function ForecastGraphView({ normalized, periodMonths, onChangePeriod }: 
   const money = (value: number) => displayCurrency(formatCurrency(value), hideValues);
   const { width: chartWidth, onLayout: onChartLayout } = useChartWidth();
   const gradientId = useId();
+  // Pressable forwards this ref to the underlying native view, which
+  // supports .measure() on every platform (including react-native-web, via
+  // a getBoundingClientRect-based polyfill) — used as the position fallback
+  // below when nativeEvent.locationX/locationY aren't available.
+  const chartRef = useRef<View>(null);
 
   const [level, setLevel] = useState<GraphLevel>('account');
   const [metric, setMetric] = useState<GraphMetric>('balance');
@@ -213,7 +243,14 @@ export function ForecastGraphView({ normalized, periodMonths, onChangePeriod }: 
 
   const canonicalTimeline = normalized.combined.timeline.slice(0, periodMonths);
   const pointCount = canonicalTimeline.length;
-  const clampedMonthIndex = Math.min(selectedMonthIndex, Math.max(0, pointCount - 1));
+  // Defensively falls back to 0 rather than propagating a non-finite value
+  // into xFor/yFor below — react-native-svg's web renderer throws (rather
+  // than silently no-op'ing, like native does) when it's handed NaN/
+  // Infinity coordinates, and web's Pressable doesn't always populate
+  // nativeEvent.locationX/locationY the same way native's touch-responder
+  // system does (see handleChartPress).
+  const safeSelectedMonthIndex = Number.isFinite(selectedMonthIndex) ? selectedMonthIndex : 0;
+  const clampedMonthIndex = pointCount > 0 ? Math.min(Math.max(0, safeSelectedMonthIndex), pointCount - 1) : 0;
   const hasMovements = canonicalTimeline.some((item) => item.movement !== 0);
 
   const allSeries = useMemo(() => buildSeries(normalized, level, colors, t('forecast.totalSeriesLabel')), [normalized, level, colors, t]);
@@ -257,10 +294,26 @@ export function ForecastGraphView({ normalized, periodMonths, onChangePeriod }: 
     return null;
   }, [highlightedKey, highlightedGroupKey, level, typeSections]);
 
+  // Goal reference line/marker — only for a single individually-highlighted
+  // account-level pot series (never for a whole selected type-group, and
+  // never on the "Monthly change" metric, where a balance target has no
+  // meaningful axis position). This is the "progressive disclosure" half of
+  // the spec's "don't overcrowd the graph with goal markers" instruction:
+  // rather than drawing a line per pot with a goal, only the one pot the
+  // user has actually selected ever gets one. Reuses the exact same
+  // getForecastPotGoalStatus calculation as the List view and the account
+  // detail panel — never recomputed per-surface.
+  const highlightedGoalStatus = useMemo(() => {
+    if (level !== 'account' || metric !== 'balance' || !highlightedSeries || highlightedSeries.targetAmount == null) return null;
+    return getForecastPotGoalStatus(highlightedSeries.timeline.slice(0, pointCount), highlightedSeries.targetAmount, highlightedSeries.currentBalance ?? 0);
+  }, [level, metric, highlightedSeries, pointCount]);
+  const highlightedGoalTarget = highlightedGoalStatus?.targetAmount ?? null;
+
   const extent = useMemo(() => {
     const values = visibleSeries.flatMap((series) =>
       series.timeline.slice(0, pointCount).map((item) => (metric === 'balance' ? item.balance : item.movement)),
     );
+    if (metric === 'balance' && highlightedGoalTarget != null) values.push(highlightedGoalTarget);
     if (values.length === 0) return { min: 0, max: 1 };
 
     if (metric === 'change') {
@@ -285,7 +338,7 @@ export function ForecastGraphView({ normalized, periodMonths, onChangePeriod }: 
     }
     const pad = (rawMax - rawMin) * 0.12;
     return { min: rawMin - pad, max: rawMax + pad };
-  }, [visibleSeries, pointCount, metric]);
+  }, [visibleSeries, pointCount, metric, highlightedGoalTarget]);
 
   const plotWidth = Math.max(1, chartWidth - PAD_SIDE * 2);
   const zeroY = yFor(0, extent.min, extent.max);
@@ -305,7 +358,11 @@ export function ForecastGraphView({ normalized, periodMonths, onChangePeriod }: 
     : visibleSeries;
 
   function handleChartPress(locationX: number, locationY: number) {
-    if (pointCount === 0) return;
+    // Web's Pressable doesn't always populate nativeEvent.locationX/
+    // locationY the way native's touch-responder system does — bail out
+    // rather than let a non-finite value cascade into xFor/yFor and crash
+    // react-native-svg's web renderer (see clampedMonthIndex above).
+    if (pointCount === 0 || !Number.isFinite(locationX)) return;
     const ratio = Math.min(1, Math.max(0, (locationX - PAD_SIDE) / plotWidth));
     const monthIndex = Math.round(ratio * (pointCount - 1));
     setSelectedMonthIndex(monthIndex);
@@ -314,23 +371,64 @@ export function ForecastGraphView({ normalized, periodMonths, onChangePeriod }: 
     // a hit selects that line (opening/updating the detail panel below); a
     // miss just moves the shared crosshair and leaves any existing
     // selection alone, so scrubbing through months doesn't accidentally
-    // close an open detail panel.
-    let bestKey: string | null = null;
-    let bestDistance = POINT_HIT_RADIUS;
-    for (const series of visibleSeries) {
-      const value = seriesValueAt(series, monthIndex, metric);
-      if (value === null) continue;
-      const x = xFor(monthIndex, pointCount, plotWidth);
-      const y = yFor(value, extent.min, extent.max);
-      const distance = Math.hypot(x - locationX, y - locationY);
-      if (distance <= bestDistance) {
-        bestDistance = distance;
-        bestKey = series.key;
+    // close an open detail panel. Skipped entirely when locationY isn't
+    // usable (still moves the crosshair above, just can't hit-test a line).
+    if (Number.isFinite(locationY)) {
+      let bestKey: string | null = null;
+      let bestDistance = POINT_HIT_RADIUS;
+      for (const series of visibleSeries) {
+        const value = seriesValueAt(series, monthIndex, metric);
+        if (value === null) continue;
+        const x = xFor(monthIndex, pointCount, plotWidth);
+        const y = yFor(value, extent.min, extent.max);
+        const distance = Math.hypot(x - locationX, y - locationY);
+        if (distance <= bestDistance) {
+          bestDistance = distance;
+          bestKey = series.key;
+        }
+      }
+      if (bestKey) {
+        const hitKey = bestKey;
+        setHighlightedKey((current) => (current === hitKey ? null : hitKey));
       }
     }
-    if (bestKey) {
-      const hitKey = bestKey;
-      setHighlightedKey((current) => (current === hitKey ? null : hitKey));
+  }
+
+  // Resolves the tap position from whatever the platform actually gives us,
+  // then hands it to handleChartPress above.
+  //
+  // Root cause of "clicking the graph does nothing" (investigated by
+  // reading react-native-web's own source, not guessed at): on native RN,
+  // Pressable's onPress fires through the touch-responder system, which
+  // populates nativeEvent.locationX/locationY relative to the pressed view
+  // — that path was already correct and is untouched below. On web,
+  // react-native-web's Pressable does NOT go through that system for
+  // onPress at all (see usePressEvents/PressResponder.js: onPress is wired
+  // straight to the browser's native `click` event). Its nativeEvent is a
+  // plain DOM MouseEvent, which has no locationX/locationY — those are
+  // React Native-only fields, not a browser API — so they were always
+  // undefined on web. Before the NaN guards added earlier this session,
+  // that undefined propagated into the SVG coordinates and crashed
+  // react-native-svg's web renderer; after the guards, it silently no-opped
+  // instead, which is why clicking appeared to "do nothing" once the crash
+  // was fixed but the underlying coordinate was still never resolved.
+  //
+  // The fix: a DOM MouseEvent does carry pageX/pageY (standard, always
+  // present), so on web we measure the chart's own on-screen position via
+  // ref and derive the local tap position from that instead of relying on
+  // RN-only fields that were never going to be there.
+  function handleChartRootPress(event: { nativeEvent: { locationX: number; locationY: number; pageX?: number; pageY?: number } }) {
+    const { locationX, locationY, pageX, pageY } = event.nativeEvent;
+    if (Number.isFinite(locationX) && Number.isFinite(locationY)) {
+      handleChartPress(locationX, locationY);
+      return;
+    }
+    if (Number.isFinite(pageX) && Number.isFinite(pageY) && chartRef.current) {
+      (chartRef.current as unknown as { measure: (callback: (x: number, y: number, width: number, height: number, pageXOffset: number, pageYOffset: number) => void) => void }).measure(
+        (_x, _y, _width, _height, pageXOffset, pageYOffset) => {
+          handleChartPress((pageX as number) - pageXOffset, (pageY as number) - pageYOffset);
+        },
+      );
     }
   }
 
@@ -422,6 +520,7 @@ export function ForecastGraphView({ normalized, periodMonths, onChangePeriod }: 
           label: highlightedSeries.label,
           subtitle: highlightedSeries.ownerLabel && highlightedSeries.typeLabel ? `${highlightedSeries.ownerLabel} · ${highlightedSeries.typeLabel}` : undefined,
           currentBalance: highlightedSeries.currentBalance ?? 0,
+          targetAmount: highlightedSeries.targetAmount ?? null,
           color: highlightedSeries.color,
           timeline: highlightedSeries.timeline,
         }
@@ -438,7 +537,7 @@ export function ForecastGraphView({ normalized, periodMonths, onChangePeriod }: 
 
   const chartBody = (
     <>
-      <Pressable onPress={(event) => handleChartPress(event.nativeEvent.locationX, event.nativeEvent.locationY)} onLayout={onChartLayout}>
+      <Pressable ref={chartRef} onPress={handleChartRootPress} onLayout={onChartLayout}>
         <Svg width={chartWidth} height={CHART_HEIGHT}>
           {showAreaFill && areaFillSeries ? (
             <Defs>
@@ -450,6 +549,32 @@ export function ForecastGraphView({ normalized, periodMonths, onChangePeriod }: 
           ) : null}
           {showZeroBaseline ? (
             <Line x1={PAD_SIDE} x2={chartWidth - PAD_SIDE} y1={zeroY} y2={zeroY} stroke={colors.border} strokeWidth={1} strokeDasharray="3,4" />
+          ) : null}
+          {/* Goal reference line — subtle dashed horizontal line at the pot's
+              target amount, only ever shown for the one individually
+              highlighted account-level pot series (see highlightedGoalTarget
+              above for why). */}
+          {highlightedGoalTarget != null ? (
+            <>
+              <Line
+                x1={PAD_SIDE}
+                x2={chartWidth - PAD_SIDE}
+                y1={yFor(highlightedGoalTarget, extent.min, extent.max)}
+                y2={yFor(highlightedGoalTarget, extent.min, extent.max)}
+                stroke={colors.financialGoal}
+                strokeWidth={1}
+                strokeDasharray="4,4"
+              />
+              <SvgText
+                x={chartWidth - PAD_SIDE}
+                y={yFor(highlightedGoalTarget, extent.min, extent.max) - 4}
+                fontSize={10}
+                fill={colors.financialGoal}
+                textAnchor="end"
+              >
+                {t('forecast.goalLabel')} {money(highlightedGoalTarget)}
+              </SvgText>
+            </>
           ) : null}
           {pointCount > 0 ? (
             <Line
@@ -498,6 +623,21 @@ export function ForecastGraphView({ normalized, periodMonths, onChangePeriod }: 
               />
             );
           })}
+          {/* Goal achievement marker — a single distinct dot at the first
+              month the highlighted pot's projected balance reaches its
+              target, drawn last so it always sits on top of the line/month
+              dots. Omitted for a pot that never reaches its goal within the
+              selected period (achievedMonthIndex is null in that case). */}
+          {highlightedGoalStatus && highlightedGoalStatus.achievedMonthIndex != null ? (
+            <Circle
+              cx={xFor(highlightedGoalStatus.achievedMonthIndex, pointCount, plotWidth)}
+              cy={yFor(highlightedGoalTarget ?? 0, extent.min, extent.max)}
+              r={5.5}
+              fill={colors.financialGoal}
+              stroke={colors.surface}
+              strokeWidth={2}
+            />
+          ) : null}
           <SvgText x={PAD_SIDE} y={PAD_TOP - 8} fontSize={10} fill={colors.textSecondary}>
             {money(extent.max)}
           </SvgText>
@@ -558,6 +698,25 @@ export function ForecastGraphView({ normalized, periodMonths, onChangePeriod }: 
           ) : null}
         </>
       )}
+
+      {/* Answers "how much will I have in each account at this point" for
+          whatever month is currently selected — grouped by account type,
+          every included account, regardless of the chart's own Group-by
+          control, with each figure compared against today's actual balance
+          (not the previous month). Always rendered, at every level: the
+          series legend above answers "what's plotted right now," this
+          answers "what will I actually have," which is a different question
+          even at the Account level. */}
+      <MonthBreakdown
+        normalized={normalized}
+        monthIndex={clampedMonthIndex}
+        monthLabel={selectedMonthLabel}
+        periodMonths={periodMonths}
+        money={money}
+        styles={styles}
+        colors={colors}
+        t={t}
+      />
     </>
   );
 
@@ -659,6 +818,234 @@ function SingleSeriesDetail({ series, monthIndex, money, colors, t, styles }: Si
           {percent ? ` (${percent})` : ''}
         </Text>
       </Text>
+    </View>
+  );
+}
+
+type MonthBreakdownProps = {
+  normalized: ForecastNormalizedData;
+  monthIndex: number;
+  monthLabel: string;
+  periodMonths: ForecastPeriodMonths;
+  money: (value: number) => string;
+  styles: ReturnType<typeof createStyles>;
+  colors: any;
+  t: (key: string, options?: any) => string;
+};
+
+/** Compact two-line goal readout shared by both MonthBreakdown row shapes
+ * below (the merged single-account section and the regular per-account
+ * row) — "{{balance}} / {{target}} · {{percent}}%" plus the state phrase,
+ * e.g. "Goal expected Dec 2026" / "Goal reached Dec 2026" / "Goal already
+ * achieved". Only rendered for an account with a configured target; reuses
+ * the exact same getForecastPotGoalStatus calculation as the List view and
+ * the account detail panel. */
+function GoalCaption({
+  targetAmount,
+  timeline,
+  monthIndex,
+  currentBalance,
+  money,
+  styles,
+  colors,
+  t,
+}: {
+  targetAmount: number | null | undefined;
+  timeline: BalanceForecastTimelineItem[];
+  monthIndex: number;
+  currentBalance: number;
+  money: (value: number) => string;
+  styles: ReturnType<typeof createStyles>;
+  colors: any;
+  t: (key: string, options?: any) => string;
+}) {
+  if (targetAmount == null) return null;
+  const goalStatus = getForecastPotGoalStatus(timeline, targetAmount, currentBalance);
+  const goalState = getForecastPotGoalStateAtMonth(goalStatus, monthIndex);
+  const goalAchieved = goalState === 'already_achieved' || goalState === 'reached_by_month';
+  const balanceAtMonth = timeline[monthIndex]?.balance ?? currentBalance;
+  const percent = targetAmount !== 0 ? (balanceAtMonth / targetAmount) * 100 : null;
+
+  return (
+    <View style={styles.goalCaptionGroup}>
+      <Text style={[styles.goalCaptionLine, { color: goalAchieved ? colors.success : colors.textSecondary }]} numberOfLines={1}>
+        {money(balanceAtMonth)} / {money(targetAmount)}
+        {percent !== null ? ` · ${Math.round(percent)}%` : ''}
+      </Text>
+      <Text style={[styles.goalCaptionLine, { color: colors.financialGoal }]} numberOfLines={1}>
+        {getForecastGoalStatePhrase(goalState, goalStatus.achievedMonth, t)}
+      </Text>
+    </View>
+  );
+}
+
+/** `projected - current` plus, where meaningful, the % that represents — the
+ * "+€1,200 (+24%) vs today" figure used throughout MonthBreakdown. Always
+ * relative to TODAY's actual balance, never to the previous month, per this
+ * round's spec: a monthly movement answers "did this month go up or down,"
+ * this answers "am I better or worse off than I am right now." */
+function varianceVsToday(projectedBalance: number, currentBalance: number) {
+  const amount = projectedBalance - currentBalance;
+  const percent = getForecastPercentVsCurrent(projectedBalance, currentBalance);
+  return { amount, percent };
+}
+
+function VarianceText({
+  amount,
+  percent,
+  tone,
+  style,
+  money,
+}: {
+  amount: number;
+  percent: number | null;
+  tone: string;
+  style: any;
+  money: (value: number) => string;
+}) {
+  if (amount === 0) return null;
+  const percentText = formatPercent(percent);
+  return (
+    <Text style={[style, { color: tone }]}>
+      {formatSignedMoney(amount, money)}
+      {percentText ? ` (${percentText})` : ''}
+    </Text>
+  );
+}
+
+// The always-available, read-only answer to "how much will I have in each
+// bank account, pot, and investment account at this point" — grouped by
+// account type (Bank Accounts, Investments, PPR, Pots, ...), one compact
+// row per account, owner always shown, plus a per-type subtotal and a
+// grand total. Independent of the chart's own Group-by control:
+// Account/Type/User/Total governs what's *plotted*, this always drills all
+// the way down to individual accounts, since that's the concrete question a
+// selected point on the timeline is meant to answer — and it's always
+// rendered (not gated to a particular Group-by level) since the chart's own
+// series legend below already covers "what's plotted," while this section's
+// job is "what will I actually have," which doesn't depend on that. A type
+// with no accounts is simply absent, which is how "Savings accounts, if
+// applicable" falls out with no special-casing needed. Every figure here is
+// read directly off the normalized forecast data (see buildForecastNormalizedData
+// in ui-utils.ts) — nothing is recomputed from raw entities.
+function MonthBreakdown({ normalized, monthIndex, monthLabel, periodMonths, money, styles, colors, t }: MonthBreakdownProps) {
+  const sections = normalized.types.filter((group) => group.accounts.length > 0);
+  if (sections.length === 0) return null;
+
+  const totalCurrentBalance = normalized.combined.currentBalance;
+  const totalProjected = normalized.combined.timeline[monthIndex]?.balance ?? totalCurrentBalance;
+  const totalVariance = varianceVsToday(totalProjected, totalCurrentBalance);
+  const totalTone = totalVariance.amount >= 0 ? colors.success : colors.destructive;
+
+  return (
+    <View style={styles.breakdownCard}>
+      <Text style={styles.breakdownMonth}>{monthLabel}</Text>
+      <Text style={styles.breakdownCaption}>{t('forecast.vsTodayCaption')}</Text>
+      {sections.map((group) => {
+        // A type with only one account (e.g. a single "Investments" account)
+        // would otherwise show the exact same balance twice in a row — once
+        // as the type's own subtotal, once as that one account's row right
+        // below it. Fold the two into a single line in that case: the type
+        // dot + name stands in for the section header, the account's own
+        // name/owner rides along next to it, and the figures on the right
+        // are just that account's (which already equal the type's, since
+        // it's the only member) — nothing is lost, only the duplicate line.
+        if (group.accounts.length === 1) {
+          const account = group.accounts[0];
+          const item = account.timeline[monthIndex];
+          const projected = item?.balance ?? account.currentBalance;
+          const variance = varianceVsToday(projected, account.currentBalance);
+          const tone = variance.amount >= 0 ? colors.success : colors.destructive;
+
+          return (
+            <View key={group.key} style={styles.breakdownSection}>
+              <View style={styles.breakdownSectionHeader}>
+                <View style={styles.breakdownSectionHeaderLeft}>
+                  <View style={[styles.dot, { backgroundColor: getForecastTypeColor(colors, group.key) }]} />
+                  <Text style={styles.breakdownRowLabel} numberOfLines={1}>
+                    {group.label} · {account.label}
+                    {account.ownerLabel ? <Text style={styles.breakdownRowOwner}> — {account.ownerLabel}</Text> : null}
+                  </Text>
+                </View>
+                <View style={styles.breakdownSectionHeaderRight}>
+                  <Text style={styles.breakdownSectionBalance}>{money(projected)}</Text>
+                  <VarianceText amount={variance.amount} percent={variance.percent} tone={tone} style={styles.breakdownSectionChange} money={money} />
+                </View>
+              </View>
+              <GoalCaption
+                targetAmount={account.targetAmount}
+                timeline={account.timeline.slice(0, periodMonths)}
+                monthIndex={monthIndex}
+                currentBalance={account.currentBalance}
+                money={money}
+                styles={styles}
+                colors={colors}
+                t={t}
+              />
+            </View>
+          );
+        }
+
+        const groupItem = group.timeline[monthIndex];
+        const groupProjected = groupItem?.balance ?? 0;
+        const groupCurrentBalance = group.accounts.reduce((sum, account) => sum + account.currentBalance, 0);
+        const groupVariance = varianceVsToday(groupProjected, groupCurrentBalance);
+        const groupTone = groupVariance.amount >= 0 ? colors.success : colors.destructive;
+
+        return (
+          <View key={group.key} style={styles.breakdownSection}>
+            <View style={styles.breakdownSectionHeader}>
+              <View style={styles.breakdownSectionHeaderLeft}>
+                <View style={[styles.dot, { backgroundColor: getForecastTypeColor(colors, group.key) }]} />
+                <Text style={styles.breakdownSectionLabel}>{group.label}</Text>
+              </View>
+              <View style={styles.breakdownSectionHeaderRight}>
+                <Text style={styles.breakdownSectionBalance}>{money(groupProjected)}</Text>
+                <VarianceText amount={groupVariance.amount} percent={groupVariance.percent} tone={groupTone} style={styles.breakdownSectionChange} money={money} />
+              </View>
+            </View>
+            {group.accounts.map((account, index) => {
+              const item = account.timeline[monthIndex];
+              const projected = item?.balance ?? account.currentBalance;
+              const variance = varianceVsToday(projected, account.currentBalance);
+              const tone = variance.amount >= 0 ? colors.success : colors.destructive;
+
+              return (
+                <View key={account.key} style={[styles.breakdownRow, index === group.accounts.length - 1 && styles.breakdownRowLast]}>
+                  <View style={styles.breakdownRowGroup}>
+                    <Text style={styles.breakdownRowLabel} numberOfLines={1}>
+                      {account.label}
+                      <Text style={styles.breakdownRowOwner}> — {account.ownerLabel}</Text>
+                    </Text>
+                    <GoalCaption
+                      targetAmount={account.targetAmount}
+                      timeline={account.timeline.slice(0, periodMonths)}
+                      monthIndex={monthIndex}
+                      currentBalance={account.currentBalance}
+                      money={money}
+                      styles={styles}
+                      colors={colors}
+                      t={t}
+                    />
+                  </View>
+                  <View style={styles.breakdownRowValues}>
+                    <Text style={styles.breakdownRowBalance}>{money(projected)}</Text>
+                    <VarianceText amount={variance.amount} percent={variance.percent} tone={tone} style={styles.breakdownRowChange} money={money} />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        );
+      })}
+
+      <View style={styles.breakdownTotalRow}>
+        <Text style={styles.breakdownTotalLabel}>{t('forecast.projectedTotalLabel', { month: monthLabel })}</Text>
+        <View style={styles.breakdownTotalValues}>
+          <Text style={styles.breakdownTotalBalance}>{money(totalProjected)}</Text>
+          <VarianceText amount={totalVariance.amount} percent={totalVariance.percent} tone={totalTone} style={styles.breakdownTotalChange} money={money} />
+        </View>
+      </View>
     </View>
   );
 }
@@ -873,6 +1260,54 @@ function createStyles(colors: any) {
     heroDetailStrong: { color: colors.text, fontWeight: typography.fontWeight.extraBold },
     tooltipCard: { padding: spacing(3), borderRadius: radius.lg, backgroundColor: colors.surfaceMuted },
     legendShowAll: { color: colors.link, fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.bold },
+    breakdownCard: { gap: spacing(0.5), marginTop: spacing(0.5), paddingTop: spacing(2.5), borderTopWidth: 1, borderTopColor: colors.border },
+    breakdownMonth: { color: colors.text, fontSize: typography.fontSize[13], fontWeight: typography.fontWeight.extraBold },
+    breakdownCaption: { color: colors.textSecondary, fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.regular },
+    breakdownSection: { gap: 0 },
+    breakdownSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing(2), paddingTop: spacing(2), paddingBottom: spacing(0.75) },
+    breakdownSectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing(1.5), flex: 1, minWidth: 0 },
+    breakdownSectionLabel: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize[11],
+      fontWeight: typography.fontWeight.extraBold,
+      textTransform: 'uppercase',
+      letterSpacing: typography.letterSpacing[10],
+    },
+    breakdownSectionHeaderRight: { flexDirection: 'row', alignItems: 'baseline', gap: spacing(1.5) },
+    breakdownSectionBalance: { color: colors.text, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.extraBold, fontVariant: ['tabular-nums'] },
+    breakdownSectionChange: { fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold, fontVariant: ['tabular-nums'] },
+    breakdownRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing(2),
+      paddingVertical: spacing(1.25),
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    breakdownRowLast: { borderBottomWidth: 0 },
+    breakdownRowGroup: { flexShrink: 1, minWidth: 0, gap: spacing(0.5) },
+    breakdownRowLabel: { color: colors.text, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold, flexShrink: 1 },
+    breakdownRowOwner: { color: colors.textSecondary, fontWeight: typography.fontWeight.regular },
+    breakdownRowValues: { flexDirection: 'row', alignItems: 'baseline', gap: spacing(1.5) },
+    goalCaptionGroup: { gap: spacing(0.25) },
+    goalCaptionLine: { fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold },
+    breakdownRowBalance: { color: colors.text, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.bold, fontVariant: ['tabular-nums'] },
+    breakdownRowChange: { fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold, fontVariant: ['tabular-nums'] },
+    breakdownTotalRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing(2),
+      marginTop: spacing(1.5),
+      paddingTop: spacing(2.5),
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    breakdownTotalLabel: { color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.bold, flexShrink: 1 },
+    breakdownTotalValues: { flexDirection: 'row', alignItems: 'baseline', gap: spacing(1.5) },
+    breakdownTotalBalance: { color: colors.text, fontSize: typography.fontSize[15], fontWeight: typography.fontWeight.extraBold, fontVariant: ['tabular-nums'] },
+    breakdownTotalChange: { fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.bold, fontVariant: ['tabular-nums'] },
     rowsCard: { gap: spacing(1.5) },
     rowsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing(2) },
     rowsMonth: { color: colors.text, fontSize: typography.fontSize[13], fontWeight: typography.fontWeight.extraBold },

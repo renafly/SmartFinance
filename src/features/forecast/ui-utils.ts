@@ -57,6 +57,78 @@ export function getForecastMonthPercentChange(item: BalanceForecastTimelineItem)
   return (item.movement / Math.abs(previousBalance)) * 100;
 }
 
+/** Percentage a projected balance differs from today's actual balance — the "+24%" in "+€1,200 (+24%) vs today". Distinct from getForecastMonthPercentChange, which is month-over-month; this is always relative to today, regardless of which month is being looked at. Null when there's nothing meaningful to divide by (today's balance of zero). */
+export function getForecastPercentVsCurrent(projectedBalance: number, currentBalance: number): number | null {
+  if (currentBalance === 0) return null;
+  return ((projectedBalance - currentBalance) / Math.abs(currentBalance)) * 100;
+}
+
+// ============================================================
+// Savings-pot goal achievement — shared by the List/Table view, the Graph's
+// on-chart marker, its tooltip/detail panel, and its below-graph breakdown,
+// per this round's explicit requirement to reuse ONE goal computation
+// everywhere rather than reimplementing "did this pot reach its goal" once
+// per view. Deliberately built on the exact same projected timeline the
+// rest of the Combined Forecast already computes (ForecastBreakdownAccountLeaf.timeline,
+// itself sourced from balance-forecast.service.ts's Monthly Budget/recurring-
+// transfer projection) — not the separate, pot-only forecast in
+// saving-pot-forecast.service.ts, which models a pot's own contribution
+// rules in isolation and would disagree with what the rest of this screen
+// already shows for that pot's projected balance.
+// ============================================================
+
+export type ForecastPotGoalStatus = {
+  targetAmount: number;
+  currentBalance: number;
+  /** True when today's actual balance already meets/exceeds the goal — the "Goal already achieved" case, independent of any particular month. */
+  alreadyAchieved: boolean;
+  /** Index into the timeline passed in of the FIRST month whose projected balance meets/exceeds the goal, or null if it never does within that timeline (e.g. pot never reaches its goal within the selected forecast period). A balance can dip back below the goal in a later month — this is always the first crossing, per spec, not "is currently above." */
+  achievedMonthIndex: number | null;
+  /** "YYYY-MM" of achievedMonthIndex, or null. */
+  achievedMonth: string | null;
+};
+
+/** Pass the SAME (optionally period-sliced) timeline the caller is already rendering, so "never reaches its goal" correctly means "not within the period currently being looked at," not "not ever within the full multi-year horizon." */
+export function getForecastPotGoalStatus(
+  timeline: BalanceForecastTimelineItem[],
+  targetAmount: number,
+  currentBalance: number,
+): ForecastPotGoalStatus {
+  const alreadyAchieved = currentBalance >= targetAmount;
+  const achievedIndex = timeline.findIndex((item) => item.balance >= targetAmount);
+
+  return {
+    targetAmount,
+    currentBalance,
+    alreadyAchieved,
+    achievedMonthIndex: achievedIndex >= 0 ? achievedIndex : null,
+    achievedMonth: achievedIndex >= 0 ? timeline[achievedIndex].month : null,
+  };
+}
+
+export type ForecastPotGoalState = 'already_achieved' | 'reached_by_month' | 'expected' | 'not_reached';
+
+/** Resolves a goal's status against whichever month is currently being looked at (the List view's expanded month, or the Graph's clicked month) — "reached_by_month" once that month is at/after the first crossing, "expected" before it, "not_reached" when the goal is never crossed within the timeline that status was built from. */
+export function getForecastPotGoalStateAtMonth(status: ForecastPotGoalStatus, monthIndex: number): ForecastPotGoalState {
+  if (status.alreadyAchieved) return 'already_achieved';
+  if (status.achievedMonthIndex === null) return 'not_reached';
+  return monthIndex >= status.achievedMonthIndex ? 'reached_by_month' : 'expected';
+}
+
+/** One shared phrase for every goal-aware surface (List row, Graph tooltip, Graph breakdown) — so "Goal reached December 2026" reads identically everywhere instead of each view inventing its own wording. Callers prefix it with whatever label/amount fits their own layout (see forecast-breakdown-preview.tsx and forecast-graph-view.tsx). `t` is the caller's own i18next translator — this stays a plain function so it works the same whether called from a component or a nested render helper. */
+export function getForecastGoalStatePhrase(state: ForecastPotGoalState, achievedMonth: string | null, t: (key: string, options?: any) => string): string {
+  switch (state) {
+    case 'already_achieved':
+      return t('forecast.goalAlreadyAchieved');
+    case 'reached_by_month':
+      return t('forecast.goalReachedInMonth', { month: formatForecastMonth(achievedMonth ?? '') });
+    case 'expected':
+      return t('forecast.goalExpectedInMonth', { month: formatForecastMonth(achievedMonth ?? '') });
+    case 'not_reached':
+      return t('forecast.goalNotReachedInPeriod');
+  }
+}
+
 /** Index of the timeline entry with the single largest absolute movement — used to flag "biggest change" — or -1 if every movement is zero. */
 export function getBiggestForecastChangeIndex(timeline: BalanceForecastTimelineItem[]): number {
   let bestIndex = -1;
@@ -111,6 +183,8 @@ export type ForecastBreakdownEntity = {
   typeLabel: string;
   /** Today's actual balance, before any projected movement — carried through to ForecastBreakdownAccountLeaf so the Graph's account detail panel can show "Current" without a second lookup back to the original entity. */
   currentBalance: number;
+  /** Savings-pot target amount (saving_pots.target_amount), or null for a pot with no goal configured and for every non-pot account. Carried through to ForecastBreakdownAccountLeaf so goal-achievement can be derived from this SAME projected timeline everywhere it's shown (List row, Graph marker, Graph tooltip, Graph breakdown) — see getForecastPotGoalStatus below. */
+  targetAmount: number | null;
   timeline: BalanceForecastTimelineItem[];
 };
 
@@ -122,6 +196,7 @@ export type ForecastBreakdownAccountLeaf = {
   typeKey: string;
   typeLabel: string;
   currentBalance: number;
+  targetAmount: number | null;
   timeline: BalanceForecastTimelineItem[];
 };
 
@@ -182,6 +257,7 @@ function buildForecastGroupBy(
       typeKey: entity.typeKey,
       typeLabel: entity.typeLabel,
       currentBalance: entity.currentBalance,
+      targetAmount: entity.targetAmount,
       timeline: entity.timeline,
     });
   }

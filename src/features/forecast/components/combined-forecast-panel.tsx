@@ -30,6 +30,8 @@ export type CombinedForecastEntity = {
   type: string | null;
   /** Owner profile id, or null for a shared account / a pot (pots have no single owner). */
   ownerProfileId: string | null;
+  /** Savings-pot goal amount (saving_pots.target_amount), or null for every account and for a pot with no goal configured. Carried through to the normalized forecast data so goal-achievement can be shown consistently in both the List and Graph views. */
+  targetAmount: number | null;
   forecast: BalanceForecast;
 };
 
@@ -118,6 +120,7 @@ export function CombinedForecastPanel({ entities, members, getAccountTypeLabel, 
           typeKey: entity.kind === 'pot' ? POT_BREAKDOWN_TYPE_KEY : (entity.type ?? 'other'),
           typeLabel: entity.kind === 'pot' ? t('forecast.filterPots') : getAccountTypeLabel(entity.type ?? 'other'),
           currentBalance: entity.forecast.currentBalance,
+          targetAmount: entity.targetAmount,
           timeline: entity.forecast.timeline,
         })),
         combined,

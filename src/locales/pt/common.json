@@ -1239,7 +1239,14 @@
     "periodForecastLabel": "Previsão de {{count}} meses",
     "expectedChangeLabel": "Variação esperada",
     "selectAccountHint": "Selecione uma conta para ver o detalhe",
-    "accountsCountLabel": "{{count}} contas"
+    "accountsCountLabel": "{{count}} contas",
+    "vsTodayCaption": "vs. saldo atual",
+    "projectedTotalLabel": "Total projetado — {{month}}",
+    "goalLabel": "Objetivo",
+    "goalAlreadyAchieved": "Objetivo já alcançado",
+    "goalReachedInMonth": "Objetivo alcançado em {{month}}",
+    "goalExpectedInMonth": "Objetivo previsto para {{month}}",
+    "goalNotReachedInPeriod": "Objetivo não alcançado neste período"
   },
   "recurring": {
     "title": "Recorrentes",

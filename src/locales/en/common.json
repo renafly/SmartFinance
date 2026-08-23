@@ -1239,7 +1239,14 @@
     "periodForecastLabel": "{{count}}-month forecast",
     "expectedChangeLabel": "Expected change",
     "selectAccountHint": "Select an account to see its breakdown",
-    "accountsCountLabel": "{{count}} accounts"
+    "accountsCountLabel": "{{count}} accounts",
+    "vsTodayCaption": "vs. today's balance",
+    "projectedTotalLabel": "Projected total — {{month}}",
+    "goalLabel": "Goal",
+    "goalAlreadyAchieved": "Goal already achieved",
+    "goalReachedInMonth": "Goal reached in {{month}}",
+    "goalExpectedInMonth": "Goal expected {{month}}",
+    "goalNotReachedInPeriod": "Goal not reached in this period"
   },
   "recurring": {
     "title": "Recurring",

@@ -261,6 +261,8 @@ export default function AccountsScreen() {
         name: account.name,
         type: account.type,
         ownerProfileId: account.owner_profile_id ?? null,
+        // Accounts don't have a savings goal — only pots do (see below).
+        targetAmount: null,
         forecast: accountForecasts.get(account.id) ?? zeroForecast,
       }));
     const potEntities: CombinedForecastEntity[] = ((savingPotBalancesQuery.data ?? []) as any[]).map((pot: any) => ({
@@ -269,6 +271,10 @@ export default function AccountsScreen() {
       name: pot.name,
       type: null,
       ownerProfileId: null,
+      // saving_pot_balances (the view useSavingPotBalances reads) carries
+      // target_amount straight from saving_pots, so this is the pot's own
+      // configured goal, or null when none is set.
+      targetAmount: pot.target_amount ?? null,
       forecast: potForecasts.get(pot.id) ?? zeroForecast,
     }));
     return [...accountEntities, ...potEntities];

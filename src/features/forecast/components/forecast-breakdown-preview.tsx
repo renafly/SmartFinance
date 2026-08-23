@@ -19,7 +19,10 @@ import {
   getBiggestForecastChangeIndex,
   getForecastBalanceExtent,
   getForecastBarHeightPercent,
+  getForecastGoalStatePhrase,
   getForecastMonthPercentChange,
+  getForecastPotGoalStateAtMonth,
+  getForecastPotGoalStatus,
   getForecastTypeColor,
   type ForecastBreakdownTypeGroup,
   type ForecastPeriodMonths,
@@ -202,25 +205,45 @@ export function ForecastBreakdownPreview({ combined, typeGroups, hasMultipleOwne
                                 {typeGroup.accounts.map((account) => {
                                   const accountItem = account.timeline[monthIndex];
                                   const accountTone = (accountItem?.movement ?? 0) >= 0 ? colors.success : colors.destructive;
+                                  // Goal achievement is derived from this exact same
+                                  // timeline (sliced to the currently selected period,
+                                  // same as everything else on this row) — see
+                                  // getForecastPotGoalStatus in ui-utils.ts, shared with
+                                  // the Graph view so neither can disagree about when a
+                                  // pot's goal is reached.
+                                  const goalStatus =
+                                    account.targetAmount != null
+                                      ? getForecastPotGoalStatus(account.timeline.slice(0, periodMonths), account.targetAmount, account.currentBalance)
+                                      : null;
+                                  const goalCaption = goalStatus
+                                    ? `${t('forecast.goalLabel')}: ${money(goalStatus.targetAmount)} · ${getForecastGoalStatePhrase(getForecastPotGoalStateAtMonth(goalStatus, monthIndex), goalStatus.achievedMonth, t)}`
+                                    : null;
 
                                   return (
-                                    <View key={account.key} style={styles.accountRow}>
-                                      <View style={styles.accountRowLeft}>
-                                        <Text style={styles.accountName} numberOfLines={1}>
-                                          {account.label}
-                                        </Text>
-                                        {hasMultipleOwners ? (
-                                          <Text style={styles.accountOwner} numberOfLines={1}>
-                                            {account.ownerLabel}
+                                    <View key={account.key} style={styles.accountRowGroup}>
+                                      <View style={styles.accountRow}>
+                                        <View style={styles.accountRowLeft}>
+                                          <Text style={styles.accountName} numberOfLines={1}>
+                                            {account.label}
                                           </Text>
-                                        ) : null}
+                                          {hasMultipleOwners ? (
+                                            <Text style={styles.accountOwner} numberOfLines={1}>
+                                              {account.ownerLabel}
+                                            </Text>
+                                          ) : null}
+                                        </View>
+                                        <View style={styles.accountRowRight}>
+                                          <Text style={styles.accountBalance}>{money(accountItem?.balance ?? 0)}</Text>
+                                          <Text style={[styles.accountVariation, { color: accountTone }]}>
+                                            {formatSignedMoney(accountItem?.movement ?? 0, money)}
+                                          </Text>
+                                        </View>
                                       </View>
-                                      <View style={styles.accountRowRight}>
-                                        <Text style={styles.accountBalance}>{money(accountItem?.balance ?? 0)}</Text>
-                                        <Text style={[styles.accountVariation, { color: accountTone }]}>
-                                          {formatSignedMoney(accountItem?.movement ?? 0, money)}
+                                      {goalCaption ? (
+                                        <Text style={styles.accountGoalCaption} numberOfLines={1}>
+                                          {goalCaption}
                                         </Text>
-                                      </View>
+                                      ) : null}
                                     </View>
                                   );
                                 })}
@@ -327,12 +350,12 @@ function createStyles(colors: any) {
     typeVariation: { fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold, fontVariant: ['tabular-nums'] },
     chevronSmall: { color: colors.textSecondary, fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.bold },
     accountList: { paddingLeft: spacing(3.5), paddingBottom: spacing(1) },
+    accountRowGroup: { paddingVertical: spacing(1.25) },
     accountRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: spacing(1.5),
-      paddingVertical: spacing(1.25),
     },
     accountRowLeft: { flex: 1, minWidth: 0 },
     accountName: { color: colors.text, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold },
@@ -340,6 +363,7 @@ function createStyles(colors: any) {
     accountRowRight: { alignItems: 'flex-end' },
     accountBalance: { color: colors.text, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.bold, fontVariant: ['tabular-nums'] },
     accountVariation: { fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold, fontVariant: ['tabular-nums'] },
+    accountGoalCaption: { color: colors.financialGoal, fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold, marginTop: spacing(0.5) },
     pressed: { opacity: 0.85 },
   });
 }

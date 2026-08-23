@@ -7,7 +7,14 @@ import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 
 import type { BalanceForecastTimelineItem } from '../services/balance-forecast.service';
-import { formatForecastMonth, getForecastMonthPercentChange, type ForecastPeriodMonths } from '../ui-utils';
+import {
+  formatForecastMonth,
+  getForecastGoalStatePhrase,
+  getForecastMonthPercentChange,
+  getForecastPotGoalStateAtMonth,
+  getForecastPotGoalStatus,
+  type ForecastPeriodMonths,
+} from '../ui-utils';
 
 function formatSignedMoney(value: number, money: (value: number) => string) {
   return `${value >= 0 ? '+' : ''}${money(value)}`;
@@ -19,6 +26,8 @@ export type AccountDetailPanelAccount = {
   /** Caller-composed subtitle — "Owner · Type" for an individual account, "{{count}} accounts" for a whole account-type rollup. Omitted entirely when there's nothing meaningful to show. */
   subtitle?: string;
   currentBalance: number;
+  /** Savings-pot goal amount, when this account is an individual pot with one configured — omitted (undefined/null) for every non-pot account and for a whole-type rollup, which has no single goal to anchor against. */
+  targetAmount?: number | null;
   color: string;
   timeline: BalanceForecastTimelineItem[];
 };
@@ -47,6 +56,15 @@ export function AccountDetailPanel({ account, periodMonths, money, onClose, colo
   const projectedBalance = timeline.length > 0 ? timeline[timeline.length - 1].balance : account.currentBalance;
   const totalVariation = projectedBalance - account.currentBalance;
   const variationTone = totalVariation >= 0 ? colors.success : colors.destructive;
+
+  // Same timeline slice as everything else in this panel, and the same
+  // shared calculation the List view and the Graph's other goal surfaces
+  // use (see getForecastPotGoalStatus in ui-utils.ts) — never recomputed
+  // per-view.
+  const goalStatus = account.targetAmount != null ? getForecastPotGoalStatus(timeline, account.targetAmount, account.currentBalance) : null;
+  const goalState = goalStatus ? getForecastPotGoalStateAtMonth(goalStatus, timeline.length - 1) : null;
+  const goalAchieved = goalState === 'already_achieved' || goalState === 'reached_by_month';
+  const goalTone = goalAchieved ? colors.success : colors.textSecondary;
 
   return (
     <View style={styles.panel}>
@@ -82,6 +100,15 @@ export function AccountDetailPanel({ account, periodMonths, money, onClose, colo
           <Text style={styles.summaryLabel}>{t('forecast.expectedChangeLabel')}</Text>
           <Text style={[styles.summaryValue, { color: variationTone }]}>{formatSignedMoney(totalVariation, money)}</Text>
         </View>
+        {goalStatus && goalState ? (
+          <View style={styles.summaryCell}>
+            <Text style={styles.summaryLabel}>{t('forecast.goalLabel')}</Text>
+            <Text style={styles.summaryValue}>{money(goalStatus.targetAmount)}</Text>
+            <Text style={[styles.goalStateText, { color: goalTone }]} numberOfLines={1}>
+              {getForecastGoalStatePhrase(goalState, goalStatus.achievedMonth, t)}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.monthList}>
@@ -89,11 +116,16 @@ export function AccountDetailPanel({ account, periodMonths, money, onClose, colo
           const tone = item.movement >= 0 ? colors.success : colors.destructive;
           const percent = getForecastMonthPercentChange(item);
 
+          const isGoalMonth = goalStatus != null && !goalStatus.alreadyAchieved && index === goalStatus.achievedMonthIndex;
+
           return (
             <View key={item.month || index} style={[styles.monthRow, index === timeline.length - 1 && styles.monthRowLast]}>
-              <Text style={styles.monthName} numberOfLines={1}>
-                {formatForecastMonth(item.month)}
-              </Text>
+              <View style={styles.monthNameRow}>
+                <Text style={styles.monthName} numberOfLines={1}>
+                  {formatForecastMonth(item.month)}
+                </Text>
+                {isGoalMonth ? <Ionicons name="flag" size={12} color={colors.financialGoal} /> : null}
+              </View>
               <View style={styles.monthValues}>
                 <Text style={[styles.monthChange, { color: tone }]}>
                   {formatSignedMoney(item.movement, money)}
@@ -130,6 +162,7 @@ function createStyles(colors: any) {
     summaryCell: { gap: spacing(0.5), minWidth: spacing(24) },
     summaryLabel: { color: colors.textSecondary, fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold },
     summaryValue: { color: colors.text, fontSize: typography.fontSize[16], fontWeight: typography.fontWeight.extraBold, fontVariant: ['tabular-nums'] },
+    goalStateText: { fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold },
     monthList: { gap: 0 },
     monthRow: {
       flexDirection: 'row',
@@ -141,6 +174,7 @@ function createStyles(colors: any) {
       borderBottomColor: colors.border,
     },
     monthRowLast: { borderBottomWidth: 0 },
+    monthNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing(1) },
     monthName: { color: colors.text, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold },
     monthValues: { flexDirection: 'row', alignItems: 'baseline', gap: spacing(2) },
     monthChange: { fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.semibold, fontVariant: ['tabular-nums'] },
