@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["react"]
+  },
+  "include": [
+    "src/repositories/replenishments.repository.ts",
+    "src/repositories/base.repository.ts",
+    "src/repositories/index.ts",
+    "src/features/replenishments/types.ts",
+    "src/types/database.types.ts",
+    "expo-env.d.ts",
+    "nativewind-env.d.ts",
+    "global.d.ts"
+  ]
+}
