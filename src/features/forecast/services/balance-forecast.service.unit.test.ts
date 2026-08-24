@@ -161,7 +161,10 @@ describe("buildAccountBalanceForecasts", () => {
     const dest2 = forecasts.get("savings-2")!;
 
     expect(source.monthlyMovement).toBe(-200);
-    expect(source.sources).toEqual([{ kind: "monthly_budget", monthlyMovement: -200, movementCount: 1 }]);
+    // One outgoing movement per allocation (not per rule) on the source
+    // side — the rule has two allocations, so the source account sees two
+    // monthly_budget movements even though they both come from rule-1.
+    expect(source.sources).toEqual([{ kind: "monthly_budget", monthlyMovement: -200, movementCount: 2 }]);
     expect(dest1.monthlyMovement).toBe(100);
     expect(dest2.monthlyMovement).toBe(100);
     expect(source.timeline[0].balance).toBe(1_800);
