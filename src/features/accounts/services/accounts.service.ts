@@ -44,7 +44,10 @@ export class AccountsService {
 
     return (balancesResult.data ?? []).map((account) => ({
       ...account,
-      owner_profile_id: ownerMap.get(account.id) ?? null,
+      // account_balances is a view, so Postgrest types every column
+      // (including id) as nullable even though the underlying join can
+      // never actually produce a null id here.
+      owner_profile_id: (account.id ? ownerMap.get(account.id) : undefined) ?? null,
     }))
   }
 

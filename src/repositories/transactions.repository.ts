@@ -212,7 +212,7 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
       {
         p_household_id: input.householdId,
         p_transaction_ids: input.transactionIds,
-        p_category_id: input.categoryId,
+        p_category_id: input.categoryId ?? undefined,
       },
     );
     if (error) return { data: null, error };
@@ -232,7 +232,7 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
       {
         p_household_id: input.householdId,
         p_transfer_group_ids: input.transferGroupIds,
-        p_category_id: input.categoryId,
+        p_category_id: input.categoryId ?? undefined,
       },
     );
     if (error) return { data: null, error };
@@ -245,23 +245,23 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
   ): Promise<RepoResult<TransactionMovement[]>> {
     const { data, error } = await this.client.rpc("list_transaction_movements", {
       p_household_id: householdId,
-      p_kind: filters.kind ?? null,
-      p_account_id: filters.accountId ?? null,
-      p_source_account_id: filters.sourceAccountId ?? null,
-      p_destination_account_id: filters.destinationAccountId ?? null,
-      p_category_id: filters.categoryId ?? null,
+      p_kind: filters.kind ?? undefined,
+      p_account_id: filters.accountId ?? undefined,
+      p_source_account_id: filters.sourceAccountId ?? undefined,
+      p_destination_account_id: filters.destinationAccountId ?? undefined,
+      p_category_id: filters.categoryId ?? undefined,
       p_uncategorized: filters.categoryId === null,
-      p_created_by: filters.createdBy ?? null,
-      p_from: filters.from ?? null,
-      p_to: filters.to ?? null,
+      p_created_by: filters.createdBy ?? undefined,
+      p_from: filters.from ?? undefined,
+      p_to: filters.to ?? undefined,
       p_sort: filters.sortBy ?? "newest",
       p_limit: filters.limit ?? 25,
       p_offset: filters.offset ?? 0,
       p_exclude_transfers: filters.excludeTransfers ?? false,
-      p_search: filters.search?.trim() || null,
-      p_min_amount: filters.minAmount ?? null,
-      p_max_amount: filters.maxAmount ?? null,
-      p_account_ids: filters.accountIds?.length ? filters.accountIds : null,
+      p_search: filters.search?.trim() || undefined,
+      p_min_amount: filters.minAmount ?? undefined,
+      p_max_amount: filters.maxAmount ?? undefined,
+      p_account_ids: filters.accountIds?.length ? filters.accountIds : undefined,
     });
     if (error) return { data: null, error };
 
@@ -281,20 +281,20 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
       "summarize_transaction_movements",
       {
         p_household_id: householdId,
-        p_kind: filters.kind ?? null,
-        p_account_id: filters.accountId ?? null,
-        p_source_account_id: filters.sourceAccountId ?? null,
-        p_destination_account_id: filters.destinationAccountId ?? null,
-        p_category_id: filters.categoryId ?? null,
+        p_kind: filters.kind ?? undefined,
+        p_account_id: filters.accountId ?? undefined,
+        p_source_account_id: filters.sourceAccountId ?? undefined,
+        p_destination_account_id: filters.destinationAccountId ?? undefined,
+        p_category_id: filters.categoryId ?? undefined,
         p_uncategorized: filters.categoryId === null,
-        p_created_by: filters.createdBy ?? null,
-        p_from: filters.from ?? null,
-        p_to: filters.to ?? null,
+        p_created_by: filters.createdBy ?? undefined,
+        p_from: filters.from ?? undefined,
+        p_to: filters.to ?? undefined,
         p_exclude_transfers: filters.excludeTransfers ?? false,
-        p_search: filters.search?.trim() || null,
-        p_min_amount: filters.minAmount ?? null,
-        p_max_amount: filters.maxAmount ?? null,
-        p_account_ids: filters.accountIds?.length ? filters.accountIds : null,
+        p_search: filters.search?.trim() || undefined,
+        p_min_amount: filters.minAmount ?? undefined,
+        p_max_amount: filters.maxAmount ?? undefined,
+        p_account_ids: filters.accountIds?.length ? filters.accountIds : undefined,
       },
     );
     if (error) return { data: null, error };
@@ -315,9 +315,9 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
       p_destination_account_id: input.destinationAccountId,
       p_amount: input.amount,
       p_title: input.title,
-      p_notes: input.notes ?? null,
+      p_notes: input.notes ?? undefined,
       p_transaction_date: input.transactionDate,
-      p_category_id: input.categoryId ?? null,
+      p_category_id: input.categoryId ?? undefined,
     });
     if (error) return { data: null, error };
     return { data: data as string, error: null };
@@ -542,11 +542,15 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
   ): Promise<RepoResult<Transaction[]>> {
     const { data, error } = await this.client
       .from("transactions")
-      .select("*")
+      // balance_after_transaction is a Postgrest computed column, so plain
+      // "*" doesn't include it -- request it explicitly, same as
+      // TRANSACTION_WITH_RELATIONS_SELECT above, to match the Transaction
+      // (Row) type this method promises.
+      .select("*, balance_after_transaction")
       .eq("transfer_group_id", transferGroupId);
 
     if (error) return { data: null, error };
-    return { data: data ?? [], error: null };
+    return { data: (data as unknown as Transaction[]) ?? [], error: null };
   }
 
   async listMonthlySummary(

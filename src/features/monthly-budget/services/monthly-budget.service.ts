@@ -6,7 +6,24 @@ type BudgetConfig = Database["public"]["Tables"]["budget_configs"]["Row"];
 type BudgetRule = BudgetRuleWithAllocations;
 type AllocationMode = Database["public"]["Enums"]["budget_rule_allocation_mode"];
 type MonthlyBudgetRun = Database["public"]["Tables"]["monthly_budget_runs"]["Row"];
-type Account = Database["public"]["Views"]["account_balances"]["Row"] & {
+// account_balances is a Postgres VIEW, so Postgrest's generated types mark
+// every column nullable even though this view's query (see
+// supabase/migrations/013_views.sql) selects id/household_id/name/type/
+// currency/initial_balance straight from `accounts` -- all NOT NULL there --
+// and current_balance through a coalesce(). None of them are ever actually
+// null, so the columns used as non-null throughout this file are overridden
+// here to match reality instead of the view's overly conservative Row type.
+type Account = Omit<
+  Database["public"]["Views"]["account_balances"]["Row"],
+  "id" | "household_id" | "name" | "type" | "currency" | "initial_balance" | "current_balance"
+> & {
+  id: string;
+  household_id: string;
+  name: string;
+  type: Database["public"]["Enums"]["account_type"];
+  currency: Database["public"]["Enums"]["currency_code"];
+  initial_balance: number;
+  current_balance: number;
   owner_profile_id?: string | null;
 };
 type Member = {

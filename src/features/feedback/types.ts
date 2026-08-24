@@ -10,10 +10,31 @@ export type FeedbackEvent = Database["public"]["Tables"]["feedback_events"]["Row
 export type AppRelease = Database["public"]["Tables"]["app_releases"]["Row"];
 export type PlatformAdmin = Database["public"]["Tables"]["platform_admins"]["Row"];
 
-export type FeedbackCategory = Database["public"]["Enums"]["feedback_category"];
-export type FeedbackStatus = Database["public"]["Enums"]["feedback_status"];
-export type FeedbackPriority = Database["public"]["Enums"]["feedback_priority"];
-export type AppReleasePlatform = Database["public"]["Enums"]["app_release_platform"];
+// app_feedback.category/status/priority and app_releases.platform are plain
+// `text` columns with CHECK constraints in Postgres (see
+// supabase/migrations/20260717000100_feedback_system.sql), not native enum
+// types -- Supabase's generated types can only pick up real enum types, so
+// these unions are hand-maintained here to mirror those CHECK constraints.
+export type FeedbackCategory =
+  | "bug"
+  | "feature_request"
+  | "feature"
+  | "improvement"
+  | "question"
+  | "other";
+export type FeedbackStatus =
+  | "submitted"
+  | "under_review"
+  | "planned"
+  | "in_progress"
+  | "resolved"
+  | "closed"
+  | "triaged"
+  | "waiting_for_user"
+  | "rejected"
+  | "withdrawn";
+export type FeedbackPriority = "low" | "normal" | "high" | "urgent";
+export type AppReleasePlatform = "all" | "android" | "ios" | "web";
 
 export const FEEDBACK_ATTACHMENT_BUCKET = "feedback-screenshots";
 export const MAX_FEEDBACK_TITLE_LENGTH = 160;
