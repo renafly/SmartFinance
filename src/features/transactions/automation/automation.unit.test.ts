@@ -9,11 +9,17 @@ const baseRule: TransactionRule = {
   name: "Groceries",
   match_type: "contains",
   pattern: "Continente",
+  pattern_enc: null,
   normalized_pattern: "continente",
+  normalized_pattern_enc: null,
   transaction_type: "expense",
   account_id: null,
   category_id: "groceries",
   merchant_name: "Continente",
+  merchant_name_enc: null,
+  // 0 = unencrypted, matching the column's default (see
+  // supabase/migrations/20260814120000_e2e_encryption_foundation.sql).
+  enc_version: 0,
   priority: 100,
   is_active: true,
   created_by: "profile-1",
