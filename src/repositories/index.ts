@@ -10,8 +10,10 @@ import { HouseholdsRepository } from "./households.repository";
 import { MonthlyBudgetRepository } from "./monthly-budget.repository";
 import { ProfilesRepository } from "./profiles.repository";
 import { RecurringTransactionsRepository } from "./recurring.transactions.repository";
+import { ReplenishmentsRepository } from "./replenishments.repository";
 import { SavingPotsRepository } from "./saving-pots.repository";
 import { TransactionsRepository } from "./transactions.repository";
+import { TransactionAllocationsRepository } from "./transaction-allocations.repository";
 import { TransactionAutomationRepository } from "./transaction-automation.repository";
 import { WageFlowCategoriesRepository } from "./wage-flow-categories.repository";
 
@@ -24,8 +26,10 @@ export * from "./households.repository";
 export * from "./monthly-budget.repository";
 export * from "./profiles.repository";
 export * from "./recurring.transactions.repository";
+export * from "./replenishments.repository";
 export * from "./saving-pots.repository";
 export * from "./transactions.repository";
+export * from "./transaction-allocations.repository";
 export * from "./transaction-automation.repository";
 export * from "./wage-flow-categories.repository";
 
@@ -41,8 +45,10 @@ export function createRepositories(
     monthlyBudget: new MonthlyBudgetRepository(client),
     profiles: new ProfilesRepository(client),
     recurringTransactions: new RecurringTransactionsRepository(client),
+    replenishments: new ReplenishmentsRepository(client),
     savingPots: new SavingPotsRepository(client),
     transactions: new TransactionsRepository(client),
+    transactionAllocations: new TransactionAllocationsRepository(client),
     transactionAutomation: new TransactionAutomationRepository(client),
     wageFlowCategories: new WageFlowCategoriesRepository(client),
   };

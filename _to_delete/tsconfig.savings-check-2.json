@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/app/(protected)/savings.tsx",
+    "src/features/saving-pots/components/saving-pot-card.tsx",
+    "expo-env.d.ts",
+    "nativewind-env.d.ts",
+    "global.d.ts"
+  ]
+}

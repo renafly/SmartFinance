@@ -27,6 +27,7 @@ const menuIconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
   accounts: "wallet-outline",
   transactions: "receipt-outline",
   transfers: "swap-horizontal-outline",
+  replenishments: "sync-outline",
   monthlyBudget: "calculator-outline",
   savings: "file-tray-full-outline",
   categories: "pricetag-outline",
@@ -174,6 +175,10 @@ export function ProtectedDrawerLayout() {
         }}
       />
       <Drawer.Screen
+        name="replenishments"
+        options={{ title: t("drawer.replenishments") }}
+      />
+      <Drawer.Screen
         name="budget"
         options={{ title: t("drawer.monthlyBudget") }}
       />
@@ -248,6 +253,11 @@ function DrawerContent(props: DrawerContentComponentProps) {
       href: "/(protected)/transactions",
     },
     {
+      key: "replenishments",
+      label: t("drawer.replenishments"),
+      href: "/(protected)/replenishments",
+    },
+    {
       key: "monthlyBudget",
       label: t("drawer.monthlyBudget"),
       href: "/(protected)/budget",
@@ -317,6 +327,11 @@ function DrawerContent(props: DrawerContentComponentProps) {
       title: t("drawer.moneyMovement"),
       description: t("drawer.moneyMovementDescription"),
       items: [
+        {
+          key: "replenishments",
+          label: t("drawer.replenishments"),
+          href: "/(protected)/replenishments",
+        },
         {
           key: "monthlyBudget",
           label: t("drawer.monthlyBudget"),

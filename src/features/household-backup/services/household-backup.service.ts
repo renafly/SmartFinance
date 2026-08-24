@@ -941,7 +941,10 @@ function buildBudgetRuleInserts(
         frequency: rule.frequency,
         priority: rule.priority,
         is_active: rule.isActive,
-        active_months: rule.activeMonths ?? null,
+        // active_months is `not null default '{}'` -- unlike active_from/to
+        // month it never accepts null, and an empty array is the DB's own
+        // "no restriction" default.
+        active_months: rule.activeMonths ?? [],
         active_from_month: rule.activeFromMonth ?? null,
         active_to_month: rule.activeToMonth ?? null,
         created_at: rule.createdAt,
@@ -1086,7 +1089,9 @@ function buildRecurringTransactionInserts(
         amount: row.amount,
         type: row.type,
         frequency: row.frequency,
-        excluded_months: row.excludedMonths,
+        // Same "not null default '{}'" column as budget_rules.active_months
+        // above -- null isn't a valid value, empty array is the equivalent.
+        excluded_months: row.excludedMonths ?? [],
         next_run: row.nextRun,
         last_run: row.lastRun,
         is_active: row.isActive,

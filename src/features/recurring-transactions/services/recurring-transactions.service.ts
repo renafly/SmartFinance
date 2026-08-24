@@ -84,6 +84,9 @@ class RecurringTransactionsService {
       expense_kind: expenseKind,
       destination_account_id: input.destination_account_id ?? null,
       destination_pot_id: input.destination_pot_id ?? null,
+      // excluded_months is `not null default '{}'` -- unlike the other
+      // nullable fields above, null isn't a valid value for it.
+      excluded_months: input.excluded_months ?? undefined,
     });
 
     if (error) throw error;

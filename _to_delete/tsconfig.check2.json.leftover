@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["react"]
+  },
+  "include": [
+    "src/repositories/replenishments.repository.ts",
+    "src/repositories/base.repository.ts",
+    "src/repositories/index.ts",
+    "src/repositories/transactions.repository.ts",
+    "src/features/replenishments/types.ts",
+    "src/features/accounts/services/accounts.service.ts",
+    "src/features/feedback/types.ts",
+    "src/features/household-backup/services/household-backup.service.ts",
+    "src/features/monthly-budget/services/monthly-budget.service.ts",
+    "src/features/recurring-transactions/services/recurring-transactions.service.ts",
+    "src/types/database.types.ts",
+    "expo-env.d.ts",
+    "nativewind-env.d.ts",
+    "global.d.ts"
+  ]
+}

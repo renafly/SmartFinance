@@ -11,6 +11,9 @@ import { usePrivacyStore } from '@/stores/privacyStore';
 
 import type { SavingPotForecast } from '../services/saving-pot-forecast.service';
 import { buildForecastYearRows, formatForecastMonth, getAccountSummary, type SavingPotAccountOption } from '../ui-utils';
+import type { PotBalanceForecast } from '@/features/forecast/hooks';
+import { BalanceForecastPanel } from '@/features/forecast/components';
+import { DEFAULT_FORECAST_PERIOD_MONTHS, type ForecastPeriodMonths } from '@/features/forecast/ui-utils';
 
 export type ForecastViewMode = 'monthly' | 'yearly';
 
@@ -18,28 +21,43 @@ type SavingPotCardProps = {
   pot: any;
   balance: any;
   forecast: SavingPotForecast | undefined;
+  /** Balance-projection forecast (from the Monthly Budget rules engine), distinct from the target-completion `forecast` above. */
+  balanceForecast?: PotBalanceForecast;
   selectedAccounts: SavingPotAccountOption[];
   memberLabelMap: Map<string, string>;
   createdByLabel: string;
   isForecastExpanded: boolean;
   forecastViewMode: ForecastViewMode;
+  isBalanceForecastExpanded: boolean;
+  balanceForecastPeriod?: ForecastPeriodMonths;
+  balanceForecastViewMode: ForecastViewMode;
   onOpenMenu: () => void;
   onToggleForecast: () => void;
   onSetForecastViewMode: (mode: ForecastViewMode) => void;
+  onToggleBalanceForecast: () => void;
+  onSetBalanceForecastPeriod: (period: ForecastPeriodMonths) => void;
+  onSetBalanceForecastViewMode: (mode: ForecastViewMode) => void;
 };
 
 export function SavingPotCard({
   pot,
   balance,
   forecast,
+  balanceForecast,
   selectedAccounts,
   memberLabelMap,
   createdByLabel,
   isForecastExpanded,
   forecastViewMode,
+  isBalanceForecastExpanded,
+  balanceForecastPeriod = DEFAULT_FORECAST_PERIOD_MONTHS,
+  balanceForecastViewMode,
   onOpenMenu,
   onToggleForecast,
   onSetForecastViewMode,
+  onToggleBalanceForecast,
+  onSetBalanceForecastPeriod,
+  onSetBalanceForecastViewMode,
 }: SavingPotCardProps) {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
@@ -225,6 +243,26 @@ export function SavingPotCard({
               </View>
             ) : null}
           </>
+        ) : null}
+        <Pressable
+          onPress={onToggleBalanceForecast}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isBalanceForecastExpanded }}
+          style={({ pressed }) => [styles.forecastToggle, pressed && styles.pressed]}
+        >
+          <Text style={styles.forecastToggleText}>{t('forecast.title')}</Text>
+          <Text style={styles.forecastToggleChevron}>{isBalanceForecastExpanded ? '▴' : '▾'}</Text>
+        </Pressable>
+        {isBalanceForecastExpanded ? (
+          <View style={styles.forecastPanel}>
+            <BalanceForecastPanel
+              forecast={balanceForecast ?? null}
+              periodMonths={balanceForecastPeriod}
+              onChangePeriod={onSetBalanceForecastPeriod}
+              viewMode={balanceForecastViewMode}
+              onChangeViewMode={onSetBalanceForecastViewMode}
+            />
+          </View>
         ) : null}
       </View>
     </Card>
