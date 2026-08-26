@@ -26,6 +26,11 @@ import { transactionsService } from '../../features/transactions/services/transa
 import { savingPotsService } from '../../features/saving-pots/services/saving-pots.service';
 import { useSavingPotAccountAssignments } from '../../features/saving-pots/hooks';
 import { useAllTransactions } from '../../features/transactions/hooks/useTransactions';
+import { transactionAllocationsService } from '../../features/transactions/services/transaction-allocations.service';
+import {
+  expandTransactionAllocationLegs,
+  type BasicAllocationRow,
+} from '../../features/transactions/utils/transaction-allocations';
 
 import { AllocationDonut } from '../../features/dashboard/components/allocation-donut';
 import { AllocationLegend } from '../../features/dashboard/components/allocation-legend';
@@ -176,15 +181,51 @@ export default function DashboardScreen() {
   const households = householdsQuery.data ?? [];
   const currentHousehold = households.find((item: any) => item.id === householdId);
   const currentHouseholdName = currentHousehold?.name?.trim() || t('settings.currentHouseholdLabel');
+  // Same problem as Wage Flow below: a split transaction comes back from
+  // getTransactions as one row carrying its representative account_id and
+  // full amount, which would dump this month's entire change onto one
+  // account/bucket instead of spreading it across every account it actually
+  // moved through. Expand split rows into per-account legs (see
+  // expandTransactionAllocationLegs) before bucketing by account_id.
+  const monthlySplitTransactionIds = useMemo(
+    () =>
+      ((monthlyTransactionsQuery.data ?? []) as any[])
+        .filter((item) => item.is_split)
+        .map((item) => item.id as string),
+    [monthlyTransactionsQuery.data],
+  );
+  const monthlyAllocationsQuery = useQuery({
+    queryKey: ['transaction-allocations-bulk', monthlySplitTransactionIds],
+    queryFn: () => transactionAllocationsService.getForTransactions(monthlySplitTransactionIds),
+    enabled: monthlySplitTransactionIds.length > 0,
+  });
+  const monthlyAllocationsByTransactionId = useMemo(() => {
+    const map = new Map<string, BasicAllocationRow[]>();
+    for (const row of (monthlyAllocationsQuery.data ?? []) as any[]) {
+      const list = map.get(row.transaction_id) ?? [];
+      list.push(row);
+      map.set(row.transaction_id, list);
+    }
+    return map;
+  }, [monthlyAllocationsQuery.data]);
+  const expandedMonthlyTransactions = useMemo(
+    () =>
+      expandTransactionAllocationLegs(
+        (monthlyTransactionsQuery.data ?? []) as any[],
+        monthlyAllocationsByTransactionId,
+        (savingPotAssignmentsQuery.data ?? []) as any[],
+      ),
+    [monthlyTransactionsQuery.data, monthlyAllocationsByTransactionId, savingPotAssignmentsQuery.data],
+  );
   const monthlyBalanceChangesByAccount = useMemo(() => {
     const totals = new Map<string, number>();
-    for (const transaction of monthlyTransactionsQuery.data ?? []) {
+    for (const transaction of expandedMonthlyTransactions as any[]) {
       if (!transaction.account_id) continue;
       const signedAmount = Number(transaction.amount ?? 0) * (transaction.type === 'income' ? 1 : -1);
       totals.set(transaction.account_id, (totals.get(transaction.account_id) ?? 0) + signedAmount);
     }
     return totals;
-  }, [monthlyTransactionsQuery.data]);
+  }, [expandedMonthlyTransactions]);
 
   const memberMap = useMemo(() => {
     const map = new Map<string, MemberDetails>();
@@ -484,6 +525,45 @@ export default function DashboardScreen() {
     from: wageFlowRange.from,
     to: wageFlowRange.to,
   });
+  // Split transactions come back from useAllTransactions as a single row
+  // (the raw `transactions` table has no notion of the funding-source
+  // breakdown) carrying only their representative account_id and full
+  // amount -- exactly what calculateWageFlow's account-matching logic must
+  // NOT see, or a split income/expense gets entirely attributed to one
+  // account instead of split across whichever accounts it actually moved
+  // through. Fetch the allocation rows for just this period's split
+  // transactions and expand them into per-account legs before handing the
+  // list to calculateWageFlow (see expandTransactionAllocationLegs).
+  const wageFlowSplitTransactionIds = useMemo(
+    () =>
+      ((wageFlowTransactionsQuery.data ?? []) as any[])
+        .filter((item) => item.is_split)
+        .map((item) => item.id as string),
+    [wageFlowTransactionsQuery.data],
+  );
+  const wageFlowAllocationsQuery = useQuery({
+    queryKey: ['transaction-allocations-bulk', wageFlowSplitTransactionIds],
+    queryFn: () => transactionAllocationsService.getForTransactions(wageFlowSplitTransactionIds),
+    enabled: wageFlowSplitTransactionIds.length > 0,
+  });
+  const wageFlowAllocationsByTransactionId = useMemo(() => {
+    const map = new Map<string, BasicAllocationRow[]>();
+    for (const row of (wageFlowAllocationsQuery.data ?? []) as any[]) {
+      const list = map.get(row.transaction_id) ?? [];
+      list.push(row);
+      map.set(row.transaction_id, list);
+    }
+    return map;
+  }, [wageFlowAllocationsQuery.data]);
+  const expandedWageFlowTransactions = useMemo(
+    () =>
+      expandTransactionAllocationLegs(
+        (wageFlowTransactionsQuery.data ?? []) as any[],
+        wageFlowAllocationsByTransactionId,
+        (savingPotAssignmentsQuery.data ?? []) as any[],
+      ),
+    [wageFlowTransactionsQuery.data, wageFlowAllocationsByTransactionId, savingPotAssignmentsQuery.data],
+  );
 
   const potLabelByAccountId = useMemo(() => {
     const potNames = new Map(savingPots.map((pot) => [pot.id, pot.name]));
@@ -614,14 +694,14 @@ export default function DashboardScreen() {
   const wageFlow = useMemo(
     () =>
       calculateWageFlow({
-        transactions: (wageFlowTransactionsQuery.data ?? []) as any,
+        transactions: expandedWageFlowTransactions as any,
         accounts: accounts as any,
         categories: categories as any,
         config: wageFlowConfig,
         range: wageFlowRange,
         otherCategoryLabel: t('insights.wageFlow.otherSubcategory'),
       }),
-    [accounts, categories, t, wageFlowConfig, wageFlowRange, wageFlowTransactionsQuery.data],
+    [accounts, categories, t, wageFlowConfig, wageFlowRange, expandedWageFlowTransactions],
   );
   const wageFlowResultById = useMemo(
     () => new Map(wageFlow.categories.map((category) => [category.id, category])),

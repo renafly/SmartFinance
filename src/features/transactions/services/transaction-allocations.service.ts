@@ -23,6 +23,14 @@ class TransactionAllocationsService {
     return data ?? [];
   }
 
+  /** Bulk variant of `getForTransaction` -- see the repository method's docstring. */
+  async getForTransactions(transactionIds: string[]) {
+    const { data, error } =
+      await repositories.transactionAllocations.listForTransactionIds(transactionIds);
+    if (error) throw error;
+    return data ?? [];
+  }
+
   /**
    * Replaces a transaction's funding-source allocations so they sum to
    * `totalAmount`. Pass `allocations: []` to convert a split transaction

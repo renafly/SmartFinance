@@ -134,6 +134,28 @@ export type TransactionMovement = {
   allocations: Json | null;
 };
 
+/**
+ * One row of a single account's reconstructed ledger, from
+ * `list_account_ledger` -- see 20260901000600_account_ledger_running_balance.sql.
+ * Unlike TransactionMovement, a transfer is two independent rows here (one
+ * per account, each already signed for that account via `movement_kind`)
+ * rather than one merged row, and `amount`/`running_balance` are always
+ * this ONE account's own share -- a split transaction's full total never
+ * appears here, only what actually moved through this account.
+ */
+export type AccountLedgerEntry = {
+  movement_id: string;
+  transaction_id: string;
+  movement_kind: "income" | "expense";
+  title: string;
+  is_split: boolean;
+  is_transfer: boolean;
+  amount: number;
+  transaction_date: string;
+  created_at: string;
+  running_balance: number;
+};
+
 export interface TransactionMovementFilters extends Omit<TransactionFilters, "type"> {
   kind?: TransactionMovementKind;
   sourceAccountId?: string;
@@ -266,6 +288,28 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
     if (error) return { data: null, error };
 
     return { data: (data as TransactionMovement[]) ?? [], error: null };
+  }
+
+  /**
+   * Paginated, newest-first ledger for ONE account (see
+   * `AccountLedgerEntry`), with a real running balance after every row --
+   * including split transactions. Backs the Accounts screen's "Account
+   * History" view.
+   */
+  async listAccountLedger(
+    householdId: string,
+    accountId: string,
+    options: { limit?: number; offset?: number } = {},
+  ): Promise<RepoResult<AccountLedgerEntry[]>> {
+    const { data, error } = await this.client.rpc("list_account_ledger", {
+      p_household_id: householdId,
+      p_account_id: accountId,
+      p_limit: options.limit ?? 25,
+      p_offset: options.offset ?? 0,
+    });
+    if (error) return { data: null, error };
+
+    return { data: (data as AccountLedgerEntry[]) ?? [], error: null };
   }
 
   /**

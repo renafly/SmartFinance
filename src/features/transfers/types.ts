@@ -7,6 +7,10 @@ export type TransactionType = 'income' | 'expense';
 export type ExpenseKind = 'subscription' | 'bill' | 'other';
 export type ScheduledCategory = 'all' | 'subscription' | 'bill' | 'income' | 'transfer';
 
+/** How a recurring rule stops generating movements. See
+ * docs/recurring-end-conditions-reimbursements-bug-fab-plan.md §1. */
+export type EndCondition = 'never' | 'count' | 'date';
+
 export type MovementDraft = {
   id?: string;
   kind: MovementKind;
@@ -22,6 +26,13 @@ export type MovementDraft = {
   excludedMonths: number[];
   nextRun: string;
   createdById: string;
+  endCondition: EndCondition;
+  /** Text-input string, parsed to an integer on save. Only meaningful when endCondition === 'count'. */
+  endAfterOccurrences: string;
+  /** yyyy-mm-dd. Only meaningful when endCondition === 'date'. */
+  endDate: string;
+  /** How many occurrences this rule has already generated. Read-only, populated when editing an existing rule (0 for a new draft). */
+  occurrencesCount: number;
 };
 
 export const frequencies: Frequency[] = ['daily', 'weekly', 'monthly', 'yearly', 'custom'];

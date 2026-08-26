@@ -40,11 +40,72 @@ export function emptyDraft(kind: MovementKind, currentUserId?: string): Movement
     excludedMonths: [],
     nextRun: today(),
     createdById: currentUserId ?? '',
+    endCondition: 'never',
+    endAfterOccurrences: '',
+    endDate: '',
+    occurrencesCount: 0,
   };
+}
+
+/**
+ * Validates the draft's end-condition fields, mirroring the DB check
+ * constraint (`recurring_transactions_end_condition_shape`) and the
+ * `resolveEndConditionColumns` guard in recurring-transactions.service.ts:
+ * 'count' needs a positive integer, 'date' needs a real date.
+ * See docs/recurring-end-conditions-reimbursements-bug-fab-plan.md §1.
+ */
+export function isEndConditionValid(value: MovementDraft): boolean {
+  if (value.endCondition === 'count') {
+    const n = Number(value.endAfterOccurrences);
+    return Number.isInteger(n) && n > 0;
+  }
+  if (value.endCondition === 'date') {
+    return parseDate(value.endDate) !== null;
+  }
+  return true;
+}
+
+/**
+ * Builds the tagged-union end-condition payload the service layer expects
+ * (recurringTransactionsService.{create,update}RecurringTransaction) from
+ * the draft's flat string fields.
+ */
+export function endConditionPayload(value: MovementDraft) {
+  if (value.endCondition === 'count') {
+    return { endCondition: 'count' as const, endAfterOccurrences: Number(value.endAfterOccurrences) };
+  }
+  if (value.endCondition === 'date') {
+    return { endCondition: 'date' as const, endDate: value.endDate };
+  }
+  return { endCondition: 'never' as const };
 }
 
 export function ruleKindOf(item: any): RuleKind {
   return item.rule_kind === 'transfer' ? 'recurring-transfer' : 'recurring-transaction';
+}
+
+/**
+ * Human-readable end-condition status for a persisted recurring rule, e.g.
+ * "Ends after 6 occurrences (3/6)" or "Ends on 2027-01-01". Returns null
+ * for endCondition === 'never' (nothing worth showing).
+ */
+export function endStatusLabel(
+  item: { end_condition?: string | null; end_after_occurrences?: number | null; end_date?: string | null; occurrences_count?: number | null; is_active?: boolean },
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string | null {
+  if (item.end_condition === 'count' && item.end_after_occurrences != null) {
+    if (!item.is_active && (item.occurrences_count ?? 0) >= item.end_after_occurrences) {
+      return t('recurring.endStatusEnded');
+    }
+    return t('recurring.endStatusCount', {
+      limit: item.end_after_occurrences,
+      count: item.occurrences_count ?? 0,
+    });
+  }
+  if (item.end_condition === 'date' && item.end_date) {
+    return t('recurring.endStatusDate', { date: item.end_date.slice(0, 10) });
+  }
+  return null;
 }
 
 export function scheduledCategoryOf(item: any): Exclude<ScheduledCategory, 'all'> {

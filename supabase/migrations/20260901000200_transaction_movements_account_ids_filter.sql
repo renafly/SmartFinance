@@ -13,6 +13,26 @@
 -- 20260808160000 shape -- this migration lands after it, so it must carry
 -- `is_split` forward unchanged or it would silently regress split
 -- transactions out of the movements list the moment this file runs.
+--
+-- CORRECTION (folded into this file rather than added as a later patch,
+-- since an already-broken migration in the sequence blocks every migration
+-- after it -- see below): this file was originally authored as a straight
+-- extension of 20260819120000's 17-arg/no-`allocations` shape and did not
+-- know about 20260821090000_transaction_movements_allocations.sql, even
+-- though that file's *filename* sorts before this one and therefore applies
+-- first. 20260821090000 already creates this exact 18-arg signature (with
+-- `p_account_ids`, reusing the same idea independently) plus an
+-- `allocations` jsonb column. Two functions of the same name/signature but
+-- different RETURNS TABLE shapes cannot coexist, and `create or replace`
+-- cannot change an existing function's return columns (Postgres requires
+-- drop + recreate for that) -- so this file's original `create or replace`
+-- would fail outright once 20260821090000 has already run, taking every
+-- migration after it (recurring end conditions, transaction reimbursements,
+-- ...) down with it since a failed migration halts `supabase db push`. The
+-- function body below is now 20260821090000's (allocations included), not
+-- this file's original one, so this migration is idempotent with whichever
+-- of the two shapes the target database currently has and always leaves it
+-- in the one correct end state.
 
 create or replace function public.list_transaction_movements(
   p_household_id uuid,
@@ -64,7 +84,8 @@ returns table (
   source_account jsonb,
   destination_account jsonb,
   category jsonb,
-  created_by_profile jsonb
+  created_by_profile jsonb,
+  allocations jsonb
 )
 language sql
 stable
@@ -112,7 +133,29 @@ as $$
       null::jsonb as source_account,
       null::jsonb as destination_account,
       case when c.id is null then null else jsonb_build_object('id', c.id, 'name', c.name, 'icon', c.icon) end as category,
-      case when p.id is null then null else jsonb_build_object('id', p.id, 'full_name', p.full_name) end as created_by_profile
+      case when p.id is null then null else jsonb_build_object('id', p.id, 'full_name', p.full_name) end as created_by_profile,
+      case
+        when not t.is_split then null
+        else (
+          select jsonb_agg(
+            jsonb_build_object(
+              'id', ta.id,
+              'source_type', ta.source_type,
+              'account_id', ta.account_id,
+              'account_name', aa.name,
+              'account_owner_profile_id', aa.owner_profile_id,
+              'pot_id', ta.pot_id,
+              'pot_name', sp.name,
+              'amount', ta.amount
+            )
+            order by ta.sort_order
+          )
+          from public.transaction_allocations ta
+          left join public.accounts aa on aa.id = ta.account_id
+          left join public.saving_pots sp on sp.id = ta.pot_id
+          where ta.transaction_id = t.id
+        )
+      end as allocations
     from public.transactions t
     join public.accounts a on a.id = t.account_id
     left join public.categories c on c.id = t.category_id
@@ -151,7 +194,8 @@ as $$
       jsonb_build_object('id', source.id, 'name', source.name, 'owner_profile_id', source.owner_profile_id) as source_account,
       jsonb_build_object('id', destination.id, 'name', destination.name, 'owner_profile_id', destination.owner_profile_id) as destination_account,
       case when c.id is null then null else jsonb_build_object('id', c.id, 'name', c.name, 'icon', c.icon) end as category,
-      case when p.id is null then null else jsonb_build_object('id', p.id, 'full_name', p.full_name) end as created_by_profile
+      case when p.id is null then null else jsonb_build_object('id', p.id, 'full_name', p.full_name) end as created_by_profile,
+      null::jsonb as allocations
     from transfer_integrity valid
     join public.transactions outgoing
       on outgoing.transfer_group_id = valid.transfer_group_id and outgoing.household_id = p_household_id and outgoing.type = 'expense'
@@ -219,7 +263,7 @@ as $$
 $$;
 
 comment on function public.list_transaction_movements(uuid, text, uuid, uuid, uuid, uuid, boolean, uuid, date, date, text, integer, integer, boolean, text, numeric, numeric, uuid[]) is
-'Lists paginated transaction and completed-transfer movements, including the account balance after the transaction or transfer source transaction and whether the row is a split transaction (is_split; always false for transfers, which cannot be split). Supports sorting by date, amount, or title. Filtering by a parent category also includes its subcategories. p_exclude_transfers drops transfer rows server-side. p_search matches title/notes/merchant_name case-insensitively. p_min_amount/p_max_amount bound the amount column inclusively. p_account_ids matches a movement touching ANY of the given accounts (account_id, source_account_id, or destination_account_id) -- used by the replenishment wizard to show transactions across multiple "accounts to replenish" at once.';
+'Lists paginated transaction and completed-transfer movements, including the account balance after the transaction or transfer source transaction, whether the row is a split transaction (is_split; always false for transfers, which cannot be split), and -- for split transactions -- the full funding-source breakdown (allocations: array of {id, source_type, account_id, account_name, account_owner_profile_id, pot_id, pot_name, amount}, ordered by sort_order; null for non-split rows and all transfers). Supports sorting by date, amount, or title. Filtering by a parent category also includes its subcategories. p_exclude_transfers drops transfer rows server-side. p_search matches title/notes/merchant_name case-insensitively. p_min_amount/p_max_amount bound the amount column inclusively. p_account_ids matches a movement touching ANY of the given accounts (account_id, source_account_id, or destination_account_id) -- used by the replenishment wizard to show transactions across multiple "accounts to replenish" at once.';
 
 revoke all on function public.list_transaction_movements(uuid, text, uuid, uuid, uuid, uuid, boolean, uuid, date, date, text, integer, integer, boolean, text, numeric, numeric, uuid[]) from public, anon;
 grant execute on function public.list_transaction_movements(uuid, text, uuid, uuid, uuid, uuid, boolean, uuid, date, date, text, integer, integer, boolean, text, numeric, numeric, uuid[]) to authenticated;

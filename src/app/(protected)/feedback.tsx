@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
+import { useLocalSearchParams } from "expo-router";
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -85,7 +86,14 @@ export default function FeedbackScreen() {
   const createFeedback = useCreateFeedback();
   const withdrawFeedback = useWithdrawFeedback();
   const addReply = useAddFeedbackReply();
-  const [kind, setKind] = useState<FeedbackKind>("suggestion");
+  // Lets the floating bug-report button (src/components/bug-report-fab.tsx)
+  // deep-link straight into the bug tab via /feedback?kind=bug. Manual
+  // in-page tab selection afterwards is unaffected -- this only sets the
+  // initial value.
+  const params = useLocalSearchParams<{ kind?: string }>();
+  const [kind, setKind] = useState<FeedbackKind>(
+    params.kind === "bug" ? "bug" : "suggestion",
+  );
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [expectedBehavior, setExpectedBehavior] = useState("");

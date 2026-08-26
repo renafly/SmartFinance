@@ -15,6 +15,7 @@ import { SavingPotsRepository } from "./saving-pots.repository";
 import { TransactionsRepository } from "./transactions.repository";
 import { TransactionAllocationsRepository } from "./transaction-allocations.repository";
 import { TransactionAutomationRepository } from "./transaction-automation.repository";
+import { TransactionReimbursementsRepository } from "./transaction-reimbursements.repository";
 import { WageFlowCategoriesRepository } from "./wage-flow-categories.repository";
 
 export * from "./accounts.repository";
@@ -31,6 +32,7 @@ export * from "./saving-pots.repository";
 export * from "./transactions.repository";
 export * from "./transaction-allocations.repository";
 export * from "./transaction-automation.repository";
+export * from "./transaction-reimbursements.repository";
 export * from "./wage-flow-categories.repository";
 
 export function createRepositories(
@@ -50,6 +52,7 @@ export function createRepositories(
     transactions: new TransactionsRepository(client),
     transactionAllocations: new TransactionAllocationsRepository(client),
     transactionAutomation: new TransactionAutomationRepository(client),
+    transactionReimbursements: new TransactionReimbursementsRepository(client),
     wageFlowCategories: new WageFlowCategoriesRepository(client),
   };
 }

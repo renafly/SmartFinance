@@ -5,6 +5,19 @@ type Frequency = Database["public"]["Enums"]["recurring_frequency"];
 type TransactionType = Database["public"]["Enums"]["transaction_type"];
 type RuleKind = Database["public"]["Enums"]["recurring_rule_kind"];
 type ExpenseKind = Database["public"]["Enums"]["recurring_expense_kind"];
+type EndCondition = Database["public"]["Enums"]["recurring_end_condition"];
+
+/**
+ * How a recurring rule stops generating movements. Mirrors the
+ * `recurring_transactions_end_condition_shape` check constraint added in
+ * `supabase/migrations/20260901000300_recurring_end_conditions.sql`:
+ * exactly one of `endAfterOccurrences`/`endDate` is set, matching
+ * `endCondition`. See docs/recurring-end-conditions-reimbursements-bug-fab-plan.md §1.
+ */
+export type RecurringEndConditionInput =
+  | { endCondition: "never" }
+  | { endCondition: "count"; endAfterOccurrences: number }
+  | { endCondition: "date"; endDate: string };
 
 export type CreateRecurringTransactionInput = {
   household_id: string;
@@ -23,6 +36,7 @@ export type CreateRecurringTransactionInput = {
   excluded_months?: number[] | null;
   next_run: string;
   created_by: string;
+  endCondition?: RecurringEndConditionInput;
 };
 
 export type UpdateRecurringTransactionInput = {
@@ -42,7 +56,50 @@ export type UpdateRecurringTransactionInput = {
   destination_account_id?: string | null;
   destination_pot_id?: string | null;
   created_by?: string;
+  endCondition?: RecurringEndConditionInput;
 };
+
+/**
+ * Translates the tagged-union `endCondition` input into the three flat
+ * columns the database expects, validating the same shape the DB check
+ * constraint enforces (fail fast client-side with a clear message instead
+ * of surfacing a raw Postgres constraint-violation error).
+ */
+function resolveEndConditionColumns(input?: RecurringEndConditionInput): {
+  end_condition: EndCondition;
+  end_after_occurrences: number | null;
+  end_date: string | null;
+} {
+  if (!input || input.endCondition === "never") {
+    return { end_condition: "never", end_after_occurrences: null, end_date: null };
+  }
+
+  if (input.endCondition === "count") {
+    if (!Number.isInteger(input.endAfterOccurrences) || input.endAfterOccurrences <= 0) {
+      throw new Error(
+        "endAfterOccurrences must be a positive integer when endCondition is 'count'.",
+      );
+    }
+    return {
+      end_condition: "count",
+      end_after_occurrences: input.endAfterOccurrences,
+      end_date: null,
+    };
+  }
+
+  if (input.endCondition === "date") {
+    if (!input.endDate) {
+      throw new Error("endDate is required when endCondition is 'date'.");
+    }
+    return { end_condition: "date", end_after_occurrences: null, end_date: input.endDate };
+  }
+
+  // Exhaustiveness guard: TypeScript already narrows this to `never` for a
+  // fully-typed caller, but the input crosses an untyped boundary (form
+  // state, JSON) at runtime, so this stays a real check rather than relying
+  // on the type system alone.
+  throw new Error(`Unknown endCondition: ${(input as { endCondition: string }).endCondition}`);
+}
 
 class RecurringTransactionsService {
   async getRecurringTransactions(
@@ -78,6 +135,7 @@ class RecurringTransactionsService {
       ruleKind === "transaction" && input.type === "expense"
         ? (input.expense_kind ?? "other")
         : null;
+    const endConditionColumns = resolveEndConditionColumns(input.endCondition);
     const { data, error } = await repositories.recurringTransactions.create({
       ...input,
       rule_kind: ruleKind,
@@ -87,6 +145,7 @@ class RecurringTransactionsService {
       // excluded_months is `not null default '{}'` -- unlike the other
       // nullable fields above, null isn't a valid value for it.
       excluded_months: input.excluded_months ?? undefined,
+      ...endConditionColumns,
     });
 
     if (error) throw error;
@@ -95,12 +154,18 @@ class RecurringTransactionsService {
   }
 
   async updateRecurringTransaction(input: UpdateRecurringTransactionInput) {
-    const { id, ...data } = input;
+    const { id, endCondition, ...data } = input;
     if (input.rule_kind === "transfer" || input.type === "income") {
       data.expense_kind = null;
     }
+    const endConditionColumns = endCondition
+      ? resolveEndConditionColumns(endCondition)
+      : undefined;
     const { data: updated, error } =
-      await repositories.recurringTransactions.update(id, data as any);
+      await repositories.recurringTransactions.update(id, {
+        ...data,
+        ...endConditionColumns,
+      } as any);
 
     if (error) throw error;
 
@@ -127,3 +192,4 @@ class RecurringTransactionsService {
 }
 
 export const recurringTransactionsService = new RecurringTransactionsService();
+export { resolveEndConditionColumns };

@@ -100,6 +100,16 @@ class TransactionsService {
     return data;
   }
 
+  async getAccountLedger(
+    householdId: string,
+    accountId: string,
+    options: { limit?: number; offset?: number } = {},
+  ) {
+    const { data, error } = await transactionsRepository.listAccountLedger(householdId, accountId, options);
+    if (error) throw error;
+    return data ?? [];
+  }
+
   async bulkUpdateTransferCategory(input: BulkUpdateTransferCategoryInput) {
     const { data, error } = await transactionsRepository.bulkUpdateTransferCategory(input);
     if (error) throw error;
