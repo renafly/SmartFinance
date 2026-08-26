@@ -642,6 +642,8 @@
     "unarchive": "Desarquivar",
     "archive": "Arquivar",
     "accountTransfersLoadingMore": "A carregar mais transferências...",
+    "accountTransfersSplitLabel": "Dividida · parte desta conta",
+    "accountTransfersTransferLabel": "Transferência",
     "balanceChartTitle": "Visão geral dos saldos",
     "balanceChartSubtitle": "Saldos atuais agrupados por tipo de conta, com cada mealheiro mostrado à parte.",
     "balancePieChart": "Gráfico circular da distribuição dos saldos",
@@ -785,7 +787,7 @@
       "stepTypeTitle": "Que tipo de movimento?",
       "stepTypeSubtitle": "Escolha um tipo e depois adicione o título, valor, data e notas.",
       "stepAccountsTitle": "Contas e pessoas",
-      "stepAccountsSubtitle": "Para onde vai o dinheiro e para quem é.",
+      "stepAccountsSubtitle": "Para onde vai o dinheiro e para quem é. Divida por várias contas, se precisar.",
       "stepExtrasTitle": "Categoria e anexo",
       "stepExtrasSubtitle": "Opcional - categorize e anexe um recibo, se tiver."
     },
@@ -815,6 +817,7 @@
       "noPots": "Ainda não existem pots",
       "badge": "Dividida",
       "breakdownTitle": "Origens do financiamento",
+      "saveError": "Guardado, mas não foi possível aplicar a divisão de contas: {{detail}}. A transação ficou registada como um movimento de conta única -- edite-a para tentar dividir novamente.",
       "errors": {
         "too_few_allocations": "Adicione pelo menos duas origens",
         "missing_target": "Escolha uma conta ou pot para cada origem",
@@ -939,7 +942,22 @@
     },
     "newTitle": "Nova Transação",
     "new": "+ Nova",
-    "empty": "Não foram encontradas transações."
+    "empty": "Não foram encontradas transações.",
+    "reimbursements": {
+      "title": "Reembolsos",
+      "hint": "Dinheiro que alguém te devolveu por esta despesa. O valor efetivo (o que realmente saiu do teu bolso) é a despesa menos estes reembolsos.",
+      "payerName": "Reembolsado por",
+      "payerNamePlaceholder": "Nome",
+      "amount": "Valor",
+      "add": "Adicionar",
+      "remove": "Remover",
+      "errorMissingName": "Indica quem te reembolsou.",
+      "errorInvalidAmount": "Indica um valor superior a 0.",
+      "originalAmount": "Valor original",
+      "reimbursedTotal": "Reembolsado",
+      "effectiveAmount": "Valor efetivo",
+      "overReimbursedBadge": "Recebeu troco"
+    }
   },
   "categories": {
     "title": "Categorias",
@@ -1298,7 +1316,22 @@
       "nov": "Nov",
       "dec": "Dez"
     },
-    "nextRunLabel": "próxima {{value}}"
+    "nextRunLabel": "próxima {{value}}",
+    "endCondition": {
+      "label": "Termina",
+      "never": "Nunca",
+      "count": "Após N ocorrências",
+      "date": "Numa data"
+    },
+    "endAfterOccurrencesLabel": "Número de ocorrências",
+    "endAfterOccurrencesPlaceholder": "ex.: 12",
+    "endDateLabel": "Data de fim",
+    "endDatePlaceholder": "Selecionar uma data",
+    "endEditWarning": "As alterações aplicam-se apenas a ocorrências futuras — as despesas já geradas por esta regra não são afetadas.",
+    "endStatusNever": "Sem data de fim",
+    "endStatusCount": "Termina após {{limit}} ocorrências ({{count}}/{{limit}})",
+    "endStatusDate": "Termina em {{date}}",
+    "endStatusEnded": "Terminada"
   },
   "transfers": {
     "title": "Transferências",
@@ -1678,7 +1711,8 @@
     "withdrawMessage": "Retirar “{{title}}”? A conversa fica guardada para referência.",
     "withdrawn": "Feedback retirado.",
     "withdrawErrorTitle": "Não foi possível retirar o feedback",
-    "withdrawErrorMessage": "Tente novamente."
+    "withdrawErrorMessage": "Tente novamente.",
+    "reportBugButton": "Reportar um problema"
   },
   "adminFeedback": {
     "title": "Caixa de feedback",

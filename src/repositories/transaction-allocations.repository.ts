@@ -43,6 +43,29 @@ export class TransactionAllocationsRepository extends BaseRepository<"transactio
   }
 
   /**
+   * Bulk variant of `listForTransaction` for callers that need allocation
+   * breakdowns for many transactions at once (e.g. expanding a batch of
+   * split transactions into per-account legs for Wage Flow / insights
+   * calculations) without an N+1 round trip per transaction. Returns rows
+   * for every id in `transactionIds` that has any allocations -- ids for
+   * non-split transactions simply have no rows in the result.
+   */
+  async listForTransactionIds(
+    transactionIds: string[],
+  ): Promise<RepoResult<TransactionAllocation[]>> {
+    if (transactionIds.length === 0) return { data: [], error: null };
+
+    const { data, error } = await this.client
+      .from("transaction_allocations")
+      .select("*")
+      .in("transaction_id", transactionIds)
+      .order("sort_order", { ascending: true });
+
+    if (error) return { data: null, error };
+    return { data: data ?? [], error: null };
+  }
+
+  /**
    * Replaces every allocation row for `transactionId`. Pass an empty array
    * to convert a split transaction back to a single (non-split) source.
    */

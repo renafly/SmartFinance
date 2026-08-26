@@ -1,38 +1,26 @@
--- Adds an optional p_account_ids filter to list_transaction_movements and
--- summarize_transaction_movements, needed by the replenishment wizard's
--- transaction-selection step: step 1 lets the user pick MULTIPLE "accounts
--- to replenish", and step 2 must show the union of their transactions in one
--- filtered, paginated, sortable list -- the existing single p_account_id
--- filter can't express "any of these accounts". Purely additive: both
--- functions keep every existing parameter and behavior; p_account_ids
--- defaults to null (no filtering), so every existing caller is unaffected.
+-- Split transactions can move money through an account without that
+-- account ever being `transactions.account_id` (the "representative"
+-- account picked by save_transaction_allocations is just the single
+-- largest allocation -- see 20260819120000_transaction_allocations.sql).
+-- list_transaction_movements/summarize_transaction_movements' p_account_id
+-- and p_account_ids filters only ever checked account_id/source_account_id/
+-- destination_account_id, so a movement where the given account is a
+-- smaller (non-representative) split allocation was silently missing from
+-- every account-scoped transaction list in the app: the Accounts screen's
+-- per-account "History" tab, and the replenishment wizard's multi-account
+-- transaction selection. This adds an `exists (... transaction_allocations
+-- ...)` arm to both filters so a movement touching the given account(s) via
+-- ANY allocation -- not only as the representative -- matches. Purely
+-- additive to the WHERE clause; every other column, parameter and behavior
+-- is unchanged, so this is safe to `create or replace` in place (return
+-- shape is identical to the previous migration's).
 --
--- Built directly on top of 20260819120000_transaction_allocations.sql's
--- version of list_transaction_movements (the one that added `is_split` to
--- the returned columns for split-transaction support) rather than the older
--- 20260808160000 shape -- this migration lands after it, so it must carry
--- `is_split` forward unchanged or it would silently regress split
--- transactions out of the movements list the moment this file runs.
---
--- CORRECTION (folded into this file rather than added as a later patch,
--- since an already-broken migration in the sequence blocks every migration
--- after it -- see below): this file was originally authored as a straight
--- extension of 20260819120000's 17-arg/no-`allocations` shape and did not
--- know about 20260821090000_transaction_movements_allocations.sql, even
--- though that file's *filename* sorts before this one and therefore applies
--- first. 20260821090000 already creates this exact 18-arg signature (with
--- `p_account_ids`, reusing the same idea independently) plus an
--- `allocations` jsonb column. Two functions of the same name/signature but
--- different RETURNS TABLE shapes cannot coexist, and `create or replace`
--- cannot change an existing function's return columns (Postgres requires
--- drop + recreate for that) -- so this file's original `create or replace`
--- would fail outright once 20260821090000 has already run, taking every
--- migration after it (recurring end conditions, transaction reimbursements,
--- ...) down with it since a failed migration halts `supabase db push`. The
--- function body below is now 20260821090000's (allocations included), not
--- this file's original one, so this migration is idempotent with whichever
--- of the two shapes the target database currently has and always leaves it
--- in the one correct end state.
+-- summarize_transaction_movements' internal `regular`/`transfers` CTEs gain
+-- a `transaction_id` passthrough column (null for transfer rows, which
+-- can't be split) to join against transaction_allocations by -- this only
+-- changes an internal CTE's columns, not the function's own RETURNS TABLE,
+-- so it doesn't trip the same return-type-change restriction that made
+-- 20260901000200 need careful handling for list_transaction_movements.
 
 create or replace function public.list_transaction_movements(
   p_household_id uuid,
@@ -215,12 +203,29 @@ as $$
   from movements m
   where (p_kind is null or m.movement_kind = p_kind)
     and (not p_exclude_transfers or m.movement_kind <> 'transfer')
-    and (p_account_id is null or m.account_id = p_account_id or m.source_account_id = p_account_id or m.destination_account_id = p_account_id)
+    and (
+      p_account_id is null
+      or m.account_id = p_account_id
+      or m.source_account_id = p_account_id
+      or m.destination_account_id = p_account_id
+      or exists (
+        select 1
+        from public.transaction_allocations ta
+        where ta.transaction_id = m.transaction_id
+          and ta.account_id = p_account_id
+      )
+    )
     and (
       p_account_ids is null
       or m.account_id = any(p_account_ids)
       or m.source_account_id = any(p_account_ids)
       or m.destination_account_id = any(p_account_ids)
+      or exists (
+        select 1
+        from public.transaction_allocations ta
+        where ta.transaction_id = m.transaction_id
+          and ta.account_id = any(p_account_ids)
+      )
     )
     and (p_source_account_id is null or m.source_account_id = p_source_account_id)
     and (p_destination_account_id is null or m.destination_account_id = p_destination_account_id)
@@ -261,21 +266,6 @@ as $$
   limit greatest(1, least(coalesce(p_limit, 25), 500))
   offset greatest(0, coalesce(p_offset, 0));
 $$;
-
-comment on function public.list_transaction_movements(uuid, text, uuid, uuid, uuid, uuid, boolean, uuid, date, date, text, integer, integer, boolean, text, numeric, numeric, uuid[]) is
-'Lists paginated transaction and completed-transfer movements, including the account balance after the transaction or transfer source transaction, whether the row is a split transaction (is_split; always false for transfers, which cannot be split), and -- for split transactions -- the full funding-source breakdown (allocations: array of {id, source_type, account_id, account_name, account_owner_profile_id, pot_id, pot_name, amount}, ordered by sort_order; null for non-split rows and all transfers). Supports sorting by date, amount, or title. Filtering by a parent category also includes its subcategories. p_exclude_transfers drops transfer rows server-side. p_search matches title/notes/merchant_name case-insensitively. p_min_amount/p_max_amount bound the amount column inclusively. p_account_ids matches a movement touching ANY of the given accounts (account_id, source_account_id, or destination_account_id) -- used by the replenishment wizard to show transactions across multiple "accounts to replenish" at once.';
-
-revoke all on function public.list_transaction_movements(uuid, text, uuid, uuid, uuid, uuid, boolean, uuid, date, date, text, integer, integer, boolean, text, numeric, numeric, uuid[]) from public, anon;
-grant execute on function public.list_transaction_movements(uuid, text, uuid, uuid, uuid, uuid, boolean, uuid, date, date, text, integer, integer, boolean, text, numeric, numeric, uuid[]) to authenticated;
-
--- Superseded 17-arg overload -- drop so PostgREST doesn't see two overloads
--- with ambiguous default-argument calls (same reasoning as the 13-arg drop
--- in 20260808160000_transaction_movement_search_and_amount_filters.sql).
-drop function if exists public.list_transaction_movements(uuid, text, uuid, uuid, uuid, uuid, boolean, uuid, date, date, text, integer, integer, boolean, text, numeric, numeric);
-
--- ============================================================
--- Same extension for summarize_transaction_movements
--- ============================================================
 
 create or replace function public.summarize_transaction_movements(
   p_household_id uuid,
@@ -318,6 +308,7 @@ as $$
   regular as (
     select
       t.id as movement_id,
+      t.id as transaction_id,
       t.type::text as movement_kind,
       t.household_id,
       t.account_id,
@@ -337,6 +328,7 @@ as $$
   transfers as (
     select
       outgoing.transfer_group_id as movement_id,
+      null::uuid as transaction_id,
       'transfer'::text as movement_kind,
       outgoing.household_id,
       null::uuid as account_id,
@@ -365,12 +357,29 @@ as $$
     from movements m
     where (p_kind is null or m.movement_kind = p_kind)
       and (not p_exclude_transfers or m.movement_kind <> 'transfer')
-      and (p_account_id is null or m.account_id = p_account_id or m.source_account_id = p_account_id or m.destination_account_id = p_account_id)
+      and (
+        p_account_id is null
+        or m.account_id = p_account_id
+        or m.source_account_id = p_account_id
+        or m.destination_account_id = p_account_id
+        or exists (
+          select 1
+          from public.transaction_allocations ta
+          where ta.transaction_id = m.transaction_id
+            and ta.account_id = p_account_id
+        )
+      )
       and (
         p_account_ids is null
         or m.account_id = any(p_account_ids)
         or m.source_account_id = any(p_account_ids)
         or m.destination_account_id = any(p_account_ids)
+        or exists (
+          select 1
+          from public.transaction_allocations ta
+          where ta.transaction_id = m.transaction_id
+            and ta.account_id = any(p_account_ids)
+        )
       )
       and (p_source_account_id is null or m.source_account_id = p_source_account_id)
       and (p_destination_account_id is null or m.destination_account_id = p_destination_account_id)
@@ -407,13 +416,5 @@ as $$
       - coalesce(sum(amount) filter (where movement_kind = 'expense'), 0) as net_total
   from filtered;
 $$;
-
-comment on function public.summarize_transaction_movements(uuid, text, uuid, uuid, uuid, uuid, boolean, uuid, date, date, boolean, text, numeric, numeric, uuid[]) is
-'Aggregates the full transaction/transfer movement set matching the same filters as list_transaction_movements (minus sort/limit/offset). p_account_ids matches a movement touching ANY of the given accounts -- used by the replenishment wizard''s "total selected / total per account" summary across multiple "accounts to replenish".';
-
-revoke all on function public.summarize_transaction_movements(uuid, text, uuid, uuid, uuid, uuid, boolean, uuid, date, date, boolean, text, numeric, numeric, uuid[]) from public, anon;
-grant execute on function public.summarize_transaction_movements(uuid, text, uuid, uuid, uuid, uuid, boolean, uuid, date, date, boolean, text, numeric, numeric, uuid[]) to authenticated;
-
-drop function if exists public.summarize_transaction_movements(uuid, text, uuid, uuid, uuid, uuid, boolean, uuid, date, date, boolean, text, numeric, numeric);
 
 notify pgrst, 'reload schema';

@@ -320,3 +320,88 @@ export function allocationEntriesShareOneOwner(
   );
   return ownerIds.every((id) => id === ownerIds[0]);
 }
+
+
+// ============================================================
+// Leg expansion: turning one split transaction row into N per-account rows
+// ============================================================
+
+/** The minimal shape of an allocation row this module's expansion helper needs. */
+export type BasicAllocationRow = {
+  id: string;
+  source_type: AllocationSourceType;
+  account_id: string | null;
+  pot_id: string | null;
+  amount: number;
+};
+
+/**
+ * Expands split transactions into one synthetic row per funding-source
+ * allocation, so account-scoped logic written for a flat "one row per
+ * transaction, one account_id, one amount" shape (Wage Flow's
+ * `calculateWageFlow`, the Accounts screen's per-account history) can
+ * consume split transactions without being split-aware itself: each
+ * allocation becomes its own row carrying that allocation's `amount`
+ * (never the full transaction total) and its own `account_id`. Items with
+ * no entry in `allocationsByTransactionId` (or an empty array there --
+ * i.e. every non-split transaction) pass through completely unchanged.
+ *
+ * A `pot` allocation has no `account_id` of its own -- money left a real
+ * account, but the allocation only records which pot it funded. Resolved,
+ * in order: the pot's single backing account (mirrors
+ * `resolveAllocationOwnerProfileId`'s identical ambiguity rule elsewhere in
+ * this module); otherwise the original transaction's own `account_id` as a
+ * best-effort fallback (matches what every consumer already did, for just
+ * that one slice of the split, before this function existed) -- never a
+ * fabricated id that doesn't belong to a real account, which could
+ * accidentally satisfy some "any other/unrecognized account" catch-all
+ * rule downstream.
+ *
+ * Every returned row's `id` is `${originalId}:${allocationId}` so callers
+ * that use `id` as a list/React key never collide two legs of the same
+ * split transaction against each other.
+ */
+export function expandTransactionAllocationLegs<
+  T extends { id: string; account_id: string; amount: number },
+>(
+  items: readonly T[],
+  allocationsByTransactionId: ReadonlyMap<string, readonly BasicAllocationRow[]>,
+  potAccountAssignments: readonly { pot_id: string; account_id: string }[] = [],
+): T[] {
+  if (allocationsByTransactionId.size === 0) return [...items];
+
+  const singleBackingAccountByPotId = new Map<string, string | null>();
+  function singleBackingAccountId(potId: string): string | null {
+    if (singleBackingAccountByPotId.has(potId)) {
+      return singleBackingAccountByPotId.get(potId) ?? null;
+    }
+    const backingAccountIds = potAccountAssignments
+      .filter((row) => row.pot_id === potId)
+      .map((row) => row.account_id);
+    const resolved = backingAccountIds.length === 1 ? backingAccountIds[0] : null;
+    singleBackingAccountByPotId.set(potId, resolved);
+    return resolved;
+  }
+
+  const result: T[] = [];
+  for (const item of items) {
+    const allocations = allocationsByTransactionId.get(item.id);
+    if (!allocations || allocations.length === 0) {
+      result.push(item);
+      continue;
+    }
+    for (const allocation of allocations) {
+      const account_id =
+        allocation.source_type === "account"
+          ? (allocation.account_id ?? item.account_id)
+          : (allocation.pot_id ? singleBackingAccountId(allocation.pot_id) : null) ?? item.account_id;
+      result.push({
+        ...item,
+        id: `${item.id}:${allocation.id}`,
+        account_id,
+        amount: allocation.amount,
+      });
+    }
+  }
+  return result;
+}

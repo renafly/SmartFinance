@@ -38,6 +38,39 @@ export function useTransactionMovementsInfinite(
 }
 
 /**
+ * Paginated, newest-first ledger for ONE account, with a real running
+ * balance after every row -- including split transactions, which
+ * useTransactionMovementsInfinite (and the balance_after_transaction it
+ * carries) deliberately leaves null. Backs the Accounts screen's "Account
+ * History" view -- see list_account_ledger /
+ * 20260901000600_account_ledger_running_balance.sql.
+ */
+export function useAccountLedgerInfinite(
+  accountId: string | undefined,
+  pageSize = 25,
+  options?: { enabled?: boolean },
+) {
+  const { householdId, isLoading } = useAuth();
+  return useInfiniteQuery({
+    queryKey: ["account-ledger", householdId, accountId, pageSize],
+    queryFn: ({ pageParam = 0 }) => transactionsService.getAccountLedger(householdId!, accountId!, {
+      limit: pageSize,
+      offset: pageParam,
+    }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) =>
+      lastPage.length < pageSize ? undefined : pages.length * pageSize,
+    staleTime: 0,
+    placeholderData: keepPreviousData,
+    gcTime: 0,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    enabled: (options?.enabled ?? true) && !!householdId && !isLoading && !!accountId,
+  });
+}
+
+/**
  * Aggregates (count, income total, expense total, net) over the FULL
  * filtered movement set -- not just the pages currently loaded by
  * useTransactionMovementsInfinite -- to back a results-summary bar above the

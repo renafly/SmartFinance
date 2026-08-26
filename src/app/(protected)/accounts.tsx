@@ -20,7 +20,7 @@ import { useHouseholdMemberDetails, useMyHouseholds } from "../../features/house
 import { useSavingPotAccountAssignments, useSavingPotBalances } from "../../features/saving-pots/hooks";
 import { usePreferencesStore, type AppCurrency } from "@/stores/preferencesStore";
 import { typography } from "@/theme/typography";
-import { useTransactionsInfinite } from "../../features/transactions/hooks/useTransactions";
+import { useAccountLedgerInfinite } from "../../features/transactions/hooks/useTransactions";
 import { ACCOUNT_TYPE_ORDER, SHARED_ACCOUNT_OWNER_KEY, compareAccountsByOwnerThenType, getAccountOwnerKey } from "../../features/accounts/account-ordering";
 import { useAccountBalanceForecasts, usePotBalanceForecasts } from "../../features/forecast/hooks";
 import { BalanceForecastPanel, CombinedForecastPanel, type CombinedForecastEntity, type ForecastViewMode } from "../../features/forecast/components";
@@ -284,24 +284,19 @@ export default function AccountsScreen() {
     label: memberLabelMap.get(member.userId) ?? member.userId,
   }));
   const parsedInitialBalance = Number(initialBalance);
-  const accountTransfersQuery = useTransactionsInfinite(
-    accountHistory ? { accountId: accountHistory.id } : {},
+  // list_account_ledger already returns rows fully ordered (newest first,
+  // with ties broken consistently) and with a real per-account running
+  // balance computed server-side -- no client-side re-sort or "type"
+  // resolution needed the way the old useTransactionsInfinite/
+  // useTransactionMovementsInfinite-backed version required.
+  const accountTransfersQuery = useAccountLedgerInfinite(
+    accountHistory?.id,
     ACCOUNT_HISTORY_PAGE_SIZE,
     { enabled: Boolean(accountHistory?.id) },
   );
-  const accountTransactions = useMemo(
+  const accountTransfers = useMemo(
     () => accountTransfersQuery.data?.pages.flat() ?? [],
     [accountTransfersQuery.data],
-  );
-  const accountTransfers = useMemo(
-    () =>
-      accountTransactions
-        .sort((a: any, b: any) => {
-          const dateA = new Date(a.transaction_date ?? 0).getTime();
-          const dateB = new Date(b.transaction_date ?? 0).getTime();
-          return dateB - dateA || String(b.id ?? "").localeCompare(String(a.id ?? ""));
-        }),
-    [accountTransactions],
   );
   const canCreateAccount = !createAccount.isPending && name.trim().length > 0 && Number.isFinite(parsedInitialBalance);
 
@@ -990,20 +985,35 @@ export default function AccountsScreen() {
                   ]}
                 >
                   {accountTransfers.map((item: any) => (
-                    <TableRow key={item.id}>
+                    <TableRow key={item.movement_id}>
                       <TableCell flex={1}><Text style={styles.accountMeta}>{new Date(item.transaction_date).toLocaleDateString()}</Text></TableCell>
-                      <TableCell flex={2}><Text style={styles.accountName}>{item.title}</Text></TableCell>
-                      <TableCell flex={1}><Badge label={t(`transactions.types.${item.type}`, { defaultValue: item.type })} tone={item.type === "expense" ? "destructive" : "success"} /></TableCell>
+                      <TableCell flex={2}>
+                        <Text style={styles.accountName}>{item.title}</Text>
+                        {item.is_split ? (
+                          <Text style={styles.accountMeta}>
+                            {t("accounts.accountTransfersSplitLabel", {
+                              defaultValue: "Split · this account's share",
+                            })}
+                          </Text>
+                        ) : item.is_transfer ? (
+                          <Text style={styles.accountMeta}>
+                            {t("accounts.accountTransfersTransferLabel", {
+                              defaultValue: "Transfer",
+                            })}
+                          </Text>
+                        ) : null}
+                      </TableCell>
+                      <TableCell flex={1}><Badge label={t(`transactions.types.${item.movement_kind}`, { defaultValue: item.movement_kind })} tone={item.movement_kind === "expense" ? "destructive" : "success"} /></TableCell>
                       <TableCell align="right">
-                        <Text style={item.type === "expense" ? styles.transferAmountExpense : styles.transferAmountIncome}>
-                          {item.type === "expense" ? "-" : "+"}{displayCurrency(formatCurrency(item.amount), hideValues)}
+                        <Text style={item.movement_kind === "expense" ? styles.transferAmountExpense : styles.transferAmountIncome}>
+                          {item.movement_kind === "expense" ? "-" : "+"}{displayCurrency(formatCurrency(item.amount), hideValues)}
                         </Text>
                       </TableCell>
                       <TableCell align="right">
                         <Text style={styles.accountBalance}>
-                          {item.balance_after_transaction == null
+                          {item.running_balance == null
                             ? "—"
-                            : displayCurrency(formatCurrency(item.balance_after_transaction), hideValues)}
+                            : displayCurrency(formatCurrency(item.running_balance), hideValues)}
                         </Text>
                       </TableCell>
                     </TableRow>
