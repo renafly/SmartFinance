@@ -10,8 +10,10 @@ import { useTheme } from '@/theme/ThemeProvider';
 
 import { styles } from '../ui-styles';
 import { frequencies, months } from '../types';
-import type { ExpenseKind, MovementDraft, TransactionType } from '../types';
+import type { EndCondition, ExpenseKind, MovementDraft, TransactionType } from '../types';
 import { DatePickerField } from './movement-date-field';
+
+const endConditions: EndCondition[] = ['never', 'count', 'date'];
 
 type MovementFieldsProps = {
   value: MovementDraft;
@@ -119,6 +121,41 @@ export function MovementFields({
               />
             ))}
           </View>
+        </View>
+      ) : null}
+      {isScheduled ? (
+        <View style={styles.fieldGroup}>
+          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('recurring.endCondition.label')}</Text>
+          <View style={styles.pillRow}>
+            {endConditions.map((endCondition) => (
+              <Pill
+                key={endCondition}
+                label={t(`recurring.endCondition.${endCondition}`)}
+                active={value.endCondition === endCondition}
+                onPress={() => onChange({ endCondition })}
+              />
+            ))}
+          </View>
+          {value.endCondition === 'count' ? (
+            <Field
+              label={t('recurring.endAfterOccurrencesLabel')}
+              value={value.endAfterOccurrences}
+              onChangeText={(endAfterOccurrences) => onChange({ endAfterOccurrences })}
+              keyboardType="numeric"
+              placeholder={t('recurring.endAfterOccurrencesPlaceholder')}
+            />
+          ) : null}
+          {value.endCondition === 'date' ? (
+            <DatePickerField
+              label={t('recurring.endDateLabel')}
+              value={value.endDate}
+              onChange={(endDate) => onChange({ endDate })}
+              placeholder={t('recurring.endDatePlaceholder')}
+            />
+          ) : null}
+          {value.id ? (
+            <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{t('recurring.endEditWarning')}</Text>
+          ) : null}
         </View>
       ) : null}
       <GroupedAccountSelect

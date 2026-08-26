@@ -19,6 +19,7 @@ import { spacing } from "@/theme/spacing";
 import { useResponsiveMetrics } from "@/theme/responsive";
 import { isSystemAdminEmail } from "@/constants/admin-access";
 import { NotificationCenter } from "@/components/notification-center";
+import { BugReportFab } from "@/components/bug-report-fab";
 import { useOnboarding } from "@/features/onboarding";
 import type { OnboardingGuideKey } from "@/features/onboarding";
 
@@ -130,6 +131,7 @@ export function ProtectedDrawerLayout() {
   const usePermanentDrawer = Platform.OS === "web" && responsive.isDesktop;
 
   return (
+    <View style={styles.drawerRoot}>
     <Drawer
       screenOptions={
         {
@@ -214,6 +216,8 @@ export function ProtectedDrawerLayout() {
         options={{ title: t("drawer.settings") }}
       />
     </Drawer>
+    <BugReportFab />
+    </View>
   );
 }
 
@@ -612,6 +616,7 @@ function DrawerContent(props: DrawerContentComponentProps) {
 }
 
 const styles: any = StyleSheet.create({
+  drawerRoot: { flex: 1 },
   drawer: {},
   webShell: {
     flex: 1,

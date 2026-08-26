@@ -47,7 +47,7 @@ import { typography } from "@/theme/typography";
 
 import { styles } from "@/features/transfers/ui-styles";
 import type { MovementDraft, ScheduledCategory } from "@/features/transfers/types";
-import { emptyDraft, normalizeMonths, ruleKindOf, scheduledCategoryOf, today } from "@/features/transfers/utils";
+import { emptyDraft, endConditionPayload, endStatusLabel, isEndConditionValid, normalizeMonths, ruleKindOf, scheduledCategoryOf, today } from "@/features/transfers/utils";
 import { KindPills } from "@/features/transfers/components/kind-pills";
 import { MovementFields } from "@/features/transfers/components/movement-fields";
 import { RuleMenu } from "@/features/transfers/components/rule-menu";
@@ -105,7 +105,8 @@ export function RecurringTransferCreateForm({
     draft.title.trim() &&
     Number.isFinite(Number(draft.amount)) &&
     Number(draft.amount) > 0 &&
-    /^\d{4}-\d{2}-\d{2}$/.test(draft.nextRun),
+    /^\d{4}-\d{2}-\d{2}$/.test(draft.nextRun) &&
+    isEndConditionValid(draft),
   );
 
   async function save() {
@@ -137,6 +138,7 @@ export function RecurringTransferCreateForm({
           : [],
       next_run: draft.nextRun,
       created_by: draft.createdById || profile.id,
+      endCondition: endConditionPayload(draft),
     } as any);
     setDraft(emptyDraft("recurring-transfer", profile.id));
     onCreated?.();
@@ -278,7 +280,8 @@ export function TransfersContent({
       Number.isFinite(amount) &&
       amount > 0 &&
       /^\d{4}-\d{2}-\d{2}$/.test(value.nextRun) &&
-      (!requiredDestination || value.destination),
+      (!requiredDestination || value.destination) &&
+      isEndConditionValid(value),
     );
   }
 
@@ -308,6 +311,7 @@ export function TransfersContent({
           : [],
       next_run: value.nextRun,
       created_by: value.createdById || profile?.id,
+      endCondition: endConditionPayload(value),
     };
   }
 
@@ -348,6 +352,11 @@ export function TransfersContent({
       excludedMonths: normalizeMonths(item.excluded_months),
       nextRun: item.next_run?.slice?.(0, 10) ?? today(),
       createdById: item.created_by ?? profile?.id ?? "",
+      endCondition: item.end_condition ?? "never",
+      endAfterOccurrences:
+        item.end_after_occurrences != null ? String(item.end_after_occurrences) : "",
+      endDate: item.end_date?.slice?.(0, 10) ?? "",
+      occurrencesCount: item.occurrences_count ?? 0,
     });
     setSelectedRule(null);
   }
@@ -542,6 +551,11 @@ export function TransfersContent({
                     <Text style={{ color: colors.textSecondary }}>
                       {formatDate(item.next_run)}
                     </Text>
+                    {endStatusLabel(item, t) ? (
+                      <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
+                        {endStatusLabel(item, t)}
+                      </Text>
+                    ) : null}
                   </TableCell>
                   <TableCell align="right">
                     <Text

@@ -1805,6 +1805,9 @@ export type Database = {
           destination_account_id: string | null
           destination_pot_id: string | null
           enc_version: number
+          end_after_occurrences: number | null
+          end_condition: Database["public"]["Enums"]["recurring_end_condition"]
+          end_date: string | null
           excluded_months: number[]
           expense_kind:
             | Database["public"]["Enums"]["recurring_expense_kind"]
@@ -1817,6 +1820,7 @@ export type Database = {
           next_run: string
           notes: string | null
           notes_enc: string | null
+          occurrences_count: number
           pot_id: string | null
           rule_kind: Database["public"]["Enums"]["recurring_rule_kind"]
           title: string
@@ -1834,6 +1838,9 @@ export type Database = {
           destination_account_id?: string | null
           destination_pot_id?: string | null
           enc_version?: number
+          end_after_occurrences?: number | null
+          end_condition?: Database["public"]["Enums"]["recurring_end_condition"]
+          end_date?: string | null
           excluded_months?: number[]
           expense_kind?:
             | Database["public"]["Enums"]["recurring_expense_kind"]
@@ -1846,6 +1853,7 @@ export type Database = {
           next_run: string
           notes?: string | null
           notes_enc?: string | null
+          occurrences_count?: number
           pot_id?: string | null
           rule_kind?: Database["public"]["Enums"]["recurring_rule_kind"]
           title: string
@@ -1863,6 +1871,9 @@ export type Database = {
           destination_account_id?: string | null
           destination_pot_id?: string | null
           enc_version?: number
+          end_after_occurrences?: number | null
+          end_condition?: Database["public"]["Enums"]["recurring_end_condition"]
+          end_date?: string | null
           excluded_months?: number[]
           expense_kind?:
             | Database["public"]["Enums"]["recurring_expense_kind"]
@@ -1875,6 +1886,7 @@ export type Database = {
           next_run?: string
           notes?: string | null
           notes_enc?: string | null
+          occurrences_count?: number
           pot_id?: string | null
           rule_kind?: Database["public"]["Enums"]["recurring_rule_kind"]
           title?: string
@@ -2422,6 +2434,70 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transaction_reimbursements: {
+        Row: {
+          amount: number
+          amount_enc: string | null
+          created_at: string
+          created_by: string
+          enc_version: number
+          household_id: string
+          id: string
+          note: string | null
+          payer_name: string
+          transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          amount_enc?: string | null
+          created_at?: string
+          created_by: string
+          enc_version?: number
+          household_id: string
+          id?: string
+          note?: string | null
+          payer_name: string
+          transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          amount_enc?: string | null
+          created_at?: string
+          created_by?: string
+          enc_version?: number
+          household_id?: string
+          id?: string
+          note?: string | null
+          payer_name?: string
+          transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_reimbursements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_reimbursements_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_reimbursements_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
         ]
@@ -3098,6 +3174,24 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "saving_pots_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transaction_effective_amounts: {
+        Row: {
+          effective_amount: number | null
+          household_id: string | null
+          original_amount: number | null
+          reimbursed_total: number | null
+          transaction_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_household_id_fkey"
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
@@ -3908,6 +4002,7 @@ export type Database = {
         | "investments"
         | "ppr"
         | "remaining_cash"
+      recurring_end_condition: "never" | "count" | "date"
       recurring_execution_status: "pending" | "completed" | "skipped" | "failed"
       recurring_expense_kind: "subscription" | "bill" | "other"
       recurring_frequency: "daily" | "weekly" | "monthly" | "yearly" | "custom"
@@ -4070,6 +4165,7 @@ export const Constants = {
         "ppr",
         "remaining_cash",
       ],
+      recurring_end_condition: ["never", "count", "date"],
       recurring_execution_status: ["pending", "completed", "skipped", "failed"],
       recurring_expense_kind: ["subscription", "bill", "other"],
       recurring_frequency: ["daily", "weekly", "monthly", "yearly", "custom"],
