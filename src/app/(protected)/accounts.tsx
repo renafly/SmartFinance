@@ -14,8 +14,9 @@ import { usePrivacyStore } from "@/stores/privacyStore";
 import { Page, Section, Field, Button, Pill, PrivacyToggle, formatCurrency } from "@/components/migrated-page";
 import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from "@/components/data-surface";
 import { HouseholdMemberSelect } from "@/components/household-member-select";
+import { useToast } from "@/providers/ToastProvider";
 import { useAuth } from "../../providers/AuthProvider";
-import { useAccountsWithBalances, useCreateAccount, useArchiveAccount, useDeleteAccount, useUpdateAccount } from "../../features/accounts/hooks";
+import { useAccountsWithBalances, useCreateAccount, useArchiveAccount, useUnarchiveAccount, useDeleteAccount, useUpdateAccount } from "../../features/accounts/hooks";
 import { useHouseholdMemberDetails, useMyHouseholds } from "../../features/households/hooks";
 import { useSavingPotAccountAssignments, useSavingPotBalances } from "../../features/saving-pots/hooks";
 import { usePreferencesStore, type AppCurrency } from "@/stores/preferencesStore";
@@ -26,6 +27,7 @@ import { useAccountBalanceForecasts, usePotBalanceForecasts } from "../../featur
 import { BalanceForecastPanel, CombinedForecastPanel, type CombinedForecastEntity, type ForecastViewMode } from "../../features/forecast/components";
 import { DEFAULT_FORECAST_PERIOD_MONTHS, type ForecastPeriodMonths } from "../../features/forecast/ui-utils";
 import type { BalanceForecast } from "../../features/forecast/services/balance-forecast.service";
+import { BugReportFab } from "@/components/bug-report-fab";
 
 const accountTypes = ACCOUNT_TYPE_ORDER;
 const currencyOptions: AppCurrency[] = ["EUR", "USD", "GBP"];
@@ -59,8 +61,10 @@ export default function AccountsScreen() {
   const { forecasts: potForecasts } = usePotBalanceForecasts();
   const createAccount = useCreateAccount();
   const archiveAccount = useArchiveAccount();
+  const unarchiveAccount = useUnarchiveAccount();
   const deleteAccount = useDeleteAccount();
   const updateAccount = useUpdateAccount();
+  const { show } = useToast();
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [menuAccount, setMenuAccount] = useState<EditMode | null>(null);
@@ -327,6 +331,7 @@ export default function AccountsScreen() {
       currency: currency,
       initial_balance: parsedInitialBalance,
     });
+    show(t("accounts.createSuccess"));
 
     setName("");
     setType("bank");
@@ -383,6 +388,7 @@ export default function AccountsScreen() {
         owner_profile_id: editAccount.ownerProfileId || null,
       } as any,
     });
+    show(t("accounts.updateSuccess"));
 
     setEditAccount(null);
   }
@@ -708,6 +714,7 @@ export default function AccountsScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.backdropPressable} onPress={() => setCreateDialogOpen(false)} />
           <PrivacyToggle />
+          <BugReportFab />
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t("accounts.createTitle")}</Text>
             <View style={styles.modalTitleRow}>
@@ -765,6 +772,7 @@ export default function AccountsScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.backdropPressable} onPress={() => setMenuAccount(null)} />
           <PrivacyToggle />
+          <BugReportFab />
           <View style={styles.menuCard}>
             <View style={styles.modalTitleRow}>
               <Ionicons name="settings-outline" size={18} color={colors.primary} />
@@ -786,7 +794,14 @@ export default function AccountsScreen() {
                 if (!menuAccount) return;
                 const account = accounts.find((item: any) => item.id === menuAccount.id);
                 if (!account) return;
-                void archiveAccount.mutateAsync({ id: account.id });
+                // Archive and unarchive are two distinct mutations server-side
+                // -- this toggles between them based on the account's current
+                // state instead of always archiving (which used to make the
+                // "Unarchive" menu item silently re-archive the account).
+                const mutation = account.is_archived ? unarchiveAccount : archiveAccount;
+                void mutation.mutateAsync({ id: account.id }).then(() => {
+                  show(account.is_archived ? t("accounts.unarchiveSuccess") : t("accounts.archiveSuccess"));
+                });
                 setMenuAccount(null);
               }}
               style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
@@ -797,7 +812,9 @@ export default function AccountsScreen() {
             <Pressable
               onPress={() => {
                 if (!menuAccount) return;
-                void deleteAccount.mutateAsync(menuAccount.id);
+                void deleteAccount.mutateAsync(menuAccount.id).then(() => {
+                  show(t("accounts.deleteSuccess"));
+                });
                 setMenuAccount(null);
               }}
               style={({ pressed }) => [styles.menuItemDanger, pressed && styles.pressed]}
@@ -814,6 +831,7 @@ export default function AccountsScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.backdropPressable} onPress={() => setEditAccount(null)} />
           <PrivacyToggle />
+          <BugReportFab />
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t("settings.editDetails")}</Text>
             <View style={styles.modalTitleRow}>
@@ -889,6 +907,7 @@ export default function AccountsScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.backdropPressable} onPress={() => setAccountHistory(null)} />
           <PrivacyToggle />
+          <BugReportFab />
           <View style={styles.historyModalCard}>
             <Text style={styles.modalTitle}>{accountHistory?.name ?? t("accounts.title")}</Text>
             <View style={styles.modalTitleRow}>

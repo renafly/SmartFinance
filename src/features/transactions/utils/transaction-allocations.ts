@@ -260,6 +260,14 @@ export function createEmptyAllocationDraft(sourceType: AllocationSourceType = "a
 // transaction's row. Distinct from AllocationDraft (the write-side/editor
 // shape) since this one carries denormalized display fields the RPC joins
 // in (names, the account's owner) instead of client-local editor state.
+//
+// running_balance (added by 20260901000700_transaction_movements_split_balances.sql):
+// that ONE account's balance immediately after this transaction -- the
+// same well-defined-from-one-account's-perspective value Account History's
+// list_account_ledger shows, computed via the shared account_running_balance()
+// SQL helper. Only ever set for a "account"-type entry; a "pot"-type entry
+// has no running-balance concept yet (saving_pot_balances only exposes a
+// current total, not a point-in-time history), so it's always null there.
 
 export type AllocationMovementEntry = {
   id: string;
@@ -270,6 +278,7 @@ export type AllocationMovementEntry = {
   pot_id: string | null;
   pot_name: string | null;
   amount: number;
+  running_balance: number | null;
 };
 
 /** Display name for one allocation entry -- the account or pot it targets. */

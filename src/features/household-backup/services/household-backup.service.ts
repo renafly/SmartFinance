@@ -24,6 +24,13 @@ type RecurringRunExecution = TableRow<"recurring_run_executions">;
 type SavingPot = TableRow<"saving_pots">;
 type SavingPotAccount = TableRow<"saving_pot_accounts">;
 type Transaction = TableRow<"transactions">;
+type PlannedItem = TableRow<"planned_items">;
+type PlannedItemDestination = TableRow<"planned_item_destinations">;
+type PlannedItemOccurrence = TableRow<"planned_item_occurrences">;
+type PlannedItemOccurrenceDestination =
+  TableRow<"planned_item_occurrence_destinations">;
+type PlannedItemMatch = TableRow<"planned_item_matches">;
+type MonthlyBudgetPeriod = TableRow<"monthly_budget_periods">;
 
 type MemberWithProfile = HouseholdMember & {
   profile?: {
@@ -39,6 +46,11 @@ type BackupKey =
   | "budget_run"
   | "category"
   | "member"
+  | "monthly_budget_period"
+  | "planned_item"
+  | "planned_item_destination"
+  | "planned_item_occurrence"
+  | "planned_item_occurrence_destination"
   | "pot"
   | "recurring"
   | "recurring_execution"
@@ -220,6 +232,12 @@ type CleanTransaction = {
   monthlyBudgetRunKey: string | null;
   generatedByRuleKey: string | null;
   recurringExecutionKey: string | null;
+  /** Monthly Budget rebuild (Phase 2) lineage -- the planned_item_occurrence / occurrence-destination leg this transaction was generated from, if any. Mirrors generatedByRuleKey/recurringExecutionKey's nullable-key convention above. */
+  plannedItemOccurrenceKey: string | null;
+  plannedItemOccurrenceDestinationKey: string | null;
+  plannedItemTransactionRole:
+    | Database['public']['Enums']['planned_item_transaction_role']
+    | null;
   createdByMemberKey: string | null;
   budgetSection: Database["public"]["Enums"]["monthly_budget_section"] | null;
   title: string;
@@ -239,6 +257,86 @@ type CleanAttachment = {
   mimeType: string;
   fileSize: number;
   createdAt: string;
+};
+
+type CleanPlannedItemDestination = {
+  key: string;
+  destinationAccountKey: string;
+  amount: number | null;
+  percent: number | null;
+  categoryKey: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type CleanPlannedItem = {
+  key: string;
+  sourceAccountKey: string | null;
+  categoryKey: string;
+  ownerMemberKey: string | null;
+  createdByMemberKey: string | null;
+  name: string;
+  direction: Database['public']['Enums']['planned_item_direction'];
+  amount: number;
+  isEstimate: boolean;
+  allocationMode: Database['public']['Enums']['planned_item_allocation_mode'];
+  recurrenceType: Database['public']['Enums']['planned_item_recurrence_type'];
+  recurrenceMonths: number[] | null;
+  recurrenceIntervalMonths: number | null;
+  oneTimeMonth: string | null;
+  startMonth: string | null;
+  endMonth: string | null;
+  isActive: boolean;
+  definitionVersion: number;
+  notes: string | null;
+  deletedAt: string | null;
+  destinations: CleanPlannedItemDestination[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+type CleanPlannedItemOccurrenceDestination = {
+  key: string;
+  /** Null when the template destination it was resolved from has since been deleted -- the occurrence-destination itself still stands (on delete set null), same convention as generatedByRuleKey/recurringExecutionKey elsewhere in this file. */
+  plannedItemDestinationKey: string | null;
+  destinationAccountKey: string;
+  amount: number;
+  categoryKey: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type CleanPlannedItemOccurrence = {
+  key: string;
+  plannedItemKey: string;
+  month: string;
+  status: Database['public']['Enums']['planned_item_occurrence_status'];
+  expectedAmount: number;
+  sourceAccountKey: string | null;
+  categoryKey: string;
+  isEstimate: boolean;
+  sourceDefinitionVersion: number;
+  isOverridden: boolean;
+  confirmedAt: string | null;
+  confirmedByMemberKey: string | null;
+  destinations: CleanPlannedItemOccurrenceDestination[];
+  /** Reconciliation link (planned_item_matches) inlined here, since it is a strict 1:1 with the occurrence -- null/absent whenever this occurrence has never been matched to a real transaction. */
+  matchedTransactionKey: string | null;
+  matchedByMemberKey: string | null;
+  matchedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type CleanMonthlyBudgetPeriod = {
+  key: string;
+  month: string;
+  status: Database['public']['Enums']['monthly_budget_period_status'];
+  confirmedAt: string | null;
+  confirmedByMemberKey: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type CleanMonthlyBudget = {
@@ -262,6 +360,9 @@ export type HouseholdBackupFile = {
   recurringTransactions: CleanRecurringTransaction[];
   recurringRunExecutions: CleanRecurringRunExecution[];
   monthlyBudget: CleanMonthlyBudget;
+  plannedItems: CleanPlannedItem[];
+  plannedItemOccurrences: CleanPlannedItemOccurrence[];
+  monthlyBudgetPeriods: CleanMonthlyBudgetPeriod[];
   attachments: CleanAttachment[];
 };
 
@@ -279,6 +380,9 @@ export type HouseholdBackupImportSummary = {
   budgetRules: number;
   budgetRuns: number;
   incomeInputs: number;
+  plannedItems: number;
+  plannedItemOccurrences: number;
+  monthlyBudgetPeriods: number;
   skippedAttachments: number;
 };
 
@@ -304,6 +408,11 @@ const backupSchema = z.object({
     runs: z.array(rowSchema),
     incomeInputs: z.array(rowSchema),
   }),
+  // Additive in the Phase 8 cleanup pass -- defaulted to [] so backups
+  // exported before the planned-items rebuild still parse cleanly.
+  plannedItems: z.array(rowSchema).default([]),
+  plannedItemOccurrences: z.array(rowSchema).default([]),
+  monthlyBudgetPeriods: z.array(rowSchema).default([]),
   attachments: z.array(rowSchema),
 });
 
@@ -506,6 +615,12 @@ function buildCleanBackup(input: {
   budgetRuleAllocations: BudgetRuleAllocation[];
   budgetRuns: MonthlyBudgetRun[];
   incomeInputs: MonthlyIncomeInput[];
+  plannedItems: PlannedItem[];
+  plannedItemDestinations: PlannedItemDestination[];
+  plannedItemOccurrences: PlannedItemOccurrence[];
+  plannedItemOccurrenceDestinations: PlannedItemOccurrenceDestination[];
+  plannedItemMatches: PlannedItemMatch[];
+  monthlyBudgetPeriods: MonthlyBudgetPeriod[];
   attachments: Attachment[];
 }): HouseholdBackupFile {
   const memberKeyMap = buildKeyMap(
@@ -525,6 +640,23 @@ function buildCleanBackup(input: {
   );
   const transactionKeyMap = buildKeyMap(input.transactions, "transaction");
   const transferGroupKeyMap = buildTransferGroupKeyMap(input.transactions);
+  const plannedItemKeyMap = buildKeyMap(input.plannedItems, "planned_item");
+  const plannedItemDestinationKeyMap = buildKeyMap(
+    input.plannedItemDestinations,
+    "planned_item_destination",
+  );
+  const plannedItemOccurrenceKeyMap = buildKeyMap(
+    input.plannedItemOccurrences,
+    "planned_item_occurrence",
+  );
+  const plannedItemOccurrenceDestinationKeyMap = buildKeyMap(
+    input.plannedItemOccurrenceDestinations,
+    "planned_item_occurrence_destination",
+  );
+  const monthlyBudgetPeriodKeyMap = buildKeyMap(
+    input.monthlyBudgetPeriods,
+    "monthly_budget_period",
+  );
 
   const idToKey = new Map<string, string>([
     ...memberKeyMap,
@@ -538,6 +670,11 @@ function buildCleanBackup(input: {
     ...recurringExecutionKeyMap,
     ...transactionKeyMap,
     ...transferGroupKeyMap,
+    ...plannedItemKeyMap,
+    ...plannedItemDestinationKeyMap,
+    ...plannedItemOccurrenceKeyMap,
+    ...plannedItemOccurrenceDestinationKeyMap,
+    ...monthlyBudgetPeriodKeyMap,
   ]);
 
   return {
@@ -625,6 +762,15 @@ function buildCleanBackup(input: {
         recurringExecutionKeyMap,
         transaction.recurring_execution_id,
       ),
+      plannedItemOccurrenceKey: keyFor(
+        plannedItemOccurrenceKeyMap,
+        transaction.planned_item_occurrence_id,
+      ),
+      plannedItemOccurrenceDestinationKey: keyFor(
+        plannedItemOccurrenceDestinationKeyMap,
+        transaction.planned_item_occurrence_destination_id,
+      ),
+      plannedItemTransactionRole: transaction.planned_item_transaction_role,
       createdByMemberKey: keyFor(memberKeyMap, transaction.created_by),
       budgetSection: transaction.budget_section,
       title: transaction.title,
@@ -784,6 +930,148 @@ function buildCleanBackup(input: {
         })
         .filter(isPresent),
     },
+    plannedItems: input.plannedItems
+      .map((item) => {
+        const categoryKey = keyFor(categoryKeyMap, item.category_id);
+        if (!categoryKey) return null;
+        const sourceAccountKey = keyFor(accountKeyMap, item.source_account_id);
+        if (item.direction === "outflow" && !sourceAccountKey) return null;
+
+        const destinations = input.plannedItemDestinations
+          .filter((destination) => destination.planned_item_id === item.id)
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((destination) => {
+            const destinationAccountKey = keyFor(
+              accountKeyMap,
+              destination.destination_account_id,
+            );
+            if (!destinationAccountKey) return null;
+
+            return {
+              key: requireIdFor(
+                plannedItemDestinationKeyMap,
+                destination.id,
+                "planned item destination key",
+              ),
+              destinationAccountKey,
+              amount: destination.amount,
+              percent: destination.percent,
+              categoryKey: keyFor(categoryKeyMap, destination.category_id),
+              sortOrder: destination.sort_order,
+              createdAt: destination.created_at,
+              updatedAt: destination.updated_at,
+            };
+          })
+          .filter(isPresent);
+
+        return {
+          key: requireIdFor(plannedItemKeyMap, item.id, "planned item key"),
+          sourceAccountKey,
+          categoryKey,
+          ownerMemberKey: keyFor(memberKeyMap, item.owner_member_id),
+          createdByMemberKey: keyFor(memberKeyMap, item.created_by),
+          name: item.name,
+          direction: item.direction,
+          amount: item.amount,
+          isEstimate: item.is_estimate,
+          allocationMode: item.allocation_mode,
+          recurrenceType: item.recurrence_type,
+          recurrenceMonths: item.recurrence_months,
+          recurrenceIntervalMonths: item.recurrence_interval_months,
+          oneTimeMonth: item.one_time_month,
+          startMonth: item.start_month,
+          endMonth: item.end_month,
+          isActive: item.is_active,
+          definitionVersion: item.definition_version,
+          notes: item.notes,
+          deletedAt: item.deleted_at,
+          destinations,
+          createdAt: item.created_at,
+          updatedAt: item.updated_at,
+        };
+      })
+      .filter(isPresent),
+    plannedItemOccurrences: input.plannedItemOccurrences
+      .map((occurrence) => {
+        const plannedItemKey = keyFor(plannedItemKeyMap, occurrence.planned_item_id);
+        const categoryKey = keyFor(categoryKeyMap, occurrence.category_id);
+        if (!plannedItemKey || !categoryKey) return null;
+
+        const destinations = input.plannedItemOccurrenceDestinations
+          .filter((destination) => destination.occurrence_id === occurrence.id)
+          .map((destination) => {
+            const destinationAccountKey = keyFor(
+              accountKeyMap,
+              destination.destination_account_id,
+            );
+            if (!destinationAccountKey) return null;
+
+            return {
+              key: requireIdFor(
+                plannedItemOccurrenceDestinationKeyMap,
+                destination.id,
+                "planned item occurrence destination key",
+              ),
+              plannedItemDestinationKey: keyFor(
+                plannedItemDestinationKeyMap,
+                destination.planned_item_destination_id,
+              ),
+              destinationAccountKey,
+              amount: destination.amount,
+              categoryKey: keyFor(categoryKeyMap, destination.category_id),
+              createdAt: destination.created_at,
+              updatedAt: destination.updated_at,
+            };
+          })
+          .filter(isPresent);
+
+        const match = input.plannedItemMatches.find(
+          (candidate) => candidate.occurrence_id === occurrence.id,
+        );
+
+        return {
+          key: requireIdFor(
+            plannedItemOccurrenceKeyMap,
+            occurrence.id,
+            "planned item occurrence key",
+          ),
+          plannedItemKey,
+          month: occurrence.month,
+          status: occurrence.status,
+          expectedAmount: occurrence.expected_amount,
+          sourceAccountKey: keyFor(accountKeyMap, occurrence.source_account_id),
+          categoryKey,
+          isEstimate: occurrence.is_estimate,
+          sourceDefinitionVersion: occurrence.source_definition_version,
+          isOverridden: occurrence.is_overridden,
+          confirmedAt: occurrence.confirmed_at,
+          confirmedByMemberKey: keyFor(memberKeyMap, occurrence.confirmed_by),
+          destinations,
+          matchedTransactionKey: match
+            ? keyFor(transactionKeyMap, match.transaction_id)
+            : null,
+          matchedByMemberKey: match
+            ? keyFor(memberKeyMap, match.matched_by)
+            : null,
+          matchedAt: match?.matched_at ?? null,
+          createdAt: occurrence.created_at,
+          updatedAt: occurrence.updated_at,
+        };
+      })
+      .filter(isPresent),
+    monthlyBudgetPeriods: input.monthlyBudgetPeriods.map((period) => ({
+      key: requireIdFor(
+        monthlyBudgetPeriodKeyMap,
+        period.id,
+        "monthly budget period key",
+      ),
+      month: period.month,
+      status: period.status,
+      confirmedAt: period.confirmed_at,
+      confirmedByMemberKey: keyFor(memberKeyMap, period.confirmed_by),
+      createdAt: period.created_at,
+      updatedAt: period.updated_at,
+    })),
     attachments: input.attachments.map((attachment) => ({
       transactionKey: keyFor(transactionKeyMap, attachment.transaction_id),
       uploadedByMemberKey: keyFor(memberKeyMap, attachment.uploaded_by),
@@ -1138,6 +1426,211 @@ function buildRecurringRunExecutionInserts(
     .filter(isPresent);
 }
 
+function buildPlannedItemInserts(
+  backup: HouseholdBackupFile,
+  householdId: string,
+  currentUserId: string,
+  plannedItemMap: Map<string, string>,
+  accountMap: Map<string, string>,
+  categoryMap: Map<string, string>,
+  memberMap: Map<string, string>,
+) {
+  return backup.plannedItems
+    .map((item) => {
+      const categoryId = idFor(categoryMap, item.categoryKey);
+      if (!categoryId) return null;
+      const sourceAccountId = idFor(accountMap, item.sourceAccountKey);
+      if (item.direction === "outflow" && !sourceAccountId) return null;
+
+      return {
+        id: requireIdFor(plannedItemMap, item.key, "planned item"),
+        household_id: householdId,
+        name: item.name,
+        direction: item.direction,
+        amount: item.amount,
+        source_account_id: sourceAccountId,
+        category_id: categoryId,
+        owner_member_id: mapOwner(memberMap, item.ownerMemberKey),
+        is_estimate: item.isEstimate,
+        allocation_mode: item.allocationMode,
+        recurrence_type: item.recurrenceType,
+        recurrence_months: item.recurrenceMonths,
+        recurrence_interval_months: item.recurrenceIntervalMonths,
+        one_time_month: item.oneTimeMonth,
+        start_month: item.startMonth,
+        end_month: item.endMonth,
+        is_active: item.isActive,
+        definition_version: item.definitionVersion ?? 1,
+        notes: item.notes,
+        deleted_at: item.deletedAt,
+        created_by: mapCreator(memberMap, item.createdByMemberKey, currentUserId),
+        created_at: item.createdAt,
+        updated_at: item.updatedAt,
+      };
+    })
+    .filter(isPresent);
+}
+
+function buildPlannedItemDestinationInserts(
+  backup: HouseholdBackupFile,
+  plannedItemMap: Map<string, string>,
+  plannedItemDestinationMap: Map<string, string>,
+  accountMap: Map<string, string>,
+  categoryMap: Map<string, string>,
+) {
+  return backup.plannedItems.flatMap((item) => {
+    const plannedItemId = idFor(plannedItemMap, item.key);
+    if (!plannedItemId) return [];
+
+    return item.destinations
+      .map((destination) => {
+        const destinationAccountId = idFor(
+          accountMap,
+          destination.destinationAccountKey,
+        );
+        if (!destinationAccountId) return null;
+
+        return {
+          id: requireIdFor(
+            plannedItemDestinationMap,
+            destination.key,
+            "planned item destination",
+          ),
+          planned_item_id: plannedItemId,
+          destination_account_id: destinationAccountId,
+          amount: destination.amount,
+          percent: destination.percent,
+          category_id: idFor(categoryMap, destination.categoryKey),
+          sort_order: destination.sortOrder,
+          created_at: destination.createdAt,
+          updated_at: destination.updatedAt,
+        };
+      })
+      .filter(isPresent);
+  });
+}
+
+function buildPlannedItemOccurrenceInserts(
+  backup: HouseholdBackupFile,
+  householdId: string,
+  occurrenceMap: Map<string, string>,
+  plannedItemMap: Map<string, string>,
+  accountMap: Map<string, string>,
+  categoryMap: Map<string, string>,
+  memberMap: Map<string, string>,
+) {
+  return backup.plannedItemOccurrences
+    .map((occurrence) => {
+      const plannedItemId = idFor(plannedItemMap, occurrence.plannedItemKey);
+      const categoryId = idFor(categoryMap, occurrence.categoryKey);
+      if (!plannedItemId || !categoryId) return null;
+
+      return {
+        id: requireIdFor(occurrenceMap, occurrence.key, "planned item occurrence"),
+        planned_item_id: plannedItemId,
+        household_id: householdId,
+        month: occurrence.month,
+        status: occurrence.status,
+        expected_amount: occurrence.expectedAmount,
+        source_account_id: idFor(accountMap, occurrence.sourceAccountKey),
+        category_id: categoryId,
+        is_estimate: occurrence.isEstimate,
+        source_definition_version: occurrence.sourceDefinitionVersion,
+        is_overridden: occurrence.isOverridden,
+        confirmed_at: occurrence.confirmedAt,
+        confirmed_by: mapOwner(memberMap, occurrence.confirmedByMemberKey),
+        created_at: occurrence.createdAt,
+        updated_at: occurrence.updatedAt,
+      };
+    })
+    .filter(isPresent);
+}
+
+function buildPlannedItemOccurrenceDestinationInserts(
+  backup: HouseholdBackupFile,
+  occurrenceMap: Map<string, string>,
+  occurrenceDestinationMap: Map<string, string>,
+  plannedItemDestinationMap: Map<string, string>,
+  accountMap: Map<string, string>,
+  categoryMap: Map<string, string>,
+) {
+  return backup.plannedItemOccurrences.flatMap((occurrence) => {
+    const occurrenceId = idFor(occurrenceMap, occurrence.key);
+    if (!occurrenceId) return [];
+
+    return occurrence.destinations
+      .map((destination) => {
+        const destinationAccountId = idFor(
+          accountMap,
+          destination.destinationAccountKey,
+        );
+        if (!destinationAccountId) return null;
+
+        return {
+          id: requireIdFor(
+            occurrenceDestinationMap,
+            destination.key,
+            "planned item occurrence destination",
+          ),
+          occurrence_id: occurrenceId,
+          planned_item_destination_id: idFor(
+            plannedItemDestinationMap,
+            destination.plannedItemDestinationKey,
+          ),
+          destination_account_id: destinationAccountId,
+          amount: destination.amount,
+          category_id: idFor(categoryMap, destination.categoryKey),
+          created_at: destination.createdAt,
+          updated_at: destination.updatedAt,
+        };
+      })
+      .filter(isPresent);
+  });
+}
+
+/** One row per matched occurrence -- see CleanPlannedItemOccurrence's doc comment for why the match is inlined on the occurrence rather than backed by its own top-level array. Must run after transactions are inserted (transactionMap only resolves once real rows exist), and after occurrences are inserted. */
+function buildPlannedItemMatchInserts(
+  backup: HouseholdBackupFile,
+  occurrenceMap: Map<string, string>,
+  transactionMap: Map<string, string>,
+  memberMap: Map<string, string>,
+) {
+  return backup.plannedItemOccurrences
+    .map((occurrence) => {
+      if (!occurrence.matchedTransactionKey) return null;
+      const occurrenceId = idFor(occurrenceMap, occurrence.key);
+      const transactionId = idFor(transactionMap, occurrence.matchedTransactionKey);
+      if (!occurrenceId || !transactionId) return null;
+
+      return {
+        id: newId(),
+        occurrence_id: occurrenceId,
+        transaction_id: transactionId,
+        matched_by: mapOwner(memberMap, occurrence.matchedByMemberKey),
+        matched_at: occurrence.matchedAt ?? new Date().toISOString(),
+      };
+    })
+    .filter(isPresent);
+}
+
+function buildMonthlyBudgetPeriodInserts(
+  backup: HouseholdBackupFile,
+  householdId: string,
+  periodMap: Map<string, string>,
+  memberMap: Map<string, string>,
+) {
+  return backup.monthlyBudgetPeriods.map((period) => ({
+    id: requireIdFor(periodMap, period.key, "monthly budget period"),
+    household_id: householdId,
+    month: period.month,
+    status: period.status,
+    confirmed_at: period.confirmedAt,
+    confirmed_by: mapOwner(memberMap, period.confirmedByMemberKey),
+    created_at: period.createdAt,
+    updated_at: period.updatedAt,
+  }));
+}
+
 function buildTransactionInserts(
   backup: HouseholdBackupFile,
   householdId: string,
@@ -1151,6 +1644,8 @@ function buildTransactionInserts(
   executionMap: Map<string, string>,
   transferGroupMap: Map<string, string>,
   memberMap: Map<string, string>,
+  occurrenceMap: Map<string, string>,
+  occurrenceDestinationMap: Map<string, string>,
 ) {
   return backup.transactions
     .map((transaction) => {
@@ -1173,6 +1668,15 @@ function buildTransactionInserts(
           executionMap,
           transaction.recurringExecutionKey,
         ),
+        planned_item_occurrence_id: idFor(
+          occurrenceMap,
+          transaction.plannedItemOccurrenceKey,
+        ),
+        planned_item_occurrence_destination_id: idFor(
+          occurrenceDestinationMap,
+          transaction.plannedItemOccurrenceDestinationKey,
+        ),
+        planned_item_transaction_role: transaction.plannedItemTransactionRole,
         budget_section: transaction.budgetSection,
         title: transaction.title,
         merchant_name: transaction.merchantName ?? null,
@@ -1211,6 +1715,9 @@ export class HouseholdBackupService {
       recurringTransactions,
       budgetConfigs,
       budgetRuns,
+      plannedItems,
+      plannedItemOccurrences,
+      monthlyBudgetPeriods,
     ] = await Promise.all([
       fetchPaged<MemberWithProfile>(
         (from, to) =>
@@ -1286,6 +1793,33 @@ export class HouseholdBackupService {
             .order("created_at", { ascending: true })
             .range(from, to) as any,
       ),
+      fetchPaged<PlannedItem>(
+        (from, to) =>
+          supabase
+            .from("planned_items")
+            .select("*")
+            .eq("household_id", householdId)
+            .order("created_at", { ascending: true })
+            .range(from, to) as any,
+      ),
+      fetchPaged<PlannedItemOccurrence>(
+        (from, to) =>
+          supabase
+            .from("planned_item_occurrences")
+            .select("*")
+            .eq("household_id", householdId)
+            .order("created_at", { ascending: true })
+            .range(from, to) as any,
+      ),
+      fetchPaged<MonthlyBudgetPeriod>(
+        (from, to) =>
+          supabase
+            .from("monthly_budget_periods")
+            .select("*")
+            .eq("household_id", householdId)
+            .order("created_at", { ascending: true })
+            .range(from, to) as any,
+      ),
     ]);
 
     const potIds = savingPots.map((pot) => pot.id);
@@ -1295,6 +1829,10 @@ export class HouseholdBackupService {
     const recurringTransactionIds = recurringTransactions.map(
       (transaction) => transaction.id,
     );
+    const plannedItemIds = plannedItems.map((item) => item.id);
+    const plannedItemOccurrenceIds = plannedItemOccurrences.map(
+      (occurrence) => occurrence.id,
+    );
 
     const [
       savingPotAccounts,
@@ -1302,6 +1840,9 @@ export class HouseholdBackupService {
       budgetRules,
       incomeInputs,
       recurringRunExecutions,
+      plannedItemDestinations,
+      plannedItemOccurrenceDestinations,
+      plannedItemMatches,
     ] = await Promise.all([
       potIds.length
         ? fetchPaged<SavingPotAccount>(
@@ -1359,6 +1900,39 @@ export class HouseholdBackupService {
                 .range(from, to) as any,
           )
         : Promise.resolve([]),
+      plannedItemIds.length
+        ? fetchPaged<PlannedItemDestination>(
+            (from, to) =>
+              supabase
+                .from("planned_item_destinations")
+                .select("*")
+                .in("planned_item_id", plannedItemIds)
+                .order("sort_order", { ascending: true })
+                .range(from, to) as any,
+          )
+        : Promise.resolve([]),
+      plannedItemOccurrenceIds.length
+        ? fetchPaged<PlannedItemOccurrenceDestination>(
+            (from, to) =>
+              supabase
+                .from("planned_item_occurrence_destinations")
+                .select("*")
+                .in("occurrence_id", plannedItemOccurrenceIds)
+                .order("created_at", { ascending: true })
+                .range(from, to) as any,
+          )
+        : Promise.resolve([]),
+      plannedItemOccurrenceIds.length
+        ? fetchPaged<PlannedItemMatch>(
+            (from, to) =>
+              supabase
+                .from("planned_item_matches")
+                .select("*")
+                .in("occurrence_id", plannedItemOccurrenceIds)
+                .order("matched_at", { ascending: true })
+                .range(from, to) as any,
+          )
+        : Promise.resolve([]),
     ]);
 
     const budgetRuleIds = budgetRules.map((rule) => rule.id);
@@ -1389,6 +1963,12 @@ export class HouseholdBackupService {
       budgetRuleAllocations,
       budgetRuns,
       incomeInputs,
+      plannedItems,
+      plannedItemDestinations,
+      plannedItemOccurrences,
+      plannedItemOccurrenceDestinations,
+      plannedItemMatches,
+      monthlyBudgetPeriods,
       attachments,
     });
   }
@@ -1417,6 +1997,9 @@ export class HouseholdBackupService {
       budgetRules: backup.monthlyBudget.rules.length,
       budgetRuns: backup.monthlyBudget.runs.length,
       incomeInputs: backup.monthlyBudget.incomeInputs.length,
+      plannedItems: backup.plannedItems.length,
+      plannedItemOccurrences: backup.plannedItemOccurrences.length,
+      monthlyBudgetPeriods: backup.monthlyBudgetPeriods.length,
       skippedAttachments: backup.attachments.length,
     };
   }
@@ -1468,6 +2051,15 @@ export class HouseholdBackupService {
     const recurringMap = newIdMap(backup.recurringTransactions);
     const recurringExecutionMap = newIdMap(backup.recurringRunExecutions);
     const transactionMap = newIdMap(backup.transactions);
+    const plannedItemMap = newIdMap(backup.plannedItems);
+    const plannedItemDestinationMap = newIdMap(
+      backup.plannedItems.flatMap((item) => item.destinations),
+    );
+    const plannedItemOccurrenceMap = newIdMap(backup.plannedItemOccurrences);
+    const plannedItemOccurrenceDestinationMap = newIdMap(
+      backup.plannedItemOccurrences.flatMap((occurrence) => occurrence.destinations),
+    );
+    const monthlyBudgetPeriodMap = newIdMap(backup.monthlyBudgetPeriods);
     const transferGroupMap = new Map(
       [
         ...new Set(
@@ -1554,6 +2146,61 @@ export class HouseholdBackupService {
         recurringExecutionMap,
       ),
     );
+    const plannedItems = await insertMany(
+      "planned_items",
+      buildPlannedItemInserts(
+        backup,
+        householdId,
+        currentUserId,
+        plannedItemMap,
+        accountMap,
+        categoryMap,
+        memberMap,
+      ),
+    );
+    await insertMany(
+      "planned_item_destinations",
+      buildPlannedItemDestinationInserts(
+        backup,
+        plannedItemMap,
+        plannedItemDestinationMap,
+        accountMap,
+        categoryMap,
+      ),
+    );
+    const plannedItemOccurrences = await insertMany(
+      "planned_item_occurrences",
+      buildPlannedItemOccurrenceInserts(
+        backup,
+        householdId,
+        plannedItemOccurrenceMap,
+        plannedItemMap,
+        accountMap,
+        categoryMap,
+        memberMap,
+      ),
+    );
+    await insertMany(
+      "planned_item_occurrence_destinations",
+      buildPlannedItemOccurrenceDestinationInserts(
+        backup,
+        plannedItemOccurrenceMap,
+        plannedItemOccurrenceDestinationMap,
+        plannedItemDestinationMap,
+        accountMap,
+        categoryMap,
+      ),
+    );
+    const monthlyBudgetPeriods = await insertMany(
+      "monthly_budget_periods",
+      buildMonthlyBudgetPeriodInserts(
+        backup,
+        householdId,
+        monthlyBudgetPeriodMap,
+        memberMap,
+      ),
+    );
+
     const transactions = await insertMany(
       "transactions",
       buildTransactionInserts(
@@ -1568,6 +2215,21 @@ export class HouseholdBackupService {
         ruleMap,
         recurringExecutionMap,
         transferGroupMap,
+        memberMap,
+        plannedItemOccurrenceMap,
+        plannedItemOccurrenceDestinationMap,
+      ),
+    );
+
+    // Reconciliation links (planned_item_matches) must be inserted after
+    // transactions exist, since each match row's transaction_id FK
+    // requires the real transaction row to already be in the database.
+    await insertMany(
+      "planned_item_matches",
+      buildPlannedItemMatchInserts(
+        backup,
+        plannedItemOccurrenceMap,
+        transactionMap,
         memberMap,
       ),
     );
@@ -1588,6 +2250,9 @@ export class HouseholdBackupService {
       budgetRules: budgetRules.length,
       budgetRuns: budgetRuns.length,
       incomeInputs: incomeInputs.length,
+      plannedItems: plannedItems.length,
+      plannedItemOccurrences: plannedItemOccurrences.length,
+      monthlyBudgetPeriods: monthlyBudgetPeriods.length,
       skippedAttachments: backup.attachments.length,
     };
   }

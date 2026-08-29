@@ -17,6 +17,7 @@ type DatePickerFieldProps = {
   onChange: (nextValue: string) => void;
   placeholder: string;
   granularity?: DateGranularity;
+  disabled?: boolean;
 };
 
 function parseDateValue(value: string, granularity: DateGranularity) {
@@ -55,7 +56,7 @@ function isSameDay(left: Date, right: Date) {
     && left.getDate() === right.getDate();
 }
 
-export function DatePickerField({ label, value, onChange, placeholder, granularity = "date" }: DatePickerFieldProps) {
+export function DatePickerField({ label, value, onChange, placeholder, granularity = "date", disabled = false }: DatePickerFieldProps) {
   const { colors } = useTheme();
   const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
@@ -101,7 +102,8 @@ export function DatePickerField({ label, value, onChange, placeholder, granulari
       <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold } as any}>{label}</Text>
       <Pressable
         onPress={() => setOpen((current) => !current)}
-        style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing(3.5), paddingVertical: spacing(3), borderRadius: radius.mdPlus, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border }}
+        disabled={disabled}
+        style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing(3.5), paddingVertical: spacing(3), borderRadius: radius.mdPlus, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border, opacity: disabled ? 0.6 : 1 }}
       >
         <Text style={{ color: value.trim() ? colors.text : colors.textSecondary, fontWeight: typography.fontWeight.bold } as any}>
           {value.trim() ? formatDisplayValue(value, granularity) : placeholder}

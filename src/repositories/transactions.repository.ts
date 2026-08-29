@@ -111,6 +111,13 @@ export type TransactionMovement = {
   merchant_name: string | null;
   amount: number;
   balance_after_transaction: number | null;
+  /**
+   * Destination account's balance immediately after a transfer arrived --
+   * null for every non-transfer row (a regular transaction only ever
+   * touches one account, already covered by balance_after_transaction).
+   * See 20260901002000_transfer_destination_balance_after.sql.
+   */
+  destination_balance_after_transaction: number | null;
   transaction_date: string;
   is_split: boolean;
   created_at: string;
@@ -595,6 +602,21 @@ export class TransactionsRepository extends BaseRepository<"transactions"> {
 
     if (error) return { data: null, error };
     return { data: (data as unknown as Transaction[]) ?? [], error: null };
+  }
+
+  /** Minimal fields for a set of transaction ids -- used to label a linked transaction (e.g. a recurring expense match) without pulling the full row/relations. */
+  async listByIds(
+    ids: string[],
+  ): Promise<RepoResult<Pick<Transaction, "id" | "title" | "amount" | "transaction_date">[]>> {
+    if (ids.length === 0) return { data: [], error: null };
+
+    const { data, error } = await this.client
+      .from("transactions")
+      .select("id, title, amount, transaction_date")
+      .in("id", ids);
+
+    if (error) return { data: null, error };
+    return { data: data ?? [], error: null };
   }
 
   async listMonthlySummary(

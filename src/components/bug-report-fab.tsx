@@ -35,6 +35,18 @@ import { spacing } from "@/theme/spacing";
  *    screen, budget included.
  * If a future screen adds its own `overlay`, add it to BOTTOM_BAR_ROUTES
  * or LEFT_ALIGNED_ROUTES below rather than guessing a taller offset.
+ *
+ * Also re-mounted inside every screen-level `Modal` (create/edit forms,
+ * and SelectionShell's pickers) so it stays reachable while one is open --
+ * RN's `Modal` always presents in its own native layer above the whole JS
+ * view tree, so the single ProtectedDrawerLayout mount is invisible behind
+ * any open Modal (see the zIndex/elevation comment on `styles.fab` below).
+ * This mirrors `PrivacyToggle`'s exact pattern (see its doc comment in
+ * migrated-page.tsx) -- see accounts.tsx, savings.tsx, transactions.tsx,
+ * transfers.tsx, and selection-shell.tsx for the other mount points. Each
+ * mount still resolves its own position from the current route, so it
+ * naturally keeps whatever placement (or hidden state) the base screen
+ * already uses.
  */
 const HIDDEN_ROUTES = ["/feedback"];
 const FULL_WIDTH_BOTTOM_BAR_ROUTES = ["/budget"];
@@ -84,9 +96,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    // Sits above normal screen content but below native Modals (create/edit
-    // forms, pickers), which React Native always renders in their own
-    // layer above the whole JS view tree regardless of zIndex.
+    // Sits above normal screen content within its own mount. RN's `Modal`
+    // always renders in its own native layer above the whole JS view tree
+    // regardless of zIndex, so this zIndex only orders this FAB against
+    // other non-Modal content in the same screen -- staying visible while
+    // a Modal is open relies on the separate `<BugReportFab />` mounted
+    // inside that Modal (see the doc comment above), not on this value.
     zIndex: 40,
     elevation: 8,
     shadowColor: "#000",

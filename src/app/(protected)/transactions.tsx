@@ -33,6 +33,7 @@ import {
   PrivacyToggle,
   formatCurrency,
   formatDate,
+  formatDateTime,
 } from "@/components/migrated-page";
 import {
   Badge,
@@ -42,6 +43,7 @@ import {
   TableRow,
 } from "@/components/data-surface";
 import { HouseholdMemberSelect } from "@/components/household-member-select";
+import { BugReportFab } from "@/components/bug-report-fab";
 import { GroupedAccountSelect } from "@/components/grouped-account-select";
 import {
   GroupedDestinationSelect,
@@ -105,7 +107,6 @@ import {
   useTransactionAllocations,
 } from "@/features/transactions/hooks/useTransactionAllocations";
 import {
-  allocationEntriesShareOneOwner,
   allocationEntryName,
   createEmptyAllocationDraft,
   resolveAllocationOwnerProfileId,
@@ -833,15 +834,6 @@ export default function TransactionsScreen() {
 
     return ownerTones[toneIndex];
   };
-  const getTransactionCreatorLabel = (item: any) => {
-    const creatorId = item.created_by_profile?.id ?? item.created_by;
-
-    return creatorId === profile?.id
-      ? currentUserLabel
-      : (memberLabelMap.get(creatorId) ??
-          item.created_by_profile?.full_name ??
-          t("settings.unnamedUser"));
-  };
   // ------------------------------------------------------------
   // Split / multi-account transaction detail (the `allocations` column
   // list_transaction_movements returns for split rows -- see
@@ -868,13 +860,6 @@ export default function TransactionsScreen() {
     if (!ownerId) return t("dashboard.shared");
     if (ownerId === profile?.id) return currentUserLabel;
     return memberLabelMap.get(ownerId) ?? t("settings.unnamedUser");
-  };
-  const getSplitOwnerSummaryLabel = (item: any) => {
-    const entries = getAllocationEntries(item);
-    if (entries.length === 0) return getTransactionAccountOwnerLabel(item);
-    return allocationEntriesShareOneOwner(entries, potAccountAssignments, accountOwnerById)
-      ? getAllocationMemberLabel(entries[0])
-      : t("transactions.split.multipleMembers");
   };
   const getCategoryBreadcrumb = (item: any, movementKind: string) => {
     if (!item.category) {
@@ -1087,6 +1072,7 @@ export default function TransactionsScreen() {
         createdBy: effectiveCreatedById || profile.id,
         categoryId: null,
       });
+      show(t("transactions.transferCreateSuccess"));
     } else {
       if (splitEnabled && validateAllocations(parsedAmount, splitAllocations).length > 0) {
         return;
@@ -1104,6 +1090,7 @@ export default function TransactionsScreen() {
         transaction_date: date,
         attachment,
       } as any);
+      show(t("transactions.createSuccess"));
 
       // The transaction row above is already committed at this point. If
       // either step below fails, the create must not look like it silently
@@ -1192,6 +1179,7 @@ export default function TransactionsScreen() {
   async function handleDeleteEditedTransaction() {
     if (!editTransaction) return;
     await deleteTransaction.mutateAsync(editTransaction.id);
+    show(t("transactions.deleteSuccess"));
     setDeleteConfirmationOpen(false);
     closeEditTransaction();
   }
@@ -1261,6 +1249,7 @@ export default function TransactionsScreen() {
       }
     }
 
+    show(t("transactions.updateSuccess"));
     setEditTransaction(null);
   }
 
@@ -1288,6 +1277,7 @@ export default function TransactionsScreen() {
       transactionDate: transferEdit.date,
       categoryId: transferEdit.categoryId,
     });
+    show(t("transactions.transferUpdateSuccess"));
     setTransferEdit(null);
   }
 
@@ -1763,6 +1753,7 @@ export default function TransactionsScreen() {
                 accessibilityLabel={t("cancel")}
               />
               <PrivacyToggle />
+              <BugReportFab />
               <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
                 style={styles.modalKeyboardView}
@@ -2581,15 +2572,7 @@ export default function TransactionsScreen() {
                     [
                       { label: t("transactions.titleLabel"), flex: 1.9 },
                       { label: t("transactions.transactionDate"), flex: 1.1 },
-                      { label: t("transactions.account"), flex: 1.3 },
-                      !isSingleMemberHousehold && {
-                        label: t("transactions.accountOwner"),
-                        flex: 1.15,
-                      },
-                      !isSingleMemberHousehold && {
-                        label: t("transactions.createdBy"),
-                        flex: 1.15,
-                      },
+                      { label: t("transactions.account"), flex: 2.4 },
                       { label: t("transactions.amountLabel"), align: "right" },
                       { label: t("transactions.balanceAfter"), align: "right" },
                       { label: "", flex: 0.35, align: "right" },
@@ -2700,22 +2683,39 @@ export default function TransactionsScreen() {
                           </View>
                         </TableCell>,
                         <TableCell key="date" flex={1.1}>
-                          <Text style={styles.transactionAccount}>
-                            {formatDate(item.transaction_date)}
-                          </Text>
+                          <View style={{ gap: spacing(0.25) }}>
+                            <Text style={styles.transactionAccount}>
+                              {formatDate(item.transaction_date)}
+                            </Text>
+                            <Text style={styles.transactionContext}>
+                              {t("transactions.createdAt", {
+                                datetime: formatDateTime(item.created_at),
+                              })}
+                            </Text>
+                          </View>
                         </TableCell>,
-                        <TableCell key="account" flex={1.3}>
+                        <TableCell key="account" flex={2.4}>
                           {item.is_split && allocationEntries.length > 0 ? (
-                            <View style={{ gap: spacing(0.5) }}>
+                            <View style={{ gap: spacing(0.75) }}>
                               {visibleAllocationEntries.map((entry) => (
-                                <Text
-                                  key={entry.id}
-                                  style={styles.transactionAccount}
-                                  numberOfLines={1}
-                                >
-                                  {allocationEntryName(entry)} ·{" "}
-                                  {displayCurrency(formatCurrency(entry.amount), hideValues)}
-                                </Text>
+                                <View key={entry.id} style={{ gap: spacing(0.25) }}>
+                                  <Text style={styles.transactionAccount} numberOfLines={1}>
+                                    {allocationEntryName(entry)} ·{" "}
+                                    {displayCurrency(formatCurrency(entry.amount), hideValues)}
+                                  </Text>
+                                  {!isSingleMemberHousehold ? (
+                                    <View style={styles.personIdentity}>
+                                      <Ionicons
+                                        name="person-outline"
+                                        size={13}
+                                        color={colors.textSecondary}
+                                      />
+                                      <Text style={styles.transactionContext}>
+                                        {getAllocationMemberLabel(entry)}
+                                      </Text>
+                                    </View>
+                                  ) : null}
+                                </View>
                               ))}
                               {hiddenAllocationCount > 0 ? (
                                 <Text style={styles.transactionContext}>
@@ -2726,43 +2726,27 @@ export default function TransactionsScreen() {
                               ) : null}
                             </View>
                           ) : (
-                            <Text style={styles.transactionAccount}>
-                              {movementKind === "transfer"
-                                ? `${item.source_account?.name ?? t("transactions.sourceAccount")} → ${item.destination_account?.name ?? t("transactions.destinationAccount")}`
-                                : getTransactionAccountLabel(item)}
-                            </Text>
+                            <View style={{ gap: spacing(0.25) }}>
+                              <Text style={styles.transactionAccount}>
+                                {movementKind === "transfer"
+                                  ? `${item.source_account?.name ?? t("transactions.sourceAccount")} → ${item.destination_account?.name ?? t("transactions.destinationAccount")}`
+                                  : getTransactionAccountLabel(item)}
+                              </Text>
+                              {!isSingleMemberHousehold ? (
+                                <View style={styles.personIdentity}>
+                                  <Ionicons
+                                    name="person-outline"
+                                    size={13}
+                                    color={rowTone.accent}
+                                  />
+                                  <Text style={styles.transactionContext}>
+                                    {getTransactionAccountOwnerLabel(item)}
+                                  </Text>
+                                </View>
+                              ) : null}
+                            </View>
                           )}
                         </TableCell>,
-                        !isSingleMemberHousehold && (
-                          <TableCell key="owner" flex={1.15}>
-                            <View style={styles.personIdentity}>
-                              <Ionicons
-                                name="person-outline"
-                                size={15}
-                                color={rowTone.accent}
-                              />
-                              <Text style={styles.transactionAccount}>
-                                {item.is_split
-                                  ? getSplitOwnerSummaryLabel(item)
-                                  : getTransactionAccountOwnerLabel(item)}
-                              </Text>
-                            </View>
-                          </TableCell>
-                        ),
-                        !isSingleMemberHousehold && (
-                          <TableCell key="creator" flex={1.15}>
-                            <View style={styles.personIdentity}>
-                              <Ionicons
-                                name="create-outline"
-                                size={15}
-                                color={colors.primary}
-                              />
-                              <Text style={styles.transactionCreator}>
-                                {getTransactionCreatorLabel(item)}
-                              </Text>
-                            </View>
-                          </TableCell>
-                        ),
                         <TableCell key="amount" align="right">
                           {(() => {
                             const reimbursement = effectiveAmountByTransactionId.get(item.id);
@@ -2807,12 +2791,74 @@ export default function TransactionsScreen() {
                           })()}
                         </TableCell>,
                         <TableCell key="balance" align="right">
-                          <Text style={styles.transactionBalance}>
-                            {item.movement_kind === "transfer" ||
-                            item.balance_after_transaction == null
-                              ? "—"
-                              : displayCurrency(formatCurrency(item.balance_after_transaction), hideValues)}
-                          </Text>
+                          {item.is_split && allocationEntries.length > 0 ? (
+                            <View style={{ gap: spacing(0.75), alignItems: "flex-end" }}>
+                              {visibleAllocationEntries.map((entry) => (
+                                <View key={entry.id} style={{ alignItems: "flex-end" }}>
+                                  <Text style={styles.transactionContext} numberOfLines={1}>
+                                    {allocationEntryName(entry)}
+                                    {!isSingleMemberHousehold
+                                      ? ` · ${getAllocationMemberLabel(entry)}`
+                                      : ""}
+                                  </Text>
+                                  <Text style={styles.transactionBalance} numberOfLines={1}>
+                                    {entry.running_balance == null
+                                      ? "—"
+                                      : displayCurrency(formatCurrency(entry.running_balance), hideValues)}
+                                  </Text>
+                                </View>
+                              ))}
+                              {hiddenAllocationCount > 0 ? (
+                                // Blank spacer so this column's row heights
+                                // stay aligned with the "account" column's
+                                // "+N more" line -- the count is already
+                                // shown there, no need to repeat it here.
+                                <Text style={styles.transactionContext}> </Text>
+                              ) : null}
+                            </View>
+                          ) : item.movement_kind === "transfer" ? (
+                            item.balance_after_transaction == null &&
+                            item.destination_balance_after_transaction == null ? (
+                              <Text style={styles.transactionBalance}>—</Text>
+                            ) : (
+                              <View style={{ gap: spacing(0.75), alignItems: "flex-end" }}>
+                                <View style={{ alignItems: "flex-end" }}>
+                                  <Text style={styles.transactionContext} numberOfLines={1}>
+                                    {item.source_account?.name ?? t("transactions.sourceAccount")}
+                                  </Text>
+                                  <Text style={styles.transactionBalance}>
+                                    {item.balance_after_transaction == null
+                                      ? "—"
+                                      : displayCurrency(formatCurrency(item.balance_after_transaction), hideValues)}
+                                  </Text>
+                                </View>
+                                <View style={{ alignItems: "flex-end" }}>
+                                  <Text style={styles.transactionContext} numberOfLines={1}>
+                                    {item.destination_account?.name ?? t("transactions.destinationAccount")}
+                                  </Text>
+                                  <Text style={styles.transactionBalance}>
+                                    {item.destination_balance_after_transaction == null
+                                      ? "—"
+                                      : displayCurrency(formatCurrency(item.destination_balance_after_transaction), hideValues)}
+                                  </Text>
+                                </View>
+                              </View>
+                            )
+                          ) : item.balance_after_transaction == null ? (
+                            <Text style={styles.transactionBalance}>—</Text>
+                          ) : (
+                            <View style={{ alignItems: "flex-end" }}>
+                              <Text style={styles.transactionContext} numberOfLines={1}>
+                                {getTransactionAccountLabel(item)}
+                                {!isSingleMemberHousehold
+                                  ? ` · ${getTransactionAccountOwnerLabel(item)}`
+                                  : ""}
+                              </Text>
+                              <Text style={styles.transactionBalance}>
+                                {displayCurrency(formatCurrency(item.balance_after_transaction), hideValues)}
+                              </Text>
+                            </View>
+                          )}
                         </TableCell>,
                         <TableCell key="actions" flex={0.35} align="right" mobilePinned>
                           {bulkSelectionOpen ? (
@@ -2986,9 +3032,26 @@ export default function TransactionsScreen() {
                                   {getAllocationMemberLabel(entry)}
                                 </Text>
                               </View>
-                              <Text style={styles.transactionAmount}>
-                                {displayCurrency(formatCurrency(entry.amount), hideValues)}
-                              </Text>
+                              <View style={{ alignItems: "flex-end" }}>
+                                <Text
+                                  style={[
+                                    styles.transactionAmount,
+                                    { color: movementAmountColor(movementKind, colors) },
+                                  ]}
+                                >
+                                  {displayCurrency(formatCurrency(entry.amount), hideValues)}
+                                </Text>
+                                {entry.running_balance != null ? (
+                                  <Text style={styles.transactionContext}>
+                                    {t("transactions.split.balanceAfterEntry", {
+                                      amount: displayCurrency(
+                                        formatCurrency(entry.running_balance),
+                                        hideValues,
+                                      ),
+                                    })}
+                                  </Text>
+                                ) : null}
+                              </View>
                             </View>
                           ))}
                         </View>
@@ -3049,6 +3112,7 @@ export default function TransactionsScreen() {
             accessibilityLabel={t("cancel")}
           />
           <PrivacyToggle />
+          <BugReportFab />
           <ScrollView contentContainerStyle={styles.modalScroll}>
             <View
               style={[
@@ -3218,6 +3282,7 @@ export default function TransactionsScreen() {
             accessibilityLabel={t("cancel")}
           />
           <PrivacyToggle />
+          <BugReportFab />
           <View style={styles.modalCard}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
               {t("transactions.deleteTransferTitle")}
@@ -3246,7 +3311,10 @@ export default function TransactionsScreen() {
                   if (!groupId) return;
                   void deleteCompletedTransfer
                     .mutateAsync(groupId)
-                    .then(() => setTransferToDelete(null));
+                    .then(() => {
+                      show(t("transactions.transferDeleteSuccess"));
+                      setTransferToDelete(null);
+                    });
                 }}
               />
             </View>
@@ -3270,6 +3338,7 @@ export default function TransactionsScreen() {
             accessibilityLabel={t("cancel")}
           />
           <PrivacyToggle />
+          <BugReportFab />
           <View style={[styles.modalCard, styles.editModalCard]}>
             <ScrollView
               keyboardShouldPersistTaps="handled"

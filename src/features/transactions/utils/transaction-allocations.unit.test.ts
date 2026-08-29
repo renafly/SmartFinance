@@ -338,6 +338,7 @@ function entry(overrides: Partial<AllocationMovementEntry> = {}): AllocationMove
     pot_id: overrides.pot_id ?? null,
     pot_name: overrides.pot_name ?? null,
     amount: overrides.amount ?? 0,
+    running_balance: overrides.running_balance ?? null,
   };
 }
 

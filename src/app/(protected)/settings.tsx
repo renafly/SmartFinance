@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Alert, Platform, Text, View } from "react-native";
+import { Alert, Platform, Pressable, Text, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { router, type Href } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { Ionicons } from "@expo/vector-icons";
 import { typography } from "@/theme/typography";
 import { useTheme } from "@/theme/ThemeProvider";
 import { spacing } from "@/theme/spacing";
@@ -94,6 +95,11 @@ export default function SettingsScreen() {
   >(null);
   const [pendingBackup, setPendingBackup] =
     useState<HouseholdBackupFile | null>(null);
+  // Tracking which household ids are *expanded* (rather than which are
+  // collapsed) means an empty set is the natural "everything collapsed"
+  // starting state -- a household card's full edit form/buttons only need
+  // to show once the user actually wants to change something.
+  const [expandedHouseholdIds, setExpandedHouseholdIds] = useState<Set<string>>(new Set());
 
   const households = householdsQuery.data ?? [];
   const currentHousehold =
@@ -289,6 +295,25 @@ export default function SettingsScreen() {
           : t("settings.backupUnknownError"),
       );
     }
+  }
+
+  function toggleHouseholdExpanded(id: string) {
+    setExpandedHouseholdIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const allHouseholdsExpanded =
+    households.length > 0 &&
+    households.every((item: any) => expandedHouseholdIds.has(item.id));
+
+  function toggleAllHouseholdsExpanded() {
+    setExpandedHouseholdIds(
+      allHouseholdsExpanded ? new Set() : new Set(households.map((item: any) => item.id)),
+    );
   }
 
   async function handleSaveHousehold(item: { id: string; name: string }) {
@@ -554,6 +579,19 @@ export default function SettingsScreen() {
       <Section
         title={t("settings.myHouseholds")}
         subtitle={t("settings.myHouseholdsSubtitle")}
+        action={
+          households.length > 0 ? (
+            <Button
+              label={
+                allHouseholdsExpanded
+                  ? t("budget.collapseAllRules")
+                  : t("budget.expandAllRules")
+              }
+              onPress={toggleAllHouseholdsExpanded}
+              variant="secondary"
+            />
+          ) : undefined
+        }
       >
         <View style={{ gap: spacing(3) }}>
           {households.map((item: any) => {
@@ -565,34 +603,49 @@ export default function SettingsScreen() {
               !updateHousehold.isPending &&
               draftName.trim().length > 0 &&
               draftName.trim() !== item.name;
+            const isHouseholdExpanded = expandedHouseholdIds.has(item.id);
 
             return (
               <Card key={item.id}>
                 <View style={{ gap: spacing(2.5) }}>
-                  <View style={{ gap: spacing(1) }}>
-                    <Text
-                      style={{
-                        color: colors.text,
-                        fontWeight: typography.fontWeight.bold as any,
-                        fontSize: typography.fontSize[16],
-                      }}
-                    >
-                      {item.name}
-                    </Text>
-                    <Text
-                      style={{
-                        color: isOwner ? colors.success : colors.primary,
-                        fontWeight: typography.fontWeight.semibold as any,
-                      }}
-                    >
-                      {isOwner ? t("settings.owner") : t("settings.member")}
-                      {isCurrent
-                        ? ` · ${t("settings.currentHouseholdLabel")}`
-                        : ""}
-                    </Text>
-                  </View>
+                  <Pressable
+                    onPress={() => toggleHouseholdExpanded(item.id)}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: isHouseholdExpanded }}
+                    style={({ pressed }) => [
+                      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing(2), opacity: pressed ? 0.9 : 1 },
+                    ] as any}
+                  >
+                    <View style={{ gap: spacing(1) }}>
+                      <Text
+                        style={{
+                          color: colors.text,
+                          fontWeight: typography.fontWeight.bold as any,
+                          fontSize: typography.fontSize[16],
+                        }}
+                      >
+                        {item.name}
+                      </Text>
+                      <Text
+                        style={{
+                          color: isOwner ? colors.success : colors.primary,
+                          fontWeight: typography.fontWeight.semibold as any,
+                        }}
+                      >
+                        {isOwner ? t("settings.owner") : t("settings.member")}
+                        {isCurrent
+                          ? ` · ${t("settings.currentHouseholdLabel")}`
+                          : ""}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name={isHouseholdExpanded ? "chevron-down-outline" : "chevron-forward-outline"}
+                      size={18}
+                      color={colors.textSecondary}
+                    />
+                  </Pressable>
 
-                  {isOwner ? (
+                  {isHouseholdExpanded && isOwner ? (
                     <>
                       <Field
                         label={t("settings.householdName")}
@@ -646,11 +699,11 @@ export default function SettingsScreen() {
                         />
                       </View>
                     </>
-                  ) : (
+                  ) : isHouseholdExpanded ? (
                     <Text style={{ color: colors.textSecondary } as any}>
                       {t("settings.onlyOwnerHouseholdEdit")}
                     </Text>
-                  )}
+                  ) : null}
                 </View>
               </Card>
             );

@@ -16,6 +16,7 @@ import { useResponsiveMetrics } from "@/theme/responsive";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useTheme } from "@/theme/ThemeProvider";
+import { BugReportFab } from "@/components/bug-report-fab";
 
 type SelectionTriggerProps = {
   label: string;
@@ -150,6 +151,7 @@ export function SelectionShell({
             re-mounted here too, or it's unreachable while any picker is
             open. See PrivacyToggle's doc comment in migrated-page.tsx. */}
         <PrivacyToggle />
+        <BugReportFab />
         <View
           style={[
             styles.modalCard,

@@ -49,6 +49,7 @@ type GroupedAccountSelectProps = {
     label: string;
     subtitle?: string;
   };
+  disabled?: boolean;
 };
 
 function getMemberLabel(member?: MemberLike | null, fallback = "") {
@@ -97,6 +98,7 @@ export function GroupedAccountSelect({
   closeLabel = "",
   typeLabels = {},
   allOption,
+  disabled,
 }: GroupedAccountSelectProps) {
   const [open, setOpen] = useState(false);
   const { colors } = useTheme();
@@ -174,6 +176,7 @@ export function GroupedAccountSelect({
         hint={hint}
         placeholder={placeholder}
         iconName="wallet-outline"
+        disabled={disabled}
         onPress={() => setOpen(true)}
       />
 

@@ -1,15 +1,18 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 import { useAuth } from "@/providers/AuthProvider";
-import { invalidateHouseholdData } from "@/lib/query-invalidation";
-import {
-  monthlyBudgetService,
-  type MonthlyBudgetIncomeDraft,
-  type MonthlyBudgetPreview,
-  type MonthlyBudgetRuleAllocationDraft,
-  type MonthlyBudgetRuleDraft,
-} from "../services/monthly-budget.service";
 
+import { monthlyBudgetService } from "../services/monthly-budget.service";
+
+/**
+ * Read-only workspace query -- the sole survivor of the old Monthly Budget
+ * rule/run hooks (rule editing and run drafting/confirming were removed
+ * in the Phase 8 cleanup, see monthly-budget.service.ts's doc comment).
+ * Still consumed by the forecast feature (useAccountBalanceForecasts) and
+ * saving pots (useSavingPotForecasts) to factor legacy budget_rules and
+ * the most recent confirmed monthly_budget_runs row into their
+ * projections. Do not remove until those two callers stop reading it.
+ */
 export function useMonthlyBudgetWorkspace() {
   const { householdId, isLoading } = useAuth();
 
@@ -19,87 +22,3 @@ export function useMonthlyBudgetWorkspace() {
     enabled: !!householdId && !isLoading,
   });
 }
-
-export function useMonthlyBudgetRuns() {
-  const { householdId, isLoading } = useAuth();
-
-  return useQuery({
-    queryKey: ["monthly-budget-runs", householdId],
-    queryFn: () => monthlyBudgetService.getWorkspace(householdId!),
-    select: (workspace) => workspace.runs,
-    enabled: !!householdId && !isLoading,
-  });
-}
-
-export function useMonthlyBudgetIncomeInputs(runId?: string | null) {
-  return useQuery({
-    queryKey: ["monthly-budget-income-inputs", runId],
-    queryFn: () => monthlyBudgetService.getIncomeInputs(runId!),
-    enabled: !!runId,
-  });
-}
-
-export function useSaveMonthlyBudgetConfiguration() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: monthlyBudgetService.saveConfiguration,
-    onSuccess: () => {
-      invalidateHouseholdData(queryClient);
-    },
-  });
-}
-
-export function useSaveMonthlyBudgetDraft() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: monthlyBudgetService.saveDraftRun,
-    onSuccess: () => {
-      invalidateHouseholdData(queryClient);
-    },
-  });
-}
-
-export function useCancelMonthlyBudgetRun() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (runId: string) => monthlyBudgetService.cancelRun(runId),
-    onSuccess: () => {
-      invalidateHouseholdData(queryClient);
-    },
-  });
-}
-
-export function useConfirmMonthlyBudgetRun() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (input: {
-      runId: string;
-      preview: MonthlyBudgetPreview;
-    }) => monthlyBudgetService.confirmRun(input),
-    onSuccess: () => {
-      invalidateHouseholdData(queryClient);
-    },
-  });
-}
-
-export function useDeleteMonthlyBudgetRunTransactions() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (runId: string) => monthlyBudgetService.deleteRunTransactions(runId),
-    onSuccess: () => {
-      invalidateHouseholdData(queryClient);
-    },
-  });
-}
-
-export type {
-  MonthlyBudgetIncomeDraft,
-  MonthlyBudgetPreview,
-  MonthlyBudgetRuleAllocationDraft,
-  MonthlyBudgetRuleDraft,
-};
