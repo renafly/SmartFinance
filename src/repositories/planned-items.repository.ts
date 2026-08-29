@@ -134,6 +134,27 @@ export class PlannedItemsRepository extends BaseRepository<"planned_items"> {
     return { data: data ?? [], error: null };
   }
 
+  /**
+   * Every occurrence for this household, with no month filter -- used by
+   * the forecast layer (planned-item-forecast-contributions.ts) to know,
+   * for any future month a planned item might be due in, whether that
+   * month's occurrence already exists and what state it settled to
+   * (confirmed/matched/skipped/cancelled vs. still 'planned'). Small and
+   * bounded in practice (one row per planned item per month since the
+   * item was created), unlike listOccurrencesForMonth's single-month scope.
+   */
+  async listOccurrencesForHousehold(
+    householdId: string,
+  ): Promise<RepoResult<PlannedItemOccurrenceRow[]>> {
+    const { data, error } = await this.client
+      .from("planned_item_occurrences")
+      .select("*")
+      .eq("household_id", householdId);
+
+    if (error) return { data: null, error };
+    return { data: data ?? [], error: null };
+  }
+
   async listOccurrenceDestinations(
     occurrenceIds: string[],
   ): Promise<RepoResult<PlannedItemOccurrenceDestinationRow[]>> {

@@ -310,6 +310,13 @@ class PlannedItemsService {
     return (data ?? []).map(rowToPlannedItemWithDestinations);
   }
 
+  /** Every occurrence for this household, no month filter -- see listOccurrencesForHousehold's doc comment. Powers the forecast layer's "was this month already executed" check. */
+  async getOccurrencesForHousehold(householdId: string): Promise<PlannedItemOccurrence[]> {
+    const { data, error } = await repositories.plannedItems.listOccurrencesForHousehold(householdId);
+    if (error) throw error;
+    return (data ?? []).map(rowToPlannedItemOccurrence);
+  }
+
   async createPlannedItem(
     draft: PlannedItemDraft,
     context: { householdId: string; createdBy: string },

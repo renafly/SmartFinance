@@ -1,37 +1,52 @@
 import { useMemo } from "react";
 
-import { useMonthlyBudgetWorkspace } from "@/features/monthly-budget/hooks";
+import { useAllPlannedItemOccurrences, usePlannedItems } from "@/features/planned-items/hooks";
+import { buildPlannedItemForecastContributions } from "@/features/planned-items/services/planned-item-forecast-contributions";
 import { useRecurringTransactions } from "@/features/recurring-transactions/hooks";
-import { buildSavingPotForecasts } from "../services/saving-pot-forecast.service";
+import { buildSavingPotForecasts, savingPotForecastConstants } from "../services/saving-pot-forecast.service";
 import { useSavingPotAccountAssignments, useSavingPotBalances, useSavingPots } from "./useSavingPotQueries";
 
+/**
+ * Monthly-Budget-driven pot contributions are sourced from planned_items
+ * (+ their real planned_item_occurrences, for "already executed" state) --
+ * see planned-item-forecast-contributions.ts's module doc comment for why
+ * this replaced the old budget_rules/monthly_budget_runs read (those
+ * tables are write-dead post-Planned-Items-migration, so that old lookup
+ * silently stopped finding anything the moment a household switched over,
+ * which is what caused this forecast to double-count a month's
+ * contribution that had already landed in the pot's balance).
+ */
 export function useSavingPotForecasts() {
   const savingPotsQuery = useSavingPots();
   const balancesQuery = useSavingPotBalances();
   const assignmentsQuery = useSavingPotAccountAssignments();
   const recurringQuery = useRecurringTransactions();
-  const budgetWorkspaceQuery = useMonthlyBudgetWorkspace();
+  const plannedItemsQuery = usePlannedItems();
+  const occurrencesQuery = useAllPlannedItemOccurrences();
 
   return useMemo(() => {
     const balancesByPotId = new Map(
       (balancesQuery.data ?? []).map((balance: any) => [balance.id, balance]),
     );
 
-    // budget_rules carries no next_run/last_run column, so the forecast
-    // can't tell on its own whether this month's transfer already happened
-    // — that only exists as a confirmed monthly_budget_runs row for the
-    // current month. Look one up here and pass along the rule ids it
-    // covered so the forecast doesn't project a contribution this month on
-    // top of the one that was already made.
-    const currentMonthKey = new Date().toISOString().slice(0, 7);
-    const confirmedRunForCurrentMonth = (budgetWorkspaceQuery.data?.runs ?? []).find(
-      (run: any) => run.status === "confirmed" && String(run.month).slice(0, 7) === currentMonthKey,
-    );
-    const confirmedRuleIdsForCurrentMonth = new Set<string>(
-      ((confirmedRunForCurrentMonth?.preview_snapshot as any)?.transfers ?? [])
-        .map((transfer: any) => transfer.ruleId ?? transfer.generatedByRuleId)
-        .filter((ruleId: unknown): ruleId is string => typeof ruleId === "string"),
-    );
+    const asOf = new Date();
+    const contributions = buildPlannedItemForecastContributions({
+      plannedItems: plannedItemsQuery.data ?? [],
+      occurrences: occurrencesQuery.data ?? [],
+      asOf,
+      horizonMonths: savingPotForecastConstants.FORECAST_HORIZON_MONTHS,
+    });
+
+    const monthlyBudgetRules = contributions.map((contribution) => ({
+      id: contribution.destinationKey,
+      source_account_id: contribution.sourceAccountId,
+      destination_account_id: contribution.destinationAccountId,
+      amount: contribution.amount,
+      frequency: "monthly" as const,
+      is_active: true,
+      dueMonthKeys: contribution.dueMonthKeys,
+      skipMonthKeys: contribution.skipMonthKeys,
+    }));
 
     return buildSavingPotForecasts({
       pots: (savingPotsQuery.data ?? []).map((pot: any) => {
@@ -43,9 +58,16 @@ export function useSavingPotForecasts() {
         };
       }),
       recurringTransfers: recurringQuery.data ?? [],
-      monthlyBudgetRules: budgetWorkspaceQuery.data?.rules ?? [],
+      monthlyBudgetRules,
       savingPotAccountAssignments: assignmentsQuery.data ?? [],
-      confirmedRuleIdsForCurrentMonth,
+      asOf,
     });
-  }, [assignmentsQuery.data, balancesQuery.data, budgetWorkspaceQuery.data?.rules, budgetWorkspaceQuery.data?.runs, recurringQuery.data, savingPotsQuery.data]);
+  }, [
+    assignmentsQuery.data,
+    balancesQuery.data,
+    occurrencesQuery.data,
+    plannedItemsQuery.data,
+    recurringQuery.data,
+    savingPotsQuery.data,
+  ]);
 }

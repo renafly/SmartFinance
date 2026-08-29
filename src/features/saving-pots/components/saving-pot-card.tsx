@@ -21,7 +21,7 @@ type SavingPotCardProps = {
   pot: any;
   balance: any;
   forecast: SavingPotForecast | undefined;
-  /** Balance-projection forecast (from the Monthly Budget rules engine), distinct from the target-completion `forecast` above. */
+  /** Balance-projection forecast (accounts-graph engine, includes non-Monthly-Budget movements too), distinct from the target-completion `forecast` above -- both now source Monthly Budget contributions from the same planned_item_forecast_contributions data, so they never disagree about which months are already settled. */
   balanceForecast?: PotBalanceForecast;
   selectedAccounts: SavingPotAccountOption[];
   memberLabelMap: Map<string, string>;

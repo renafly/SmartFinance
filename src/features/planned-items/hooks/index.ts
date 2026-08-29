@@ -26,6 +26,17 @@ export function usePlannedItems() {
   });
 }
 
+/** Every occurrence for the household, no month filter -- see planned-item-forecast-contributions.ts, the only current consumer (via the saving-pots/forecast forecast hooks). */
+export function useAllPlannedItemOccurrences() {
+  const { householdId, isLoading } = useAuth();
+
+  return useQuery({
+    queryKey: ["planned-items-occurrences-all", householdId],
+    queryFn: () => plannedItemsService.getOccurrencesForHousehold(householdId!),
+    enabled: !!householdId && !isLoading,
+  });
+}
+
 export function useCreatePlannedItem() {
   const queryClient = useQueryClient();
   const { householdId, profile } = useAuth();
@@ -103,10 +114,19 @@ export function usePlannedItemsPreview(month?: string | null) {
 }
 
 function invalidatePlannedMonth(queryClient: ReturnType<typeof useQueryClient>) {
-  queryClient.invalidateQueries({ queryKey: ["planned-items-preview"] });
-  queryClient.invalidateQueries({ queryKey: ["planned-items-resolved"] });
-  queryClient.invalidateQueries({ queryKey: ["monthly-budget-periods"] });
-  queryClient.invalidateQueries({ queryKey: ["planned-item-matches"] });
+  // Every mutation below writes or deletes real `transactions` rows
+  // (confirm generates them; revert/revertOccurrence delete them) and can
+  // move money between real accounts -- so a narrow, planned-items-only
+  // invalidation leaves the Transactions list, account balances,
+  // Dashboard and Insights showing stale data right after a successful
+  // confirm or reset (the mutation succeeds and the toast says so, but
+  // nothing else on screen visibly changes until an unrelated refetch
+  // happens to run). Use the same household-wide invalidation every
+  // other cross-cutting mutation in this app uses instead of a bespoke
+  // subset -- it's a strict superset of the four keys this used to
+  // invalidate (planned-items-preview/-resolved, monthly-budget-periods,
+  // planned-item-matches are all in HOUSEHOLD_QUERY_KEYS).
+  invalidateHouseholdData(queryClient);
 }
 
 export function useConfirmPlannedItemMonth() {

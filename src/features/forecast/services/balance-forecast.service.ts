@@ -68,29 +68,22 @@ export type BalanceForecastRecurringRule = {
   excludedMonths?: Array<number | string> | null;
 };
 
-/** One resolved destination-account allocation from `budget_rule_allocations`. */
-export type BalanceForecastRuleAllocation = {
-  destinationAccountId: string | null | undefined;
-  amount: number | null | undefined;
-};
-
 /**
- * A row from `budget_rules` (Monthly Budget), with its allocations already
- * joined in — see BudgetRuleWithAllocations in monthly-budget.repository.ts.
- * Monthly Budget rules always run monthly (the editor hardcodes
- * `frequency: "monthly"`), so unlike recurring rules there is no
- * `frequency`/`next_run` field here; scheduling instead anchors on
- * `createdAt` and is gated by the active-months / active-from/to window.
+ * One resolved planned_items destination contribution -- see
+ * planned-item-forecast-contributions.ts (buildPlannedItemForecastContributions),
+ * the shared source of truth this and saving-pot-forecast.service.ts both
+ * adapt into their own local rule/movement shapes, so the two never
+ * disagree about which future months a contribution is due in or which of
+ * those months are already settled.
  */
-export type BalanceForecastBudgetRule = {
+export type BalanceForecastPlannedItemContribution = {
   id: string;
-  sourceAccountId: string | null | undefined;
+  sourceAccountId: string | null;
+  destinationAccountId: string;
+  amount: number | null | undefined;
   isActive: boolean;
-  allocations?: BalanceForecastRuleAllocation[] | null;
-  activeMonths?: Array<number | string> | null;
-  activeFromMonth?: number | string | null;
-  activeToMonth?: number | string | null;
-  createdAt?: string | null;
+  dueMonthKeys: string[];
+  skipMonthKeys: string[];
 };
 
 export type BalanceForecastTimelineItem = {
@@ -144,11 +137,13 @@ type Movement = {
   activeMonths: number[];
   activeFromMonth: number | null;
   activeToMonth: number | null;
-  // "YYYY-MM" for the one calendar month this movement must be treated as
-  // already reflected in the account's current balance, or null. Set when a
-  // Monthly Budget rule has already been confirmed/run for the current
-  // month — see buildAccountBalanceForecasts's confirmedBudgetRuleIds.
-  skipMonthKey: string | null;
+  // Sorted "YYYY-MM" months this movement occurs in, or null to fall back
+  // to the frequency/next_run walk below (recurring rules/transfers, which
+  // have no precomputed schedule). See BalanceForecastPlannedItemContribution.
+  dueMonthKeys: string[] | null;
+  // Calendar months already reflected in the account's current balance (or
+  // that will never happen -- skipped/cancelled) and never projected again.
+  skipMonthKeys: Set<string>;
 };
 
 const DEFAULT_HORIZON_MONTHS = 24;
@@ -221,7 +216,7 @@ function isMonthWithinWindow(month: number, start: number, end: number) {
 function isIncludedOccurrence(movement: Movement, date: Date) {
   const month = date.getUTCMonth() + 1;
 
-  if (movement.skipMonthKey && monthKey(date) === movement.skipMonthKey) {
+  if (movement.skipMonthKeys.has(monthKey(date))) {
     return false;
   }
 
@@ -244,6 +239,17 @@ function isIncludedOccurrence(movement: Movement, date: Date) {
 }
 
 function getNextOccurrence(movement: Movement, after: Date, horizon: Date) {
+  if (movement.dueMonthKeys) {
+    const afterKey = monthKey(after);
+    for (const key of movement.dueMonthKeys) {
+      if (key < afterKey) continue;
+      if (movement.skipMonthKeys.has(key)) continue;
+      const date = parseUtcDate(`${key}-01`);
+      return date && date <= horizon ? date : null;
+    }
+    return null;
+  }
+
   let occurrence = movement.firstRun;
   let guard = 0;
 
@@ -320,7 +326,8 @@ function buildMovementsFromRecurringRule(
     activeMonths: [] as number[],
     activeFromMonth: null,
     activeToMonth: null,
-    skipMonthKey: null,
+    dueMonthKeys: null,
+    skipMonthKeys: new Set<string>(),
   } satisfies Omit<Movement, "accountId" | "kind" | "amount">;
 
   if ((rule.ruleKind ?? "transaction") === "transfer") {
@@ -343,41 +350,36 @@ function buildMovementsFromRecurringRule(
   ];
 }
 
-function buildMovementsFromBudgetRule(
-  rule: BalanceForecastBudgetRule,
-  asOf: Date,
-  currentMonthKey: string,
-  confirmedRuleIds: Set<string>,
+function buildMovementsFromPlannedItemContribution(
+  contribution: BalanceForecastPlannedItemContribution,
 ): Movement[] {
-  if (!rule.isActive || !rule.sourceAccountId) return [];
+  if (!contribution.isActive) return [];
+  if (contribution.dueMonthKeys.length === 0) return [];
 
-  const allocations = rule.allocations ?? [];
-  if (allocations.length === 0) return [];
+  const amount = roundMoney(Number(contribution.amount));
+  if (!Number.isFinite(amount) || amount <= 0) return [];
+  if (contribution.destinationAccountId === contribution.sourceAccountId) return [];
 
-  // Monthly Budget rules carry no next_run column — a rule contributes
-  // starting the month it was created (or, absent that, starting now).
-  const firstRun = parseUtcDate(rule.createdAt) ?? asOf;
-  const skipMonthKey = confirmedRuleIds.has(rule.id) ? currentMonthKey : null;
+  const firstRun = parseUtcDate(`${contribution.dueMonthKeys[0]}-01`);
+  if (!firstRun) return [];
+
   const base = {
     frequency: "monthly" as const,
     firstRun,
     excludedMonths: [] as number[],
-    activeMonths: normalizeMonthList(rule.activeMonths),
-    activeFromMonth: normalizeMonth(rule.activeFromMonth),
-    activeToMonth: normalizeMonth(rule.activeToMonth),
-    skipMonthKey,
+    activeMonths: [] as number[],
+    activeFromMonth: null,
+    activeToMonth: null,
+    dueMonthKeys: contribution.dueMonthKeys,
+    skipMonthKeys: new Set(contribution.skipMonthKeys),
   } satisfies Omit<Movement, "accountId" | "kind" | "amount">;
 
   const movements: Movement[] = [];
 
-  for (const allocation of allocations) {
-    const amount = roundMoney(Number(allocation.amount));
-    if (!allocation.destinationAccountId || !Number.isFinite(amount) || amount <= 0) continue;
-    if (allocation.destinationAccountId === rule.sourceAccountId) continue;
-
-    movements.push({ ...base, accountId: rule.sourceAccountId, kind: "monthly_budget", amount: -amount });
-    movements.push({ ...base, accountId: allocation.destinationAccountId, kind: "monthly_budget", amount });
+  if (contribution.sourceAccountId) {
+    movements.push({ ...base, accountId: contribution.sourceAccountId, kind: "monthly_budget", amount: -amount });
   }
+  movements.push({ ...base, accountId: contribution.destinationAccountId, kind: "monthly_budget", amount });
 
   return movements;
 }
@@ -452,16 +454,8 @@ function summarizeSources(movements: Movement[], asOf: Date): BalanceForecastSou
 export function buildAccountBalanceForecasts(input: {
   accounts: BalanceForecastAccount[];
   recurringRules: BalanceForecastRecurringRule[];
-  budgetRules: BalanceForecastBudgetRule[];
+  plannedItemContributions: BalanceForecastPlannedItemContribution[];
   savingPotAccountAssignments?: SavingPotAccountAssignment[];
-  /**
-   * Monthly Budget rule ids already confirmed/run for the current month
-   * (via a `monthly_budget_runs` row) — their allocations already moved
-   * real money and are reflected in the accounts' current balances, so
-   * this month's occurrence must be skipped to avoid counting it twice.
-   * See useSavingPotForecasts for the same pattern.
-   */
-  confirmedBudgetRuleIdsForCurrentMonth?: Iterable<string>;
   /** Number of months to project. Clamped to [1, 360]. Defaults to 24. */
   horizonMonths?: number;
   asOf?: Date;
@@ -471,8 +465,6 @@ export function buildAccountBalanceForecasts(input: {
     : new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
   const horizonMonths = Math.max(1, Math.min(input.horizonMonths ?? DEFAULT_HORIZON_MONTHS, MAX_HORIZON_MONTHS));
   const horizon = addMonths(asOf, horizonMonths);
-  const currentMonthKey = monthKey(asOf);
-  const confirmedRuleIds = new Set(input.confirmedBudgetRuleIdsForCurrentMonth ?? []);
 
   const potAccountsByPotId = new Map<string, string[]>();
   for (const assignment of input.savingPotAccountAssignments ?? []) {
@@ -483,7 +475,7 @@ export function buildAccountBalanceForecasts(input: {
 
   const movements = [
     ...input.recurringRules.flatMap((rule) => buildMovementsFromRecurringRule(rule, potAccountsByPotId)),
-    ...input.budgetRules.flatMap((rule) => buildMovementsFromBudgetRule(rule, asOf, currentMonthKey, confirmedRuleIds)),
+    ...input.plannedItemContributions.flatMap((contribution) => buildMovementsFromPlannedItemContribution(contribution)),
   ];
 
   const movementsByAccountId = new Map<string, Movement[]>();

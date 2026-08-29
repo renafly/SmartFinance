@@ -147,7 +147,7 @@ describe("buildSavingPotForecasts", () => {
     ]));
   });
 
-  it("skips the current month for a monthly budget rule already confirmed this month", () => {
+  it("skips a calendar month whose occurrence is already known to be settled", () => {
     const rule = {
       id: "monthly-rule",
       source_account_id: "cash-1",
@@ -160,7 +160,7 @@ describe("buildSavingPotForecasts", () => {
     const savingPotAccountAssignments = [{ pot_id: "pot-1", account_id: "pot-account-1" }];
 
     // budget_rules has no next_run column, so without being told this
-    // month's run was already confirmed, the forecast would otherwise
+    // month's run was already settled, the forecast would otherwise
     // double-count July (the real transfer already happened, plus a
     // forecasted one).
     const stillPending = forecast({
@@ -171,10 +171,13 @@ describe("buildSavingPotForecasts", () => {
       expect.objectContaining({ month: "2026-07", contribution: 200 }),
     );
 
+    // The caller (useSavingPotForecasts) determines settled months from
+    // real planned_item_occurrences data, per (item, month) -- not just
+    // "the current calendar month" -- and passes them in directly on the
+    // rule via skipMonthKeys.
     const alreadyConfirmed = forecast({
-      monthlyBudgetRules: [rule],
+      monthlyBudgetRules: [{ ...rule, skipMonthKeys: ["2026-07"] }],
       savingPotAccountAssignments,
-      confirmedRuleIdsForCurrentMonth: ["monthly-rule"],
     });
     // July's row is dropped entirely (not shown as $0) since that
     // contribution already happened and is already reflected in the pot's
@@ -403,7 +406,7 @@ describe("buildSavingPotForecasts", () => {
       expect(result.unavailableReason).toBe("no_active_contributions");
     });
 
-    it("skips only the current month's allocation contribution for a rule already confirmed this month", () => {
+    it("skips only the current month's allocation contribution for a rule whose occurrence already settled", () => {
       const stillPending = forecast({
         pots: [{ id: "pot-1", targetAmount: 10_000, currentAmount: 0 }],
         monthlyBudgetRules: [investmentsRule],
@@ -415,9 +418,8 @@ describe("buildSavingPotForecasts", () => {
 
       const alreadyConfirmed = forecast({
         pots: [{ id: "pot-1", targetAmount: 10_000, currentAmount: 0 }],
-        monthlyBudgetRules: [investmentsRule],
+        monthlyBudgetRules: [{ ...investmentsRule, skipMonthKeys: ["2026-07"] }],
         savingPotAccountAssignments: [{ pot_id: "pot-1", account_id: "xtb-account" }],
-        confirmedRuleIdsForCurrentMonth: ["rule-investments"],
       });
       expect(alreadyConfirmed.timeline[0]).toEqual(
         expect.objectContaining({ month: "2026-08", contribution: 50 }),

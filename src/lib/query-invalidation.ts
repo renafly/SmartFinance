@@ -27,6 +27,7 @@ const HOUSEHOLD_QUERY_KEYS = [
   ["planned-items-preview"],
   ["planned-items-resolved"],
   ["planned-item-matches"],
+  ["planned-items-occurrences-all"],
   ["monthly-budget-periods"],
   ["notifications"],
   ["replenishments"],
