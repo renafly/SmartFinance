@@ -139,6 +139,16 @@ describe("buildAccountBalanceForecasts", () => {
     // flattened contribution per destination account, each carrying its
     // own resolved amount and due-month schedule (never a rule total plus
     // an allocations array — that fan-out already happened upstream).
+    //
+    // dueMonthKeys spans 12 months here (not just the 6-month display
+    // horizon below) because that mirrors real production data: the real
+    // caller (useAccountBalanceForecasts) resolves dueMonthKeys against a
+    // 24-month horizon (FORECAST_HORIZON_MONTHS), so an indefinitely-
+    // recurring monthly item always has dueMonthKeys covering well past
+    // averageMonthlyMovement's fixed 12-month averaging window. A shorter
+    // fixture here would silently understate monthlyMovement -- it's the
+    // averaging window being diluted by an incomplete due-month list, not
+    // a real behavior difference.
     const plannedItemContributions: BalanceForecastPlannedItemContribution[] = [
       {
         id: "item-1:savings-1",
@@ -146,7 +156,7 @@ describe("buildAccountBalanceForecasts", () => {
         destinationAccountId: "savings-1",
         amount: 100,
         isActive: true,
-        dueMonthKeys: ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"],
+        dueMonthKeys: ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04", "2027-05", "2027-06"],
         skipMonthKeys: [],
       },
       {
@@ -155,7 +165,7 @@ describe("buildAccountBalanceForecasts", () => {
         destinationAccountId: "savings-2",
         amount: 100,
         isActive: true,
-        dueMonthKeys: ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"],
+        dueMonthKeys: ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04", "2027-05", "2027-06"],
         skipMonthKeys: [],
       },
     ];
