@@ -548,4 +548,4 @@ function summarize(
   };
 }
 
-export { isPlannedItemDueInMonth, splitEqualRemainderLast, splitPercentRemainderLast };
+export { isPlannedItemDueInMonth, roundMoney, splitEqualRemainderLast, splitPercentRemainderLast };

@@ -8,8 +8,9 @@ import { repositories } from "@/repositories";
 
 import { plannedItemsConfirmService } from "../services/planned-items-confirm.service";
 import { plannedItemsService } from "../services/planned-items.service";
-import { rowToMonthlyBudgetPeriod, rowToPlannedItemOccurrence } from "../services/planned-items.service";
+import { rowToMonthlyBudgetPeriod, rowToPlannedItemOccurrence, rowToPlannedItemOccurrenceDestination } from "../services/planned-items.service";
 import type { PlannedItemDraft, PlannedItemMatch } from "../types";
+import type { Database } from "@/types/database.types";
 
 // ------------------------------------------------------------
 // planned_items CRUD -- mirrors useIncomeSources.ts /
@@ -288,8 +289,24 @@ export type RecentPlannedMonthSummary = {
   /** "YYYY-MM" */
   month: string;
   income: number;
+  /**
+   * Outflow that is NOT itself a transfer into a savings/investment
+   * account -- i.e. every settled outflow occurrence's amount, minus
+   * whatever portion of it landed in a `savings`/`investments` bucket
+   * below. Without this subtraction a "move money to savings" planned
+   * item (direction='outflow', destination account type='savings')
+   * would be counted once here AND again in `savings`, which is exactly
+   * the double-counted-total bug the redesigned Monthly Preview (see
+   * buildMonthlyPreviewViewModel's own doc comment) fixes for the
+   * current month -- this trend data needed the same fix to stay
+   * consistent with it for "compared with last month".
+   */
   expenses: number;
-  /** income - expenses, the direct analogue of the old run's remainingCash. */
+  /** Settled destination amounts landing in a `type = 'savings'` account. Only populated when `accountTypeById` (an accountId -> account_type map, e.g. from the accounts already loaded by the caller) is passed in -- otherwise 0. */
+  savings: number;
+  /** Same as `savings`, for `type = 'investment'` destination accounts. */
+  investments: number;
+  /** income - expenses - savings - investments, the direct analogue of the old run's remainingCash. */
   remainingCash: number;
 };
 
@@ -303,7 +320,20 @@ function lastNMonths(monthsBack: number): string[] {
   return months;
 }
 
-export function useRecentPlannedMonthsSummary(monthsBack = 6) {
+/**
+ * @param accountTypeById accountId -> account_type, used only to split
+ * settled outflow amounts into expenses/savings/investments (see
+ * RecentPlannedMonthSummary's doc comment). Pass the caller's own
+ * already-loaded accounts list keyed by id -- this hook never fetches
+ * accounts itself, to avoid a second accounts query duplicating one the
+ * screen almost certainly already has. Omit it (or pass an empty map) to
+ * get the old behavior back (`expenses` = every settled outflow amount,
+ * `savings`/`investments` both 0).
+ */
+export function useRecentPlannedMonthsSummary(
+  monthsBack = 6,
+  accountTypeById: Map<string, Database["public"]["Enums"]["account_type"]> = new Map(),
+) {
   const { householdId, isLoading } = useAuth();
   const months = useMemo(() => lastNMonths(monthsBack), [monthsBack]);
 
@@ -314,34 +344,66 @@ export function useRecentPlannedMonthsSummary(monthsBack = 6) {
         months.map((month) => repositories.plannedItems.listOccurrencesForMonth(householdId!, `${month}-01`)),
       );
 
-      const summaries: RecentPlannedMonthSummary[] = [];
-      results.forEach((result, index) => {
+      // planned_item_occurrences carries no `direction` column of its
+      // own -- it's read off the parent planned_items row, which this
+      // lightweight aggregation deliberately doesn't join in (see the
+      // module doc comment above). Every occurrence this rebuild creates
+      // for an inflow item has a null source_account_id (planned_items'
+      // planned_items_source_account_by_direction check enforces that at
+      // the template level, and materialize copies it through unchanged)
+      // while every outflow occurrence has one set -- so that column
+      // doubles as the direction signal here without a join.
+      const settledByMonth = results.map((result) => {
         if (result.error) throw result.error;
-        const occurrences = (result.data ?? []).map(rowToPlannedItemOccurrence);
-        const settled = occurrences.filter((occurrence) => occurrence.status === "confirmed" || occurrence.status === "matched");
+        return (result.data ?? [])
+          .map(rowToPlannedItemOccurrence)
+          .filter((occurrence) => occurrence.status === "confirmed" || occurrence.status === "matched");
+      });
+
+      // One batched destinations fetch for every settled occurrence
+      // across every month, rather than one call per month -- there are
+      // at most a handful of months here, so this stays a single extra
+      // round trip, not `monthsBack` of them.
+      const allSettledOccurrenceIds = settledByMonth.flat().map((occurrence) => occurrence.id);
+      const destinationsResult = await repositories.plannedItems.listOccurrenceDestinations(allSettledOccurrenceIds);
+      if (destinationsResult.error) throw destinationsResult.error;
+      const destinationsByOccurrenceId = new Map<string, ReturnType<typeof rowToPlannedItemOccurrenceDestination>[]>();
+      for (const destination of (destinationsResult.data ?? []).map(rowToPlannedItemOccurrenceDestination)) {
+        const bucket = destinationsByOccurrenceId.get(destination.occurrenceId) ?? [];
+        bucket.push(destination);
+        destinationsByOccurrenceId.set(destination.occurrenceId, bucket);
+      }
+
+      const summaries: RecentPlannedMonthSummary[] = [];
+      settledByMonth.forEach((settled, index) => {
         if (settled.length === 0) return;
 
-        // planned_item_occurrences carries no `direction` column of its
-        // own -- it's read off the parent planned_items row, which this
-        // lightweight aggregation deliberately doesn't join in (see the
-        // doc comment above). Every occurrence this rebuild creates for an
-        // inflow item has a null source_account_id (planned_items'
-        // planned_items_source_account_by_direction check enforces that at
-        // the template level, and materialize copies it through
-        // unchanged) while every outflow occurrence has one set -- so that
-        // column doubles as the direction signal here without a join.
-        const income = settled
-          .filter((occurrence) => occurrence.sourceAccountId === null)
-          .reduce((sum, occurrence) => sum + occurrence.expectedAmount, 0);
-        const expenses = settled
-          .filter((occurrence) => occurrence.sourceAccountId !== null)
-          .reduce((sum, occurrence) => sum + occurrence.expectedAmount, 0);
+        let income = 0;
+        let outflowTotal = 0;
+        let savings = 0;
+        let investments = 0;
 
+        for (const occurrence of settled) {
+          if (occurrence.sourceAccountId === null) {
+            income += occurrence.expectedAmount;
+            continue;
+          }
+          outflowTotal += occurrence.expectedAmount;
+          for (const destination of destinationsByOccurrenceId.get(occurrence.id) ?? []) {
+            const accountType = accountTypeById.get(destination.destinationAccountId);
+            if (accountType === "savings") savings += destination.amount;
+            if (accountType === "investment") investments += destination.amount;
+          }
+        }
+
+        const expenses = outflowTotal - savings - investments;
         summaries.push({
           month: months[index],
           income: Math.round(income * 100) / 100,
           expenses: Math.round(expenses * 100) / 100,
-          remainingCash: Math.round((income - expenses) * 100) / 100,
+          savings: Math.round(savings * 100) / 100,
+          investments: Math.round(investments * 100) / 100,
+          remainingCash: Math.round((income - outflowTotal) * 100) / 100,
         });
       });
 

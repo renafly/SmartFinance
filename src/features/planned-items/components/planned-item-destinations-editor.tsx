@@ -3,8 +3,8 @@ import { Pressable, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Field, Pill, Button, formatCurrency } from '@/components/migrated-page';
-import { GroupedAccountSelect } from '@/components/grouped-account-select';
+import { Field, Pill, formatCurrency } from '@/components/migrated-page';
+import { GroupedAccountMultiSelect, GroupedAccountSelect } from '@/components/grouped-account-select';
 import { CategoryPicker, type CategoryPickerCategory } from '@/components/category-picker';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
@@ -34,6 +34,13 @@ import { AccountBrowseModeToggle, PotDestinationBrowser, type PotAwareBrowseMode
  * is a cheap, honest confirmation rather than dead weight. Adapted from
  * budget-rule-card.tsx's AllocationSummary (amount-only, 2 modes) to cover
  * all 3 planned-item modes plus a percent readout.
+ *
+ * This same Total/Assigned/Remaining + balanced/over-budget readout is
+ * what satisfies the multi-account allocation UX requirement (assigned <
+ * total shows the amber "left to assign" state, assigned > total shows the
+ * red over-budget state, assigned === total shows the green "fully
+ * assigned" state) -- nothing extra was needed for that once accounts can
+ * be bulk-added (see addDestinationsFromPicker below).
  */
 function AllocationSummary({
   mode,
@@ -171,20 +178,41 @@ export function PlannedItemDestinationsEditor({
   const mode = effectiveAllocationMode(destinations.length, allocationMode);
   const maxDestinations = isEstimate ? 1 : Infinity;
   const canAddMore = !disabled && destinations.length < maxDestinations;
+  const remainingSlots = maxDestinations === Infinity ? undefined : maxDestinations - destinations.length;
 
   function updateDestination(id: string, patch: Partial<PlannedItemDestinationDraft>) {
     const next = destinations.map((destination) => (destination.id === id ? { ...destination, ...patch } : destination));
     onSetDestinations(next, effectiveAllocationMode(next.length, allocationMode));
   }
 
-  function addDestination() {
-    const usedIds = new Set([sourceAccountId, ...destinations.map((d) => d.destinationAccountId)]);
-    const nextAccount = accounts.find((account) => !usedIds.has(account.id));
-    const next = [
-      ...destinations,
-      { id: generateDestinationDraftId(), destinationAccountId: nextAccount?.id ?? '', amount: '', percent: '', categoryId: null },
-    ];
-    onSetDestinations(next, effectiveAllocationMode(next.length, allocationMode));
+  /**
+   * Bulk-add entry point: the account picker (GroupedAccountMultiSelect)
+   * lets the user check several accounts at once and confirm in a single
+   * action, so a 3-account split is one "Add accounts" tap + one Done tap
+   * instead of three separate "Add destination" + per-row account-pick
+   * round trips. Each newly-picked account becomes its own destination row
+   * with a blank, independently-editable amount -- exactly the worked
+   * example's "Santander €200 / ActivoBank €150 / Revolut €150" shape.
+   *
+   * Mode choice: going from 0/1 destinations (mode 'single') straight to
+   * 2+ jumps to 'custom_amount' rather than 'equal_split' -- bulk-picking
+   * several specific accounts signals the user already knows which
+   * accounts participate and wants to type each one's amount, not have it
+   * split evenly. If a mode was already explicitly chosen (equal_split /
+   * custom_percent), adding more accounts keeps that choice.
+   */
+  function addDestinationsFromPicker(accountIds: string[]) {
+    if (accountIds.length === 0) return;
+    const newDestinations: PlannedItemDestinationDraft[] = accountIds.map((accountId) => ({
+      id: generateDestinationDraftId(),
+      destinationAccountId: accountId,
+      amount: '',
+      percent: '',
+      categoryId: null,
+    }));
+    const next = [...destinations, ...newDestinations];
+    const requestedMode = allocationMode === 'single' ? 'custom_amount' : allocationMode;
+    onSetDestinations(next, effectiveAllocationMode(next.length, requestedMode));
   }
 
   function removeDestination(id: string) {
@@ -197,6 +225,11 @@ export function PlannedItemDestinationsEditor({
   }
 
   const equalSplitPreview = mode === 'equal_split' ? distributeEqualSplitPreview(totalAmount, destinations.length) : [];
+  // Never offer the source account or an account already added as a
+  // destination row -- "accounts already selected should not appear as
+  // available duplicates" applies to the bulk picker exactly like it
+  // already does to each row's own account swap below.
+  const alreadyUsedAccountIds = [sourceAccountId, ...destinations.map((destination) => destination.destinationAccountId)];
 
   return (
     <View style={{ gap: spacing(2.5) } as any}>
@@ -207,7 +240,25 @@ export function PlannedItemDestinationsEditor({
             {t('budget.plannedItems.destinationsTitle')}
           </Text>
         </View>
-        {canAddMore ? <Button label={t('budget.addDestination')} onPress={addDestination} variant="secondary" /> : null}
+        {canAddMore ? (
+          <GroupedAccountMultiSelect
+            title={t('budget.selectAccountsTitle')}
+            triggerLabel={t('budget.addDestination')}
+            hint={t('budget.selectAccountsHint')}
+            accounts={accounts}
+            members={members}
+            excludeAccountIds={alreadyUsedAccountIds}
+            groupBy="type"
+            typeLabels={destinationAccountTypeLabels}
+            sharedLabel={t('budget.shared')}
+            unassignedLabel={t('settings.unnamedUser')}
+            closeLabel={t('cancel')}
+            confirmLabel={t('done')}
+            emptyLabel={t('budget.noAccountsAvailable')}
+            maxSelectable={remainingSlots}
+            onConfirm={addDestinationsFromPicker}
+          />
+        ) : null}
       </View>
 
       {destinations.length === 0 ? (
