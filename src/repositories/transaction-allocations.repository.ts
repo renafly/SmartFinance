@@ -82,6 +82,3 @@ export class TransactionAllocationsRepository extends BaseRepository<"transactio
     return { data: null, error: null };
   }
 }
-
-export const transactionAllocationsRepository =
-  new TransactionAllocationsRepository(supabase);

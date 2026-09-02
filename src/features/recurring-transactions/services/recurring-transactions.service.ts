@@ -1,8 +1,8 @@
 import { repositories } from "@/repositories";
 import type { Database } from "@/types/database.types";
+import type { TransactionType } from "@/types/transaction-type";
 
 type Frequency = Database["public"]["Enums"]["recurring_frequency"];
-type TransactionType = Database["public"]["Enums"]["transaction_type"];
 type RuleKind = Database["public"]["Enums"]["recurring_rule_kind"];
 type ExpenseKind = Database["public"]["Enums"]["recurring_expense_kind"];
 type EndCondition = Database["public"]["Enums"]["recurring_end_condition"];

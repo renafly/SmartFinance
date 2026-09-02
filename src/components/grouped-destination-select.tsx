@@ -8,6 +8,7 @@ import { formatCurrency } from "@/components/migrated-page";
 import { displayCurrency } from "@/shared/lib/mask-currency";
 import { usePrivacyStore } from "@/stores/privacyStore";
 import { SelectionOptionRow, SelectionShell, SelectionTrigger } from "@/components/selection-shell";
+import { getAccountOwnerKey } from "@/features/accounts/account-ordering";
 
 type MemberLike = {
   userId: string;
@@ -111,7 +112,7 @@ export function GroupedDestinationSelect({
       if (allowedTypes && allowedTypes.length > 0 && !allowedTypes.includes(account.type)) continue;
       if (allowedAccountIds && allowedAccountIds.length > 0 && !allowedAccountIds.includes(account.id)) continue;
 
-      const key = groupBy === "type" ? account.type : account.owner_profile_id ?? "__shared__";
+      const key = groupBy === "type" ? account.type : getAccountOwnerKey(account);
       const title =
         groupBy === "type"
           ? typeLabels[account.type] ?? account.type

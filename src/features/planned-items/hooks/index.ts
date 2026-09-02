@@ -92,17 +92,6 @@ export function useDeletePlannedItem() {
 // Resolve / preview / confirm -- one month at a time.
 // ------------------------------------------------------------
 
-/** Read-only resolve -- no materialization, so it never writes anything. Prefer usePlannedItemsPreview for the actual Monthly Budget screen (it needs materialized occurrence ids so revert/match/skip/cancel work on what's shown); this is for a lighter "what would this month look like" check. */
-export function useResolvedPlannedMonth(month?: string | null) {
-  const { householdId, isLoading } = useAuth();
-
-  return useQuery({
-    queryKey: ["planned-items-resolved", householdId, month],
-    queryFn: () => plannedItemsConfirmService.resolveMonth(householdId!, month!),
-    enabled: !!householdId && !!month && !isLoading,
-  });
-}
-
 /** Resolves AND materializes the month (see previewMonth's doc comment in planned-items-confirm.service.ts for why materializing here is deliberate) -- this is what the Monthly Budget screen should load. */
 export function usePlannedItemsPreview(month?: string | null) {
   const { householdId, isLoading } = useAuth();
@@ -136,19 +125,6 @@ export function useConfirmPlannedItemMonth() {
 
   return useMutation({
     mutationFn: (month: string) => plannedItemsConfirmService.confirmMonth(householdId!, month, profile!.id),
-    onSuccess: () => {
-      invalidatePlannedMonth(queryClient);
-    },
-  });
-}
-
-export function useRevertPlannedItemOccurrence() {
-  const queryClient = useQueryClient();
-  const { householdId } = useAuth();
-
-  return useMutation({
-    mutationFn: ({ occurrenceId, month }: { occurrenceId: string; month: string }) =>
-      plannedItemsConfirmService.revertOccurrence(occurrenceId, householdId!, month),
     onSuccess: () => {
       invalidatePlannedMonth(queryClient);
     },
@@ -199,28 +175,6 @@ export function useSkipPlannedItemOccurrence() {
 
   return useMutation({
     mutationFn: (occurrenceId: string) => plannedItemsConfirmService.skipOccurrence(occurrenceId),
-    onSuccess: () => {
-      invalidatePlannedMonth(queryClient);
-    },
-  });
-}
-
-export function useCancelPlannedItemOccurrence() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (occurrenceId: string) => plannedItemsConfirmService.cancelOccurrence(occurrenceId),
-    onSuccess: () => {
-      invalidatePlannedMonth(queryClient);
-    },
-  });
-}
-
-export function useResetPlannedItemOccurrenceToTemplate() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (occurrenceId: string) => plannedItemsConfirmService.resetOccurrenceToTemplate(occurrenceId),
     onSuccess: () => {
       invalidatePlannedMonth(queryClient);
     },

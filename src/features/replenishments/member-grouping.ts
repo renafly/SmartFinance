@@ -3,10 +3,15 @@
 // step, and the sources step so all three present the same member/"Shared"
 // breakdown instead of three slightly different groupings.
 
+import { SHARED_ACCOUNT_OWNER_KEY, getAccountOwnerKey } from "@/features/accounts/account-ordering";
+
 /** Bucket key for accounts/pots/transactions that don't belong to a single
  * member -- a shared account, or a saving pot backed by accounts owned by
- * more than one member (or by no one in particular). */
-export const SHARED_MEMBER_KEY = "__shared__";
+ * more than one member (or by no one in particular). Same sentinel as the
+ * accounts feature's SHARED_ACCOUNT_OWNER_KEY -- kept as its own named
+ * export here since every call site in this wizard already imports it by
+ * this name. */
+export const SHARED_MEMBER_KEY = SHARED_ACCOUNT_OWNER_KEY;
 
 export type MemberLabelInfo = {
   userId: string;
@@ -30,7 +35,7 @@ export function buildMemberLabelMap(
 }
 
 export function accountMemberKey(account: { owner_profile_id?: string | null }): string {
-  return account.owner_profile_id ?? SHARED_MEMBER_KEY;
+  return getAccountOwnerKey({ owner_profile_id: account.owner_profile_id ?? null });
 }
 
 /**

@@ -3,7 +3,10 @@ import type { DestinationSelection } from '@/components/grouped-destination-sele
 export type MovementKind = 'one-off' | 'recurring-transfer' | 'recurring-transaction';
 export type RuleKind = Exclude<MovementKind, 'one-off'>;
 export type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
-export type TransactionType = 'income' | 'expense';
+// Scoped to this wizard's own draft shape (no 'transfer' member) --
+// distinct on purpose from the database-enum-backed TransactionType in
+// @/types/transaction-type, hence the different name.
+export type MovementTransactionType = 'income' | 'expense';
 export type ExpenseKind = 'subscription' | 'bill' | 'other';
 export type ScheduledCategory = 'all' | 'subscription' | 'bill' | 'income' | 'transfer';
 
@@ -20,7 +23,7 @@ export type MovementDraft = {
   sourceAccountId: string;
   destination: DestinationSelection | null;
   categoryId: string | null;
-  transactionType: TransactionType;
+  transactionType: MovementTransactionType;
   expenseKind: ExpenseKind;
   frequency: Frequency;
   excludedMonths: number[];

@@ -22,10 +22,4 @@ export function useAccountsWithBalances() {
     enabled: !!householdId && !isLoading,
   })
 }
-export function useAccount(id: string) {
-  return useQuery({
-    queryKey: ["accounts", id],
-    queryFn: () => accountsService.getAccountById(id),
-    enabled: !!id,
-  });
-}
+

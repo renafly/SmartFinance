@@ -3,6 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 
+import { groupCategoriesByParent } from "@/features/categories/group-categories";
 import { EmptyState, Table, TableCell, TableRow } from "@/components/data-surface";
 import { Button, Field, Pill, formatCurrency } from "@/components/migrated-page";
 import {
@@ -457,24 +458,10 @@ export function WageFlowCategoryEditorModal({
     () => new Map(categoryOptions.map((c) => [c.id, c])),
     [categoryOptions],
   );
-  // Same two-level grouping as the shared CategoryPicker used in
-  // transactions -- main categories as expandable groups, subcategories
-  // nested/indented underneath -- but toggling rather than single-select,
-  // since a wage flow category can include several categories at once.
-  const { categoryMainList, categoryChildrenByParent } = useMemo(() => {
-    const childrenMap = new Map<string, WageFlowCategoryOption[]>();
-    const mains: WageFlowCategoryOption[] = [];
-    for (const category of categoryOptions) {
-      if (category.parentId && categoryById.has(category.parentId)) {
-        const list = childrenMap.get(category.parentId) ?? [];
-        list.push(category);
-        childrenMap.set(category.parentId, list);
-      } else {
-        mains.push(category);
-      }
-    }
-    return { categoryMainList: mains, categoryChildrenByParent: childrenMap };
-  }, [categoryOptions, categoryById]);
+  const { mainCategories: categoryMainList, childrenByParent: categoryChildrenByParent } = useMemo(
+    () => groupCategoriesByParent(categoryOptions, (category) => category.parentId),
+    [categoryOptions],
+  );
 
   function toggleCategoryGroupExpanded(id: string) {
     setExpandedCategoryGroupIds((current) => {

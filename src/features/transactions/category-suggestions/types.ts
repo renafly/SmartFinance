@@ -1,6 +1,7 @@
-import type { Database } from "@/types/database.types";
+import type { TransactionType } from "@/types/transaction-type";
 
-export type TransactionType = Database["public"]["Enums"]["transaction_type"];
+export type { TransactionType };
+
 export type CategorySuggestionConfidence = "high" | "medium" | "low";
 
 export type CategorySuggestionCandidate = {

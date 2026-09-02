@@ -1,11 +1,4 @@
-/** Formats a Date as a local (not UTC) YYYY-MM-DD string, matching the
- * plain date strings `transaction_date` columns store. */
-export function localDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+import { getLocalCalendarDate } from "@/features/transactions/utils/transaction-create-form";
 
 /**
  * Computes a `{ from, to }` date range for a trailing-N-months preset like
@@ -23,8 +16,8 @@ export function localDate(date: Date): string {
 export function computeDateRange(preset: string, now: Date): { from: string; to: string } {
   if (preset === "last_month") {
     return {
-      from: localDate(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
-      to: localDate(new Date(now.getFullYear(), now.getMonth(), 0)),
+      from: getLocalCalendarDate(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
+      to: getLocalCalendarDate(new Date(now.getFullYear(), now.getMonth(), 0)),
     };
   }
 
@@ -37,7 +30,7 @@ export function computeDateRange(preset: string, now: Date): { from: string; to:
           1,
         );
   return {
-    from: localDate(start),
-    to: localDate(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+    from: getLocalCalendarDate(start),
+    to: getLocalCalendarDate(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
   };
 }

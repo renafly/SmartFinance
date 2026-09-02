@@ -1,4 +1,4 @@
-import { formatLocalDate } from "@/features/dashboard/utils";
+import { getLocalCalendarDate } from "@/features/transactions/utils/transaction-create-form";
 
 import { getDescendantCategoryIds, type ExplorerNode, type ExplorerTree } from "./explorer-data";
 
@@ -19,7 +19,7 @@ export function categoryBrowserPeriodRange(period: CategoryBrowserPeriod, now: D
   const months = PERIOD_MONTHS[period];
   const start = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return { from: formatLocalDate(start), to: formatLocalDate(end) };
+  return { from: getLocalCalendarDate(start), to: getLocalCalendarDate(end) };
 }
 
 export type BrowserTransactionLike = {

@@ -31,17 +31,6 @@ export function useHouseholdEffectiveAmounts(householdId: string | null | undefi
   });
 }
 
-export function useTransactionEffectiveAmount(
-  transactionId: string | null | undefined,
-  options?: { enabled?: boolean },
-) {
-  return useQuery({
-    queryKey: ["transaction-effective-amount", transactionId],
-    queryFn: () => transactionReimbursementsService.getEffectiveAmount(transactionId!),
-    enabled: (options?.enabled ?? true) && !!transactionId,
-  });
-}
-
 function invalidateForTransaction(queryClient: ReturnType<typeof useQueryClient>, transactionId: string) {
   invalidateHouseholdData(queryClient);
   queryClient.invalidateQueries({ queryKey: ["transaction-reimbursements", transactionId] });
@@ -56,21 +45,6 @@ export function useCreateReimbursement() {
       transactionReimbursementsService.createReimbursement(input),
     onSuccess: (_data, variables) => {
       invalidateForTransaction(queryClient, variables.transaction_id);
-    },
-  });
-}
-
-export function useUpdateReimbursement() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      transactionId,
-      ...input
-    }: UpdateReimbursementInput & { transactionId: string }) =>
-      transactionReimbursementsService.updateReimbursement(input),
-    onSuccess: (_data, variables) => {
-      invalidateForTransaction(queryClient, variables.transactionId);
     },
   });
 }

@@ -178,11 +178,3 @@ export function useTransactionsInfinite(
     enabled: (options?.enabled ?? true) && !!householdId && !isLoading,
   });
 }
-
-export function useTransaction(id: string) {
-  return useQuery({
-    queryKey: ["transactions", id, TRANSACTION_RELATIONS_QUERY_VERSION],
-    queryFn: () => transactionsService.getTransaction(id),
-    enabled: !!id,
-  });
-}

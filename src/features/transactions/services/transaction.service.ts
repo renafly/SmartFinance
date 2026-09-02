@@ -23,13 +23,6 @@ type UpdateTransactionInput = {
 
 const ATTACHMENTS_BUCKET = "attachments";
 export const MAX_TRANSACTION_ATTACHMENT_BYTES = 10 * 1024 * 1024;
-export const ALLOWED_TRANSACTION_ATTACHMENT_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-] as const;
-
 const ALLOWED_TRANSACTION_ATTACHMENT_EXTENSIONS = new Map<string, readonly string[]>([
   ["image/jpeg", ["jpg", "jpeg"]],
   ["image/png", ["png"]],

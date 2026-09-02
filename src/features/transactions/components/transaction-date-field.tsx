@@ -9,23 +9,7 @@ import { useTheme } from "@/theme/ThemeProvider";
 import { typography } from "@/theme/typography";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
-
-export function parseDateInputValue(value: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]) - 1;
-  const day = Number(match[3]);
-  const nextDate = new Date(year, month, day);
-  return Number.isNaN(nextDate.getTime()) ? null : nextDate;
-}
-
-export function formatDateInputValue(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+import { getLocalCalendarDate, parseLocalCalendarDate } from "@/features/transactions/utils/transaction-create-form";
 
 export function DatePickerField({
   label,
@@ -42,7 +26,7 @@ export function DatePickerField({
   const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
   const [draftDate, setDraftDate] = useState(
-    () => parseDateInputValue(value) ?? new Date(),
+    () => parseLocalCalendarDate(value) ?? new Date(),
   );
 
   if (Platform.OS === "web") {
@@ -71,7 +55,7 @@ export function DatePickerField({
       <Pressable
         onPress={() => {
           if (!open) {
-            setDraftDate(parseDateInputValue(value) ?? new Date());
+            setDraftDate(parseLocalCalendarDate(value) ?? new Date());
           }
           setOpen((current) => !current);
         }}
@@ -130,7 +114,7 @@ export function DatePickerField({
               if (!date) return;
               setDraftDate(date);
               if (Platform.OS === "android") {
-                onChange(formatDateInputValue(date));
+                onChange(getLocalCalendarDate(date));
                 setOpen(false);
               }
             }}
@@ -151,7 +135,7 @@ export function DatePickerField({
             <Button
               label={t("done")}
               onPress={() => {
-                onChange(formatDateInputValue(draftDate));
+                onChange(getLocalCalendarDate(draftDate));
                 setOpen(false);
               }}
             />

@@ -573,8 +573,3 @@ export function combineBalanceForecasts(forecasts: BalanceForecast[]): BalanceFo
     timeline,
   };
 }
-
-export const balanceForecastConstants = {
-  DEFAULT_HORIZON_MONTHS,
-  MAX_HORIZON_MONTHS,
-};

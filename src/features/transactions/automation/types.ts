@@ -1,6 +1,8 @@
 import type { Database } from "@/types/database.types";
+import type { TransactionType } from "@/types/transaction-type";
 
-export type TransactionType = Database["public"]["Enums"]["transaction_type"];
+export type { TransactionType };
+
 export type TransactionRule =
   Database["public"]["Tables"]["transaction_rules"]["Row"];
 export type TransactionSplitInput = Pick<

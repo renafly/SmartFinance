@@ -9,7 +9,7 @@ import { Button } from '@/components/migrated-page';
 import { useTheme } from '@/theme/ThemeProvider';
 
 import { styles } from '../ui-styles';
-import { formatDateInput, parseDate } from '../utils';
+import { getLocalCalendarDate, parseLocalCalendarDate } from '@/features/transactions/utils/transaction-create-form';
 
 type DatePickerFieldProps = {
   label: string;
@@ -22,7 +22,7 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
   const { colors } = useTheme();
   const { t } = useTranslation('common');
   const [open, setOpen] = useState(false);
-  const [draftDate, setDraftDate] = useState(() => parseDate(value) ?? new Date());
+  const [draftDate, setDraftDate] = useState(() => parseLocalCalendarDate(value) ?? new Date());
 
   if (Platform.OS === 'web') {
     return (
@@ -40,7 +40,7 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
       <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{label}</Text>
       <Pressable
         onPress={() => {
-          if (!open) setDraftDate(parseDate(value) ?? new Date());
+          if (!open) setDraftDate(parseLocalCalendarDate(value) ?? new Date());
           setOpen((current) => !current);
         }}
         accessibilityRole="button"
@@ -60,7 +60,7 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
               if (!nextDate) return;
               setDraftDate(nextDate);
               if (Platform.OS === 'android') {
-                onChange(formatDateInput(nextDate));
+                onChange(getLocalCalendarDate(nextDate));
                 setOpen(false);
               }
             }}
@@ -72,7 +72,7 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
               <Button
                 label={t('done')}
                 onPress={() => {
-                  onChange(formatDateInput(draftDate));
+                  onChange(getLocalCalendarDate(draftDate));
                   setOpen(false);
                 }}
               />

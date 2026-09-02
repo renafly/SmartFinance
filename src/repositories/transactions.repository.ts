@@ -5,9 +5,9 @@ import {
 import { supabase } from "@/shared/lib/supabase/client";
 import type { Database, Json } from "@/types/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { TransactionType } from "@/types/transaction-type";
 
 type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
-type TransactionType = Database["public"]["Enums"]["transaction_type"];
 type MonthlySummary = Database["public"]["Views"]["monthly_summary"]["Row"];
 type MonthlyCategorySpending =
   Database["public"]["Views"]["monthly_category_spending"]["Row"];

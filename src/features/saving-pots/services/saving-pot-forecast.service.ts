@@ -1,3 +1,5 @@
+import { roundMoney } from "@/features/planned-items/utils";
+
 export type ForecastFrequency = "daily" | "weekly" | "monthly" | "yearly" | "custom";
 
 export type SavingPotForecastUnavailableReason =
@@ -124,10 +126,6 @@ type SavingPotAccountAssignment = {
 };
 
 const FORECAST_HORIZON_MONTHS = 30 * 12;
-
-function roundMoney(value: number) {
-  return Math.round((Number.isFinite(value) ? value : 0) * 100) / 100;
-}
 
 function parseUtcDate(value: string | null | undefined) {
   const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})/);

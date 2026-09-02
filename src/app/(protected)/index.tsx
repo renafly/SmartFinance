@@ -35,7 +35,8 @@ import {
 import { AllocationDonut } from '../../features/dashboard/components/allocation-donut';
 import { AllocationLegend } from '../../features/dashboard/components/allocation-legend';
 import { AccountsNetworkSection } from '../../features/dashboard/components/accounts-network-section';
-import { getPersonLabel, sumBalances, formatLocalDate } from '../../features/dashboard/utils';
+import { getPersonLabel, sumBalances } from '../../features/dashboard/utils';
+import { getLocalCalendarDate } from '../../features/transactions/utils/transaction-create-form';
 import {
   buildAccountAccentPalette,
   buildAccountNetworkNodes,
@@ -113,8 +114,8 @@ export default function DashboardScreen() {
   const currentMonthBounds = useMemo(() => {
     const now = new Date();
     return {
-      start: formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1)),
-      end: formatLocalDate(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+      start: getLocalCalendarDate(new Date(now.getFullYear(), now.getMonth(), 1)),
+      end: getLocalCalendarDate(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
     };
   }, []);
 

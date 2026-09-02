@@ -22,6 +22,17 @@ export function getLocalCalendarDate(date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+/** Parses a "YYYY-MM-DD" string as a local calendar date (not UTC midnight). Returns null for anything that doesn't match or isn't a real date. */
+export function parseLocalCalendarDate(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const date = new Date(year, month, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 export function getFreshTransactionCreateReset(
   now = new Date(),
 ): TransactionCreateReset {

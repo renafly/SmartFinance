@@ -7,7 +7,6 @@ import { AttachmentsRepository } from "./attachments.repository";
 import { CategoriesRepository } from "./categories.repository";
 import { DashboardNetworkConfigRepository } from "./dashboard-network-config.repository";
 import { HouseholdsRepository } from "./households.repository";
-import { MonthlyBudgetRepository } from "./monthly-budget.repository";
 import { PlannedItemsRepository } from "./planned-items.repository";
 import { ProfilesRepository } from "./profiles.repository";
 import { RecurringExpensesRepository } from "./recurring-expenses.repository";
@@ -27,7 +26,6 @@ export * from "./base.repository";
 export * from "./categories.repository";
 export * from "./dashboard-network-config.repository";
 export * from "./households.repository";
-export * from "./monthly-budget.repository";
 export * from "./planned-items.repository";
 export * from "./profiles.repository";
 export * from "./recurring-expenses.repository";
@@ -49,7 +47,6 @@ export function createRepositories(
     categories: new CategoriesRepository(client),
     dashboardNetworkConfig: new DashboardNetworkConfigRepository(client),
     households: new HouseholdsRepository(client),
-    monthlyBudget: new MonthlyBudgetRepository(client),
     plannedItems: new PlannedItemsRepository(client),
     profiles: new ProfilesRepository(client),
     recurringExpenses: new RecurringExpensesRepository(client),

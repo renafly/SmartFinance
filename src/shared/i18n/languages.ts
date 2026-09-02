@@ -2,11 +2,6 @@ import { Platform } from "react-native";
 
 export type AppLanguage = "en" | "pt";
 
-export type LanguageOption = {
-  value: AppLanguage;
-  label: string;
-};
-
 const LANGUAGE_STORAGE_KEY = "kintally.language";
 
 type LanguageStorage = {
@@ -28,8 +23,6 @@ function getNativeStorage() {
 
   return languageStorage;
 }
-
-export const supportedLanguages: AppLanguage[] = ["en", "pt"];
 
 export function normalizeLanguage(
   value: string | null | undefined,
