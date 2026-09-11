@@ -7,7 +7,7 @@ describe("invalidateHouseholdData", () => {
 
     invalidateHouseholdData(queryClient as any);
 
-    expect(invalidateQueries).toHaveBeenCalledTimes(31);
+    expect(invalidateQueries).toHaveBeenCalledTimes(32);
     expect(invalidateQueries.mock.calls.map(([arg]) => arg)).toEqual([
       { queryKey: ["session"] },
       { queryKey: ["my-households"] },
@@ -16,6 +16,7 @@ describe("invalidateHouseholdData", () => {
       { queryKey: ["transactions"] },
       { queryKey: ["transaction-movements"] },
       { queryKey: ["categories"] },
+      { queryKey: ["category-budgets"] },
       { queryKey: ["attachments"] },
       { queryKey: ["recurring-transactions"] },
       { queryKey: ["recurring-expenses"] },
