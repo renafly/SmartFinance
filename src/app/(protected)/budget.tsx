@@ -899,7 +899,7 @@ export default function BudgetScreen() {
                         {groupImpactsByType(group.impacts).map((typeGroup) => (
                           <View key={typeGroup.typeLabel ?? '__flat__'} style={{ gap: spacing(1.5) } as any}>
                             {typeGroup.typeLabel ? (
-                              <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[11], fontWeight: String(typography.fontWeight.extraBold), letterSpacing: typography.letterSpacing[10] } as any}>
+                              <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.extraBold), letterSpacing: typography.letterSpacing[10] } as any}>
                                 {typeGroup.typeLabel}
                               </Text>
                             ) : null}

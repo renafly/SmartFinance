@@ -139,9 +139,16 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
   const errors = validateAllocations(totalAmount, allocations, { minAllocations });
   const percentages = allocationsToPercentages(totalAmount, allocations);
 
-  function updateAllocation(id: string, patch: Partial<T>) {
+  // patch is typed against the base AllocationDraft (not Partial<T>) because
+  // TS can't verify a plain object literal satisfies Partial<T> for a
+  // generic T -- every call site here only ever patches base
+  // AllocationDraft fields (sourceType/accountId/potId/amount); the single
+  // cast below is where T-specific extra fields (passed in via
+  // renderRowExtra's own `update` callback, which is still typed
+  // Partial<T> in the props) get folded back in.
+  function updateAllocation(id: string, patch: Partial<AllocationDraft>) {
     onChangeAllocations(
-      allocations.map((allocation) => (allocation.id === id ? { ...allocation, ...patch } : allocation)),
+      allocations.map((allocation) => (allocation.id === id ? ({ ...allocation, ...patch } as T) : allocation)),
     );
   }
 

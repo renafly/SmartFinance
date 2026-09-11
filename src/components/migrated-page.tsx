@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState, type ReactNode } from 'react';
+import { useState, type ReactNode, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Pressable,
@@ -28,7 +28,16 @@ type PageProps = {
   children: ReactNode;
   actions?: ReactNode;
   overlay?: ReactNode;
-  scrollViewProps?: ScrollViewProps;
+  /**
+   * Extended past plain ScrollViewProps with an optional `ref` -- callers
+   * (e.g. budget.tsx, for its "scroll to top" action) need a ref onto the
+   * underlying ScrollView, but ScrollViewProps itself doesn't declare `ref`
+   * (refs aren't a normal prop in React's types), so spreading a caller's
+   * ref through here needs it added explicitly. Works at runtime already
+   * (`{...scrollViewProps}` on the ScrollView below forwards it like any
+   * other JSX ref), this only fixes the type.
+   */
+  scrollViewProps?: ScrollViewProps & { ref?: Ref<ScrollView> };
 };
 
 type PrivacyToggleProps = {
