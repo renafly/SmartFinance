@@ -62,7 +62,7 @@ export type TitleSuggestionHistoryRow = Pick<
 };
 
 const TRANSACTION_WITH_RELATIONS_SELECT =
-  "*, balance_after_transaction, account:accounts(id, name, owner_profile_id), created_by_profile:profiles!transactions_created_by_fkey(id, full_name), category:categories(id, name, icon)";
+  "*, balance_after_transaction, account:accounts!transactions_account_id_fkey(id, name, owner_profile_id), created_by_profile:profiles!transactions_created_by_fkey(id, full_name), category:categories(id, name, icon)";
 
 export interface TransactionFilters {
   accountId?: string;
@@ -161,6 +161,17 @@ export type AccountLedgerEntry = {
   transaction_date: string;
   created_at: string;
   running_balance: number;
+  /**
+   * Set only when a replenishment has reassigned this row's real source --
+   * see 20260901002900_account_ledger_original_source.sql /
+   * confirm_replenishment_run. Null on a row that has never been
+   * replenished, and always null on a transfer leg.
+   */
+  original_source_type: "account" | "pot" | null;
+  original_account_id: string | null;
+  original_account_name: string | null;
+  original_pot_id: string | null;
+  original_pot_name: string | null;
 };
 
 export interface TransactionMovementFilters extends Omit<TransactionFilters, "type"> {

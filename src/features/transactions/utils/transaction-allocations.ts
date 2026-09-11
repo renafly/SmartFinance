@@ -149,11 +149,19 @@ export function allocationsToPercentages(totalAmount: number, allocations: reado
   );
 }
 
-/** Live "Allocated / Remaining" summary backing the split editor's readout. */
+/**
+ * Live "Allocated / Remaining" summary backing the split editor's readout.
+ * `minAllocations` defaults to 2 -- a "split" only means something with at
+ * least two sources -- but callers reusing this same allocation logic for
+ * a single-source-allowed set (e.g. reimbursements, see
+ * features/transactions/utils/reimbursements.ts) can pass 1.
+ */
 export function summarizeAllocations(
   totalAmount: number,
   allocations: readonly { amount: number }[],
+  options?: { minAllocations?: number },
 ): AllocationSummary {
+  const minAllocations = options?.minAllocations ?? 2;
   const totalCents = toCents(totalAmount);
   const allocatedCents = allocations.reduce((sum, allocation) => sum + toCents(allocation.amount), 0);
   const remainingCents = totalCents - allocatedCents;
@@ -161,7 +169,7 @@ export function summarizeAllocations(
     totalCents,
     allocatedCents,
     remainingCents,
-    isComplete: remainingCents === 0 && allocations.length >= 2,
+    isComplete: remainingCents === 0 && allocations.length >= minAllocations,
     isOverAllocated: remainingCents < 0,
   };
 }
@@ -182,10 +190,12 @@ function targetKey(allocation: Pick<AllocationDraft, "sourceType" | "accountId" 
 export function validateAllocations(
   totalAmount: number,
   allocations: readonly AllocationDraft[],
+  options?: { minAllocations?: number },
 ): AllocationValidationError[] {
+  const minAllocations = options?.minAllocations ?? 2;
   const errors: AllocationValidationError[] = [];
 
-  if (allocations.length < 2) {
+  if (allocations.length < minAllocations) {
     errors.push("too_few_allocations");
   }
 
@@ -209,7 +219,7 @@ export function validateAllocations(
     errors.push("duplicate_source");
   }
 
-  const { remainingCents } = summarizeAllocations(totalAmount, allocations);
+  const { remainingCents } = summarizeAllocations(totalAmount, allocations, options);
   if (remainingCents !== 0) {
     errors.push("sum_mismatch");
   }
@@ -279,6 +289,16 @@ export type AllocationMovementEntry = {
   pot_name: string | null;
   amount: number;
   running_balance: number | null;
+  /** Set only when a replenishment has reassigned this specific slice's
+   * funding source (see 20260901002600_replenishment_direct_source_
+   * reassignment_schema.sql / confirm_replenishment_run) -- the
+   * account/pot this slice was originally funded by, before that. Null on
+   * every allocation a replenishment has never touched. */
+  original_source_type: AllocationSourceType | null;
+  original_account_id: string | null;
+  original_account_name: string | null;
+  original_pot_id: string | null;
+  original_pot_name: string | null;
 };
 
 /** Display name for one allocation entry -- the account or pot it targets. */
@@ -286,6 +306,15 @@ export function allocationEntryName(entry: AllocationMovementEntry): string {
   return entry.source_type === "pot"
     ? (entry.pot_name ?? "")
     : (entry.account_name ?? "");
+}
+
+/** Display name for the source this allocation entry was originally funded
+ * by, before a replenishment reassigned it -- null when it never has been. */
+export function allocationEntryOriginalName(entry: AllocationMovementEntry): string | null {
+  if (!entry.original_source_type) return null;
+  return entry.original_source_type === "pot"
+    ? (entry.original_pot_name ?? null)
+    : (entry.original_account_name ?? null);
 }
 
 /**

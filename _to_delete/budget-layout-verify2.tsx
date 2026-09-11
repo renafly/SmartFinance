@@ -802,6 +802,61 @@ export default function BudgetScreen() {
                 </View>
               </View>
             </View>
+              </View>
+
+            {accountImpactGroups.length > 0 ? (
+              <View style={!responsive.isPhone ? { flex: 1, minWidth: 0 } : undefined}>
+              {/* ---- Account Impact ---- */}
+              <View style={{ gap: spacing(2) } as any}>
+                <View style={{ gap: spacing(0.5) } as any}>
+                  <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>{t('budget.accountImpactTitle')}</Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[13] } as any}>{t('budget.accountImpactSubtitle')}</Text>
+                </View>
+                <View style={{ gap: spacing(4) } as any}>
+                  {accountImpactGroups.map((group) => (
+                    <View key={group.ownerProfileId ?? '__shared__'} style={{ gap: spacing(2) } as any}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                        <Ionicons name={group.ownerProfileId ? 'person-circle-outline' : 'people-outline'} size={16} color={colors.textSecondary} />
+                        <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.bold), fontSize: typography.fontSize[13] } as any}>{group.label}</Text>
+                      </View>
+                      <View style={{ gap: spacing(3) } as any}>
+                        {groupImpactsByType(group.impacts).map((typeGroup) => (
+                          <View key={typeGroup.typeLabel ?? '__flat__'} style={{ gap: spacing(1.5) } as any}>
+                            {typeGroup.typeLabel ? (
+                              <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[11], fontWeight: String(typography.fontWeight.extraBold), letterSpacing: typography.letterSpacing[10] } as any}>
+                                {typeGroup.typeLabel}
+                              </Text>
+                            ) : null}
+                            {typeGroup.impacts.map((impact) => (
+                              <View
+                                key={impact.accountId}
+                                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing(3), padding: spacing(3), borderRadius: radius.lg, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border } as any}
+                              >
+                                <Text style={{ flex: 1, color: colors.text, fontWeight: String(typography.fontWeight.semibold) } as any} numberOfLines={1}>
+                                  {accountNameMap.get(impact.accountId) ?? t('budget.selectDestinationAccount')}
+                                </Text>
+                                <View style={{ alignItems: 'flex-end', gap: spacing(0.5) } as any}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1) } as any}>
+                                    <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any}>{displayCurrency(formatCurrency(impact.before), hideValues)}</Text>
+                                    <Ionicons name="arrow-forward-outline" size={12} color={colors.textSecondary} />
+                                    <Text style={{ color: colors.text, fontSize: typography.fontSize[13], fontWeight: String(typography.fontWeight.extraBold) } as any}>{displayCurrency(formatCurrency(impact.after), hideValues)}</Text>
+                                  </View>
+                                  <Text style={{ color: impact.change >= 0 ? colors.success : colors.destructive, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.bold) } as any}>
+                                    {formatSignedCurrency(impact.change)}
+                                  </Text>
+                                </View>
+                              </View>
+                            ))}
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              </View>
+            ) : null}
+            </View>
 
             {/* ---- Transfers execution checklist ---- */}
             {transferEntries.length > 0 ? (
@@ -878,61 +933,6 @@ export default function BudgetScreen() {
                 </View>
               </Section>
             ) : null}
-              </View>
-
-            {accountImpactGroups.length > 0 ? (
-              <View style={!responsive.isPhone ? { flex: 1, minWidth: 0 } : undefined}>
-              {/* ---- Account Impact ---- */}
-              <View style={{ gap: spacing(2) } as any}>
-                <View style={{ gap: spacing(0.5) } as any}>
-                  <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>{t('budget.accountImpactTitle')}</Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[13] } as any}>{t('budget.accountImpactSubtitle')}</Text>
-                </View>
-                <View style={{ gap: spacing(4) } as any}>
-                  {accountImpactGroups.map((group) => (
-                    <View key={group.ownerProfileId ?? '__shared__'} style={{ gap: spacing(2) } as any}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
-                        <Ionicons name={group.ownerProfileId ? 'person-circle-outline' : 'people-outline'} size={16} color={colors.textSecondary} />
-                        <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.bold), fontSize: typography.fontSize[13] } as any}>{group.label}</Text>
-                      </View>
-                      <View style={{ gap: spacing(3) } as any}>
-                        {groupImpactsByType(group.impacts).map((typeGroup) => (
-                          <View key={typeGroup.typeLabel ?? '__flat__'} style={{ gap: spacing(1.5) } as any}>
-                            {typeGroup.typeLabel ? (
-                              <Text style={{ color: colors.textSecondary, textTransform: 'uppercase', fontSize: typography.fontSize[11], fontWeight: String(typography.fontWeight.extraBold), letterSpacing: typography.letterSpacing[10] } as any}>
-                                {typeGroup.typeLabel}
-                              </Text>
-                            ) : null}
-                            {typeGroup.impacts.map((impact) => (
-                              <View
-                                key={impact.accountId}
-                                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing(3), padding: spacing(3), borderRadius: radius.lg, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border } as any}
-                              >
-                                <Text style={{ flex: 1, color: colors.text, fontWeight: String(typography.fontWeight.semibold) } as any} numberOfLines={1}>
-                                  {accountNameMap.get(impact.accountId) ?? t('budget.selectDestinationAccount')}
-                                </Text>
-                                <View style={{ alignItems: 'flex-end', gap: spacing(0.5) } as any}>
-                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1) } as any}>
-                                    <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any}>{displayCurrency(formatCurrency(impact.before), hideValues)}</Text>
-                                    <Ionicons name="arrow-forward-outline" size={12} color={colors.textSecondary} />
-                                    <Text style={{ color: colors.text, fontSize: typography.fontSize[13], fontWeight: String(typography.fontWeight.extraBold) } as any}>{displayCurrency(formatCurrency(impact.after), hideValues)}</Text>
-                                  </View>
-                                  <Text style={{ color: impact.change >= 0 ? colors.success : colors.destructive, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.bold) } as any}>
-                                    {formatSignedCurrency(impact.change)}
-                                  </Text>
-                                </View>
-                              </View>
-                            ))}
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              </View>
-              </View>
-            ) : null}
-            </View>
 
             {validationIssues.length > 0 ? (
               <View style={{ gap: spacing(2) }}>

@@ -127,6 +127,7 @@ export function SelectTransactionsStep({
             categoryId: row.category_id,
             title: row.title,
             transactionDate: row.transaction_date,
+            isSplit: false,
           },
         },
       ];
@@ -148,6 +149,7 @@ export function SelectTransactionsStep({
           categoryId: row.category_id,
           title: row.title,
           transactionDate: row.transaction_date,
+          isSplit: true,
         },
       }));
   }

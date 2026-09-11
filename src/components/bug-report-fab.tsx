@@ -27,12 +27,13 @@ import { spacing } from "@/theme/spacing";
  *    at the same corner/offset this FAB would otherwise use, so this FAB
  *    moves to bottom-*left* there instead -- transactions.tsx's overlay is
  *    right-anchored, not full-width, so the left corner is genuinely free.
- *  - /budget renders a *full-width* bottom action bar (1-3 buttons that
- *    can wrap to multiple rows, plus an optional two-line hint), whose
- *    height isn't knowable from source alone -- there's no safe fixed
- *    offset that's guaranteed to clear it, so this FAB simply doesn't
- *    render there. The drawer menu still reaches Feedback from every
- *    screen, budget included.
+ *  - /budget and /replenishments each render a *full-width* bottom action
+ *    bar (1-3 buttons that can wrap to multiple rows, plus an optional
+ *    two-line hint on /budget), whose height isn't knowable from source
+ *    alone -- there's no safe fixed offset that's guaranteed to clear it,
+ *    so this FAB simply doesn't render on either. The drawer menu still
+ *    reaches Feedback from every screen, budget and replenishments
+ *    included.
  * If a future screen adds its own `overlay`, add it to BOTTOM_BAR_ROUTES
  * or LEFT_ALIGNED_ROUTES below rather than guessing a taller offset.
  *
@@ -49,7 +50,7 @@ import { spacing } from "@/theme/spacing";
  * already uses.
  */
 const HIDDEN_ROUTES = ["/feedback"];
-const FULL_WIDTH_BOTTOM_BAR_ROUTES = ["/budget"];
+const FULL_WIDTH_BOTTOM_BAR_ROUTES = ["/budget", "/replenishments"];
 const BOTTOM_RIGHT_FAB_ROUTES = ["/transactions"];
 
 export function BugReportFab() {

@@ -500,6 +500,45 @@ export function resolvePlannedMonth(input: {
   };
 }
 
+/**
+ * Splits one resolved outflow occurrence's expectedAmount into the
+ * portion landing in a savings/investment-type destination account vs.
+ * the "pure expense" remainder -- the same savings/investment-exclusion
+ * rule `summarize()` above uses for its own `savings`/`investments`
+ * totals, factored out so callers outside this module (the redesigned
+ * Monthly Preview, and the category-budget calculation) can identify
+ * "this planned item is really a transfer into savings/investments, not
+ * real spending" without re-deriving the loop over `destinations`. See
+ * monthly-preview-view-model.ts's own doc comment for why this
+ * distinction matters: an outflow occurrence whose destination is a
+ * savings/investment account is still `direction = 'outflow'`, so a
+ * naive "every outflow is an expense" reading double-counts it against
+ * both a spending total and a savings/investments total.
+ *
+ * Only meaningful for a non-inflow occurrence -- callers are expected to
+ * have already filtered to `occurrence.sourceAccountId !== null` (an
+ * inflow occurrence has no `destinations` fan-out in the first place).
+ */
+function splitOutflowOccurrenceExpenseFromPots(
+  resolvedOccurrence: ResolvedOccurrence,
+  accountsById: Map<string, PlannedItemAccountLike>,
+): { savings: number; investments: number; pureExpenseAmount: number } {
+  let savings = 0;
+  let investments = 0;
+
+  for (const destination of resolvedOccurrence.destinations) {
+    const account = accountsById.get(destination.destinationAccountId);
+    if (account?.type === "savings") {
+      savings = roundMoney(savings + destination.amount);
+    } else if (account?.type === "investment") {
+      investments = roundMoney(investments + destination.amount);
+    }
+  }
+
+  const pureExpenseAmount = roundMoney(resolvedOccurrence.occurrence.expectedAmount - savings - investments);
+  return { savings, investments, pureExpenseAmount };
+}
+
 function summarize(
   occurrences: ResolvedOccurrence[],
   accountsById: Map<string, PlannedItemAccountLike>,
@@ -531,11 +570,9 @@ function summarize(
       plannedExpenses = roundMoney(plannedExpenses + occurrence.expectedAmount);
     }
 
-    for (const destination of resolvedOccurrence.destinations) {
-      const account = accountsById.get(destination.destinationAccountId);
-      if (account?.type === "savings") savings = roundMoney(savings + destination.amount);
-      if (account?.type === "investment") investments = roundMoney(investments + destination.amount);
-    }
+    const potSplit = splitOutflowOccurrenceExpenseFromPots(resolvedOccurrence, accountsById);
+    savings = roundMoney(savings + potSplit.savings);
+    investments = roundMoney(investments + potSplit.investments);
   }
 
   return {
@@ -548,4 +585,10 @@ function summarize(
   };
 }
 
-export { isPlannedItemDueInMonth, roundMoney, splitEqualRemainderLast, splitPercentRemainderLast };
+export {
+  isPlannedItemDueInMonth,
+  roundMoney,
+  splitEqualRemainderLast,
+  splitOutflowOccurrenceExpenseFromPots,
+  splitPercentRemainderLast,
+};

@@ -146,6 +146,20 @@ export function useRevertMonthlyBudgetMonth() {
   });
 }
 
+/** Pays a single eligible (single-leg, plain-expense) occurrence right now -- see plannedItemsConfirmService.confirmOccurrence. `actualAmount` omitted keeps the occurrence's own expected amount. */
+export function useConfirmPlannedItemOccurrence() {
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  return useMutation({
+    mutationFn: ({ occurrenceId, actualAmount }: { occurrenceId: string; actualAmount?: number }) =>
+      plannedItemsConfirmService.confirmOccurrence(occurrenceId, profile!.id, actualAmount),
+    onSuccess: () => {
+      invalidatePlannedMonth(queryClient);
+    },
+  });
+}
+
 export function useMatchPlannedItemOccurrence() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
@@ -164,6 +178,32 @@ export function useUnmatchPlannedItemOccurrence() {
 
   return useMutation({
     mutationFn: (occurrenceId: string) => plannedItemsConfirmService.unmatchOccurrence(occurrenceId),
+    onSuccess: () => {
+      invalidatePlannedMonth(queryClient);
+    },
+  });
+}
+
+/** "Unmark as paid, keep the transaction" for a 'confirmed' occurrence -- see plannedItemsConfirmService.unlinkOccurrenceTransaction. Use useRevertPlannedItemOccurrence instead when the user wants the generated transaction deleted too. */
+export function useUnlinkPlannedItemOccurrenceTransaction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (occurrenceId: string) => plannedItemsConfirmService.unlinkOccurrenceTransaction(occurrenceId),
+    onSuccess: () => {
+      invalidatePlannedMonth(queryClient);
+    },
+  });
+}
+
+/** "Unmark as paid, delete the transaction" for a 'confirmed' occurrence -- see plannedItemsConfirmService.revertOccurrence. Only while the household's monthly_budget_periods row for `month` is still 'open' (or absent, which counts as open) -- the RPC itself enforces this and its error surfaces through the mutation's onError. Use useUnlinkPlannedItemOccurrenceTransaction instead to keep the transaction. */
+export function useRevertPlannedItemOccurrence() {
+  const queryClient = useQueryClient();
+  const { householdId } = useAuth();
+
+  return useMutation({
+    mutationFn: ({ occurrenceId, month }: { occurrenceId: string; month: string }) =>
+      plannedItemsConfirmService.revertOccurrence(occurrenceId, householdId!, month),
     onSuccess: () => {
       invalidatePlannedMonth(queryClient);
     },
@@ -384,30 +424,65 @@ function monthDateRange(month: string) {
   return { start, end };
 }
 
+/**
+ * Candidate transactions to link an occurrence to. Deliberately searches
+ * the WHOLE household for this month + direction (type), not just
+ * `accountId` -- a hard account filter here means "no matches" even when
+ * the real transaction exists, the moment the occurrence's own
+ * source_account_id and the transaction's account_id disagree for any
+ * reason (an account was recreated/reassigned since the occurrence was
+ * materialized, the user logged it to the wrong account, etc.) -- a
+ * confusing, silent dead end for something this hard to debug from the
+ * UI alone. `accountId` is still used (not as a filter) to sort same-
+ * account candidates first and to flag them in the picker, since most of
+ * the time it IS the right account and should surface at the top.
+ */
 export function usePlannedItemOccurrenceCandidates(
   accountId: string | null,
   month: string,
   direction: "outflow" | "inflow",
   enabled: boolean,
+  /** Optional exact-category scope -- pass the occurrence's own category id to try that category (plus its direct children, see TransactionsRepository.resolveCategoryFilterIds) FIRST. Omit (or pass null/undefined) to search unscoped, the original behavior every other caller still gets. */
+  categoryId?: string | null,
+  /** Optional fallback category scope, tried only when `categoryId` is set AND that first search comes back empty (and only when it actually differs from `categoryId` -- no point re-running an identical query) -- pass the category's root-of-hierarchy ancestor (CategoryBudgetEntry.mainCategoryId) so a transaction logged under a sibling subcategory in the same family still turns up before falling all the way back to "nothing found". Ignored when `categoryId` is omitted. */
+  mainCategoryId?: string | null,
 ) {
   const { householdId } = useAuth();
   const { start, end } = monthDateRange(month);
 
   return useQuery({
-    queryKey: ["planned-item-occurrence-candidates", householdId, accountId, month, direction],
+    queryKey: ["planned-item-occurrence-candidates", householdId, month, direction, categoryId ?? null, mainCategoryId ?? null],
     queryFn: async () => {
-      const { data, error } = await repositories.transactions.listForHousehold(householdId!, {
-        accountId: accountId!,
-        type: direction === "outflow" ? "expense" : "income",
-        from: start,
-        to: end,
-        sortBy: "newest",
-        limit: 20,
-      });
-      if (error) throw error;
-      return data ?? [];
+      async function search(scopeCategoryId: string | null | undefined) {
+        const { data, error } = await repositories.transactions.listForHousehold(householdId!, {
+          type: direction === "outflow" ? "expense" : "income",
+          from: start,
+          to: end,
+          sortBy: "newest",
+          limit: 40,
+          ...(scopeCategoryId ? { categoryId: scopeCategoryId } : {}),
+        });
+        if (error) throw error;
+        return data ?? [];
+      }
+
+      let rows = await search(categoryId);
+      // Sub-category search came back empty -- widen to the whole
+      // category family (parent + every direct child) before giving up,
+      // in case the user logged it under a sibling subcategory instead of
+      // this occurrence's own exact one.
+      if (categoryId && rows.length === 0 && mainCategoryId && mainCategoryId !== categoryId) {
+        rows = await search(mainCategoryId);
+      }
+      // Same-account candidates first (most likely to be the right one),
+      // newest-within-group after that -- listForHousehold already
+      // sorted newest-first, Array#sort is stable so that order survives
+      // within each group.
+      return accountId
+        ? [...rows].sort((a, b) => Number(b.account_id === accountId) - Number(a.account_id === accountId))
+        : rows;
     },
-    enabled: enabled && !!householdId && !!accountId,
+    enabled: enabled && !!householdId,
   });
 }
 

@@ -302,6 +302,21 @@ export default function AccountsScreen() {
     () => accountTransfersQuery.data?.pages.flat() ?? [],
     [accountTransfersQuery.data],
   );
+  // Set only when a replenishment has reassigned this ledger row's real
+  // source (account_id/pot_id, or the underlying transaction_allocations
+  // row for a split leg) -- see
+  // 20260901002900_account_ledger_original_source.sql /
+  // confirm_replenishment_run. Unlike list_transaction_movements,
+  // list_account_ledger returns the joined name as a flat
+  // original_account_name/original_pot_name column rather than a nested
+  // object. Null on a row that has never been replenished, and always
+  // null on a transfer leg (replenishment never touches those).
+  const getLedgerOriginalSourceLabel = (item: any): string | null => {
+    if (!item.original_source_type) return null;
+    return item.original_source_type === "pot"
+      ? (item.original_pot_name ?? null)
+      : (item.original_account_name ?? null);
+  };
   const canCreateAccount = !createAccount.isPending && name.trim().length > 0 && Number.isFinite(parsedInitialBalance);
 
   function toggleAccountGroup(groupKey: string) {
@@ -1019,6 +1034,11 @@ export default function AccountsScreen() {
                             {t("accounts.accountTransfersTransferLabel", {
                               defaultValue: "Transfer",
                             })}
+                          </Text>
+                        ) : null}
+                        {!item.is_transfer && getLedgerOriginalSourceLabel(item) ? (
+                          <Text style={styles.accountMeta}>
+                            {t("transactions.originallyFrom", { source: getLedgerOriginalSourceLabel(item) })}
                           </Text>
                         ) : null}
                       </TableCell>

@@ -1,5 +1,6 @@
 import { repositories } from "@/repositories";
 import { validateReimbursementDraft } from "@/features/transactions/utils/reimbursements";
+import type { AllocationSourceType } from "@/features/transactions/utils/transaction-allocations";
 
 export type CreateReimbursementInput = {
   household_id: string;
@@ -8,6 +9,15 @@ export type CreateReimbursementInput = {
   amount: number;
   note?: string | null;
   created_by: string;
+  /**
+   * Which of the household's own accounts/pots this reimbursement's money
+   * landed in. See 20260901002500_reimbursement_allocations.sql -- nullable
+   * at the DB layer so a pre-existing (payer-name-only) row stays valid,
+   * but every new row created through the UI always sets these.
+   */
+  source_type?: AllocationSourceType | null;
+  account_id?: string | null;
+  pot_id?: string | null;
 };
 
 export type UpdateReimbursementInput = {
@@ -15,6 +25,9 @@ export type UpdateReimbursementInput = {
   payer_name?: string;
   amount?: number;
   note?: string | null;
+  source_type?: AllocationSourceType | null;
+  account_id?: string | null;
+  pot_id?: string | null;
 };
 
 /**
@@ -51,6 +64,9 @@ class TransactionReimbursementsService {
     const errors = validateReimbursementDraft({
       payerName: input.payer_name,
       amount: input.amount,
+      sourceType: input.source_type ?? undefined,
+      accountId: input.account_id ?? null,
+      potId: input.pot_id ?? null,
     });
     if (errors.length > 0) {
       throw new Error(`Invalid reimbursement: ${errors.join(", ")}`);
@@ -63,6 +79,9 @@ class TransactionReimbursementsService {
       amount: input.amount,
       note: input.note?.trim() || null,
       created_by: input.created_by,
+      source_type: input.source_type ?? null,
+      account_id: input.source_type === "account" ? (input.account_id ?? null) : null,
+      pot_id: input.source_type === "pot" ? (input.pot_id ?? null) : null,
     });
     if (error) throw error;
     return data;

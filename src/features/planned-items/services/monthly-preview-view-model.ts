@@ -1,6 +1,6 @@
 import type { Database } from "@/types/database.types";
 
-import { roundMoney } from "./planned-items-resolver";
+import { roundMoney, splitOutflowOccurrenceExpenseFromPots } from "./planned-items-resolver";
 import type { ResolvedMonth } from "../types";
 
 type AccountType = Database["public"]["Enums"]["account_type"];
@@ -183,7 +183,13 @@ export function buildMonthlyPreviewViewModel(input: {
     const isInflow = occurrence.sourceAccountId === null;
 
     if (!isInflow) {
-      let toSavingsOrInvestments = 0;
+      // Per-account savings/investments buckets still need their own
+      // per-destination loop (the shared helper only returns a summed
+      // total per pot type, not broken out by which specific account got
+      // it) -- but the "is this destination a pot" classification and the
+      // pureExpenseAmount subtraction itself are the shared, tested logic
+      // from splitOutflowOccurrenceExpenseFromPots, reused as-is (see
+      // that function's doc comment for why this exclusion exists).
       for (const destination of resolvedOccurrence.destinations) {
         const account = accountsById.get(destination.destinationAccountId);
         if (account?.type === "savings") {
@@ -191,16 +197,14 @@ export function buildMonthlyPreviewViewModel(input: {
             destination.destinationAccountId,
             roundMoney((savingsByAccount.get(destination.destinationAccountId) ?? 0) + destination.amount),
           );
-          toSavingsOrInvestments = roundMoney(toSavingsOrInvestments + destination.amount);
         } else if (account?.type === "investment") {
           investmentsByAccount.set(
             destination.destinationAccountId,
             roundMoney((investmentsByAccount.get(destination.destinationAccountId) ?? 0) + destination.amount),
           );
-          toSavingsOrInvestments = roundMoney(toSavingsOrInvestments + destination.amount);
         }
       }
-      const pureExpenseAmount = roundMoney(occurrence.expectedAmount - toSavingsOrInvestments);
+      const { pureExpenseAmount } = splitOutflowOccurrenceExpenseFromPots(resolvedOccurrence, accountsById);
       if (pureExpenseAmount > 0.001) {
         expensesByCategory.set(occurrence.categoryId, roundMoney((expensesByCategory.get(occurrence.categoryId) ?? 0) + pureExpenseAmount));
       }

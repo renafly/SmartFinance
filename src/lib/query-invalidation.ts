@@ -8,6 +8,7 @@ const HOUSEHOLD_QUERY_KEYS = [
   ["transactions"],
   ["transaction-movements"],
   ["categories"],
+  ["category-budgets"],
   ["attachments"],
   ["recurring-transactions"],
   ["recurring-expenses"],

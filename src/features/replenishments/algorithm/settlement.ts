@@ -16,14 +16,18 @@ export class SettlementError extends Error {}
 
 type AccountRow = { accountId: string; amountCents: number };
 
+function validateRow(row: AccountRow) {
+  if (!Number.isInteger(row.amountCents) || row.amountCents < 0) {
+    throw new SettlementError(
+      `Amount for account ${row.accountId} must be a non-negative integer number of cents.`,
+    );
+  }
+}
+
 function aggregateByAccount(rows: AccountRow[]): Map<string, number> {
   const byAccount = new Map<string, number>();
   for (const row of rows) {
-    if (!Number.isInteger(row.amountCents) || row.amountCents < 0) {
-      throw new SettlementError(
-        `Amount for account ${row.accountId} must be a non-negative integer number of cents.`,
-      );
-    }
+    validateRow(row);
     if (row.amountCents === 0) continue;
     byAccount.set(row.accountId, (byAccount.get(row.accountId) ?? 0) + row.amountCents);
   }
@@ -46,20 +50,19 @@ function sumMapValues(map: Map<string, number>): number {
  * This is a bipartite transportation problem: money only ever moves
  * source -> destination, never source -> source or destination ->
  * destination, because every real money movement in this app is a direct
- * transfer between two accounts (create_transfer / confirm_replenishment_run
- * never chain through an intermediate account). The greedy "largest
- * remaining source vs largest remaining destination" sweep below is bounded
- * by `m + n - 1` transfers -- every step fully exhausts at least one side,
- * and the very last step can exhaust both simultaneously -- which is the
- * standard minimal construction for this problem shape and is what keeps
- * the transfer count as low as possible without resorting to a naive
+ * transfer between two accounts. The greedy "largest remaining source vs
+ * largest remaining destination" sweep below is bounded by `m + n - 1`
+ * transfers -- every step fully exhausts at least one side, and the very
+ * last step can exhaust both simultaneously -- which is the standard
+ * minimal construction for this problem shape and is what keeps the
+ * transfer count as low as possible without resorting to a naive
  * source×destination cross product.
  *
  * Deterministic: equal inputs (including account-id tie order) always
  * produce byte-identical output, in the same order -- required so a stored
- * preview can be compared against what confirm_replenishment_run is about
- * to insert, and so re-running after a manual edit doesn't reshuffle
- * transfers that didn't need to change.
+ * preview can be compared against what was actually confirmed, and so
+ * re-running after a manual edit doesn't reshuffle transfers that didn't
+ * need to change.
  *
  * Throws SettlementError if the two sides don't sum to exactly the same
  * number of cents -- callers must validate/block this at the UI layer
@@ -152,4 +155,118 @@ export function computeMinimalTransfers(
   }
 
   return transfers;
+}
+
+// ------------------------------------------------------------------------
+// Per-unit variant, added for the direct-source-reassignment replenishment
+// model (confirm_replenishment_run no longer creates transfer transactions
+// -- it reassigns each covered "unit" -- a whole transaction, or one
+// allocation row of a split transaction -- directly to its new funding
+// source(s)). The RPC needs, per unit, exactly which source(s) funded it
+// and how much of each -- information computeMinimalTransfers (above)
+// throws away by aggregating every destination-side row into one bucket
+// per account before matching.
+// ------------------------------------------------------------------------
+
+export type SettlementUnit = {
+  /** Opaque identifier for this unit (the wizard uses its own selection
+   * map key: transactionId, or `${transactionId}:${accountId}` for one
+   * slice of an already-split transaction) -- never interpreted here,
+   * only carried through to the output so the caller can group by it. */
+  unitKey: string;
+  accountId: string;
+  amountCents: number;
+};
+
+export type SettlementUnitSource = {
+  unitKey: string;
+  accountId: string;
+  sourceAccountId: string;
+  amountCents: number;
+};
+
+/**
+ * Same greedy "largest remaining vs largest remaining" matching as
+ * computeMinimalTransfers, but keeps every unit as its own row on the
+ * destination side instead of pre-aggregating by account -- so the result
+ * says exactly which source(s) funded each individual unit, not just each
+ * destination account as a whole.
+ *
+ * Almost every unit ends up funded by exactly one source (the whole thing
+ * came from one account/pot); a unit only ever gets split across more than
+ * one source when the sweep happens to exhaust a source in the middle of
+ * that unit, at a source-count boundary -- the same mechanism that causes
+ * computeMinimalTransfers to sometimes need more than one transfer into a
+ * single destination account.
+ *
+ * Deliberately does not net out same-account source/unit overlaps the way
+ * computeMinimalTransfers does: the wizard already excludes every account
+ * being replenished from the source picker (SelectSourcesStep), so a unit
+ * and one of the sources funding it can never legitimately share an
+ * account -- and unlike the account-level function, "cancel this unit
+ * against itself" isn't a meaningful operation on a single transaction.
+ *
+ * Throws SettlementError on the same conditions as computeMinimalTransfers
+ * (non-integer/negative amounts, mismatched totals).
+ */
+export function computeMinimalUnitTransfers(
+  sources: SettlementSource[],
+  units: SettlementUnit[],
+): SettlementUnitSource[] {
+  const sourceTotals = aggregateByAccount(sources);
+  for (const unit of units) {
+    validateRow(unit);
+  }
+
+  const sourceTotal = sumMapValues(sourceTotals);
+  const unitTotal = units.reduce((sum, unit) => sum + unit.amountCents, 0);
+  if (sourceTotal !== unitTotal) {
+    throw new SettlementError(
+      `Sources (${sourceTotal} cents) and replenishment units (${unitTotal} cents) must sum to exactly the same amount.`,
+    );
+  }
+
+  type SourceRow = { accountId: string; remainingCents: number };
+  type UnitRow = { unitKey: string; accountId: string; remainingCents: number };
+
+  const remainingSources: SourceRow[] = [...sourceTotals.entries()]
+    .filter(([, amountCents]) => amountCents > 0)
+    .map(([accountId, amountCents]) => ({ accountId, remainingCents: amountCents }))
+    .sort((a, b) => b.remainingCents - a.remainingCents || a.accountId.localeCompare(b.accountId));
+
+  const remainingUnits: UnitRow[] = units
+    .filter((unit) => unit.amountCents > 0)
+    .map((unit) => ({ unitKey: unit.unitKey, accountId: unit.accountId, remainingCents: unit.amountCents }))
+    .sort((a, b) => b.remainingCents - a.remainingCents || a.unitKey.localeCompare(b.unitKey));
+
+  const sortSources = (rows: SourceRow[]) =>
+    rows.sort((a, b) => b.remainingCents - a.remainingCents || a.accountId.localeCompare(b.accountId));
+  const sortUnits = (rows: UnitRow[]) =>
+    rows.sort((a, b) => b.remainingCents - a.remainingCents || a.unitKey.localeCompare(b.unitKey));
+
+  const assignments: SettlementUnitSource[] = [];
+
+  while (remainingSources.length > 0 && remainingUnits.length > 0) {
+    const source = remainingSources[0];
+    const unit = remainingUnits[0];
+    const amountCents = Math.min(source.remainingCents, unit.remainingCents);
+
+    assignments.push({
+      unitKey: unit.unitKey,
+      accountId: unit.accountId,
+      sourceAccountId: source.accountId,
+      amountCents,
+    });
+
+    source.remainingCents -= amountCents;
+    unit.remainingCents -= amountCents;
+
+    if (source.remainingCents === 0) remainingSources.shift();
+    if (unit.remainingCents === 0) remainingUnits.shift();
+
+    sortSources(remainingSources);
+    sortUnits(remainingUnits);
+  }
+
+  return assignments;
 }

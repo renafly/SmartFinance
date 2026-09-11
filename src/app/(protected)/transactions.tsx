@@ -97,7 +97,10 @@ import { DateFilterField, DatePickerField } from "@/features/transactions/compon
 import { SplitAllocationsEditor, type SplitInputMode } from "@/features/transactions/components/split-allocations-editor";
 import { ReimbursementSection } from "@/features/transactions/components/reimbursement-section";
 import { useCreateReimbursement, useHouseholdEffectiveAmounts } from "@/features/transactions/hooks/useTransactionReimbursements";
-import type { ReimbursementDraft } from "@/features/transactions/utils/reimbursements";
+import {
+  validateReimbursementAllocations,
+  type ReimbursementDraft,
+} from "@/features/transactions/utils/reimbursements";
 import {
   useSavingPotAccountAssignments,
   useSavingPots,
@@ -108,6 +111,7 @@ import {
 } from "@/features/transactions/hooks/useTransactionAllocations";
 import {
   allocationEntryName,
+  allocationEntryOriginalName,
   createEmptyAllocationDraft,
   resolveAllocationOwnerProfileId,
   validateAllocations,
@@ -238,6 +242,15 @@ export default function TransactionsScreen() {
   const [splitEnabled, setSplitEnabled] = useState(false);
   const [splitAllocations, setSplitAllocations] = useState<AllocationDraft[]>([]);
   const [reimbursementDrafts, setReimbursementDrafts] = useState<ReimbursementDraft[]>([]);
+  // Reimbursements live in wizard step 1 ("type"), gated to expense --
+  // enabled/targetAmount/inputMode are its own state (separate from
+  // splitEnabled/splitInputMode) since a reimbursement's own "expected
+  // total" is independent of both the expense amount and any Split Source
+  // funding breakdown. See reimbursement-section.tsx / transaction-
+  // allocations.ts's validateAllocations(minAllocations) reuse.
+  const [reimbursementEnabled, setReimbursementEnabled] = useState(false);
+  const [reimbursementTargetAmount, setReimbursementTargetAmount] = useState("");
+  const [reimbursementInputMode, setReimbursementInputMode] = useState<SplitInputMode>("value");
   const createReimbursement = useCreateReimbursement();
   const effectiveAmountsQuery = useHouseholdEffectiveAmounts(householdId);
   // Only transactions with a nonzero reimbursed_total are in this result
@@ -258,13 +271,17 @@ export default function TransactionsScreen() {
   const [activeView, setActiveView] = useState<"activity" | "scheduled">(
     "activity",
   );
-  // Defaults to "movements" (income + expense, transfers hidden) rather than
-  // "all", since transfers between your own accounts usually just clutter
-  // the activity list. "all" is still one tap away for anyone who wants
-  // transfers back in the mix.
+  // Defaults to "all" rather than "movements" (income + expense only) so
+  // generated transfers -- most importantly a confirmed replenishment run's
+  // Reposição transfer pair, which never touches the original expense
+  // transaction (see confirm_replenishment_run) and is otherwise only
+  // visible from the Replenishment History detail screen -- show up here
+  // too instead of silently vanishing from the main list. "movements" is
+  // still one tap away for anyone who'd rather hide routine
+  // account-to-account transfers.
   const [filtersType, setFiltersType] = useState<
     "movements" | "all" | "income" | "expense" | "transfer"
-  >("movements");
+  >("all");
   const [accountFilter, setAccountFilter] = useState<"all" | string>("all");
   const [sourceAccountFilter, setSourceAccountFilter] = useState<
     "all" | string
@@ -597,11 +614,11 @@ export default function TransactionsScreen() {
   // hides transactions with no visible explanation.
   const activeFilterChips = useMemo(() => {
     const chips: { key: string; label: string; onClear: () => void }[] = [];
-    if (filtersType !== "movements") {
+    if (filtersType !== "all") {
       chips.push({
         key: "filtersType",
         label: t(`transactions.filters.${filtersType}`),
-        onClear: () => setFiltersType("movements"),
+        onClear: () => setFiltersType("all"),
       });
     }
     if (sortBy !== "newest") {
@@ -714,7 +731,7 @@ export default function TransactionsScreen() {
   ]);
 
   function clearAllFilters() {
-    setFiltersType("movements");
+    setFiltersType("all");
     setAccountFilter("all");
     setSourceAccountFilter("all");
     setDestinationAccountFilter("all");
@@ -749,6 +766,19 @@ export default function TransactionsScreen() {
         : [],
     [splitEnabled, parsedAmount, splitAllocations],
   );
+  // Reimbursement sources must sum to the reimbursement's own "expected
+  // total" (reimbursementTargetAmount) -- NOT the expense amount, since a
+  // reimbursement can be partial or exceed the expense -- reusing
+  // validateAllocations with minAllocations: 1 plus the payer-name check,
+  // see validateReimbursementAllocations.
+  const parsedReimbursementTarget = Number(reimbursementTargetAmount.replace(",", "."));
+  const reimbursementValidationErrors = useMemo(
+    () =>
+      reimbursementEnabled && type === "expense" && Number.isFinite(parsedReimbursementTarget)
+        ? validateReimbursementAllocations(parsedReimbursementTarget, reimbursementDrafts)
+        : [],
+    [reimbursementEnabled, type, parsedReimbursementTarget, reimbursementDrafts],
+  );
   const canCreateTransaction =
     !createTransaction.isPending &&
     !saveTransactionAllocations.isPending &&
@@ -759,7 +789,8 @@ export default function TransactionsScreen() {
     Number.isFinite(parsedAmount) &&
     parsedAmount > 0 &&
     /^\d{4}-\d{2}-\d{2}$/.test(date) &&
-    (!splitEnabled || splitValidationErrors.length === 0);
+    (!splitEnabled || splitValidationErrors.length === 0) &&
+    (!reimbursementEnabled || reimbursementValidationErrors.length === 0);
   const canCreateMovement =
     canCreateTransaction &&
     (createMovementKind === "transaction" ||
@@ -785,7 +816,11 @@ export default function TransactionsScreen() {
     title.trim().length > 0 &&
     Number.isFinite(parsedAmount) &&
     parsedAmount > 0 &&
-    /^\d{4}-\d{2}-\d{2}$/.test(date);
+    /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+    (createMovementKind !== "transaction" ||
+      type !== "expense" ||
+      !reimbursementEnabled ||
+      reimbursementValidationErrors.length === 0);
   const canProceedFromAccountsStep =
     Boolean(effectiveAccountId) &&
     (createMovementKind !== "transfer" ||
@@ -818,6 +853,18 @@ export default function TransactionsScreen() {
   };
   const getTransactionAccountLabel = (item: any) =>
     getTransactionAccount(item)?.name ?? t("transactions.account");
+  // Set only when a replenishment has reassigned this (non-split)
+  // transaction's real account_id/pot_id -- see
+  // 20260901002600_replenishment_direct_source_reassignment_schema.sql /
+  // confirm_replenishment_run and list_transaction_movements' original_*
+  // columns. Null on a transaction that has never been replenished, and
+  // always null on a transfer (replenishment never touches those).
+  const getOriginalSourceLabel = (item: any): string | null => {
+    if (!item.original_source_type) return null;
+    return item.original_source_type === "pot"
+      ? (item.original_pot?.name ?? null)
+      : (item.original_account?.name ?? null);
+  };
   const getTransactionAccountOwnerLabel = (item: any) => {
     const ownerId = getTransactionAccount(item)?.owner_profile_id;
     return ownerId
@@ -1032,7 +1079,10 @@ export default function TransactionsScreen() {
     setSplitEnabled(false);
     setSplitAllocations([]);
     setSplitInputMode("value");
+    setReimbursementEnabled(false);
     setReimbursementDrafts([]);
+    setReimbursementTargetAmount("");
+    setReimbursementInputMode("value");
   }
 
   function openCreateTransaction() {
@@ -1077,6 +1127,13 @@ export default function TransactionsScreen() {
       if (splitEnabled && validateAllocations(parsedAmount, splitAllocations).length > 0) {
         return;
       }
+      if (
+        type === "expense" &&
+        reimbursementEnabled &&
+        validateReimbursementAllocations(parsedReimbursementTarget, reimbursementDrafts).length > 0
+      ) {
+        return;
+      }
 
       const created = await createTransaction.mutateAsync({
         household_id: householdId,
@@ -1114,8 +1171,11 @@ export default function TransactionsScreen() {
         // Reimbursements can only be attached once the transaction has an id
         // (the FK is required, and the enforce_reimbursement_target trigger
         // needs a real row to check type = 'expense' against) -- same
-        // after-create pattern as split allocations above.
-        if (type === "expense" && created?.id && reimbursementDrafts.length > 0) {
+        // after-create pattern as split allocations above. Each draft row
+        // now also carries which account/pot the reimbursement money
+        // landed in (source_type/account_id/pot_id) -- see
+        // 20260901002500_reimbursement_allocations.sql.
+        if (type === "expense" && reimbursementEnabled && created?.id && reimbursementDrafts.length > 0) {
           for (const draftRow of reimbursementDrafts) {
             await createReimbursement.mutateAsync({
               household_id: householdId,
@@ -1124,6 +1184,9 @@ export default function TransactionsScreen() {
               amount: draftRow.amount,
               note: draftRow.note ?? null,
               created_by: createdById || profile.id,
+              source_type: draftRow.sourceType,
+              account_id: draftRow.accountId,
+              pot_id: draftRow.potId,
             });
           }
         }
@@ -1902,6 +1965,18 @@ export default function TransactionsScreen() {
                               setCategoryIsAutomatic(!isTransfer);
                               if (isTransfer) setAttachment(null);
                               else setTransferDestination(null);
+                              // Reimbursements only make sense for an
+                              // expense (see enforce_reimbursement_target)
+                              // -- switching to Income or Transfer must
+                              // clear any in-progress reimbursement state
+                              // rather than silently carrying it along
+                              // hidden.
+                              if (item !== "expense") {
+                                setReimbursementEnabled(false);
+                                setReimbursementDrafts([]);
+                                setReimbursementTargetAmount("");
+                                setReimbursementInputMode("value");
+                              }
                             }}
                           />
                         ),
@@ -2074,6 +2149,38 @@ export default function TransactionsScreen() {
                           onChangeText={setNotes}
                           placeholder={t("transactions.notesPlaceholder")}
                         />
+                        {createMovementKind === "transaction" && type === "expense" ? (
+                          <ReimbursementSection
+                            mode="draft"
+                            originalAmount={parsedAmount}
+                            enabled={reimbursementEnabled}
+                            onToggleEnabled={setReimbursementEnabled}
+                            targetAmount={reimbursementTargetAmount}
+                            onChangeTargetAmount={setReimbursementTargetAmount}
+                            inputMode={reimbursementInputMode}
+                            onChangeInputMode={setReimbursementInputMode}
+                            value={reimbursementDrafts}
+                            onChange={setReimbursementDrafts}
+                            accounts={accounts as any}
+                            members={
+                              (membersQuery.data ?? []).filter(
+                                (member) => member.status === "accepted",
+                              ) as any
+                            }
+                            pots={splitPots}
+                            accountTypeLabels={{
+                              bank: t("accounts.types.bank"),
+                              cash: t("accounts.types.cash"),
+                              savings: t("accounts.types.savings"),
+                              credit_card: t("accounts.types.credit_card"),
+                              investment: t("accounts.types.investment"),
+                              ppr: t("accounts.types.ppr"),
+                            }}
+                            sharedLabel={t("dashboard.shared")}
+                            unassignedLabel={t("settings.unnamedUser")}
+                            closeLabel={t("close", { defaultValue: "Close" })}
+                          />
+                        ) : null}
                       </>
                     )}
                     </>
@@ -2246,14 +2353,6 @@ export default function TransactionsScreen() {
                               </Text>
                             ) : null}
                           </View>
-                        ) : null}
-                        {createMovementKind === "transaction" && type === "expense" ? (
-                          <ReimbursementSection
-                            mode="draft"
-                            originalAmount={parsedAmount}
-                            value={reimbursementDrafts}
-                            onChange={setReimbursementDrafts}
-                          />
                         ) : null}
                         {createMovementKind === "transaction" ? (
                           <View style={{ gap: spacing(2) } as any}>
@@ -2715,6 +2814,11 @@ export default function TransactionsScreen() {
                                       </Text>
                                     </View>
                                   ) : null}
+                                  {allocationEntryOriginalName(entry) ? (
+                                    <Text style={styles.transactionContext} numberOfLines={1}>
+                                      {t("transactions.originallyFrom", { source: allocationEntryOriginalName(entry) })}
+                                    </Text>
+                                  ) : null}
                                 </View>
                               ))}
                               {hiddenAllocationCount > 0 ? (
@@ -2743,6 +2847,11 @@ export default function TransactionsScreen() {
                                     {getTransactionAccountOwnerLabel(item)}
                                   </Text>
                                 </View>
+                              ) : null}
+                              {movementKind !== "transfer" && getOriginalSourceLabel(item) ? (
+                                <Text style={styles.transactionContext} numberOfLines={1}>
+                                  {t("transactions.originallyFrom", { source: getOriginalSourceLabel(item) })}
+                                </Text>
                               ) : null}
                             </View>
                           )}
@@ -3520,6 +3629,24 @@ export default function TransactionsScreen() {
                       transactionId={editTransaction.id}
                       householdId={householdId ?? ""}
                       createdById={editTransaction.createdById || profile?.id || ""}
+                      accounts={accounts as any}
+                      members={
+                        (membersQuery.data ?? []).filter(
+                          (member) => member.status === "accepted",
+                        ) as any
+                      }
+                      pots={splitPots}
+                      accountTypeLabels={{
+                        bank: t("accounts.types.bank"),
+                        cash: t("accounts.types.cash"),
+                        savings: t("accounts.types.savings"),
+                        credit_card: t("accounts.types.credit_card"),
+                        investment: t("accounts.types.investment"),
+                        ppr: t("accounts.types.ppr"),
+                      }}
+                      sharedLabel={t("dashboard.shared")}
+                      unassignedLabel={t("settings.unnamedUser")}
+                      closeLabel={t("close", { defaultValue: "Close" })}
                     />
                   ) : null}
                   <View style={styles.editAttachmentsSection}>

@@ -190,6 +190,13 @@ class PlannedItemsConfirmService {
     return rowToMonthlyBudgetPeriod(data);
   }
 
+  /** Pays a single (single-leg, plain-expense) occurrence right now -- see confirmOccurrence on the repository / the migration's doc comment for the exact eligibility rule (source account set, zero occurrence destinations). `actualAmount` omitted pays at the occurrence's own expected_amount unchanged. */
+  async confirmOccurrence(occurrenceId: string, confirmedBy: string, actualAmount?: number): Promise<PlannedItemOccurrence> {
+    const { data, error } = await repositories.plannedItems.confirmOccurrence(occurrenceId, confirmedBy, actualAmount);
+    if (error) throw error;
+    return rowToPlannedItemOccurrence(data);
+  }
+
   async matchOccurrence(occurrenceId: string, transactionId: string, matchedBy: string): Promise<PlannedItemOccurrence> {
     const { data, error } = await repositories.plannedItems.matchOccurrence(occurrenceId, transactionId, matchedBy);
     if (error) throw error;
@@ -198,6 +205,13 @@ class PlannedItemsConfirmService {
 
   async unmatchOccurrence(occurrenceId: string): Promise<PlannedItemOccurrence> {
     const { data, error } = await repositories.plannedItems.unmatchOccurrence(occurrenceId);
+    if (error) throw error;
+    return rowToPlannedItemOccurrence(data);
+  }
+
+  /** "Unmark as paid, keep the transaction" for a 'confirmed' occurrence -- see PlannedItemsRepository.unlinkOccurrenceTransaction / the migration's doc comment. Deliberately not gated on the monthly_budget_periods status the way revertOccurrence is: detaching lineage while keeping the transaction destroys nothing, same risk profile as unmatchOccurrence (also ungated). */
+  async unlinkOccurrenceTransaction(occurrenceId: string): Promise<PlannedItemOccurrence> {
+    const { data, error } = await repositories.plannedItems.unlinkOccurrenceTransaction(occurrenceId);
     if (error) throw error;
     return rowToPlannedItemOccurrence(data);
   }

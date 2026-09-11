@@ -5,6 +5,7 @@ import {
 import { supabase } from "@/shared/lib/supabase/client";
 import type { Database } from "@/types/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ReplenishmentUnitSourceAssignment } from "@/features/replenishments/types";
 
 type ReplenishmentRun = Database["public"]["Tables"]["replenishment_runs"]["Row"];
 type ReplenishmentRunTransaction =
@@ -17,7 +18,8 @@ const RUN_DETAIL_SELECT = `
   transactions:replenishment_run_transactions(
     *,
     account:accounts(id, name),
-    category:categories(id, name, icon)
+    category:categories(id, name, icon),
+    transaction:transactions(id, title)
   ),
   sources:replenishment_run_sources(
     *,
@@ -50,14 +52,12 @@ export interface CreateDraftRunInput {
 
 export interface ConfirmReplenishmentRunInput {
   runId: string;
-  transfers: {
-    sourceAccountId: string;
-    destinationAccountId: string;
-    amount: number;
-    title?: string | null;
-    notes?: string | null;
-    categoryId?: string | null;
-  }[];
+  /** Per covered unit (a whole transaction, or one allocation row of an
+   * already-split transaction), the real funding source(s) it should be
+   * reassigned to -- confirm_replenishment_run reassigns each unit's
+   * account_id/pot_id directly rather than creating a transfer
+   * transaction. See ReplenishmentUnitSourceAssignment. */
+  unitSources: ReplenishmentUnitSourceAssignment[];
   preview: unknown;
 }
 
@@ -151,13 +151,15 @@ export class ReplenishmentsRepository extends BaseRepository<"replenishment_runs
   ): Promise<RepoResult<ReplenishmentRun>> {
     const { data, error } = await this.client.rpc("confirm_replenishment_run", {
       p_run_id: input.runId,
-      p_transfers: input.transfers.map((transfer) => ({
-        sourceAccountId: transfer.sourceAccountId,
-        destinationAccountId: transfer.destinationAccountId,
-        amount: transfer.amount,
-        title: transfer.title ?? null,
-        notes: transfer.notes ?? null,
-        categoryId: transfer.categoryId ?? null,
+      p_unit_sources: input.unitSources.map((unit) => ({
+        transactionId: unit.transactionId,
+        accountId: unit.accountId,
+        sources: unit.sources.map((source) => ({
+          sourceType: source.sourceType,
+          accountId: source.accountId,
+          potId: source.potId,
+          amount: source.amount,
+        })),
       })),
       p_preview: input.preview,
     } as never);
@@ -197,10 +199,22 @@ export class ReplenishmentsRepository extends BaseRepository<"replenishment_runs
 
     if (error) return { data: null, error };
 
+    // Legacy-only: a run confirmed before 20260901002700 created a real
+    // paired expense/income transfer per settled account pair, and stamped
+    // replenishment_run_id on those two transfer-leg transactions (never on
+    // the covered transaction itself). A run confirmed after that
+    // migration instead stamps replenishment_run_id directly on each
+    // covered transaction/allocation it reassigns -- which is never part
+    // of a transfer pair -- so filtering to transfer_group_id is not null
+    // keeps this query returning only genuine legacy transfer legs, never
+    // a new-style run's own covered transactions (which would otherwise
+    // risk being misread as a fake transfer pair below whenever a run
+    // happened to cover both an expense and an income transaction).
     const transferLegs = await this.client
       .from("transactions")
-      .select("account_id, amount, transfer_group_id, type, account:accounts(id, name)")
-      .eq("replenishment_run_id", runId);
+      .select("account_id, amount, transfer_group_id, type, account:accounts!transactions_account_id_fkey(id, name)")
+      .eq("replenishment_run_id", runId)
+      .not("transfer_group_id", "is", null);
 
     if (transferLegs.error) return { data: null, error: transferLegs.error };
 

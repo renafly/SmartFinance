@@ -259,6 +259,30 @@ export class PlannedItemsRepository extends BaseRepository<"planned_items"> {
     return { data: data as MonthlyBudgetPeriodRow, error: null };
   }
 
+  /**
+   * Pays ONE occurrence directly -- creates its plain_expense transaction
+   * and marks it 'confirmed' in a single RPC call, optionally at a
+   * different actual amount than expected_amount (omit/undefined to pay
+   * at the expected amount unchanged). See
+   * 20260905000000_confirm_planned_item_occurrence.sql for the exact
+   * scope (single-leg outflow occurrences only) and why this doesn't
+   * duplicate confirm_planned_item_month or match_planned_item_occurrence.
+   */
+  async confirmOccurrence(
+    occurrenceId: string,
+    confirmedBy: string,
+    actualAmount?: number,
+  ): Promise<RepoResult<PlannedItemOccurrenceRow>> {
+    const { data, error } = await this.client.rpc("confirm_planned_item_occurrence", {
+      p_occurrence_id: occurrenceId,
+      p_confirmed_by: confirmedBy,
+      p_actual_amount: actualAmount ?? null,
+    });
+
+    if (error) return { data: null, error };
+    return { data: data as PlannedItemOccurrenceRow, error: null };
+  }
+
   async matchOccurrence(
     occurrenceId: string,
     transactionId: string,
@@ -276,6 +300,16 @@ export class PlannedItemsRepository extends BaseRepository<"planned_items"> {
 
   async unmatchOccurrence(occurrenceId: string): Promise<RepoResult<PlannedItemOccurrenceRow>> {
     const { data, error } = await this.client.rpc("unmatch_planned_item_occurrence", {
+      p_occurrence_id: occurrenceId,
+    });
+
+    if (error) return { data: null, error };
+    return { data: data as PlannedItemOccurrenceRow, error: null };
+  }
+
+  /** "Unmark as paid, keep the transaction" for a 'confirmed' occurrence (one paid via confirmOccurrence/confirm_planned_item_month, not matched to a pre-existing transaction) -- see 20260906000000_unlink_planned_item_occurrence_transaction.sql. Detaches the generated transaction's planned-item lineage columns instead of deleting it (that's revertOccurrence's job), so the transaction survives as an ordinary transaction while the occurrence returns to 'planned'. */
+  async unlinkOccurrenceTransaction(occurrenceId: string): Promise<RepoResult<PlannedItemOccurrenceRow>> {
+    const { data, error } = await this.client.rpc("unlink_planned_item_occurrence_transaction", {
       p_occurrence_id: occurrenceId,
     });
 
