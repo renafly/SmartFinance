@@ -10,7 +10,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 
 import { styles } from '../ui-styles';
 import { frequencies, months } from '../types';
-import type { EndCondition, ExpenseKind, MovementDraft, TransactionType } from '../types';
+import type { EndCondition, ExpenseKind, MovementDraft, MovementTransactionType } from '../types';
 import { DatePickerField } from './movement-date-field';
 
 const endConditions: EndCondition[] = ['never', 'count', 'date'];
@@ -195,7 +195,7 @@ export function MovementFields({
           <View style={styles.fieldGroup}>
             <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('transfers.transactionType')}</Text>
             <View style={styles.pillRow}>
-              {(['income', 'expense'] as TransactionType[]).map((transactionType) => (
+              {(['income', 'expense'] as MovementTransactionType[]).map((transactionType) => (
                 <Pill
                   key={transactionType}
                   label={t(`recurring.types.${transactionType}`)}

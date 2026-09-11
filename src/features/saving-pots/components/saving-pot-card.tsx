@@ -10,7 +10,7 @@ import { displayCurrency } from '@/shared/lib/mask-currency';
 import { usePrivacyStore } from '@/stores/privacyStore';
 
 import type { SavingPotForecast } from '../services/saving-pot-forecast.service';
-import { buildForecastYearRows, formatForecastMonth, getAccountSummary, type SavingPotAccountOption } from '../ui-utils';
+import { getAccountSummary, type SavingPotAccountOption } from '../ui-utils';
 import type { PotBalanceForecast } from '@/features/forecast/hooks';
 import { BalanceForecastPanel } from '@/features/forecast/components';
 import { DEFAULT_FORECAST_PERIOD_MONTHS, type ForecastPeriodMonths } from '@/features/forecast/ui-utils';
@@ -21,19 +21,15 @@ type SavingPotCardProps = {
   pot: any;
   balance: any;
   forecast: SavingPotForecast | undefined;
-  /** Balance-projection forecast (from the Monthly Budget rules engine), distinct from the target-completion `forecast` above. */
+  /** Balance-projection forecast (accounts-graph engine, includes non-Monthly-Budget movements too), distinct from the target-completion `forecast` above -- both now source Monthly Budget contributions from the same planned_item_forecast_contributions data, so they never disagree about which months are already settled. */
   balanceForecast?: PotBalanceForecast;
   selectedAccounts: SavingPotAccountOption[];
   memberLabelMap: Map<string, string>;
   createdByLabel: string;
-  isForecastExpanded: boolean;
-  forecastViewMode: ForecastViewMode;
   isBalanceForecastExpanded: boolean;
   balanceForecastPeriod?: ForecastPeriodMonths;
   balanceForecastViewMode: ForecastViewMode;
   onOpenMenu: () => void;
-  onToggleForecast: () => void;
-  onSetForecastViewMode: (mode: ForecastViewMode) => void;
   onToggleBalanceForecast: () => void;
   onSetBalanceForecastPeriod: (period: ForecastPeriodMonths) => void;
   onSetBalanceForecastViewMode: (mode: ForecastViewMode) => void;
@@ -47,14 +43,10 @@ export function SavingPotCard({
   selectedAccounts,
   memberLabelMap,
   createdByLabel,
-  isForecastExpanded,
-  forecastViewMode,
   isBalanceForecastExpanded,
   balanceForecastPeriod = DEFAULT_FORECAST_PERIOD_MONTHS,
   balanceForecastViewMode,
   onOpenMenu,
-  onToggleForecast,
-  onSetForecastViewMode,
   onToggleBalanceForecast,
   onSetBalanceForecastPeriod,
   onSetBalanceForecastViewMode,
@@ -71,7 +63,6 @@ export function SavingPotCard({
   const remainingValue = Math.max(0, targetValue - currentValue);
   const sharedAccountCount = selectedAccounts.filter((account) => account.owner_profile_id === null).length;
   const personalAccountCount = selectedAccounts.length - sharedAccountCount;
-  const forecastYears = forecast ? buildForecastYearRows(forecast.timeline) : [];
   const percent =
     balance?.target_amount && Number(balance.target_amount) > 0
       ? Math.min(100, Math.round((Number(balance.balance ?? 0) / Number(balance.target_amount)) * 100))
@@ -174,75 +165,6 @@ export function SavingPotCard({
               </Text>
             ))}
           </View>
-        ) : null}
-        {forecast && forecast.timeline.length > 0 ? (
-          <>
-            <Pressable
-              onPress={onToggleForecast}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: isForecastExpanded }}
-              style={({ pressed }) => [styles.forecastToggle, pressed && styles.pressed]}
-            >
-              <Text style={styles.forecastToggleText}>
-                {isForecastExpanded ? t('savings.hideForecast') : t('savings.showForecast')}
-              </Text>
-              <Text style={styles.forecastToggleChevron}>{isForecastExpanded ? '▴' : '▾'}</Text>
-            </Pressable>
-            {isForecastExpanded ? (
-              <View style={styles.forecastPanel}>
-                <View style={styles.forecastPanelHeader}>
-                  <Text style={styles.forecastPanelTitle}>{t('savings.forecastTimeline')}</Text>
-                  <View style={styles.forecastViewToggle}>
-                    {(['monthly', 'yearly'] as const).map((mode) => (
-                      <Pressable
-                        key={mode}
-                        onPress={() => onSetForecastViewMode(mode)}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: forecastViewMode === mode }}
-                        style={({ pressed }) => [
-                          styles.forecastViewButton,
-                          forecastViewMode === mode && styles.forecastViewButtonActive,
-                          pressed && styles.pressed,
-                        ]}
-                      >
-                        <Text style={forecastViewMode === mode ? styles.forecastViewButtonTextActive : styles.forecastViewButtonText}>
-                          {mode === 'monthly' ? t('savings.forecastMonthlyView') : t('savings.forecastYearlyView')}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-                <View style={styles.forecastColumnLabels}>
-                  <Text style={[styles.forecastColumnLabel, styles.forecastLabelPrimary]}>
-                    {forecastViewMode === 'monthly' ? t('savings.forecastMonth') : t('savings.forecastYear')}
-                  </Text>
-                  <Text style={styles.forecastColumnLabel}>{t('savings.forecastContributionShort')}</Text>
-                  <Text style={styles.forecastColumnLabel}>{t('savings.forecastBalanceShort')}</Text>
-                </View>
-                {forecastViewMode === 'monthly' ? (
-                  <View style={styles.forecastTimelineContent}>
-                    {forecast.timeline.map((item) => (
-                      <View key={item.month} style={[styles.forecastRow, item.reachedTarget && styles.forecastRowComplete]}>
-                        <Text style={[styles.forecastRowText, styles.forecastLabelPrimary]}>{formatForecastMonth(item.month)}</Text>
-                        <Text style={styles.forecastRowText}>{money(item.contribution)}</Text>
-                        <Text style={styles.forecastRowBalance}>{money(item.projectedAmount)}</Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : (
-                  <View style={styles.forecastYearRows}>
-                    {forecastYears.map((item) => (
-                      <View key={item.year} style={[styles.forecastRow, item.remainingAmount === 0 && styles.forecastRowComplete]}>
-                        <Text style={[styles.forecastRowText, styles.forecastLabelPrimary]}>{item.year}</Text>
-                        <Text style={styles.forecastRowText}>{money(item.contribution)}</Text>
-                        <Text style={styles.forecastRowBalance}>{money(item.projectedAmount)}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-            ) : null}
-          </>
         ) : null}
         <Pressable
           onPress={onToggleBalanceForecast}
@@ -348,22 +270,6 @@ function createStyles(colors: any) {
     forecastToggleText: { color: colors.primary, fontSize: typography.fontSize[13], fontWeight: typography.fontWeight.extraBold },
     forecastToggleChevron: { color: colors.textSecondary, fontSize: typography.fontSize[16], fontWeight: typography.fontWeight.bold },
     forecastPanel: { gap: spacing(2), padding: spacing(3), borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-    forecastPanelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing(2) },
-    forecastPanelTitle: { color: colors.text, fontSize: typography.fontSize[13], fontWeight: typography.fontWeight.extraBold },
-    forecastViewToggle: { flexDirection: 'row', borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
-    forecastViewButton: { paddingHorizontal: spacing(2), paddingVertical: spacing(1) },
-    forecastViewButtonActive: { backgroundColor: colors.primary },
-    forecastViewButtonText: { color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.bold },
-    forecastViewButtonTextActive: { color: colors.primaryForeground, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.bold },
-    forecastColumnLabels: { flexDirection: 'row', gap: spacing(1), paddingHorizontal: spacing(2) },
-    forecastColumnLabel: { flex: 1, color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.bold, textAlign: 'right', textTransform: 'uppercase' },
-    forecastLabelPrimary: { flex: 1.25, textAlign: 'left' },
-    forecastTimelineContent: { gap: spacing(1) },
-    forecastYearRows: { gap: spacing(1) },
-    forecastRow: { flexDirection: 'row', gap: spacing(1), paddingHorizontal: spacing(2), paddingVertical: spacing(1.5), borderRadius: radius.md, backgroundColor: colors.surfaceMuted },
-    forecastRowComplete: { backgroundColor: colors.successSoft },
-    forecastRowText: { flex: 1, color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold, textAlign: 'right' },
-    forecastRowBalance: { flex: 1, color: colors.text, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.extraBold, textAlign: 'right' },
     pressed: { opacity: 0.85 },
   });
 }

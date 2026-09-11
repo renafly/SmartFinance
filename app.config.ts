@@ -2,7 +2,7 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: config.name ?? "eas credentials -p android",
+  name: config.name ?? "Kintally",
   // The EAS project (extra.eas.projectId) is permanently bound to the "SmartFinance"
   // slug from when it was created — EAS project IDs cannot be reassigned to a new
   // slug. The slug is an internal EAS identifier only; it isn't shown to users,

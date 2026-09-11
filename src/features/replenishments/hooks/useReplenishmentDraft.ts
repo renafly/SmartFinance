@@ -18,12 +18,3 @@ export function useSaveReplenishmentDraft() {
     }) => replenishmentService.saveDraft(input, existingRunId),
   });
 }
-
-export function useDeleteReplenishmentDraft() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (runId: string) => replenishmentService.deleteDraft(runId),
-    onSuccess: () => invalidateHouseholdData(queryClient),
-  });
-}

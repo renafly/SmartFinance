@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type PropsWithChildren, type ReactNode } from 'react';
+import { createContext, useCallback, useState, type PropsWithChildren, type ReactNode } from 'react';
 import { Modal, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -39,7 +39,7 @@ export function ModalProvider({ children }: PropsWithChildren) {
         >
           {content}
           {/* This is the single shared confirm-dialog/one-off-sheet Modal
-              used app-wide via useModal().show(...) — RN Modals present in
+              slot (see ModalContext.show/hide above) — RN Modals present in
               their own layer above everything else, so the global privacy
               toggle needs its own mount point here too. */}
           <PrivacyToggle />
@@ -47,10 +47,4 @@ export function ModalProvider({ children }: PropsWithChildren) {
       </Modal>
     </ModalContext.Provider>
   );
-}
-
-export function useModal(): ModalContextValue {
-  const ctx = useContext(ModalContext);
-  if (!ctx) throw new Error('useModal must be used within a ModalProvider.');
-  return ctx;
 }

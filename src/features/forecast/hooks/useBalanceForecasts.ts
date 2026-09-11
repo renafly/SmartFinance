@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 
 import { useAccounts, useAccountsWithBalances } from "@/features/accounts/hooks";
-import { useMonthlyBudgetWorkspace } from "@/features/monthly-budget/hooks";
+import { useAllPlannedItemOccurrences, usePlannedItems } from "@/features/planned-items/hooks";
+import { buildPlannedItemForecastContributions } from "@/features/planned-items/services/planned-item-forecast-contributions";
 import { useRecurringTransactions } from "@/features/recurring-transactions/hooks";
 import { useSavingPotAccountAssignments, useSavingPots } from "@/features/saving-pots/hooks";
 
@@ -23,22 +24,27 @@ const FORECAST_HORIZON_MONTHS = 24;
 /**
  * Computes a month-by-month balance forecast for every non-archived
  * account in the household, derived from active recurring transactions/
- * transfers and Monthly Budget rules. See balance-forecast.service.ts for
- * the calculation itself — this hook only adapts Supabase query data into
- * its input shape.
+ * transfers and planned_items (Monthly Budget) destinations — see
+ * balance-forecast.service.ts for the calculation itself, and
+ * planned-item-forecast-contributions.ts for how a planned item's
+ * destinations become dated, already-executed-aware contributions (the
+ * same shared function useSavingPotForecasts uses, so this graph and the
+ * Savings list can never disagree about a pot's objective date).
  */
 export function useAccountBalanceForecasts() {
   const accountsQuery = useAccounts();
   const balancesQuery = useAccountsWithBalances();
   const recurringQuery = useRecurringTransactions();
-  const budgetWorkspaceQuery = useMonthlyBudgetWorkspace();
+  const plannedItemsQuery = usePlannedItems();
+  const occurrencesQuery = useAllPlannedItemOccurrences();
   const assignmentsQuery = useSavingPotAccountAssignments();
 
   const isLoading =
     accountsQuery.isPending ||
     balancesQuery.isPending ||
     recurringQuery.isPending ||
-    budgetWorkspaceQuery.isPending ||
+    plannedItemsQuery.isPending ||
+    occurrencesQuery.isPending ||
     assignmentsQuery.isPending;
 
   const forecasts = useMemo(() => {
@@ -50,15 +56,13 @@ export function useAccountBalanceForecasts() {
       (balancesQuery.data ?? []).map((account: any) => [account.id, account.current_balance]),
     );
 
-    const currentMonthKey = new Date().toISOString().slice(0, 7);
-    const confirmedRunForCurrentMonth = (budgetWorkspaceQuery.data?.runs ?? []).find(
-      (run: any) => run.status === "confirmed" && String(run.month).slice(0, 7) === currentMonthKey,
-    );
-    const confirmedBudgetRuleIdsForCurrentMonth = new Set<string>(
-      ((confirmedRunForCurrentMonth?.preview_snapshot as any)?.transfers ?? [])
-        .map((transfer: any) => transfer.ruleId ?? transfer.generatedByRuleId)
-        .filter((ruleId: unknown): ruleId is string => typeof ruleId === "string"),
-    );
+    const asOf = new Date();
+    const contributions = buildPlannedItemForecastContributions({
+      plannedItems: plannedItemsQuery.data ?? [],
+      occurrences: occurrencesQuery.data ?? [],
+      asOf,
+      horizonMonths: FORECAST_HORIZON_MONTHS,
+    });
 
     return buildAccountBalanceForecasts({
       accounts: (accountsQuery.data ?? []).map((account: any) => ({
@@ -79,29 +83,25 @@ export function useAccountBalanceForecasts() {
         createdAt: rule.created_at,
         excludedMonths: rule.excluded_months,
       })),
-      budgetRules: (budgetWorkspaceQuery.data?.rules ?? []).map((rule: any) => ({
-        id: rule.id,
-        sourceAccountId: rule.source_account_id,
-        isActive: rule.is_active,
-        createdAt: rule.created_at,
-        activeMonths: rule.active_months,
-        activeFromMonth: rule.active_from_month,
-        activeToMonth: rule.active_to_month,
-        allocations: (rule.allocations ?? []).map((allocation: any) => ({
-          destinationAccountId: allocation.destination_account_id,
-          amount: allocation.amount,
-        })),
+      plannedItemContributions: contributions.map((contribution) => ({
+        id: contribution.destinationKey,
+        sourceAccountId: contribution.sourceAccountId,
+        destinationAccountId: contribution.destinationAccountId,
+        amount: contribution.amount,
+        isActive: true,
+        dueMonthKeys: contribution.dueMonthKeys,
+        skipMonthKeys: contribution.skipMonthKeys,
       })),
       savingPotAccountAssignments: assignmentsQuery.data ?? [],
-      confirmedBudgetRuleIdsForCurrentMonth,
       horizonMonths: FORECAST_HORIZON_MONTHS,
+      asOf,
     });
   }, [
     accountsQuery.data,
     balancesQuery.data,
     recurringQuery.data,
-    budgetWorkspaceQuery.data?.rules,
-    budgetWorkspaceQuery.data?.runs,
+    plannedItemsQuery.data,
+    occurrencesQuery.data,
     assignmentsQuery.data,
   ]);
 

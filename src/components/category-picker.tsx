@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { groupCategoriesByParent } from "@/features/categories/group-categories";
 import { SelectionShell, SelectionTrigger } from "@/components/selection-shell";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
@@ -50,56 +51,10 @@ export function CategoryPicker({
   const [open, setOpen] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
 
-  // This component only ever shows two visual levels (main / sub), matching
-  // the "select a main category or a subcategory" model transaction tagging
-  // is built around. The categories-management screen's own picker allows
-  // arbitrary nesting depth, though, so a category handed to this component
-  // could in principle sit 3+ levels deep. Rather than only grouping by
-  // *direct* parent (which would make anything past depth 1 vanish — its
-  // parent is a sub-category, not a main one, and this component never
-  // rendered a third level to find it in), every category is bucketed under
-  // its top-most reachable ancestor within the list. For the common 2-level
-  // case this produces the exact same grouping as before; for deeper data
-  // it just means "everything under this main" flattens into one sub list
-  // instead of silently disappearing.
-  const { mainCategories, childrenByParent, categoriesById, rootIdByCategoryId } = useMemo(() => {
-    const byId = new Map(categories.map((category) => [category.id, category]));
-
-    function findRootId(category: CategoryPickerCategory): string {
-      let current = category;
-      const seen = new Set<string>();
-      while (
-        current.parent_id &&
-        byId.has(current.parent_id) &&
-        !seen.has(current.id)
-      ) {
-        seen.add(current.id);
-        current = byId.get(current.parent_id)!;
-      }
-      return current.id;
-    }
-
-    const rootMap = new Map<string, string>();
-    const childrenMap = new Map<string, CategoryPickerCategory[]>();
-    const mains: CategoryPickerCategory[] = [];
-    for (const category of categories) {
-      const rootId = findRootId(category);
-      rootMap.set(category.id, rootId);
-      if (rootId === category.id) {
-        mains.push(category);
-      } else {
-        const list = childrenMap.get(rootId) ?? [];
-        list.push(category);
-        childrenMap.set(rootId, list);
-      }
-    }
-    return {
-      mainCategories: mains,
-      childrenByParent: childrenMap,
-      categoriesById: byId,
-      rootIdByCategoryId: rootMap,
-    };
-  }, [categories]);
+  const { mainCategories, childrenByParent, categoriesById, rootIdByCategoryId } = useMemo(
+    () => groupCategoriesByParent(categories, (category) => category.parent_id),
+    [categories],
+  );
 
   const selected = selectedId ? (categoriesById.get(selectedId) ?? null) : null;
   const selectedRootId = selectedId ? (rootIdByCategoryId.get(selectedId) ?? null) : null;

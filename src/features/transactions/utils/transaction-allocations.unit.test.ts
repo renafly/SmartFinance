@@ -1,6 +1,7 @@
 import {
   allocationEntriesShareOneOwner,
   allocationEntryName,
+  allocationEntryOriginalName,
   allocationsToPercentages,
   allocationsToRpcPayload,
   distributeEqualSplitAmounts,
@@ -338,6 +339,12 @@ function entry(overrides: Partial<AllocationMovementEntry> = {}): AllocationMove
     pot_id: overrides.pot_id ?? null,
     pot_name: overrides.pot_name ?? null,
     amount: overrides.amount ?? 0,
+    running_balance: overrides.running_balance ?? null,
+    original_source_type: overrides.original_source_type ?? null,
+    original_account_id: overrides.original_account_id ?? null,
+    original_account_name: overrides.original_account_name ?? null,
+    original_pot_id: overrides.original_pot_id ?? null,
+    original_pot_name: overrides.original_pot_name ?? null,
   };
 }
 
@@ -348,6 +355,26 @@ describe("allocationEntryName", () => {
 
   it("uses the pot name for a pot entry", () => {
     expect(allocationEntryName(entry({ source_type: "pot", pot_name: "Holiday fund" }))).toBe("Holiday fund");
+  });
+});
+
+describe("allocationEntryOriginalName", () => {
+  it("returns null when the entry was never replenished", () => {
+    expect(allocationEntryOriginalName(entry({ source_type: "account", account_name: "Checking" }))).toBeNull();
+  });
+
+  it("uses the original account name when this slice was reassigned from an account", () => {
+    expect(
+      allocationEntryOriginalName(
+        entry({ original_source_type: "account", original_account_name: "ActivoBank" }),
+      ),
+    ).toBe("ActivoBank");
+  });
+
+  it("uses the original pot name when this slice was reassigned from a pot", () => {
+    expect(
+      allocationEntryOriginalName(entry({ original_source_type: "pot", original_pot_name: "Emergency fund" })),
+    ).toBe("Emergency fund");
   });
 });
 

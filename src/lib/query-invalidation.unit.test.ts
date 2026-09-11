@@ -7,7 +7,7 @@ describe("invalidateHouseholdData", () => {
 
     invalidateHouseholdData(queryClient as any);
 
-    expect(invalidateQueries).toHaveBeenCalledTimes(22);
+    expect(invalidateQueries).toHaveBeenCalledTimes(32);
     expect(invalidateQueries.mock.calls.map(([arg]) => arg)).toEqual([
       { queryKey: ["session"] },
       { queryKey: ["my-households"] },
@@ -16,8 +16,12 @@ describe("invalidateHouseholdData", () => {
       { queryKey: ["transactions"] },
       { queryKey: ["transaction-movements"] },
       { queryKey: ["categories"] },
+      { queryKey: ["category-budgets"] },
       { queryKey: ["attachments"] },
       { queryKey: ["recurring-transactions"] },
+      { queryKey: ["recurring-expenses"] },
+      { queryKey: ["recurring-expense-matches"] },
+      { queryKey: ["income-sources"] },
       { queryKey: ["saving-pots"] },
       { queryKey: ["saving-pot-balances"] },
       { queryKey: ["saving-pot-accounts"] },
@@ -28,6 +32,12 @@ describe("invalidateHouseholdData", () => {
       { queryKey: ["monthly-budget"] },
       { queryKey: ["monthly-budget-runs"] },
       { queryKey: ["monthly-budget-income-inputs"] },
+      { queryKey: ["planned-items"] },
+      { queryKey: ["planned-items-preview"] },
+      { queryKey: ["planned-items-resolved"] },
+      { queryKey: ["planned-item-matches"] },
+      { queryKey: ["planned-items-occurrences-all"] },
+      { queryKey: ["monthly-budget-periods"] },
       { queryKey: ["notifications"] },
       { queryKey: ["replenishments"] },
       { queryKey: ["transaction-effective-amounts"] },

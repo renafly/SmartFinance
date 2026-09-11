@@ -1,7 +1,7 @@
 import {
   buildAccountBalanceForecasts,
   combineBalanceForecasts,
-  type BalanceForecastBudgetRule,
+  type BalanceForecastPlannedItemContribution,
   type BalanceForecastRecurringRule,
 } from "./balance-forecast.service";
 
@@ -11,7 +11,7 @@ function forecast(overrides: Partial<Parameters<typeof buildAccountBalanceForeca
   return buildAccountBalanceForecasts({
     accounts: [{ id: "account-1", currentBalance: 1_000 }],
     recurringRules: [],
-    budgetRules: [],
+    plannedItemContributions: [],
     horizonMonths: 6,
     asOf,
     ...overrides,
@@ -133,17 +133,40 @@ describe("buildAccountBalanceForecasts", () => {
     expect(combined.timeline.every((item) => item.balance === 1_100)).toBe(true);
   });
 
-  it("splits a Monthly Budget rule's allocations across multiple destination accounts", () => {
-    const budgetRules: BalanceForecastBudgetRule[] = [
+  it("moves money for each planned-item destination contribution independently, one per account pair", () => {
+    // Mirrors what buildPlannedItemForecastContributions resolves a
+    // two-destination equal_split Monthly Budget item into: one already-
+    // flattened contribution per destination account, each carrying its
+    // own resolved amount and due-month schedule (never a rule total plus
+    // an allocations array — that fan-out already happened upstream).
+    //
+    // dueMonthKeys spans 12 months here (not just the 6-month display
+    // horizon below) because that mirrors real production data: the real
+    // caller (useAccountBalanceForecasts) resolves dueMonthKeys against a
+    // 24-month horizon (FORECAST_HORIZON_MONTHS), so an indefinitely-
+    // recurring monthly item always has dueMonthKeys covering well past
+    // averageMonthlyMovement's fixed 12-month averaging window. A shorter
+    // fixture here would silently understate monthlyMovement -- it's the
+    // averaging window being diluted by an incomplete due-month list, not
+    // a real behavior difference.
+    const plannedItemContributions: BalanceForecastPlannedItemContribution[] = [
       {
-        id: "rule-1",
+        id: "item-1:savings-1",
         sourceAccountId: "checking",
+        destinationAccountId: "savings-1",
+        amount: 100,
         isActive: true,
-        createdAt: "2026-06-01T00:00:00.000Z",
-        allocations: [
-          { destinationAccountId: "savings-1", amount: 100 },
-          { destinationAccountId: "savings-2", amount: 100 },
-        ],
+        dueMonthKeys: ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04", "2027-05", "2027-06"],
+        skipMonthKeys: [],
+      },
+      {
+        id: "item-1:savings-2",
+        sourceAccountId: "checking",
+        destinationAccountId: "savings-2",
+        amount: 100,
+        isActive: true,
+        dueMonthKeys: ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04", "2027-05", "2027-06"],
+        skipMonthKeys: [],
       },
     ];
 
@@ -153,7 +176,7 @@ describe("buildAccountBalanceForecasts", () => {
         { id: "savings-1", currentBalance: 0 },
         { id: "savings-2", currentBalance: 0 },
       ],
-      budgetRules,
+      plannedItemContributions,
     });
 
     const source = forecasts.get("checking")!;
@@ -161,9 +184,10 @@ describe("buildAccountBalanceForecasts", () => {
     const dest2 = forecasts.get("savings-2")!;
 
     expect(source.monthlyMovement).toBe(-200);
-    // One outgoing movement per allocation (not per rule) on the source
-    // side — the rule has two allocations, so the source account sees two
-    // monthly_budget movements even though they both come from rule-1.
+    // One outgoing movement per destination contribution (not per planned
+    // item) on the source side — two destinations, so the source account
+    // sees two monthly_budget movements even though both come from the
+    // same item.
     expect(source.sources).toEqual([{ kind: "monthly_budget", monthlyMovement: -200, movementCount: 2 }]);
     expect(dest1.monthlyMovement).toBe(100);
     expect(dest2.monthlyMovement).toBe(100);
@@ -177,15 +201,20 @@ describe("buildAccountBalanceForecasts", () => {
     expect(combined.timeline.every((item) => item.balance === 2_000)).toBe(true);
   });
 
-  it("only applies a Monthly Budget rule during its active months window", () => {
-    const budgetRules: BalanceForecastBudgetRule[] = [
+  it("only applies a planned-item contribution during its precomputed due months", () => {
+    // dueMonthKeys is where a specific_months/interval planned item's
+    // recurrence (resolved via isPlannedItemDueInMonth upstream) is
+    // expressed at this layer — there's no separate active-months window
+    // concept here any more.
+    const plannedItemContributions: BalanceForecastPlannedItemContribution[] = [
       {
-        id: "rule-summer",
+        id: "item-summer:savings-1",
         sourceAccountId: "checking",
+        destinationAccountId: "savings-1",
+        amount: 50,
         isActive: true,
-        createdAt: "2026-01-01T00:00:00.000Z",
-        activeMonths: [7, 8],
-        allocations: [{ destinationAccountId: "savings-1", amount: 50 }],
+        dueMonthKeys: ["2026-07", "2026-08"],
+        skipMonthKeys: [],
       },
     ];
 
@@ -194,21 +223,26 @@ describe("buildAccountBalanceForecasts", () => {
         { id: "checking", currentBalance: 1_000 },
         { id: "savings-1", currentBalance: 0 },
       ],
-      budgetRules,
+      plannedItemContributions,
       horizonMonths: 4, // Jul, Aug, Sep, Oct 2026
     }).get("savings-1")!;
 
     expect(result.timeline.map((item) => item.movement)).toEqual([50, 50, 0, 0]);
   });
 
-  it("skips the current month's occurrence for a Monthly Budget rule already confirmed this month", () => {
-    const budgetRules: BalanceForecastBudgetRule[] = [
+  it("skips a due month whose occurrence is already known to be settled", () => {
+    const plannedItemContributions: BalanceForecastPlannedItemContribution[] = [
       {
-        id: "rule-1",
+        id: "item-1:savings-1",
         sourceAccountId: "checking",
+        destinationAccountId: "savings-1",
+        amount: 50,
         isActive: true,
-        createdAt: "2026-01-01T00:00:00.000Z",
-        allocations: [{ destinationAccountId: "savings-1", amount: 50 }],
+        dueMonthKeys: ["2026-07", "2026-08", "2026-09"],
+        // The caller (useAccountBalanceForecasts) determines settled
+        // months from real planned_item_occurrences data, per (item,
+        // month) -- not just "the current calendar month".
+        skipMonthKeys: ["2026-07"],
       },
     ];
 
@@ -217,8 +251,7 @@ describe("buildAccountBalanceForecasts", () => {
         { id: "checking", currentBalance: 1_000 },
         { id: "savings-1", currentBalance: 0 },
       ],
-      budgetRules,
-      confirmedBudgetRuleIdsForCurrentMonth: ["rule-1"],
+      plannedItemContributions,
       horizonMonths: 3,
     }).get("savings-1")!;
 

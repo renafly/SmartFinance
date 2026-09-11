@@ -1,8 +1,10 @@
 import {
   computeMinimalTransfers,
+  computeMinimalUnitTransfers,
   SettlementError,
   type SettlementDestination,
   type SettlementSource,
+  type SettlementUnit,
 } from "./settlement";
 
 function sumBy<T>(items: T[], amount: (item: T) => number) {
@@ -261,5 +263,93 @@ describe("computeMinimalTransfers", () => {
       { sourceAccountId: "pote-x", destinationAccountId: "a", amountCents: 10000 },
     ]);
     expect(sumBy(after, (t) => t.amountCents)).toBe(20000);
+  });
+});
+
+describe("computeMinimalUnitTransfers", () => {
+  it("1 source / 1 unit -> that unit is funded entirely by that source", () => {
+    const sources: SettlementSource[] = [{ accountId: "savings", amountCents: 10000 }];
+    const units: SettlementUnit[] = [{ unitKey: "t1", accountId: "checking", amountCents: 10000 }];
+
+    const result = computeMinimalUnitTransfers(sources, units);
+
+    expect(result).toEqual([
+      { unitKey: "t1", accountId: "checking", sourceAccountId: "savings", amountCents: 10000 },
+    ]);
+  });
+
+  it("keeps two units on the same destination account itemized instead of merging them", () => {
+    const sources: SettlementSource[] = [{ accountId: "savings", amountCents: 15000 }];
+    const units: SettlementUnit[] = [
+      { unitKey: "t1", accountId: "checking", amountCents: 10000 },
+      { unitKey: "t2", accountId: "checking", amountCents: 5000 },
+    ];
+
+    const result = computeMinimalUnitTransfers(sources, units);
+
+    expect(result).toHaveLength(2);
+    expect(result.every((r) => r.sourceAccountId === "savings")).toBe(true);
+    expect(sumBy(result, (r) => r.amountCents)).toBe(15000);
+    expect(new Set(result.map((r) => r.unitKey)).size).toBe(2);
+  });
+
+  it("splits a unit across two sources at a boundary, and only that unit", () => {
+    const sources: SettlementSource[] = [
+      { accountId: "x", amountCents: 6000 },
+      { accountId: "y", amountCents: 6000 },
+    ];
+    const units: SettlementUnit[] = [
+      { unitKey: "big", accountId: "checking", amountCents: 10000 },
+      { unitKey: "small", accountId: "checking", amountCents: 2000 },
+    ];
+
+    const result = computeMinimalUnitTransfers(sources, units);
+
+    const bigRows = result.filter((r) => r.unitKey === "big");
+    const smallRows = result.filter((r) => r.unitKey === "small");
+
+    expect(bigRows).toHaveLength(2);
+    expect(sumBy(bigRows, (r) => r.amountCents)).toBe(10000);
+    expect(smallRows).toHaveLength(1);
+    expect(sumBy(smallRows, (r) => r.amountCents)).toBe(2000);
+
+    for (const source of sources) {
+      const sent = sumBy(
+        result.filter((r) => r.sourceAccountId === source.accountId),
+        (r) => r.amountCents,
+      );
+      expect(sent).toBe(source.amountCents);
+    }
+  });
+
+  it("throws when sources and units don't sum to the same total", () => {
+    const sources: SettlementSource[] = [{ accountId: "x", amountCents: 5000 }];
+    const units: SettlementUnit[] = [{ unitKey: "t1", accountId: "a", amountCents: 10000 }];
+
+    expect(() => computeMinimalUnitTransfers(sources, units)).toThrow(SettlementError);
+  });
+
+  it("is deterministic across repeated calls with equal input", () => {
+    const sources: SettlementSource[] = [
+      { accountId: "y", amountCents: 4200 },
+      { accountId: "x", amountCents: 4200 },
+      { accountId: "z", amountCents: 1600 },
+    ];
+    const units: SettlementUnit[] = [
+      { unitKey: "b", accountId: "acc-b", amountCents: 5000 },
+      { unitKey: "a", accountId: "acc-a", amountCents: 5000 },
+    ];
+
+    const first = computeMinimalUnitTransfers(sources, units);
+    const second = computeMinimalUnitTransfers(
+      sources.map((s) => ({ ...s })),
+      units.map((u) => ({ ...u })),
+    );
+
+    expect(second).toEqual(first);
+  });
+
+  it("returns an empty list for empty input", () => {
+    expect(computeMinimalUnitTransfers([], [])).toEqual([]);
   });
 });

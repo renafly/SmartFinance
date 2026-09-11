@@ -75,6 +75,3 @@ export class TransactionReimbursementsRepository extends BaseRepository<"transac
     return { data: data ?? null, error: null };
   }
 }
-
-export const transactionReimbursementsRepository =
-  new TransactionReimbursementsRepository(supabase);

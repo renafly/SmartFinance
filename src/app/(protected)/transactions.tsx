@@ -33,6 +33,7 @@ import {
   PrivacyToggle,
   formatCurrency,
   formatDate,
+  formatDateTime,
 } from "@/components/migrated-page";
 import {
   Badge,
@@ -42,6 +43,7 @@ import {
   TableRow,
 } from "@/components/data-surface";
 import { HouseholdMemberSelect } from "@/components/household-member-select";
+import { BugReportFab } from "@/components/bug-report-fab";
 import { GroupedAccountSelect } from "@/components/grouped-account-select";
 import {
   GroupedDestinationSelect,
@@ -91,11 +93,14 @@ import {
 import { RecurringTransferCreateForm, TransfersContent } from "./transfers";
 import { createStyles } from "@/features/transactions/ui-styles";
 import { DropdownField, type DropdownFieldProps } from "@/features/transactions/components/dropdown-field";
-import { DateFilterField, DatePickerField, formatDateInputValue, parseDateInputValue } from "@/features/transactions/components/transaction-date-field";
+import { DateFilterField, DatePickerField } from "@/features/transactions/components/transaction-date-field";
 import { SplitAllocationsEditor, type SplitInputMode } from "@/features/transactions/components/split-allocations-editor";
 import { ReimbursementSection } from "@/features/transactions/components/reimbursement-section";
 import { useCreateReimbursement, useHouseholdEffectiveAmounts } from "@/features/transactions/hooks/useTransactionReimbursements";
-import type { ReimbursementDraft } from "@/features/transactions/utils/reimbursements";
+import {
+  validateReimbursementAllocations,
+  type ReimbursementDraft,
+} from "@/features/transactions/utils/reimbursements";
 import {
   useSavingPotAccountAssignments,
   useSavingPots,
@@ -105,8 +110,8 @@ import {
   useTransactionAllocations,
 } from "@/features/transactions/hooks/useTransactionAllocations";
 import {
-  allocationEntriesShareOneOwner,
   allocationEntryName,
+  allocationEntryOriginalName,
   createEmptyAllocationDraft,
   resolveAllocationOwnerProfileId,
   validateAllocations,
@@ -237,6 +242,15 @@ export default function TransactionsScreen() {
   const [splitEnabled, setSplitEnabled] = useState(false);
   const [splitAllocations, setSplitAllocations] = useState<AllocationDraft[]>([]);
   const [reimbursementDrafts, setReimbursementDrafts] = useState<ReimbursementDraft[]>([]);
+  // Reimbursements live in wizard step 1 ("type"), gated to expense --
+  // enabled/targetAmount/inputMode are its own state (separate from
+  // splitEnabled/splitInputMode) since a reimbursement's own "expected
+  // total" is independent of both the expense amount and any Split Source
+  // funding breakdown. See reimbursement-section.tsx / transaction-
+  // allocations.ts's validateAllocations(minAllocations) reuse.
+  const [reimbursementEnabled, setReimbursementEnabled] = useState(false);
+  const [reimbursementTargetAmount, setReimbursementTargetAmount] = useState("");
+  const [reimbursementInputMode, setReimbursementInputMode] = useState<SplitInputMode>("value");
   const createReimbursement = useCreateReimbursement();
   const effectiveAmountsQuery = useHouseholdEffectiveAmounts(householdId);
   // Only transactions with a nonzero reimbursed_total are in this result
@@ -257,13 +271,17 @@ export default function TransactionsScreen() {
   const [activeView, setActiveView] = useState<"activity" | "scheduled">(
     "activity",
   );
-  // Defaults to "movements" (income + expense, transfers hidden) rather than
-  // "all", since transfers between your own accounts usually just clutter
-  // the activity list. "all" is still one tap away for anyone who wants
-  // transfers back in the mix.
+  // Defaults to "all" rather than "movements" (income + expense only) so
+  // generated transfers -- most importantly a confirmed replenishment run's
+  // Reposição transfer pair, which never touches the original expense
+  // transaction (see confirm_replenishment_run) and is otherwise only
+  // visible from the Replenishment History detail screen -- show up here
+  // too instead of silently vanishing from the main list. "movements" is
+  // still one tap away for anyone who'd rather hide routine
+  // account-to-account transfers.
   const [filtersType, setFiltersType] = useState<
     "movements" | "all" | "income" | "expense" | "transfer"
-  >("movements");
+  >("all");
   const [accountFilter, setAccountFilter] = useState<"all" | string>("all");
   const [sourceAccountFilter, setSourceAccountFilter] = useState<
     "all" | string
@@ -596,11 +614,11 @@ export default function TransactionsScreen() {
   // hides transactions with no visible explanation.
   const activeFilterChips = useMemo(() => {
     const chips: { key: string; label: string; onClear: () => void }[] = [];
-    if (filtersType !== "movements") {
+    if (filtersType !== "all") {
       chips.push({
         key: "filtersType",
         label: t(`transactions.filters.${filtersType}`),
-        onClear: () => setFiltersType("movements"),
+        onClear: () => setFiltersType("all"),
       });
     }
     if (sortBy !== "newest") {
@@ -713,7 +731,7 @@ export default function TransactionsScreen() {
   ]);
 
   function clearAllFilters() {
-    setFiltersType("movements");
+    setFiltersType("all");
     setAccountFilter("all");
     setSourceAccountFilter("all");
     setDestinationAccountFilter("all");
@@ -748,6 +766,19 @@ export default function TransactionsScreen() {
         : [],
     [splitEnabled, parsedAmount, splitAllocations],
   );
+  // Reimbursement sources must sum to the reimbursement's own "expected
+  // total" (reimbursementTargetAmount) -- NOT the expense amount, since a
+  // reimbursement can be partial or exceed the expense -- reusing
+  // validateAllocations with minAllocations: 1 plus the payer-name check,
+  // see validateReimbursementAllocations.
+  const parsedReimbursementTarget = Number(reimbursementTargetAmount.replace(",", "."));
+  const reimbursementValidationErrors = useMemo(
+    () =>
+      reimbursementEnabled && type === "expense" && Number.isFinite(parsedReimbursementTarget)
+        ? validateReimbursementAllocations(parsedReimbursementTarget, reimbursementDrafts)
+        : [],
+    [reimbursementEnabled, type, parsedReimbursementTarget, reimbursementDrafts],
+  );
   const canCreateTransaction =
     !createTransaction.isPending &&
     !saveTransactionAllocations.isPending &&
@@ -758,7 +789,8 @@ export default function TransactionsScreen() {
     Number.isFinite(parsedAmount) &&
     parsedAmount > 0 &&
     /^\d{4}-\d{2}-\d{2}$/.test(date) &&
-    (!splitEnabled || splitValidationErrors.length === 0);
+    (!splitEnabled || splitValidationErrors.length === 0) &&
+    (!reimbursementEnabled || reimbursementValidationErrors.length === 0);
   const canCreateMovement =
     canCreateTransaction &&
     (createMovementKind === "transaction" ||
@@ -784,7 +816,11 @@ export default function TransactionsScreen() {
     title.trim().length > 0 &&
     Number.isFinite(parsedAmount) &&
     parsedAmount > 0 &&
-    /^\d{4}-\d{2}-\d{2}$/.test(date);
+    /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+    (createMovementKind !== "transaction" ||
+      type !== "expense" ||
+      !reimbursementEnabled ||
+      reimbursementValidationErrors.length === 0);
   const canProceedFromAccountsStep =
     Boolean(effectiveAccountId) &&
     (createMovementKind !== "transfer" ||
@@ -817,6 +853,18 @@ export default function TransactionsScreen() {
   };
   const getTransactionAccountLabel = (item: any) =>
     getTransactionAccount(item)?.name ?? t("transactions.account");
+  // Set only when a replenishment has reassigned this (non-split)
+  // transaction's real account_id/pot_id -- see
+  // 20260901002600_replenishment_direct_source_reassignment_schema.sql /
+  // confirm_replenishment_run and list_transaction_movements' original_*
+  // columns. Null on a transaction that has never been replenished, and
+  // always null on a transfer (replenishment never touches those).
+  const getOriginalSourceLabel = (item: any): string | null => {
+    if (!item.original_source_type) return null;
+    return item.original_source_type === "pot"
+      ? (item.original_pot?.name ?? null)
+      : (item.original_account?.name ?? null);
+  };
   const getTransactionAccountOwnerLabel = (item: any) => {
     const ownerId = getTransactionAccount(item)?.owner_profile_id;
     return ownerId
@@ -832,15 +880,6 @@ export default function TransactionsScreen() {
     );
 
     return ownerTones[toneIndex];
-  };
-  const getTransactionCreatorLabel = (item: any) => {
-    const creatorId = item.created_by_profile?.id ?? item.created_by;
-
-    return creatorId === profile?.id
-      ? currentUserLabel
-      : (memberLabelMap.get(creatorId) ??
-          item.created_by_profile?.full_name ??
-          t("settings.unnamedUser"));
   };
   // ------------------------------------------------------------
   // Split / multi-account transaction detail (the `allocations` column
@@ -868,13 +907,6 @@ export default function TransactionsScreen() {
     if (!ownerId) return t("dashboard.shared");
     if (ownerId === profile?.id) return currentUserLabel;
     return memberLabelMap.get(ownerId) ?? t("settings.unnamedUser");
-  };
-  const getSplitOwnerSummaryLabel = (item: any) => {
-    const entries = getAllocationEntries(item);
-    if (entries.length === 0) return getTransactionAccountOwnerLabel(item);
-    return allocationEntriesShareOneOwner(entries, potAccountAssignments, accountOwnerById)
-      ? getAllocationMemberLabel(entries[0])
-      : t("transactions.split.multipleMembers");
   };
   const getCategoryBreadcrumb = (item: any, movementKind: string) => {
     if (!item.category) {
@@ -1047,7 +1079,10 @@ export default function TransactionsScreen() {
     setSplitEnabled(false);
     setSplitAllocations([]);
     setSplitInputMode("value");
+    setReimbursementEnabled(false);
     setReimbursementDrafts([]);
+    setReimbursementTargetAmount("");
+    setReimbursementInputMode("value");
   }
 
   function openCreateTransaction() {
@@ -1087,8 +1122,16 @@ export default function TransactionsScreen() {
         createdBy: effectiveCreatedById || profile.id,
         categoryId: null,
       });
+      show(t("transactions.transferCreateSuccess"));
     } else {
       if (splitEnabled && validateAllocations(parsedAmount, splitAllocations).length > 0) {
+        return;
+      }
+      if (
+        type === "expense" &&
+        reimbursementEnabled &&
+        validateReimbursementAllocations(parsedReimbursementTarget, reimbursementDrafts).length > 0
+      ) {
         return;
       }
 
@@ -1104,6 +1147,7 @@ export default function TransactionsScreen() {
         transaction_date: date,
         attachment,
       } as any);
+      show(t("transactions.createSuccess"));
 
       // The transaction row above is already committed at this point. If
       // either step below fails, the create must not look like it silently
@@ -1127,8 +1171,11 @@ export default function TransactionsScreen() {
         // Reimbursements can only be attached once the transaction has an id
         // (the FK is required, and the enforce_reimbursement_target trigger
         // needs a real row to check type = 'expense' against) -- same
-        // after-create pattern as split allocations above.
-        if (type === "expense" && created?.id && reimbursementDrafts.length > 0) {
+        // after-create pattern as split allocations above. Each draft row
+        // now also carries which account/pot the reimbursement money
+        // landed in (source_type/account_id/pot_id) -- see
+        // 20260901002500_reimbursement_allocations.sql.
+        if (type === "expense" && reimbursementEnabled && created?.id && reimbursementDrafts.length > 0) {
           for (const draftRow of reimbursementDrafts) {
             await createReimbursement.mutateAsync({
               household_id: householdId,
@@ -1137,6 +1184,9 @@ export default function TransactionsScreen() {
               amount: draftRow.amount,
               note: draftRow.note ?? null,
               created_by: createdById || profile.id,
+              source_type: draftRow.sourceType,
+              account_id: draftRow.accountId,
+              pot_id: draftRow.potId,
             });
           }
         }
@@ -1192,6 +1242,7 @@ export default function TransactionsScreen() {
   async function handleDeleteEditedTransaction() {
     if (!editTransaction) return;
     await deleteTransaction.mutateAsync(editTransaction.id);
+    show(t("transactions.deleteSuccess"));
     setDeleteConfirmationOpen(false);
     closeEditTransaction();
   }
@@ -1261,6 +1312,7 @@ export default function TransactionsScreen() {
       }
     }
 
+    show(t("transactions.updateSuccess"));
     setEditTransaction(null);
   }
 
@@ -1288,6 +1340,7 @@ export default function TransactionsScreen() {
       transactionDate: transferEdit.date,
       categoryId: transferEdit.categoryId,
     });
+    show(t("transactions.transferUpdateSuccess"));
     setTransferEdit(null);
   }
 
@@ -1763,6 +1816,7 @@ export default function TransactionsScreen() {
                 accessibilityLabel={t("cancel")}
               />
               <PrivacyToggle />
+              <BugReportFab />
               <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
                 style={styles.modalKeyboardView}
@@ -1911,6 +1965,18 @@ export default function TransactionsScreen() {
                               setCategoryIsAutomatic(!isTransfer);
                               if (isTransfer) setAttachment(null);
                               else setTransferDestination(null);
+                              // Reimbursements only make sense for an
+                              // expense (see enforce_reimbursement_target)
+                              // -- switching to Income or Transfer must
+                              // clear any in-progress reimbursement state
+                              // rather than silently carrying it along
+                              // hidden.
+                              if (item !== "expense") {
+                                setReimbursementEnabled(false);
+                                setReimbursementDrafts([]);
+                                setReimbursementTargetAmount("");
+                                setReimbursementInputMode("value");
+                              }
                             }}
                           />
                         ),
@@ -2083,6 +2149,38 @@ export default function TransactionsScreen() {
                           onChangeText={setNotes}
                           placeholder={t("transactions.notesPlaceholder")}
                         />
+                        {createMovementKind === "transaction" && type === "expense" ? (
+                          <ReimbursementSection
+                            mode="draft"
+                            originalAmount={parsedAmount}
+                            enabled={reimbursementEnabled}
+                            onToggleEnabled={setReimbursementEnabled}
+                            targetAmount={reimbursementTargetAmount}
+                            onChangeTargetAmount={setReimbursementTargetAmount}
+                            inputMode={reimbursementInputMode}
+                            onChangeInputMode={setReimbursementInputMode}
+                            value={reimbursementDrafts}
+                            onChange={setReimbursementDrafts}
+                            accounts={accounts as any}
+                            members={
+                              (membersQuery.data ?? []).filter(
+                                (member) => member.status === "accepted",
+                              ) as any
+                            }
+                            pots={splitPots}
+                            accountTypeLabels={{
+                              bank: t("accounts.types.bank"),
+                              cash: t("accounts.types.cash"),
+                              savings: t("accounts.types.savings"),
+                              credit_card: t("accounts.types.credit_card"),
+                              investment: t("accounts.types.investment"),
+                              ppr: t("accounts.types.ppr"),
+                            }}
+                            sharedLabel={t("dashboard.shared")}
+                            unassignedLabel={t("settings.unnamedUser")}
+                            closeLabel={t("close", { defaultValue: "Close" })}
+                          />
+                        ) : null}
                       </>
                     )}
                     </>
@@ -2255,14 +2353,6 @@ export default function TransactionsScreen() {
                               </Text>
                             ) : null}
                           </View>
-                        ) : null}
-                        {createMovementKind === "transaction" && type === "expense" ? (
-                          <ReimbursementSection
-                            mode="draft"
-                            originalAmount={parsedAmount}
-                            value={reimbursementDrafts}
-                            onChange={setReimbursementDrafts}
-                          />
                         ) : null}
                         {createMovementKind === "transaction" ? (
                           <View style={{ gap: spacing(2) } as any}>
@@ -2581,15 +2671,7 @@ export default function TransactionsScreen() {
                     [
                       { label: t("transactions.titleLabel"), flex: 1.9 },
                       { label: t("transactions.transactionDate"), flex: 1.1 },
-                      { label: t("transactions.account"), flex: 1.3 },
-                      !isSingleMemberHousehold && {
-                        label: t("transactions.accountOwner"),
-                        flex: 1.15,
-                      },
-                      !isSingleMemberHousehold && {
-                        label: t("transactions.createdBy"),
-                        flex: 1.15,
-                      },
+                      { label: t("transactions.account"), flex: 2.4 },
                       { label: t("transactions.amountLabel"), align: "right" },
                       { label: t("transactions.balanceAfter"), align: "right" },
                       { label: "", flex: 0.35, align: "right" },
@@ -2700,22 +2782,44 @@ export default function TransactionsScreen() {
                           </View>
                         </TableCell>,
                         <TableCell key="date" flex={1.1}>
-                          <Text style={styles.transactionAccount}>
-                            {formatDate(item.transaction_date)}
-                          </Text>
+                          <View style={{ gap: spacing(0.25) }}>
+                            <Text style={styles.transactionAccount}>
+                              {formatDate(item.transaction_date)}
+                            </Text>
+                            <Text style={styles.transactionContext}>
+                              {t("transactions.createdAt", {
+                                datetime: formatDateTime(item.created_at),
+                              })}
+                            </Text>
+                          </View>
                         </TableCell>,
-                        <TableCell key="account" flex={1.3}>
+                        <TableCell key="account" flex={2.4}>
                           {item.is_split && allocationEntries.length > 0 ? (
-                            <View style={{ gap: spacing(0.5) }}>
+                            <View style={{ gap: spacing(0.75) }}>
                               {visibleAllocationEntries.map((entry) => (
-                                <Text
-                                  key={entry.id}
-                                  style={styles.transactionAccount}
-                                  numberOfLines={1}
-                                >
-                                  {allocationEntryName(entry)} ·{" "}
-                                  {displayCurrency(formatCurrency(entry.amount), hideValues)}
-                                </Text>
+                                <View key={entry.id} style={{ gap: spacing(0.25) }}>
+                                  <Text style={styles.transactionAccount} numberOfLines={1}>
+                                    {allocationEntryName(entry)} ·{" "}
+                                    {displayCurrency(formatCurrency(entry.amount), hideValues)}
+                                  </Text>
+                                  {!isSingleMemberHousehold ? (
+                                    <View style={styles.personIdentity}>
+                                      <Ionicons
+                                        name="person-outline"
+                                        size={13}
+                                        color={colors.textSecondary}
+                                      />
+                                      <Text style={styles.transactionContext}>
+                                        {getAllocationMemberLabel(entry)}
+                                      </Text>
+                                    </View>
+                                  ) : null}
+                                  {allocationEntryOriginalName(entry) ? (
+                                    <Text style={styles.transactionContext} numberOfLines={1}>
+                                      {t("transactions.originallyFrom", { source: allocationEntryOriginalName(entry) })}
+                                    </Text>
+                                  ) : null}
+                                </View>
                               ))}
                               {hiddenAllocationCount > 0 ? (
                                 <Text style={styles.transactionContext}>
@@ -2726,43 +2830,32 @@ export default function TransactionsScreen() {
                               ) : null}
                             </View>
                           ) : (
-                            <Text style={styles.transactionAccount}>
-                              {movementKind === "transfer"
-                                ? `${item.source_account?.name ?? t("transactions.sourceAccount")} → ${item.destination_account?.name ?? t("transactions.destinationAccount")}`
-                                : getTransactionAccountLabel(item)}
-                            </Text>
+                            <View style={{ gap: spacing(0.25) }}>
+                              <Text style={styles.transactionAccount}>
+                                {movementKind === "transfer"
+                                  ? `${item.source_account?.name ?? t("transactions.sourceAccount")} → ${item.destination_account?.name ?? t("transactions.destinationAccount")}`
+                                  : getTransactionAccountLabel(item)}
+                              </Text>
+                              {!isSingleMemberHousehold ? (
+                                <View style={styles.personIdentity}>
+                                  <Ionicons
+                                    name="person-outline"
+                                    size={13}
+                                    color={rowTone.accent}
+                                  />
+                                  <Text style={styles.transactionContext}>
+                                    {getTransactionAccountOwnerLabel(item)}
+                                  </Text>
+                                </View>
+                              ) : null}
+                              {movementKind !== "transfer" && getOriginalSourceLabel(item) ? (
+                                <Text style={styles.transactionContext} numberOfLines={1}>
+                                  {t("transactions.originallyFrom", { source: getOriginalSourceLabel(item) })}
+                                </Text>
+                              ) : null}
+                            </View>
                           )}
                         </TableCell>,
-                        !isSingleMemberHousehold && (
-                          <TableCell key="owner" flex={1.15}>
-                            <View style={styles.personIdentity}>
-                              <Ionicons
-                                name="person-outline"
-                                size={15}
-                                color={rowTone.accent}
-                              />
-                              <Text style={styles.transactionAccount}>
-                                {item.is_split
-                                  ? getSplitOwnerSummaryLabel(item)
-                                  : getTransactionAccountOwnerLabel(item)}
-                              </Text>
-                            </View>
-                          </TableCell>
-                        ),
-                        !isSingleMemberHousehold && (
-                          <TableCell key="creator" flex={1.15}>
-                            <View style={styles.personIdentity}>
-                              <Ionicons
-                                name="create-outline"
-                                size={15}
-                                color={colors.primary}
-                              />
-                              <Text style={styles.transactionCreator}>
-                                {getTransactionCreatorLabel(item)}
-                              </Text>
-                            </View>
-                          </TableCell>
-                        ),
                         <TableCell key="amount" align="right">
                           {(() => {
                             const reimbursement = effectiveAmountByTransactionId.get(item.id);
@@ -2807,12 +2900,74 @@ export default function TransactionsScreen() {
                           })()}
                         </TableCell>,
                         <TableCell key="balance" align="right">
-                          <Text style={styles.transactionBalance}>
-                            {item.movement_kind === "transfer" ||
-                            item.balance_after_transaction == null
-                              ? "—"
-                              : displayCurrency(formatCurrency(item.balance_after_transaction), hideValues)}
-                          </Text>
+                          {item.is_split && allocationEntries.length > 0 ? (
+                            <View style={{ gap: spacing(0.75), alignItems: "flex-end" }}>
+                              {visibleAllocationEntries.map((entry) => (
+                                <View key={entry.id} style={{ alignItems: "flex-end" }}>
+                                  <Text style={styles.transactionContext} numberOfLines={1}>
+                                    {allocationEntryName(entry)}
+                                    {!isSingleMemberHousehold
+                                      ? ` · ${getAllocationMemberLabel(entry)}`
+                                      : ""}
+                                  </Text>
+                                  <Text style={styles.transactionBalance} numberOfLines={1}>
+                                    {entry.running_balance == null
+                                      ? "—"
+                                      : displayCurrency(formatCurrency(entry.running_balance), hideValues)}
+                                  </Text>
+                                </View>
+                              ))}
+                              {hiddenAllocationCount > 0 ? (
+                                // Blank spacer so this column's row heights
+                                // stay aligned with the "account" column's
+                                // "+N more" line -- the count is already
+                                // shown there, no need to repeat it here.
+                                <Text style={styles.transactionContext}> </Text>
+                              ) : null}
+                            </View>
+                          ) : item.movement_kind === "transfer" ? (
+                            item.balance_after_transaction == null &&
+                            item.destination_balance_after_transaction == null ? (
+                              <Text style={styles.transactionBalance}>—</Text>
+                            ) : (
+                              <View style={{ gap: spacing(0.75), alignItems: "flex-end" }}>
+                                <View style={{ alignItems: "flex-end" }}>
+                                  <Text style={styles.transactionContext} numberOfLines={1}>
+                                    {item.source_account?.name ?? t("transactions.sourceAccount")}
+                                  </Text>
+                                  <Text style={styles.transactionBalance}>
+                                    {item.balance_after_transaction == null
+                                      ? "—"
+                                      : displayCurrency(formatCurrency(item.balance_after_transaction), hideValues)}
+                                  </Text>
+                                </View>
+                                <View style={{ alignItems: "flex-end" }}>
+                                  <Text style={styles.transactionContext} numberOfLines={1}>
+                                    {item.destination_account?.name ?? t("transactions.destinationAccount")}
+                                  </Text>
+                                  <Text style={styles.transactionBalance}>
+                                    {item.destination_balance_after_transaction == null
+                                      ? "—"
+                                      : displayCurrency(formatCurrency(item.destination_balance_after_transaction), hideValues)}
+                                  </Text>
+                                </View>
+                              </View>
+                            )
+                          ) : item.balance_after_transaction == null ? (
+                            <Text style={styles.transactionBalance}>—</Text>
+                          ) : (
+                            <View style={{ alignItems: "flex-end" }}>
+                              <Text style={styles.transactionContext} numberOfLines={1}>
+                                {getTransactionAccountLabel(item)}
+                                {!isSingleMemberHousehold
+                                  ? ` · ${getTransactionAccountOwnerLabel(item)}`
+                                  : ""}
+                              </Text>
+                              <Text style={styles.transactionBalance}>
+                                {displayCurrency(formatCurrency(item.balance_after_transaction), hideValues)}
+                              </Text>
+                            </View>
+                          )}
                         </TableCell>,
                         <TableCell key="actions" flex={0.35} align="right" mobilePinned>
                           {bulkSelectionOpen ? (
@@ -2986,9 +3141,26 @@ export default function TransactionsScreen() {
                                   {getAllocationMemberLabel(entry)}
                                 </Text>
                               </View>
-                              <Text style={styles.transactionAmount}>
-                                {displayCurrency(formatCurrency(entry.amount), hideValues)}
-                              </Text>
+                              <View style={{ alignItems: "flex-end" }}>
+                                <Text
+                                  style={[
+                                    styles.transactionAmount,
+                                    { color: movementAmountColor(movementKind, colors) },
+                                  ]}
+                                >
+                                  {displayCurrency(formatCurrency(entry.amount), hideValues)}
+                                </Text>
+                                {entry.running_balance != null ? (
+                                  <Text style={styles.transactionContext}>
+                                    {t("transactions.split.balanceAfterEntry", {
+                                      amount: displayCurrency(
+                                        formatCurrency(entry.running_balance),
+                                        hideValues,
+                                      ),
+                                    })}
+                                  </Text>
+                                ) : null}
+                              </View>
                             </View>
                           ))}
                         </View>
@@ -3049,6 +3221,7 @@ export default function TransactionsScreen() {
             accessibilityLabel={t("cancel")}
           />
           <PrivacyToggle />
+          <BugReportFab />
           <ScrollView contentContainerStyle={styles.modalScroll}>
             <View
               style={[
@@ -3218,6 +3391,7 @@ export default function TransactionsScreen() {
             accessibilityLabel={t("cancel")}
           />
           <PrivacyToggle />
+          <BugReportFab />
           <View style={styles.modalCard}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
               {t("transactions.deleteTransferTitle")}
@@ -3246,7 +3420,10 @@ export default function TransactionsScreen() {
                   if (!groupId) return;
                   void deleteCompletedTransfer
                     .mutateAsync(groupId)
-                    .then(() => setTransferToDelete(null));
+                    .then(() => {
+                      show(t("transactions.transferDeleteSuccess"));
+                      setTransferToDelete(null);
+                    });
                 }}
               />
             </View>
@@ -3270,6 +3447,7 @@ export default function TransactionsScreen() {
             accessibilityLabel={t("cancel")}
           />
           <PrivacyToggle />
+          <BugReportFab />
           <View style={[styles.modalCard, styles.editModalCard]}>
             <ScrollView
               keyboardShouldPersistTaps="handled"
@@ -3451,6 +3629,24 @@ export default function TransactionsScreen() {
                       transactionId={editTransaction.id}
                       householdId={householdId ?? ""}
                       createdById={editTransaction.createdById || profile?.id || ""}
+                      accounts={accounts as any}
+                      members={
+                        (membersQuery.data ?? []).filter(
+                          (member) => member.status === "accepted",
+                        ) as any
+                      }
+                      pots={splitPots}
+                      accountTypeLabels={{
+                        bank: t("accounts.types.bank"),
+                        cash: t("accounts.types.cash"),
+                        savings: t("accounts.types.savings"),
+                        credit_card: t("accounts.types.credit_card"),
+                        investment: t("accounts.types.investment"),
+                        ppr: t("accounts.types.ppr"),
+                      }}
+                      sharedLabel={t("dashboard.shared")}
+                      unassignedLabel={t("settings.unnamedUser")}
+                      closeLabel={t("close", { defaultValue: "Close" })}
                     />
                   ) : null}
                   <View style={styles.editAttachmentsSection}>

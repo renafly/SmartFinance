@@ -6,16 +6,18 @@ Read the exact versioned Expo docs at https://docs.expo.dev/versions/v57.0.0/ be
 
 This project has a knowledge graph in `graphify-out/`, including god nodes, community structure, and cross-file relationships.
 
-**Always use Graphify before anything else.** Before reading source files, grepping, editing code, or taking any other action on any task, run Graphify first — e.g. `graphify query "<task or question>"` (or `explain`/`path` as fits) when `graphify-out/graph.json` exists. This applies to every task, not just explicit codebase questions. When the user types `/graphify`, use the installed Graphify skill/instructions before doing anything else.
+**Note (last checked 2026-09):** `graphify-out/graph.json` exists (stale output from a previous run), but the `graphify` CLI itself is **not installed** in this environment -- it's not on PATH, not an npm dependency, and there's no npm script for it. Running `graphify query ...` will fail with a "command not found" error. Before following any rule below, run `which graphify` (or equivalent) once per session; if it's missing, skip straight to normal source browsing/grep and don't retry Graphify commands for the rest of the session. If a real Graphify CLI does get installed later, the rules below apply as written.
 
-Rules:
+**Always use Graphify before anything else, once it's confirmed available.** Before reading source files, grepping, editing code, or taking any other action on any task, run Graphify first — e.g. `graphify query "<task or question>"` (or `explain`/`path` as fits) when `graphify-out/graph.json` exists. This applies to every task, not just explicit codebase questions. When the user types `/graphify`, use the installed Graphify skill/instructions before doing anything else.
+
+Rules (once the `graphify` binary is confirmed installed):
 
 - Before anything else, run `graphify query "<question>"` when `graphify-out/graph.json` exists — for every task, not just codebase questions.
 - Use `graphify path "<A>" "<B>"` to inspect relationships between two files, components, services, or concepts.
 - Use `graphify explain "<concept>"` for focused explanations of a specific area.
 - Always prefer `graphify query`, `graphify path`, or `graphify explain` before broad source browsing or raw grep searches — Graphify comes first, every time.
 - Dirty `graphify-out/` files are expected after hooks or incremental updates. Dirty graph files are not a reason to skip Graphify.
-- Only skip Graphify if the task is about stale or incorrect graph output, or if the user explicitly says not to use Graphify.
+- Only skip Graphify if the task is about stale or incorrect graph output, the `graphify` binary isn't installed (see note above), or the user explicitly says not to use Graphify.
 - If `graphify-out/wiki/index.md` exists, use it for broad navigation before raw source browsing.
 - Read `graphify-out/GRAPH_REPORT.md` only for broad architecture review or when `query`, `path`, or `explain` do not provide enough context.
 - After modifying code, run `graphify update .` to keep the graph current. This should be AST-only and should not require API cost.

@@ -14,7 +14,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useToast } from "@/providers/ToastProvider";
 import { useHouseholdMemberDetails } from "@/features/households/hooks";
 
-import { computeMinimalTransfers, SettlementError } from "../algorithm/settlement";
+import { computeMinimalUnitTransfers, SettlementError, type SettlementUnitSource } from "../algorithm/settlement";
 import { fromCents, toCents } from "../algorithm/money";
 import { useSaveReplenishmentDraft } from "../hooks/useReplenishmentDraft";
 import { useConfirmReplenishment } from "../hooks/useConfirmReplenishment";
@@ -22,8 +22,12 @@ import { buildMemberLabelMap } from "../member-grouping";
 import type {
   ReplenishableTransaction,
   ReplenishmentDestination,
+  ReplenishmentPreview,
+  ReplenishmentSourceAssignment,
   ReplenishmentSourceDraft,
+  ReplenishmentSourceKind,
   ReplenishmentTransferPreview,
+  ReplenishmentUnitSourceAssignment,
 } from "../types";
 
 import { SelectAccountsToReplenishStep } from "./steps/SelectAccountsToReplenishStep";
@@ -130,36 +134,132 @@ export function ReplenishmentWizard({
   );
   const isDistributionValid = destinations.length > 0 && sources.length > 0 && remainingAmount === 0;
 
-  const transferPreview = useMemo<ReplenishmentTransferPreview[] | null>(() => {
+  // Per-unit source assignments: unlike the old account-level settlement,
+  // this keeps every selected transaction (or, for one slice of an
+  // already-split transaction, that specific allocation) as its own row on
+  // the destination side, so the result says exactly which source(s) fund
+  // *that transaction*, not just its account as a whole -- confirm_
+  // replenishment_run reassigns each covered unit's real origin directly,
+  // so it needs that per-unit attribution, not an account-to-account
+  // transfer to create.
+  const unitTransferAssignments = useMemo<SettlementUnitSource[] | null>(() => {
     if (!isDistributionValid) return null;
     try {
       const settlementSources = sources
         .filter((source) => source.amount > 0)
         .map((source) => ({ accountId: source.resolvedAccountId, amountCents: toCents(source.amount) }));
-      const settlementDestinations = destinations.map((destination) => ({
-        accountId: destination.accountId,
-        amountCents: toCents(destination.amount),
+      const units = [...selectedTransactions.entries()].map(([unitKey, transaction]) => ({
+        unitKey,
+        accountId: transaction.accountId,
+        amountCents: toCents(transaction.amount),
       }));
-      const transfers = computeMinimalTransfers(settlementSources, settlementDestinations);
-
-      const sourceLabelByAccount = new Map(sources.map((source) => [source.resolvedAccountId, source.label]));
-      const destinationLabelByAccount = new Map(
-        destinations.map((destination) => [destination.accountId, destination.accountName]),
-      );
-
-      return transfers.map((transfer) => ({
-        sourceAccountId: transfer.sourceAccountId,
-        sourceLabel: sourceLabelByAccount.get(transfer.sourceAccountId) ?? transfer.sourceAccountId,
-        destinationAccountId: transfer.destinationAccountId,
-        destinationLabel:
-          destinationLabelByAccount.get(transfer.destinationAccountId) ?? transfer.destinationAccountId,
-        amount: fromCents(transfer.amountCents),
-      }));
+      return computeMinimalUnitTransfers(settlementSources, units);
     } catch (error) {
       if (error instanceof SettlementError) return null;
       throw error;
     }
-  }, [destinations, isDistributionValid, sources]);
+  }, [isDistributionValid, selectedTransactions, sources]);
+
+  // Read-only, display-only summary for the Preview step: aggregates the
+  // per-unit assignments back up by (source account, destination account)
+  // pair, purely to show "what will effectively happen" the same way the
+  // old transfer-based preview always looked -- TransferPreviewStep itself
+  // is unchanged, it just renders whatever this produces.
+  const transferPreview = useMemo<ReplenishmentTransferPreview[] | null>(() => {
+    if (!unitTransferAssignments) return null;
+
+    const sourceLabelByAccount = new Map(sources.map((source) => [source.resolvedAccountId, source.label]));
+    const destinationLabelByAccount = new Map(
+      destinations.map((destination) => [destination.accountId, destination.accountName]),
+    );
+
+    const totalsByPair = new Map<
+      string,
+      { sourceAccountId: string; destinationAccountId: string; amountCents: number }
+    >();
+    for (const assignment of unitTransferAssignments) {
+      const key = `${assignment.sourceAccountId} ${assignment.accountId}`;
+      const existing = totalsByPair.get(key);
+      if (existing) existing.amountCents += assignment.amountCents;
+      else
+        totalsByPair.set(key, {
+          sourceAccountId: assignment.sourceAccountId,
+          destinationAccountId: assignment.accountId,
+          amountCents: assignment.amountCents,
+        });
+    }
+
+    return [...totalsByPair.values()]
+      .sort(
+        (a, b) =>
+          a.sourceAccountId.localeCompare(b.sourceAccountId) ||
+          a.destinationAccountId.localeCompare(b.destinationAccountId),
+      )
+      .map((pair) => ({
+        sourceAccountId: pair.sourceAccountId,
+        sourceLabel: sourceLabelByAccount.get(pair.sourceAccountId) ?? pair.sourceAccountId,
+        destinationAccountId: pair.destinationAccountId,
+        destinationLabel: destinationLabelByAccount.get(pair.destinationAccountId) ?? pair.destinationAccountId,
+        amount: fromCents(pair.amountCents),
+      }));
+  }, [destinations, sources, unitTransferAssignments]);
+
+  // The actual confirm_replenishment_run payload: per covered unit, the
+  // real source(s) it should be reassigned to.
+  const unitSources = useMemo<ReplenishmentUnitSourceAssignment[] | null>(() => {
+    if (!unitTransferAssignments) return null;
+
+    const sourceByResolvedAccountId = new Map(sources.map((source) => [source.resolvedAccountId, source]));
+
+    const grouped = new Map<string, SettlementUnitSource[]>();
+    for (const assignment of unitTransferAssignments) {
+      const existing = grouped.get(assignment.unitKey);
+      if (existing) existing.push(assignment);
+      else grouped.set(assignment.unitKey, [assignment]);
+    }
+
+    const result: ReplenishmentUnitSourceAssignment[] = [];
+    for (const [unitKey, assignments] of grouped) {
+      const transaction = selectedTransactions.get(unitKey);
+      if (!transaction) continue;
+
+      // Only a whole (non-split) transaction funded by exactly one source
+      // goes through confirm_replenishment_run's "whole transaction"
+      // single-source branch, which -- like every other non-split
+      // transaction in the app -- always needs a real account_id written
+      // onto transactions.account_id, even when the source is
+      // conceptually a pot (pot_id is then set alongside it, purely as
+      // informational context, exactly like a normal non-split "paid from
+      // a pot" expense already stores it elsewhere in the app). Every
+      // other case (more than one source, or one allocation row of an
+      // already-split transaction) goes through a transaction_allocations-
+      // backed branch instead, which requires the discriminated shape
+      // transaction_allocations itself enforces: exactly one of
+      // account_id/pot_id, never both.
+      const isWholeTransactionSingleSource = !transaction.isSplit && assignments.length === 1;
+
+      const sourceAssignments: ReplenishmentSourceAssignment[] = assignments.map((assignment) => {
+        const draft = sourceByResolvedAccountId.get(assignment.sourceAccountId);
+        const kind: ReplenishmentSourceKind = draft?.kind ?? "account";
+        const potId = kind === "pot" ? (draft?.potId ?? null) : null;
+        const accountId = kind === "account" || isWholeTransactionSingleSource ? assignment.sourceAccountId : null;
+        return {
+          sourceType: kind,
+          accountId,
+          potId,
+          amount: fromCents(assignment.amountCents),
+        };
+      });
+
+      result.push({
+        transactionId: transaction.id,
+        accountId: transaction.accountId,
+        sources: sourceAssignments,
+      });
+    }
+
+    return result;
+  }, [selectedTransactions, sources, unitTransferAssignments]);
 
   function goTo(nextIndex: number) {
     const clamped = Math.max(0, Math.min(nextIndex, STEP_KEYS.length - 1));
@@ -254,28 +354,17 @@ export function ReplenishmentWizard({
   }
 
   async function handleConfirm() {
-    if (!transferPreview || transferPreview.length === 0) return;
+    if (!unitSources || unitSources.length === 0) return;
     try {
       const run = await persistDraft();
       if (!run) return;
 
       // confirm_replenishment_run rejects the confirmation unless
-      // `p_preview->'transfers'` is JSONB-equal to `p_transfers` (it's the
+      // `p_preview->'unitSources'` is JSONB-equal to `p_unit_sources` (the
       // guard against confirming a stale/tampered payload) -- so the exact
       // same array, in the exact same shape the RPC receives, must also be
-      // what gets embedded in the stored preview. transferPreview itself
-      // carries display-only fields (sourceLabel/destinationLabel) that
-      // never reach the RPC, so it can't be reused directly here.
-      const rpcTransfers = transferPreview.map((transfer) => ({
-        sourceAccountId: transfer.sourceAccountId,
-        destinationAccountId: transfer.destinationAccountId,
-        amount: transfer.amount,
-        title: null as string | null,
-        notes: null as string | null,
-        categoryId: null as string | null,
-      }));
-
-      const preview = {
+      // what gets embedded in the stored preview.
+      const preview: ReplenishmentPreview = {
         transactionIds: [...selectedTransactions.keys()],
         destinations,
         sources: sources.map((source) => ({
@@ -283,17 +372,17 @@ export function ReplenishmentWizard({
           amount: source.amount,
           suggestedAmount: source.suggestedAmount,
         })),
-        transfers: rpcTransfers,
+        unitSources,
         totalAmount,
       };
 
       await confirmReplenishment.mutateAsync({
         runId: run.id,
-        transfers: rpcTransfers,
+        unitSources,
         preview,
       });
 
-      show(t("replenishments.confirmSuccess", { count: transferPreview.length }));
+      show(t("replenishments.confirmSuccess", { count: selectedTransactions.size }));
       onDone?.();
     } catch (error) {
       show(
@@ -361,8 +450,8 @@ export function ReplenishmentWizard({
                 }
                 onPress={() => void handleConfirm()}
                 disabled={
-                  !transferPreview ||
-                  transferPreview.length === 0 ||
+                  !unitSources ||
+                  unitSources.length === 0 ||
                   saveDraft.isPending ||
                   confirmReplenishment.isPending
                 }

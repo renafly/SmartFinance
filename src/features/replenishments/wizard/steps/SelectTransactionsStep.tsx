@@ -98,23 +98,96 @@ export function SelectTransactionsStep({
     return [...byId.values()];
   }, [transactionsQuery.data]);
 
-  function toRepleshable(row: any): ReplenishableTransaction {
-    return {
-      id: row.movement_id,
-      accountId: row.account_id,
-      accountName: row.account?.name ?? "",
-      amount: row.amount,
-      categoryId: row.category_id,
-      title: row.title,
-      transactionDate: row.transaction_date,
-    };
+  // A split transaction's own `account_id`/`amount` are only a
+  // representative/display value (the largest allocation, set by
+  // save_transaction_allocations) -- transaction_allocations is
+  // authoritative for balance math (see
+  // 20260819120000_transaction_allocations.sql). list_transaction_movements
+  // includes a split row here as soon as ANY of its allocations touches one
+  // of `replenishAccountIds` (see
+  // 20260901000500_transaction_movements_allocation_account_filter.sql),
+  // but never adjusts the row's own account_id/amount to match it -- so
+  // naively using them (as this file used to) credits the *representative*
+  // account with the split's *entire* total, even though part of that
+  // total never left that account's own balance (it was funded directly by
+  // whichever other account backed the other allocation(s)). Expanding into
+  // one entry per matching account allocation keeps every entry's
+  // amount/accountId equal to what actually left that specific account for
+  // this expense, so it's the only part that's real debt owed back to it.
+  function expandRow(row: any): { key: string; transaction: ReplenishableTransaction }[] {
+    if (!row.is_split) {
+      return [
+        {
+          key: row.movement_id,
+          transaction: {
+            id: row.movement_id,
+            accountId: row.account_id,
+            accountName: row.account?.name ?? "",
+            amount: row.amount,
+            categoryId: row.category_id,
+            title: row.title,
+            transactionDate: row.transaction_date,
+            isSplit: false,
+          },
+        },
+      ];
+    }
+
+    const replenishSet = new Set(replenishAccountIds);
+    const allocations: any[] = Array.isArray(row.allocations) ? row.allocations : [];
+    return allocations
+      .filter(
+        (allocation) => allocation.source_type === "account" && replenishSet.has(allocation.account_id),
+      )
+      .map((allocation) => ({
+        key: `${row.movement_id}:${allocation.account_id}`,
+        transaction: {
+          id: row.movement_id,
+          accountId: allocation.account_id,
+          accountName: allocation.account_name ?? "",
+          amount: allocation.amount,
+          categoryId: row.category_id,
+          title: row.title,
+          transactionDate: row.transaction_date,
+          isSplit: true,
+        },
+      }));
+  }
+
+  function isRowSelected(row: any): boolean {
+    const expanded = expandRow(row);
+    return expanded.length > 0 && expanded.every((entry) => selected.has(entry.key));
+  }
+
+  /** What selecting this row actually adds to the replenishment total --
+   * shown in the list so it matches what appears in the summary above once
+   * toggled on, instead of the split's unrelated full total. */
+  function rowReplenishAmount(row: any): number {
+    return expandRow(row).reduce((sum, entry) => sum + entry.transaction.amount, 0);
+  }
+
+  /** The account(s) this row will actually credit -- usually the same as
+   * row.account (the representative account), but not always: a split row
+   * shows up here whenever ANY of its allocations touches one of
+   * replenishAccountIds, even one that isn't the representative account,
+   * so row.account?.name alone can name the wrong account (or the right
+   * one but imply it alone, when two of the selected accounts both share
+   * this expense). */
+  function rowAccountLabel(row: any): string {
+    const names = [...new Set(expandRow(row).map((entry) => entry.transaction.accountName))].filter(Boolean);
+    return names.length > 0 ? names.join(" + ") : (row.account?.name ?? "");
   }
 
   function toggleRow(row: any) {
+    const expanded = expandRow(row);
+    if (expanded.length === 0) return;
     onChangeSelected((current) => {
       const next = new Map(current);
-      if (next.has(row.movement_id)) next.delete(row.movement_id);
-      else next.set(row.movement_id, toRepleshable(row));
+      const allSelected = expanded.every((entry) => next.has(entry.key));
+      for (const entry of expanded) {
+        if (allSelected) next.delete(entry.key);
+        else next.set(entry.key, entry.transaction);
+      }
       return next;
     });
   }
@@ -131,7 +204,9 @@ export function SelectTransactionsStep({
       }
       onChangeSelected((current) => {
         const next = new Map(current);
-        for (const row of byId.values()) next.set(row.movement_id, toRepleshable(row));
+        for (const row of byId.values()) {
+          for (const entry of expandRow(row)) next.set(entry.key, entry.transaction);
+        }
         return next;
       });
     } finally {
@@ -142,7 +217,9 @@ export function SelectTransactionsStep({
   function clearSelection() {
     onChangeSelected((current) => {
       const next = new Map(current);
-      for (const row of rows) next.delete(row.movement_id);
+      for (const row of rows) {
+        for (const entry of expandRow(row)) next.delete(entry.key);
+      }
       return next;
     });
   }
@@ -159,10 +236,10 @@ export function SelectTransactionsStep({
         .map((row) => ({
           id: row.movement_id,
           title: row.title,
-          subtitle: `${row.account?.name ?? ""} · ${formatDate(row.transaction_date)}`,
-          rightLabel: displayCurrency(formatCurrency(row.amount), hideValues),
-          active: selected.has(row.movement_id),
-          iconName: selected.has(row.movement_id) ? "checkmark-circle" : "ellipse-outline",
+          subtitle: `${rowAccountLabel(row)} · ${formatDate(row.transaction_date)}`,
+          rightLabel: displayCurrency(formatCurrency(rowReplenishAmount(row)), hideValues),
+          active: isRowSelected(row),
+          iconName: isRowSelected(row) ? "checkmark-circle" : "ellipse-outline",
           onPress: () => toggleRow(row),
         })),
     }));

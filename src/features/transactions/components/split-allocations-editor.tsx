@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,7 +23,7 @@ import {
   type AllocationDraft,
 } from "@/features/transactions/utils/transaction-allocations";
 
-type AccountLike = {
+export type AccountLike = {
   id: string;
   name: string;
   type: string;
@@ -32,20 +32,20 @@ type AccountLike = {
   owner_profile_id: string | null;
 };
 
-type MemberLike = {
+export type MemberLike = {
   userId: string;
   fullName: string | null;
   email: string | null;
 };
 
-type PotLike = {
+export type PotLike = {
   id: string;
   name: string;
 };
 
 export type SplitInputMode = "value" | "percentage";
 
-type SplitAllocationsEditorProps = {
+type SplitAllocationsEditorProps<T extends AllocationDraft = AllocationDraft> = {
   enabled: boolean;
   onToggleEnabled: (enabled: boolean) => void;
   /** Parsed transaction total, in euros. Allocations must sum to exactly this. */
@@ -53,17 +53,40 @@ type SplitAllocationsEditorProps = {
   accounts: AccountLike[];
   members: MemberLike[];
   pots: PotLike[];
-  allocations: AllocationDraft[];
-  onChangeAllocations: (allocations: AllocationDraft[]) => void;
+  allocations: T[];
+  onChangeAllocations: (allocations: T[]) => void;
   inputMode: SplitInputMode;
   onChangeInputMode: (mode: SplitInputMode) => void;
   accountTypeLabels: Record<string, string>;
   sharedLabel: string;
   unassignedLabel: string;
   closeLabel: string;
+  /**
+   * A "split" only means something with at least two sources, so this
+   * defaults to 2 -- pass 1 to reuse this same editor for a set where a
+   * single source is normal (e.g. reimbursements, see
+   * reimbursement-section.tsx), forwarded to validateAllocations/
+   * summarizeAllocations unchanged.
+   */
+  minAllocations?: number;
+  /**
+   * i18n key prefix for every string this editor owns (toggle, pills,
+   * summary, errors...). Defaults to "transactions.split" so the existing
+   * Split Source usage is unaffected; a caller reusing this component for
+   * a different concept (reimbursements: "transactions.reimbursementSplit")
+   * passes its own prefix instead of forking the component. See
+   * src/locales/en/common.json for both key sets.
+   */
+  copyPrefix?: string;
+  /** Overrides the default empty-account-row factory when T carries extra required fields (e.g. a reimbursement row's payerName). */
+  createEmptyAllocation?: () => T;
+  /** Rendered once, right after the toggle, only while enabled -- e.g. a reimbursement's own "expected total" field, which a plain split doesn't need since its total is already the transaction amount. */
+  renderExtra?: () => ReactNode;
+  /** Rendered inside every row's card, right after its header -- e.g. a reimbursement row's payer-name field. */
+  renderRowExtra?: (allocation: T, update: (patch: Partial<T>) => void) => ReactNode;
 };
 
-function usedTargetKeys(allocations: AllocationDraft[], excludeId: string): Set<string> {
+function usedTargetKeys<T extends AllocationDraft>(allocations: T[], excludeId: string): Set<string> {
   const keys = new Set<string>();
   for (const allocation of allocations) {
     if (allocation.id === excludeId) continue;
@@ -85,7 +108,7 @@ function usedTargetKeys(allocations: AllocationDraft[], excludeId: string): Set<
  * it never transforms the underlying data, so toggling back and forth
  * never loses the current distribution (per docs/split-transactions-plan.md §2.4).
  */
-export function SplitAllocationsEditor({
+export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDraft>({
   enabled,
   onToggleEnabled,
   totalAmount,
@@ -100,25 +123,40 @@ export function SplitAllocationsEditor({
   sharedLabel,
   unassignedLabel,
   closeLabel,
-}: SplitAllocationsEditorProps) {
+  minAllocations = 2,
+  copyPrefix = "transactions.split",
+  createEmptyAllocation,
+  renderExtra,
+  renderRowExtra,
+}: SplitAllocationsEditorProps<T>) {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
   const hideValues = usePrivacyStore((state) => state.hideValues);
   const money = (value: number) => displayCurrency(formatCurrency(value), hideValues);
 
   const totalCents = toCents(totalAmount);
-  const summary = summarizeAllocations(totalAmount, allocations);
-  const errors = validateAllocations(totalAmount, allocations);
+  const summary = summarizeAllocations(totalAmount, allocations, { minAllocations });
+  const errors = validateAllocations(totalAmount, allocations, { minAllocations });
   const percentages = allocationsToPercentages(totalAmount, allocations);
 
+  // patch is typed against the base AllocationDraft (not Partial<T>) because
+  // TS can't verify a plain object literal satisfies Partial<T> for a
+  // generic T -- every call site here only ever patches base
+  // AllocationDraft fields (sourceType/accountId/potId/amount); the single
+  // cast below is where T-specific extra fields (passed in via
+  // renderRowExtra's own `update` callback, which is still typed
+  // Partial<T> in the props) get folded back in.
   function updateAllocation(id: string, patch: Partial<AllocationDraft>) {
     onChangeAllocations(
-      allocations.map((allocation) => (allocation.id === id ? { ...allocation, ...patch } : allocation)),
+      allocations.map((allocation) => (allocation.id === id ? ({ ...allocation, ...patch } as T) : allocation)),
     );
   }
 
   function addAllocation() {
-    onChangeAllocations([...allocations, createEmptyAllocationDraft("account")]);
+    const next = createEmptyAllocation
+      ? createEmptyAllocation()
+      : (createEmptyAllocationDraft("account") as T);
+    onChangeAllocations([...allocations, next]);
   }
 
   function removeAllocation(id: string) {
@@ -150,10 +188,10 @@ export function SplitAllocationsEditor({
           <Ionicons name="git-branch-outline" size={16} color={colors.textSecondary} />
           <View style={{ flex: 1 } as any}>
             <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.semibold) } as any}>
-              {t("transactions.split.toggleLabel")}
+              {t(`${copyPrefix}.toggleLabel`)}
             </Text>
             <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any}>
-              {t("transactions.split.toggleHint")}
+              {t(`${copyPrefix}.toggleHint`)}
             </Text>
           </View>
         </View>
@@ -166,14 +204,15 @@ export function SplitAllocationsEditor({
 
       {enabled ? (
         <Fragment>
+          {renderExtra ? renderExtra() : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing(2) } as any}>
             <Pill
-              label={t("transactions.split.inputModeValue")}
+              label={t(`${copyPrefix}.inputModeValue`)}
               active={inputMode === "value"}
               onPress={() => onChangeInputMode("value")}
             />
             <Pill
-              label={t("transactions.split.inputModePercentage")}
+              label={t(`${copyPrefix}.inputModePercentage`)}
               active={inputMode === "percentage"}
               onPress={() => onChangeInputMode("percentage")}
             />
@@ -181,11 +220,11 @@ export function SplitAllocationsEditor({
 
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing(2) } as any}>
             <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
-              {t("transactions.split.breakdownTitle")}
+              {t(`${copyPrefix}.breakdownTitle`)}
             </Text>
             <View style={{ flexDirection: "row", gap: spacing(2) } as any}>
-              <Button label={t("transactions.split.distributeEqually")} onPress={distributeEqually} variant="secondary" />
-              <Button label={t("transactions.split.addSource")} onPress={addAllocation} variant="secondary" />
+              <Button label={t(`${copyPrefix}.distributeEqually`)} onPress={distributeEqually} variant="secondary" />
+              <Button label={t(`${copyPrefix}.addSource`)} onPress={addAllocation} variant="secondary" />
             </View>
           </View>
 
@@ -213,13 +252,13 @@ export function SplitAllocationsEditor({
               >
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing(2) } as any}>
                   <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
-                    {t("transactions.split.sourceIndex", { index: index + 1 })}
+                    {t(`${copyPrefix}.sourceIndex`, { index: index + 1 })}
                   </Text>
                   {allocations.length > 1 ? (
                     <Pressable
                       onPress={() => removeAllocation(allocation.id)}
                       accessibilityRole="button"
-                      accessibilityLabel={t("transactions.split.removeSource")}
+                      accessibilityLabel={t(`${copyPrefix}.removeSource`)}
                       hitSlop={8}
                     >
                       <Ionicons name="close-circle-outline" size={20} color={colors.destructive} />
@@ -227,14 +266,18 @@ export function SplitAllocationsEditor({
                   ) : null}
                 </View>
 
+                {renderRowExtra
+                  ? renderRowExtra(allocation, (patch) => updateAllocation(allocation.id, patch))
+                  : null}
+
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing(2) } as any}>
                   <Pill
-                    label={t("transactions.split.sourceTypeAccount")}
+                    label={t(`${copyPrefix}.sourceTypeAccount`)}
                     active={allocation.sourceType === "account"}
                     onPress={() => updateAllocation(allocation.id, { sourceType: "account", potId: null })}
                   />
                   <Pill
-                    label={t("transactions.split.sourceTypePot")}
+                    label={t(`${copyPrefix}.sourceTypePot`)}
                     active={allocation.sourceType === "pot"}
                     onPress={() => updateAllocation(allocation.id, { sourceType: "pot", accountId: null })}
                   />
@@ -242,11 +285,11 @@ export function SplitAllocationsEditor({
 
                 {allocation.sourceType === "account" ? (
                   <GroupedAccountSelect
-                    label={t("transactions.split.selectAccount")}
+                    label={t(`${copyPrefix}.selectAccount`)}
                     accounts={availableAccounts}
                     members={members}
                     value={allocation.accountId ?? ""}
-                    placeholder={t("transactions.split.selectAccount")}
+                    placeholder={t(`${copyPrefix}.selectAccount`)}
                     onChange={(accountId) => updateAllocation(allocation.id, { accountId })}
                     closeLabel={closeLabel}
                     sharedLabel={sharedLabel}
@@ -255,25 +298,25 @@ export function SplitAllocationsEditor({
                   />
                 ) : availablePots.length > 0 ? (
                   <DropdownField
-                    label={t("transactions.split.selectPot")}
+                    label={t(`${copyPrefix}.selectPot`)}
                     valueLabel={
-                      pots.find((pot) => pot.id === allocation.potId)?.name ?? t("transactions.split.selectPot")
+                      pots.find((pot) => pot.id === allocation.potId)?.name ?? t(`${copyPrefix}.selectPot`)
                     }
-                    placeholder={t("transactions.split.selectPot")}
-                    hint={t("transactions.split.selectPotHint")}
+                    placeholder={t(`${copyPrefix}.selectPot`)}
+                    hint={t(`${copyPrefix}.selectPotHint`)}
                     selectedKey={allocation.potId ?? undefined}
                     onChange={(potId) => updateAllocation(allocation.id, { potId })}
                     options={availablePots.map((pot) => ({ key: pot.id, label: pot.name }))}
                   />
                 ) : (
                   <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[13] } as any}>
-                    {t("transactions.split.noPots")}
+                    {t(`${copyPrefix}.noPots`)}
                   </Text>
                 )}
 
                 {inputMode === "value" ? (
                   <Field
-                    label={t("transactions.split.amountLabel")}
+                    label={t(`${copyPrefix}.amountLabel`)}
                     value={allocation.amount ? String(allocation.amount) : ""}
                     onChangeText={(value) =>
                       updateAllocation(allocation.id, { amount: Number(value.replace(",", ".")) || 0 })
@@ -283,7 +326,7 @@ export function SplitAllocationsEditor({
                   />
                 ) : (
                   <Field
-                    label={t("transactions.split.percentageLabel")}
+                    label={t(`${copyPrefix}.percentageLabel`)}
                     value={allocation.amount ? String(percentage) : ""}
                     onChangeText={(value) => {
                       const parsedPercentage = Number(value.replace(",", ".")) || 0;
@@ -310,7 +353,7 @@ export function SplitAllocationsEditor({
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" } as any}>
               <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
-                {t("transactions.split.total")}
+                {t(`${copyPrefix}.total`)}
               </Text>
               <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>
                 {money(fromCents(summary.totalCents))}
@@ -318,7 +361,7 @@ export function SplitAllocationsEditor({
             </View>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" } as any}>
               <Text style={{ color: colors.textSecondary, fontWeight: String(typography.fontWeight.semibold) } as any}>
-                {t("transactions.split.allocated")}
+                {t(`${copyPrefix}.allocated`)}
               </Text>
               <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any}>
                 {money(fromCents(summary.allocatedCents))}
@@ -328,7 +371,7 @@ export function SplitAllocationsEditor({
               <View style={{ flexDirection: "row", alignItems: "center", gap: spacing(1.5) } as any}>
                 <Ionicons name="checkmark-circle" size={16} color={colors.success} />
                 <Text style={{ color: colors.success, fontWeight: String(typography.fontWeight.semibold) } as any}>
-                  {t("transactions.split.complete")}
+                  {t(`${copyPrefix}.complete`)}
                 </Text>
               </View>
             ) : (
@@ -346,8 +389,8 @@ export function SplitAllocationsEditor({
                   } as any}
                 >
                   {summary.isOverAllocated
-                    ? t("transactions.split.overAllocated", { amount: money(fromCents(Math.abs(summary.remainingCents))) })
-                    : t("transactions.split.remaining", { amount: money(fromCents(Math.abs(summary.remainingCents))) })}
+                    ? t(`${copyPrefix}.overAllocated`, { amount: money(fromCents(Math.abs(summary.remainingCents))) })
+                    : t(`${copyPrefix}.remaining`, { amount: money(fromCents(Math.abs(summary.remainingCents))) })}
                 </Text>
               </View>
             )}
@@ -357,7 +400,7 @@ export function SplitAllocationsEditor({
             <View style={{ gap: spacing(1) } as any}>
               {errors.map((error) => (
                 <Text key={error} style={{ color: colors.destructive, fontSize: typography.fontSize[12] } as any}>
-                  {t(`transactions.split.errors.${error}`)}
+                  {t(`${copyPrefix}.errors.${error}`)}
                 </Text>
               ))}
             </View>

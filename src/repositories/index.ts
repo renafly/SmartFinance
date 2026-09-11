@@ -4,11 +4,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { AccountsRepository } from "./accounts.repository";
 import { AttachmentsRepository } from "./attachments.repository";
+import { CategoryBudgetsRepository } from "./category-budgets.repository";
 import { CategoriesRepository } from "./categories.repository";
 import { DashboardNetworkConfigRepository } from "./dashboard-network-config.repository";
 import { HouseholdsRepository } from "./households.repository";
-import { MonthlyBudgetRepository } from "./monthly-budget.repository";
+import { PlannedItemsRepository } from "./planned-items.repository";
 import { ProfilesRepository } from "./profiles.repository";
+import { RecurringExpensesRepository } from "./recurring-expenses.repository";
+import { IncomeSourcesRepository } from "./income-sources.repository";
 import { RecurringTransactionsRepository } from "./recurring.transactions.repository";
 import { ReplenishmentsRepository } from "./replenishments.repository";
 import { SavingPotsRepository } from "./saving-pots.repository";
@@ -20,12 +23,14 @@ import { WageFlowCategoriesRepository } from "./wage-flow-categories.repository"
 
 export * from "./accounts.repository";
 export * from "./attachments.repository";
+export * from "./category-budgets.repository";
 export * from "./base.repository";
 export * from "./categories.repository";
 export * from "./dashboard-network-config.repository";
 export * from "./households.repository";
-export * from "./monthly-budget.repository";
+export * from "./planned-items.repository";
 export * from "./profiles.repository";
+export * from "./recurring-expenses.repository";
 export * from "./recurring.transactions.repository";
 export * from "./replenishments.repository";
 export * from "./saving-pots.repository";
@@ -41,11 +46,14 @@ export function createRepositories(
   return {
     accounts: new AccountsRepository(client),
     attachments: new AttachmentsRepository(client),
+    categoryBudgets: new CategoryBudgetsRepository(client),
     categories: new CategoriesRepository(client),
     dashboardNetworkConfig: new DashboardNetworkConfigRepository(client),
     households: new HouseholdsRepository(client),
-    monthlyBudget: new MonthlyBudgetRepository(client),
+    plannedItems: new PlannedItemsRepository(client),
     profiles: new ProfilesRepository(client),
+    recurringExpenses: new RecurringExpensesRepository(client),
+    incomeSources: new IncomeSourcesRepository(client),
     recurringTransactions: new RecurringTransactionsRepository(client),
     replenishments: new ReplenishmentsRepository(client),
     savingPots: new SavingPotsRepository(client),

@@ -1,3 +1,5 @@
+import { roundMoney } from "@/features/planned-items/utils";
+
 export type ForecastFrequency = "daily" | "weekly" | "monthly" | "yearly" | "custom";
 
 export type SavingPotForecastUnavailableReason =
@@ -73,6 +75,26 @@ type ForecastRule = {
   active_months?: Array<number | string> | null;
   active_from_month?: number | string | null;
   active_to_month?: number | string | null;
+  /**
+   * Fixed calendar months (["YYYY-MM", ...]) this contribution is due in,
+   * precomputed via the Planned Items resolver's isPlannedItemDueInMonth
+   * (see planned-item-forecast-contributions.ts) -- set only for
+   * planned-item-derived monthly_budget rules. When present this replaces
+   * the frequency/next_run/active_months walk entirely for scheduling,
+   * since planned_items recurrence (monthly, specific_months, interval,
+   * one_time) has no equivalent in the legacy frequency model above.
+   */
+  dueMonthKeys?: string[] | null;
+  /**
+   * Calendar months ("YYYY-MM") whose real planned_item_occurrence is
+   * already confirmed/matched (money already moved, already reflected in
+   * the pot's current balance) or skipped/cancelled (money will never
+   * move that month) -- must never be projected as a still-upcoming
+   * contribution. Data-driven per month, not just "the current calendar
+   * month": a reverted occurrence goes back to 'planned' and is
+   * automatically eligible again the next time this is recomputed.
+   */
+  skipMonthKeys?: string[] | null;
 };
 
 type RecurringTransferRule = ForecastRule & {
@@ -88,11 +110,14 @@ type ForecastContribution = {
   activeMonths: number[];
   activeFromMonth: number | null;
   activeToMonth: number | null;
-  // "YYYY-MM" for the one calendar month this contribution must be treated
-  // as already collected, or null. Set when a monthly_budget rule has
-  // already been confirmed/run for the current month — see
-  // buildSavingPotForecasts's confirmedRuleIdsForCurrentMonth.
-  skipMonthKey: string | null;
+  // Sorted "YYYY-MM" months this contribution occurs in, or null to fall
+  // back to the frequency/next_run walk below (recurring transfers, and
+  // any legacy rule with no precomputed schedule). See ForecastRule's
+  // dueMonthKeys doc comment.
+  dueMonthKeys: string[] | null;
+  // Calendar months already collected/settled and never projected again --
+  // see ForecastRule's skipMonthKeys doc comment.
+  skipMonthKeys: Set<string>;
 };
 
 type SavingPotAccountAssignment = {
@@ -101,10 +126,6 @@ type SavingPotAccountAssignment = {
 };
 
 const FORECAST_HORIZON_MONTHS = 30 * 12;
-
-function roundMoney(value: number) {
-  return Math.round((Number.isFinite(value) ? value : 0) * 100) / 100;
-}
 
 function parseUtcDate(value: string | null | undefined) {
   const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -183,7 +204,7 @@ function isMonthWithinWindow(month: number, start: number, end: number) {
 function isIncludedOccurrence(contribution: ForecastContribution, date: Date) {
   const month = date.getUTCMonth() + 1;
 
-  if (contribution.skipMonthKey && monthKey(date) === contribution.skipMonthKey) {
+  if (contribution.skipMonthKeys.has(monthKey(date))) {
     return false;
   }
 
@@ -209,6 +230,17 @@ function getNextOccurrence(
   after: Date,
   horizon: Date,
 ) {
+  if (contribution.dueMonthKeys) {
+    const afterKey = monthKey(after);
+    for (const key of contribution.dueMonthKeys) {
+      if (key < afterKey) continue;
+      if (contribution.skipMonthKeys.has(key)) continue;
+      const date = parseUtcDate(`${key}-01`);
+      return date && date <= horizon ? date : null;
+    }
+    return null;
+  }
+
   let occurrence = contribution.firstRun;
   let guard = 0;
 
@@ -252,12 +284,14 @@ function toContribution(
   rule: ForecastRule,
   kind: SavingPotForecastSource["kind"],
   fallbackStart: Date,
-  skipMonthKey: string | null,
 ) {
   const amount = roundMoney(Number(rule.amount));
   const firstRun = parseUtcDate(rule.next_run) ?? parseUtcDate(rule.created_at) ?? fallbackStart;
 
   if (!Number.isFinite(amount) || amount <= 0 || !firstRun) return null;
+
+  const dueMonthKeys =
+    rule.dueMonthKeys && rule.dueMonthKeys.length > 0 ? [...rule.dueMonthKeys].sort() : null;
 
   return {
     kind,
@@ -268,7 +302,8 @@ function toContribution(
     activeMonths: normalizeActiveMonths(rule.active_months),
     activeFromMonth: normalizeMonth(rule.active_from_month),
     activeToMonth: normalizeMonth(rule.active_to_month),
-    skipMonthKey,
+    dueMonthKeys,
+    skipMonthKeys: new Set(rule.skipMonthKeys ?? []),
   } satisfies ForecastContribution;
 }
 
@@ -427,13 +462,6 @@ export function buildSavingPotForecasts(input: {
   recurringTransfers: RecurringTransferRule[];
   monthlyBudgetRules: ForecastRule[];
   savingPotAccountAssignments?: SavingPotAccountAssignment[];
-  // budget_rules has no next_run/last_run column — a monthly budget rule's
-  // "already ran this month" state only exists as a confirmed
-  // monthly_budget_runs row for the current month. Pass the rule ids that
-  // run covered so this month's contribution isn't projected twice (once as
-  // the real transaction that already happened, once again as a forecasted
-  // future contribution).
-  confirmedRuleIdsForCurrentMonth?: Iterable<string>;
   asOf?: Date;
 }) {
   const asOf = input.asOf
@@ -441,7 +469,6 @@ export function buildSavingPotForecasts(input: {
     : new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
   const horizon = addMonths(asOf, FORECAST_HORIZON_MONTHS);
   const currentMonthKey = monthKey(asOf);
-  const confirmedRuleIdsForCurrentMonth = new Set(input.confirmedRuleIdsForCurrentMonth ?? []);
   const potIdsByAccountId = new Map<string, string[]>();
   for (const assignment of input.savingPotAccountAssignments ?? []) {
     const current = potIdsByAccountId.get(assignment.account_id) ?? [];
@@ -501,20 +528,13 @@ export function buildSavingPotForecasts(input: {
               rule.rule_kind === "transfer" &&
               ruleContributesToPot(rule, pot.id, potIdsByAccountId),
           )
-          .map((rule) => toContribution(rule, "recurring_transfer", asOf, null)),
+          .map((rule) => toContribution(rule, "recurring_transfer", asOf)),
         ...flattenedMonthlyBudgetRules
           .filter((rule) => {
             if (!rule.is_active) return false;
             return ruleContributesToPot(rule, pot.id, potIdsByAccountId);
           })
-          .map((rule) =>
-            toContribution(
-              rule,
-              "monthly_budget",
-              asOf,
-              confirmedRuleIdsForCurrentMonth.has(rule.id) ? currentMonthKey : null,
-            ),
-          ),
+          .map((rule) => toContribution(rule, "monthly_budget", asOf)),
       ].filter((contribution): contribution is ForecastContribution => contribution !== null);
 
       const sources = (["recurring_transfer", "monthly_budget"] as const)
@@ -564,14 +584,14 @@ export function buildSavingPotForecasts(input: {
       );
 
       // The current month's row would otherwise show a $0 contribution
-      // purely because a rule that already ran (see
-      // confirmedRuleIdsForCurrentMonth above) was skipped here — that
+      // purely because a contribution already settled this month (see
+      // ForecastRule's skipMonthKeys doc comment) was skipped here — that
       // money already landed in the pot's balance, so there's nothing left
       // to project for this month. Drop the row instead of showing a
       // misleading zero. Months that are legitimately $0 for other reasons
       // (e.g. leading up to a seasonal bonus) are left as-is.
       const hasSkippedCurrentMonthContribution = contributions.some(
-        (contribution) => contribution.skipMonthKey === currentMonthKey,
+        (contribution) => contribution.skipMonthKeys.has(currentMonthKey),
       );
       if (hasSkippedCurrentMonthContribution && timeline[0]?.month === currentMonthKey && timeline[0].contribution === 0) {
         timeline = timeline.slice(1);

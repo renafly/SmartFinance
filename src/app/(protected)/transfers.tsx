@@ -51,6 +51,7 @@ import { emptyDraft, endConditionPayload, endStatusLabel, isEndConditionValid, n
 import { KindPills } from "@/features/transfers/components/kind-pills";
 import { MovementFields } from "@/features/transfers/components/movement-fields";
 import { RuleMenu } from "@/features/transfers/components/rule-menu";
+import { BugReportFab } from "@/components/bug-report-fab";
 
 export function RecurringTransferCreateForm({
   onCreated,
@@ -653,6 +654,7 @@ export function TransfersContent({
             accessibilityLabel={t("cancel")}
           />
           <PrivacyToggle />
+          <BugReportFab />
           <ScrollView
             contentContainerStyle={styles.modalScroll}
             keyboardShouldPersistTaps="handled"
@@ -731,6 +733,7 @@ export function TransfersContent({
             accessibilityLabel={t("cancel")}
           />
           <PrivacyToggle />
+          <BugReportFab />
           <View
             style={[
               styles.historyCard,

@@ -44,6 +44,7 @@ import { SavingPotCard, type ForecastViewMode } from "../../features/saving-pots
 import { getAccountSummary, type SavingPotAccountOption } from "../../features/saving-pots/ui-utils";
 import { usePotBalanceForecasts } from "../../features/forecast/hooks";
 import { DEFAULT_FORECAST_PERIOD_MONTHS, type ForecastPeriodMonths } from "../../features/forecast/ui-utils";
+import { BugReportFab } from "@/components/bug-report-fab";
 
 type AccountOption = SavingPotAccountOption;
 
@@ -156,8 +157,6 @@ export default function SavingsScreen() {
     name: string;
   } | null>(null);
   const [editingPotId, setEditingPotId] = useState<string | null>(null);
-  const [expandedForecastPotId, setExpandedForecastPotId] = useState<string | null>(null);
-  const [forecastViewMode, setForecastViewMode] = useState<ForecastViewMode>("monthly");
   const [expandedBalanceForecastPotId, setExpandedBalanceForecastPotId] = useState<string | null>(null);
   const [balanceForecastPeriod, setBalanceForecastPeriod] = useState<ForecastPeriodMonths>(DEFAULT_FORECAST_PERIOD_MONTHS);
   const [balanceForecastViewMode, setBalanceForecastViewMode] = useState<ForecastViewMode>("monthly");
@@ -445,14 +444,10 @@ export default function SavingsScreen() {
                 selectedAccounts={!accountsQuery.isPending && !assignmentsQuery.isPending ? selectedAccounts : []}
                 memberLabelMap={memberLabelMap}
                 createdByLabel={createdByLabel}
-                isForecastExpanded={expandedForecastPotId === pot.id}
-                forecastViewMode={forecastViewMode}
                 isBalanceForecastExpanded={expandedBalanceForecastPotId === pot.id}
                 balanceForecastPeriod={balanceForecastPeriod}
                 balanceForecastViewMode={balanceForecastViewMode}
                 onOpenMenu={() => setActivePotMenu({ id: pot.id, name: pot.name })}
-                onToggleForecast={() => setExpandedForecastPotId((current) => (current === pot.id ? null : pot.id))}
-                onSetForecastViewMode={setForecastViewMode}
                 onToggleBalanceForecast={() => setExpandedBalanceForecastPotId((current) => (current === pot.id ? null : pot.id))}
                 onSetBalanceForecastPeriod={setBalanceForecastPeriod}
                 onSetBalanceForecastViewMode={setBalanceForecastViewMode}
@@ -474,6 +469,7 @@ export default function SavingsScreen() {
             onPress={() => setEditingPotId(null)}
           />
           <PrivacyToggle />
+          <BugReportFab />
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t("savings.editDetails")}</Text>
             <Text style={styles.modalSubtitle}>
@@ -555,6 +551,7 @@ export default function SavingsScreen() {
             onPress={() => setCreateDialogOpen(false)}
           />
           <PrivacyToggle />
+          <BugReportFab />
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t("savings.addPot")}</Text>
             <Text style={styles.modalSubtitle}>
@@ -623,6 +620,7 @@ export default function SavingsScreen() {
             onPress={() => setActivePotMenu(null)}
           />
           <PrivacyToggle />
+          <BugReportFab />
           <View style={styles.menuCard}>
             <Text style={styles.modalTitle}>{t("savings.actions")}</Text>
             <Pressable
