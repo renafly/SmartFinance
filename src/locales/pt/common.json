@@ -619,6 +619,9 @@
     "deleteSuccess": "Conta eliminada",
     "archiveSuccess": "Conta arquivada",
     "unarchiveSuccess": "Conta desarquivada",
+    "noHouseholdError": "Ainda não pertence a nenhum agregado. Crie um ou aceite um convite em Definições antes de adicionar contas.",
+    "nameRequiredError": "O nome da conta é obrigatório.",
+    "invalidBalanceError": "Introduza um saldo inicial válido (0 ou mais).",
     "subtitle": "Adicione, edite e organize todas as contas do seu agregado.",
     "createTitle": "Criar conta",
     "createSubtitle": "Adicione uma nova conta para começar a acompanhar o seu saldo.",
@@ -1953,5 +1956,51 @@
     "preparingDashboardDescription": "A ligar o seu perfil, o seu agregado e os números mais recentes.",
     "loadingAccessibilityLabel": "A preparar o seu painel Kintally",
     "googleCallbackErrorMessage": "Não conseguimos concluir o início de sessão com Google. Tente novamente."
+  },
+  "setup":   {
+    "stepLabel": "Passo {{current}} de {{total}}",
+    "household": {
+      "title": "Bem-vindo ao Kintally",
+      "subtitle": "Vamos configurar o seu agregado.",
+      "invitationsTitle": "Tem um convite pendente",
+      "invitationsSubtitle": "Junte-se a um agregado existente em vez de criar um novo.",
+      "accept": "Aceitar",
+      "decline": "Recusar",
+      "orDivider": "ou",
+      "createTitle": "Criar um novo agregado",
+      "createSubtitle": "Dê um nome ao seu agregado para começar.",
+      "namePlaceholder": "ex.: Família Silva",
+      "create": "Criar agregado",
+      "error": "Introduza um nome para o agregado."
+    },
+    "profile": {
+      "title": "Fale-nos sobre si",
+      "subtitle": "Isto ajuda a personalizar o seu agregado.",
+      "nameLabel": "O seu nome",
+      "namePlaceholder": "Nome completo",
+      "currencyLabel": "Moeda",
+      "languageLabel": "Idioma",
+      "continue": "Continuar",
+      "nameError": "Introduza o seu nome."
+    },
+    "accounts": {
+      "title": "Adicione as suas contas",
+      "subtitle": "Adicione as contas que usa para acompanhar o dinheiro, ou avance e adicione-as mais tarde.",
+      "namePlaceholder": "ex.: Conta principal",
+      "typeLabel": "Tipo de conta",
+      "currencyLabel": "Moeda",
+      "balanceLabel": "Saldo inicial",
+      "add": "Adicionar conta",
+      "addedTitle": "Adicionadas até agora",
+      "skip": "Avançar por agora",
+      "continue": "Continuar",
+      "nameError": "Introduza um nome para a conta.",
+      "balanceError": "Introduza um saldo válido (0 ou mais)."
+    },
+    "done": {
+      "title": "Está tudo pronto",
+      "subtitle": "{{household}} está pronto a usar.",
+      "cta": "Ir para o seu painel"
+    }
   }
 }

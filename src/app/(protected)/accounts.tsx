@@ -328,12 +328,18 @@ export default function AccountsScreen() {
   }
 
   async function handleCreate() {
-    if (!householdId || !profile?.id || !name.trim() || !Number.isFinite(parsedInitialBalance) || parsedInitialBalance < 0) {
-      setFormError(
-        t("accounts.createError", {
-          defaultValue: t("accounts.initialBalance"),
-        }),
-      );
+    if (!householdId || !profile?.id) {
+      setFormError(t("accounts.noHouseholdError"));
+      return;
+    }
+
+    if (!name.trim()) {
+      setFormError(t("accounts.nameRequiredError"));
+      return;
+    }
+
+    if (!Number.isFinite(parsedInitialBalance) || parsedInitialBalance < 0) {
+      setFormError(t("accounts.invalidBalanceError"));
       return;
     }
 
@@ -387,8 +393,13 @@ export default function AccountsScreen() {
     if (!editAccount) return;
 
     const nextInitialBalance = Number(editAccount.initialBalance);
-    if (!editAccount.name.trim() || !Number.isFinite(nextInitialBalance) || nextInitialBalance < 0) {
-      setFormError(t("accounts.saveError", { defaultValue: t("accounts.initialBalance") }));
+    if (!editAccount.name.trim()) {
+      setFormError(t("accounts.nameRequiredError"));
+      return;
+    }
+
+    if (!Number.isFinite(nextInitialBalance) || nextInitialBalance < 0) {
+      setFormError(t("accounts.invalidBalanceError"));
       return;
     }
 

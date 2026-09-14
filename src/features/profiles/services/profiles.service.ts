@@ -24,6 +24,16 @@ export function shouldShowOnboardingGuide(
 }
 
 class ProfilesService {
+  async updateFullName(profileId: string, fullName: string) {
+    const { data, error } = await repositories.profiles.update(profileId, {
+      full_name: fullName,
+    });
+
+    if (error) throw error;
+
+    return data;
+  }
+
   async updatePreferredCurrency(profileId: string, currency: AppCurrency) {
     const { data, error } = await repositories.profiles.update(profileId, {
       preferred_currency: currency,
