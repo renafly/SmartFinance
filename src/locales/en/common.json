@@ -619,6 +619,9 @@
     "deleteSuccess": "Account deleted",
     "archiveSuccess": "Account archived",
     "unarchiveSuccess": "Account unarchived",
+    "noHouseholdError": "You don't belong to a household yet. Create one or accept an invitation from Settings before adding accounts.",
+    "nameRequiredError": "Account name is required.",
+    "invalidBalanceError": "Enter a valid initial balance (0 or more).",
     "subtitle": "Add, edit, and organize every account your household uses.",
     "createTitle": "Create account",
     "createSubtitle": "Add a new account to start tracking its balance.",
@@ -1953,5 +1956,51 @@
     "preparingDashboardDescription": "Connecting your profile, household, and latest numbers.",
     "loadingAccessibilityLabel": "Preparing your Kintally dashboard",
     "googleCallbackErrorMessage": "We couldn't complete the Google sign-in. Please try again."
+  },
+  "setup":   {
+    "stepLabel": "Step {{current}} of {{total}}",
+    "household": {
+      "title": "Welcome to Kintally",
+      "subtitle": "Let's set up your household.",
+      "invitationsTitle": "You have a pending invitation",
+      "invitationsSubtitle": "Join an existing household instead of starting a new one.",
+      "accept": "Accept",
+      "decline": "Decline",
+      "orDivider": "or",
+      "createTitle": "Create a new household",
+      "createSubtitle": "Give your household a name to get started.",
+      "namePlaceholder": "e.g. The Smiths",
+      "create": "Create household",
+      "error": "Enter a household name."
+    },
+    "profile": {
+      "title": "Tell us about you",
+      "subtitle": "This helps personalize your household.",
+      "nameLabel": "Your name",
+      "namePlaceholder": "Full name",
+      "currencyLabel": "Currency",
+      "languageLabel": "Language",
+      "continue": "Continue",
+      "nameError": "Enter your name."
+    },
+    "accounts": {
+      "title": "Add your accounts",
+      "subtitle": "Add the accounts you use to track money, or skip and add them later.",
+      "namePlaceholder": "e.g. Main checking",
+      "typeLabel": "Account type",
+      "currencyLabel": "Currency",
+      "balanceLabel": "Initial balance",
+      "add": "Add account",
+      "addedTitle": "Added so far",
+      "skip": "Skip for now",
+      "continue": "Continue",
+      "nameError": "Enter an account name.",
+      "balanceError": "Enter a valid balance (0 or more)."
+    },
+    "done": {
+      "title": "You're all set",
+      "subtitle": "{{household}} is ready to go.",
+      "cta": "Go to your dashboard"
+    }
   }
 }
