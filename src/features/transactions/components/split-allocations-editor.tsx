@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Switch, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -22,6 +22,65 @@ import {
   validateAllocations,
   type AllocationDraft,
 } from "@/features/transactions/utils/transaction-allocations";
+
+/**
+ * The on/off header shared by every optional section of the transaction
+ * forms (Split Source, Reimbursed by). Uses React Native's own `Switch`,
+ * like the rest of the app's toggles (see cookie-consent-banner.tsx), so
+ * the drawn state is always exactly `enabled` -- the previous icon-based
+ * switch drew both states with the knob on the same side.
+ *
+ * The row itself isn't pressable: nesting a pressable row around a Switch
+ * would fire both handlers on web and flip the value twice.
+ */
+export function SectionToggle({
+  enabled,
+  onToggle,
+  label,
+  hint,
+  icon,
+  disabled = false,
+}: {
+  enabled: boolean;
+  onToggle: (enabled: boolean) => void;
+  label: string;
+  hint?: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  disabled?: boolean;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: spacing(2),
+      } as any}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing(2), flex: 1 } as any}>
+        <Ionicons name={icon} size={16} color={colors.textSecondary} />
+        <View style={{ flex: 1 } as any}>
+          <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.semibold) } as any}>
+            {label}
+          </Text>
+          {hint ? (
+            <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any}>
+              {hint}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+      <Switch
+        accessibilityLabel={label}
+        accessibilityState={{ checked: enabled, disabled }}
+        disabled={disabled}
+        value={enabled}
+        onValueChange={onToggle}
+      />
+    </View>
+  );
+}
 
 export type AccountLike = {
   id: string;
@@ -78,12 +137,24 @@ type SplitAllocationsEditorProps<T extends AllocationDraft = AllocationDraft> = 
    * src/locales/en/common.json for both key sets.
    */
   copyPrefix?: string;
+  /** Allow several rows to target the same account/pot (reimbursements: two payers repaying into one account). Defaults to false -- a funding split can't draw from one account twice. */
+  allowDuplicateTargets?: boolean;
   /** Overrides the default empty-account-row factory when T carries extra required fields (e.g. a reimbursement row's payerName). */
   createEmptyAllocation?: () => T;
   /** Rendered once, right after the toggle, only while enabled -- e.g. a reimbursement's own "expected total" field, which a plain split doesn't need since its total is already the transaction amount. */
   renderExtra?: () => ReactNode;
   /** Rendered inside every row's card, right after its header -- e.g. a reimbursement row's payer-name field. */
   renderRowExtra?: (allocation: T, update: (patch: Partial<T>) => void) => ReactNode;
+  /**
+   * Hides each row's account/pot picker -- for a caller that fixes the
+   * target itself (reimbursements always land in the expense's own
+   * "Paid from" account, see reimbursement-section.tsx).
+   */
+  hideTargetPicker?: boolean;
+  /** Icon beside the toggle label. */
+  toggleIcon?: keyof typeof Ionicons.glyphMap;
+  /** Disables the on/off switch (e.g. while the saved state is still loading). */
+  toggleDisabled?: boolean;
 };
 
 function usedTargetKeys<T extends AllocationDraft>(allocations: T[], excludeId: string): Set<string> {
@@ -125,9 +196,13 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
   closeLabel,
   minAllocations = 2,
   copyPrefix = "transactions.split",
+  allowDuplicateTargets = false,
   createEmptyAllocation,
   renderExtra,
   renderRowExtra,
+  hideTargetPicker = false,
+  toggleIcon = "git-branch-outline",
+  toggleDisabled = false,
 }: SplitAllocationsEditorProps<T>) {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
@@ -136,7 +211,7 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
 
   const totalCents = toCents(totalAmount);
   const summary = summarizeAllocations(totalAmount, allocations, { minAllocations });
-  const errors = validateAllocations(totalAmount, allocations, { minAllocations });
+  const errors = validateAllocations(totalAmount, allocations, { minAllocations, allowDuplicateTargets });
   const percentages = allocationsToPercentages(totalAmount, allocations);
 
   // patch is typed against the base AllocationDraft (not Partial<T>) because
@@ -173,34 +248,14 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
 
   return (
     <View style={{ gap: spacing(2.5) } as any}>
-      <Pressable
-        onPress={() => onToggleEnabled(!enabled)}
-        accessibilityRole="switch"
-        accessibilityState={{ checked: enabled }}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: spacing(2),
-        } as any}
-      >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing(2), flex: 1 } as any}>
-          <Ionicons name="git-branch-outline" size={16} color={colors.textSecondary} />
-          <View style={{ flex: 1 } as any}>
-            <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.semibold) } as any}>
-              {t(`${copyPrefix}.toggleLabel`)}
-            </Text>
-            <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any}>
-              {t(`${copyPrefix}.toggleHint`)}
-            </Text>
-          </View>
-        </View>
-        <Ionicons
-          name={enabled ? "toggle" : "toggle-outline"}
-          size={28}
-          color={enabled ? colors.primary : colors.textSecondary}
-        />
-      </Pressable>
+      <SectionToggle
+        enabled={enabled}
+        onToggle={onToggleEnabled}
+        label={t(`${copyPrefix}.toggleLabel`)}
+        hint={t(`${copyPrefix}.toggleHint`)}
+        icon={toggleIcon}
+        disabled={toggleDisabled}
+      />
 
       {enabled ? (
         <Fragment>
@@ -229,7 +284,7 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
           </View>
 
           {allocations.map((allocation, index) => {
-            const usedKeys = usedTargetKeys(allocations, allocation.id);
+            const usedKeys = allowDuplicateTargets ? new Set<string>() : usedTargetKeys(allocations, allocation.id);
             const availableAccounts = accounts.filter(
               (account) => account.id === allocation.accountId || !usedKeys.has(`account:${account.id}`),
             );
@@ -270,6 +325,8 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
                   ? renderRowExtra(allocation, (patch) => updateAllocation(allocation.id, patch))
                   : null}
 
+                {hideTargetPicker ? null : (
+                <>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing(2) } as any}>
                   <Pill
                     label={t(`${copyPrefix}.sourceTypeAccount`)}
@@ -312,6 +369,9 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
                   <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[13] } as any}>
                     {t(`${copyPrefix}.noPots`)}
                   </Text>
+                )}
+
+                </>
                 )}
 
                 {inputMode === "value" ? (

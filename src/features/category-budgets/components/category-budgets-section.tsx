@@ -11,6 +11,8 @@ import { radius } from '@/theme/radius';
 import { spacing } from '@/theme/spacing';
 import { usePlannedItemMatches, usePlannedItems, usePlannedItemsPreview } from '@/features/planned-items/hooks';
 import { useAllTransactions } from '@/features/transactions/hooks/useTransactions';
+import { useHouseholdEffectiveAmounts } from '@/features/transactions/hooks/useTransactionReimbursements';
+import { useAuth } from '@/providers/AuthProvider';
 import { getLocalCalendarDate } from '@/features/transactions/utils/transaction-create-form';
 
 import { useCategoryBudgets } from '../hooks/useCategoryBudgets';
@@ -52,6 +54,20 @@ export function CategoryBudgetsSection({ month, categories, accounts, onEditLimi
   // categoryBrowserPeriodRange): a budget figure the user relies on must
   // never silently under-count a high-volume month.
   const transactionsQuery = useAllTransactions({ from, to });
+  // Spent-so-far is net of reimbursements, the same basis as Monthly Budget
+  // (monthly_summary / monthly_category_spending). Only transactions that
+  // actually have a reimbursement are in this map.
+  const { householdId } = useAuth();
+  const effectiveAmountsQuery = useHouseholdEffectiveAmounts(householdId);
+  const effectiveAmountById = useMemo(
+    () =>
+      new Map(
+        (effectiveAmountsQuery.data ?? [])
+          .filter((row) => row.transaction_id)
+          .map((row) => [row.transaction_id as string, Number(row.effective_amount ?? 0)]),
+      ),
+    [effectiveAmountsQuery.data],
+  );
   const budgetsQuery = useCategoryBudgets(month);
   const previewQuery = usePlannedItemsPreview(month);
   const itemsQuery = usePlannedItems();
@@ -101,7 +117,10 @@ export function CategoryBudgetsSection({ month, categories, accounts, onEditLimi
         return {
           id: transaction.id,
           type: transaction.type,
-          amount: transaction.amount,
+          amount:
+            transaction.type === 'expense'
+              ? (effectiveAmountById.get(transaction.id) ?? transaction.amount)
+              : transaction.amount,
           accountId: transaction.account_id,
           title: transaction.title,
           transactionDate: transaction.transaction_date,
@@ -112,7 +131,7 @@ export function CategoryBudgetsSection({ month, categories, accounts, onEditLimi
           isAutoCreatedTransaction: !!transaction.planned_item_occurrence_id,
         };
       }),
-    [transactionsQuery.data, matchedOccurrenceIdByTransactionId],
+    [transactionsQuery.data, matchedOccurrenceIdByTransactionId, effectiveAmountById],
   );
 
   const viewModelCategories = useMemo(

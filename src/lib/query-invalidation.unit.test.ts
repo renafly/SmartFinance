@@ -7,7 +7,7 @@ describe("invalidateHouseholdData", () => {
 
     invalidateHouseholdData(queryClient as any);
 
-    expect(invalidateQueries).toHaveBeenCalledTimes(32);
+    expect(invalidateQueries).toHaveBeenCalledTimes(38);
     expect(invalidateQueries.mock.calls.map(([arg]) => arg)).toEqual([
       { queryKey: ["session"] },
       { queryKey: ["my-households"] },
@@ -41,6 +41,12 @@ describe("invalidateHouseholdData", () => {
       { queryKey: ["notifications"] },
       { queryKey: ["replenishments"] },
       { queryKey: ["transaction-effective-amounts"] },
+      { queryKey: ["transaction-tags"] },
+      { queryKey: ["transaction-tag-summaries"] },
+      { queryKey: ["transaction-tag-transactions"] },
+      { queryKey: ["transaction-tag-ids"] },
+      { queryKey: ["transaction-reimbursements"] },
+      { queryKey: ["reimbursement-income-link"] },
     ]);
   });
 });

@@ -8,9 +8,8 @@ import { repositories } from "@/repositories";
 
 import { plannedItemsConfirmService } from "../services/planned-items-confirm.service";
 import { plannedItemsService } from "../services/planned-items.service";
-import { rowToMonthlyBudgetPeriod, rowToPlannedItemOccurrence, rowToPlannedItemOccurrenceDestination } from "../services/planned-items.service";
+import { rowToMonthlyBudgetPeriod } from "../services/planned-items.service";
 import type { PlannedItemDraft, PlannedItemMatch } from "../types";
-import type { Database } from "@/types/database.types";
 
 // ------------------------------------------------------------
 // planned_items CRUD -- mirrors useIncomeSources.ts /
@@ -127,6 +126,7 @@ export function useConfirmPlannedItemMonth() {
     mutationFn: (month: string) => plannedItemsConfirmService.confirmMonth(householdId!, month, profile!.id),
     onSuccess: () => {
       invalidatePlannedMonth(queryClient);
+      void queryClient.invalidateQueries({ queryKey: [BATCH_KEY] });
     },
   });
 }
@@ -142,6 +142,7 @@ export function useRevertMonthlyBudgetMonth() {
     mutationFn: (month: string) => plannedItemsConfirmService.revertMonth(householdId!, month),
     onSuccess: () => {
       invalidatePlannedMonth(queryClient);
+      void queryClient.invalidateQueries({ queryKey: [BATCH_KEY] });
     },
   });
 }
@@ -266,156 +267,56 @@ export function useMonthlyBudgetPeriod(month?: string | null) {
 }
 
 // ------------------------------------------------------------
-// Trend chart data -- the old Monthly Budget screen read
-// `run.preview_snapshot.remainingCash` off `monthly_budget_runs`, a table
-// this rebuild retires (see budget.tsx's own doc comment on the
-// "Tendência" section). There is no equivalent snapshot column on
-// `planned_item_occurrences`, so this aggregates the last `monthsBack`
-// months' worth of already-resolved history (status 'confirmed'/'matched'
-// occurrences only -- never re-invokes the full resolver for a past month,
-// which would recompute against *today's* planned_items templates instead
-// of showing what that month actually settled to) directly, one
-// listOccurrencesForMonth call per month (there are at most a handful of
-// months here, so this stays a handful of small queries rather than one
-// bespoke range-query repository method).
+// Monthly Budget "Create all transfers" batches.
 // ------------------------------------------------------------
-export type RecentPlannedMonthSummary = {
-  /** "YYYY-MM" */
-  month: string;
-  income: number;
-  /**
-   * Outflow that is NOT itself a transfer into a savings/investment
-   * account -- i.e. every settled outflow occurrence's amount, minus
-   * whatever portion of it landed in a `savings`/`investments` bucket
-   * below. Without this subtraction a "move money to savings" planned
-   * item (direction='outflow', destination account type='savings')
-   * would be counted once here AND again in `savings`, which is exactly
-   * the double-counted-total bug the redesigned Monthly Preview (see
-   * buildMonthlyPreviewViewModel's own doc comment) fixes for the
-   * current month -- this trend data needed the same fix to stay
-   * consistent with it for "compared with last month".
-   */
-  expenses: number;
-  /** Settled destination amounts landing in a `type = 'savings'` account. Only populated when `accountTypeById` (an accountId -> account_type map, e.g. from the accounts already loaded by the caller) is passed in -- otherwise 0. */
-  savings: number;
-  /** Same as `savings`, for `type = 'investment'` destination accounts. */
-  investments: number;
-  /** income - expenses - savings - investments, the direct analogue of the old run's remainingCash. */
-  remainingCash: number;
-};
 
-function lastNMonths(monthsBack: number): string[] {
-  const months: string[] = [];
-  const now = new Date();
-  for (let offset = monthsBack - 1; offset >= 0; offset -= 1) {
-    const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
-    months.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`);
-  }
-  return months;
-}
+const BATCH_KEY = "monthly-budget-batches";
 
-/**
- * @param accountTypeById accountId -> account_type, used only to split
- * settled outflow amounts into expenses/savings/investments (see
- * RecentPlannedMonthSummary's doc comment). Pass the caller's own
- * already-loaded accounts list keyed by id -- this hook never fetches
- * accounts itself, to avoid a second accounts query duplicating one the
- * screen almost certainly already has. Omit it (or pass an empty map) to
- * get the old behavior back (`expenses` = every settled outflow amount,
- * `savings`/`investments` both 0).
- */
-export function useRecentPlannedMonthsSummary(
-  monthsBack = 6,
-  accountTypeById: Map<string, Database["public"]["Enums"]["account_type"]> = new Map(),
-) {
+/** The month's live batch (what "Create all transfers" created), or null. */
+export function useMonthlyBudgetBatch(month?: string | null) {
   const { householdId, isLoading } = useAuth();
-  const months = useMemo(() => lastNMonths(monthsBack), [monthsBack]);
+  const normalizedMonth = month ? `${month.slice(0, 7)}-01` : null;
 
   return useQuery({
-    queryKey: ["planned-items-recent-summary", householdId, months],
+    queryKey: [BATCH_KEY, householdId, normalizedMonth],
     queryFn: async () => {
-      const results = await Promise.all(
-        months.map((month) => repositories.plannedItems.listOccurrencesForMonth(householdId!, `${month}-01`)),
-      );
-
-      // planned_item_occurrences carries no `direction` column of its
-      // own -- it's read off the parent planned_items row, which this
-      // lightweight aggregation deliberately doesn't join in (see the
-      // module doc comment above). Every occurrence this rebuild creates
-      // for an inflow item has a null source_account_id (planned_items'
-      // planned_items_source_account_by_direction check enforces that at
-      // the template level, and materialize copies it through unchanged)
-      // while every outflow occurrence has one set -- so that column
-      // doubles as the direction signal here without a join.
-      const settledByMonth = results.map((result) => {
-        if (result.error) throw result.error;
-        return (result.data ?? [])
-          .map(rowToPlannedItemOccurrence)
-          .filter((occurrence) => occurrence.status === "confirmed" || occurrence.status === "matched");
-      });
-
-      // One batched destinations fetch for every settled occurrence
-      // across every month, rather than one call per month -- there are
-      // at most a handful of months here, so this stays a single extra
-      // round trip, not `monthsBack` of them.
-      const allSettledOccurrenceIds = settledByMonth.flat().map((occurrence) => occurrence.id);
-      const destinationsResult = await repositories.plannedItems.listOccurrenceDestinations(allSettledOccurrenceIds);
-      if (destinationsResult.error) throw destinationsResult.error;
-      const destinationsByOccurrenceId = new Map<string, ReturnType<typeof rowToPlannedItemOccurrenceDestination>[]>();
-      for (const destination of (destinationsResult.data ?? []).map(rowToPlannedItemOccurrenceDestination)) {
-        const bucket = destinationsByOccurrenceId.get(destination.occurrenceId) ?? [];
-        bucket.push(destination);
-        destinationsByOccurrenceId.set(destination.occurrenceId, bucket);
-      }
-
-      const summaries: RecentPlannedMonthSummary[] = [];
-      settledByMonth.forEach((settled, index) => {
-        if (settled.length === 0) return;
-
-        let income = 0;
-        let outflowTotal = 0;
-        let savings = 0;
-        let investments = 0;
-
-        for (const occurrence of settled) {
-          if (occurrence.sourceAccountId === null) {
-            income += occurrence.expectedAmount;
-            continue;
-          }
-          outflowTotal += occurrence.expectedAmount;
-          for (const destination of destinationsByOccurrenceId.get(occurrence.id) ?? []) {
-            const accountType = accountTypeById.get(destination.destinationAccountId);
-            if (accountType === "savings") savings += destination.amount;
-            if (accountType === "investment") investments += destination.amount;
-          }
-        }
-
-        const expenses = outflowTotal - savings - investments;
-        summaries.push({
-          month: months[index],
-          income: Math.round(income * 100) / 100,
-          expenses: Math.round(expenses * 100) / 100,
-          savings: Math.round(savings * 100) / 100,
-          investments: Math.round(investments * 100) / 100,
-          remainingCash: Math.round((income - outflowTotal) * 100) / 100,
-        });
-      });
-
-      return summaries;
+      const { data, error } = await repositories.plannedItems.getActiveBatchForMonth(householdId!, normalizedMonth!);
+      if (error) throw error;
+      return data;
     },
-    enabled: !!householdId && !isLoading,
+    enabled: !!householdId && !!normalizedMonth && !isLoading,
   });
 }
 
-// ------------------------------------------------------------
-// Estimate-occurrence matching -- candidate real transactions to link to
-// an is_estimate occurrence, and title labels for already-matched ones.
-// Mirrors useOccurrenceTransactionCandidates/useMatchedTransactionLabels in
-// recurring-expenses/hooks (see that feature's own doc comment) --
-// direction-aware here since planned_items covers both outflow (expense)
-// and inflow (income) estimates, where recurring_expenses only ever
-// covered expenses.
-// ------------------------------------------------------------
+/** Exactly the transactions a batch created -- for "View transfers". */
+export function useMonthlyBudgetBatchTransactions(batchId?: string | null, enabled = true) {
+  return useQuery({
+    queryKey: [BATCH_KEY, "transactions", batchId],
+    queryFn: async () => {
+      const { data, error } = await repositories.plannedItems.listBatchTransactions(batchId!);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!batchId && enabled,
+  });
+}
+
+export function useUndoMonthlyBudgetBatch() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (batchId: string) => {
+      const { data, error } = await repositories.plannedItems.undoBatch(batchId);
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      invalidatePlannedMonth(queryClient);
+      void queryClient.invalidateQueries({ queryKey: [BATCH_KEY] });
+    },
+  });
+}
+
 function monthDateRange(month: string) {
   const [year, monthNumber] = month.slice(0, 7).split("-").map(Number);
   const start = `${month.slice(0, 7)}-01`;

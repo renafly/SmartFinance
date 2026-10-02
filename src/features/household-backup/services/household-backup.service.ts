@@ -24,6 +24,9 @@ type RecurringRunExecution = TableRow<"recurring_run_executions">;
 type SavingPot = TableRow<"saving_pots">;
 type SavingPotAccount = TableRow<"saving_pot_accounts">;
 type Transaction = TableRow<"transactions">;
+type TransactionTag = TableRow<"transaction_tags">;
+type TransactionReimbursement = TableRow<"transaction_reimbursements">;
+type TransactionTagAssignment = TableRow<"transaction_tag_assignments">;
 type PlannedItem = TableRow<"planned_items">;
 type PlannedItemDestination = TableRow<"planned_item_destinations">;
 type PlannedItemOccurrence = TableRow<"planned_item_occurrences">;
@@ -54,6 +57,7 @@ type BackupKey =
   | "pot"
   | "recurring"
   | "recurring_execution"
+  | "tag"
   | "transaction"
   | "transfer_group";
 
@@ -85,6 +89,36 @@ type CleanAccount = {
   icon: string | null;
   color: string | null;
   isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * A repayment toward an expense (transaction_reimbursements). Additive:
+ * older backups have none. Its linked income transaction (account
+ * reimbursements) is NOT exported as a transaction -- the database
+ * recreates it when the reimbursement is restored.
+ */
+type CleanReimbursement = {
+  transactionKey: string;
+  payerName: string;
+  amount: number;
+  note: string | null;
+  sourceType: "account" | "pot" | null;
+  accountKey: string | null;
+  potKey: string | null;
+  receivedOn: string | null;
+  createdByMemberKey: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** Custom expense tag (transaction_tags). Additive: older backups have none. */
+type CleanTransactionTag = {
+  key: string;
+  name: string;
+  color: string | null;
+  createdByMemberKey: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -248,6 +282,8 @@ type CleanTransaction = {
   transactionDate: string;
   createdAt: string;
   updatedAt: string;
+  /** transaction_tag_assignments for this transaction, by tag key. Absent in backups exported before tags. */
+  tagKeys?: string[];
 };
 
 type CleanAttachment = {
@@ -354,6 +390,8 @@ export type HouseholdBackupFile = {
   members: CleanMember[];
   accounts: CleanAccount[];
   categories: CleanCategory[];
+  transactionTags: CleanTransactionTag[];
+  transactionReimbursements: CleanReimbursement[];
   savingPots: CleanSavingPot[];
   savingPotAccounts: CleanSavingPotAccount[];
   transactions: CleanTransaction[];
@@ -397,6 +435,9 @@ const backupSchema = z.object({
   members: z.array(rowSchema),
   accounts: z.array(rowSchema),
   categories: z.array(rowSchema),
+  // Additive (custom expense tags) -- defaulted so older backups still parse.
+  transactionTags: z.array(rowSchema).default([]),
+  transactionReimbursements: z.array(rowSchema).default([]),
   savingPots: z.array(rowSchema),
   savingPotAccounts: z.array(rowSchema),
   transactions: z.array(rowSchema),
@@ -605,6 +646,9 @@ function buildCleanBackup(input: {
   members: MemberWithProfile[];
   accounts: Account[];
   categories: Category[];
+  transactionTags: TransactionTag[];
+  transactionTagAssignments: TransactionTagAssignment[];
+  transactionReimbursements: TransactionReimbursement[];
   savingPots: SavingPot[];
   savingPotAccounts: SavingPotAccount[];
   transactions: Transaction[];
@@ -640,6 +684,15 @@ function buildCleanBackup(input: {
   );
   const transactionKeyMap = buildKeyMap(input.transactions, "transaction");
   const transferGroupKeyMap = buildTransferGroupKeyMap(input.transactions);
+  const tagKeyMap = buildKeyMap(input.transactionTags, "tag");
+  const tagKeysByTransactionId = new Map<string, string[]>();
+  for (const assignment of input.transactionTagAssignments) {
+    const tagKey = keyFor(tagKeyMap, assignment.tag_id);
+    if (!tagKey) continue;
+    const current = tagKeysByTransactionId.get(assignment.transaction_id) ?? [];
+    current.push(tagKey);
+    tagKeysByTransactionId.set(assignment.transaction_id, current);
+  }
   const plannedItemKeyMap = buildKeyMap(input.plannedItems, "planned_item");
   const plannedItemDestinationKeyMap = buildKeyMap(
     input.plannedItemDestinations,
@@ -781,6 +834,34 @@ function buildCleanBackup(input: {
       transactionDate: transaction.transaction_date,
       createdAt: transaction.created_at,
       updatedAt: transaction.updated_at,
+      tagKeys: tagKeysByTransactionId.get(transaction.id) ?? [],
+    })),
+    transactionReimbursements: input.transactionReimbursements
+      .map((row) => {
+        const transactionKey = keyFor(transactionKeyMap, row.transaction_id);
+        if (!transactionKey) return null;
+        return {
+          transactionKey,
+          payerName: row.payer_name,
+          amount: row.amount,
+          note: row.note,
+          sourceType: (row.source_type as "account" | "pot" | null) ?? null,
+          accountKey: keyFor(accountKeyMap, row.account_id),
+          potKey: keyFor(potKeyMap, row.pot_id),
+          receivedOn: row.received_on ?? null,
+          createdByMemberKey: keyFor(memberKeyMap, row.created_by),
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        };
+      })
+      .filter(isPresent),
+    transactionTags: input.transactionTags.map((tag) => ({
+      key: requireIdFor(tagKeyMap, tag.id, "tag key"),
+      name: tag.name,
+      color: tag.color,
+      createdByMemberKey: keyFor(memberKeyMap, tag.created_by),
+      createdAt: tag.created_at,
+      updatedAt: tag.updated_at,
     })),
     recurringTransactions: input.recurringTransactions.map((row) => ({
       key: requireIdFor(recurringKeyMap, row.id, "recurring key"),
@@ -1081,6 +1162,82 @@ function buildCleanBackup(input: {
       createdAt: attachment.created_at,
     })),
   };
+}
+
+/** Must run after transactions (and accounts/pots) are inserted. Account rows recreate their linked income transaction server-side. */
+function buildReimbursementInserts(
+  backup: HouseholdBackupFile,
+  householdId: string,
+  currentUserId: string,
+  transactionMap: Map<string, string>,
+  accountMap: Map<string, string>,
+  potMap: Map<string, string>,
+  memberMap: Map<string, string>,
+) {
+  return (backup.transactionReimbursements ?? [])
+    .map((row) => {
+      const transactionId = idFor(transactionMap, row.transactionKey);
+      if (!transactionId) return null;
+      const accountId = row.sourceType === "account" ? idFor(accountMap, row.accountKey) : null;
+      const potId = row.sourceType === "pot" ? idFor(potMap, row.potKey) : null;
+      // A source that didn't survive the restore degrades to a
+      // payer-name-only row rather than failing the whole import.
+      const sourceType = accountId ? "account" : potId ? "pot" : null;
+      return {
+        household_id: householdId,
+        transaction_id: transactionId,
+        payer_name: row.payerName,
+        amount: row.amount,
+        note: row.note,
+        source_type: sourceType,
+        account_id: accountId,
+        pot_id: potId,
+        ...(row.receivedOn ? { received_on: row.receivedOn } : {}),
+        created_by: mapCreator(memberMap, row.createdByMemberKey, currentUserId),
+        created_at: row.createdAt,
+        updated_at: row.updatedAt,
+      };
+    })
+    .filter(isPresent);
+}
+
+function buildTransactionTagInserts(
+  backup: HouseholdBackupFile,
+  householdId: string,
+  currentUserId: string,
+  tagMap: Map<string, string>,
+  memberMap: Map<string, string>,
+) {
+  return (backup.transactionTags ?? []).map((tag) => ({
+    id: requireIdFor(tagMap, tag.key, "tag"),
+    household_id: householdId,
+    name: tag.name,
+    color: tag.color,
+    created_by: mapCreator(memberMap, tag.createdByMemberKey, currentUserId),
+    created_at: tag.createdAt,
+    updated_at: tag.updatedAt,
+  }));
+}
+
+/** Must run after both tags and transactions are inserted (composite FKs to both). */
+function buildTransactionTagAssignmentInserts(
+  backup: HouseholdBackupFile,
+  householdId: string,
+  transactionMap: Map<string, string>,
+  tagMap: Map<string, string>,
+) {
+  return backup.transactions.flatMap((transaction) => {
+    const transactionId = idFor(transactionMap, transaction.key);
+    if (!transactionId) return [];
+    return [...new Set(transaction.tagKeys ?? [])]
+      .map((tagKey) => idFor(tagMap, tagKey))
+      .filter(isPresent)
+      .map((tagId) => ({
+        household_id: householdId,
+        transaction_id: transactionId,
+        tag_id: tagId,
+      }));
+  });
 }
 
 function buildCategoryInserts(
@@ -1710,8 +1867,11 @@ export class HouseholdBackupService {
       members,
       accounts,
       categories,
+      transactionTags,
+      transactionTagAssignments,
+      transactionReimbursements,
       savingPots,
-      transactions,
+      allTransactions,
       recurringTransactions,
       budgetConfigs,
       budgetRuns,
@@ -1743,6 +1903,33 @@ export class HouseholdBackupService {
         (from, to) =>
           supabase
             .from("categories")
+            .select("*")
+            .eq("household_id", householdId)
+            .order("created_at", { ascending: true })
+            .range(from, to) as any,
+      ),
+      fetchPaged<TransactionTag>(
+        (from, to) =>
+          supabase
+            .from("transaction_tags")
+            .select("*")
+            .eq("household_id", householdId)
+            .order("created_at", { ascending: true })
+            .range(from, to) as any,
+      ),
+      fetchPaged<TransactionTagAssignment>(
+        (from, to) =>
+          supabase
+            .from("transaction_tag_assignments")
+            .select("*")
+            .eq("household_id", householdId)
+            .order("created_at", { ascending: true })
+            .range(from, to) as any,
+      ),
+      fetchPaged<TransactionReimbursement>(
+        (from, to) =>
+          supabase
+            .from("transaction_reimbursements")
             .select("*")
             .eq("household_id", householdId)
             .order("created_at", { ascending: true })
@@ -1822,6 +2009,10 @@ export class HouseholdBackupService {
       ),
     ]);
 
+    // Income rows generated by reimbursements are derived data -- restoring
+    // the reimbursement recreates them, so exporting them too would double
+    // the money on import.
+    const transactions = allTransactions.filter((transaction) => !transaction.reimbursement_id);
     const potIds = savingPots.map((pot) => pot.id);
     const transactionIds = transactions.map((transaction) => transaction.id);
     const budgetConfigIds = budgetConfigs.map((config) => config.id);
@@ -1953,6 +2144,9 @@ export class HouseholdBackupService {
       members,
       accounts,
       categories,
+      transactionTags,
+      transactionTagAssignments,
+      transactionReimbursements,
       savingPots,
       savingPotAccounts,
       transactions,
@@ -2051,6 +2245,7 @@ export class HouseholdBackupService {
     const recurringMap = newIdMap(backup.recurringTransactions);
     const recurringExecutionMap = newIdMap(backup.recurringRunExecutions);
     const transactionMap = newIdMap(backup.transactions);
+    const tagMap = newIdMap(backup.transactionTags ?? []);
     const plannedItemMap = newIdMap(backup.plannedItems);
     const plannedItemDestinationMap = newIdMap(
       backup.plannedItems.flatMap((item) => item.destinations),
@@ -2077,6 +2272,10 @@ export class HouseholdBackupService {
     const accounts = await insertMany(
       "accounts",
       buildAccountInserts(backup, householdId, accountMap, memberMap),
+    );
+    await insertMany(
+      "transaction_tags",
+      buildTransactionTagInserts(backup, householdId, currentUserId, tagMap, memberMap),
     );
     const savingPots = await insertMany(
       "saving_pots",
@@ -2219,6 +2418,23 @@ export class HouseholdBackupService {
         plannedItemOccurrenceMap,
         plannedItemOccurrenceDestinationMap,
       ),
+    );
+
+    await insertMany(
+      "transaction_reimbursements",
+      buildReimbursementInserts(
+        backup,
+        householdId,
+        currentUserId,
+        transactionMap,
+        accountMap,
+        potMap,
+        memberMap,
+      ),
+    );
+    await insertMany(
+      "transaction_tag_assignments",
+      buildTransactionTagAssignmentInserts(backup, householdId, transactionMap, tagMap),
     );
 
     // Reconciliation links (planned_item_matches) must be inserted after

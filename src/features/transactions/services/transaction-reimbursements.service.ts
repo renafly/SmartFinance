@@ -18,6 +18,8 @@ export type CreateReimbursementInput = {
   source_type?: AllocationSourceType | null;
   account_id?: string | null;
   pot_id?: string | null;
+  /** "YYYY-MM-DD" the repayment arrived; dates the linked income transaction. Defaults to today server-side. */
+  received_on?: string | null;
 };
 
 export type UpdateReimbursementInput = {
@@ -28,6 +30,7 @@ export type UpdateReimbursementInput = {
   source_type?: AllocationSourceType | null;
   account_id?: string | null;
   pot_id?: string | null;
+  received_on?: string;
 };
 
 /**
@@ -60,7 +63,14 @@ class TransactionReimbursementsService {
     return data ?? [];
   }
 
-  async createReimbursement(input: CreateReimbursementInput) {
+  async getIncomeLink(transactionId: string) {
+    const { data, error } =
+      await repositories.transactionReimbursements.findIncomeLink(transactionId);
+    if (error) throw error;
+    return data;
+  }
+
+  private toInsert(input: CreateReimbursementInput) {
     const errors = validateReimbursementDraft({
       payerName: input.payer_name,
       amount: input.amount,
@@ -72,7 +82,7 @@ class TransactionReimbursementsService {
       throw new Error(`Invalid reimbursement: ${errors.join(", ")}`);
     }
 
-    const { data, error } = await repositories.transactionReimbursements.create({
+    return {
       household_id: input.household_id,
       transaction_id: input.transaction_id,
       payer_name: input.payer_name.trim(),
@@ -82,9 +92,32 @@ class TransactionReimbursementsService {
       source_type: input.source_type ?? null,
       account_id: input.source_type === "account" ? (input.account_id ?? null) : null,
       pot_id: input.source_type === "pot" ? (input.pot_id ?? null) : null,
-    });
+      ...(input.received_on ? { received_on: input.received_on } : {}),
+    };
+  }
+
+  /**
+   * Inserting a reimbursement into an account also creates its linked
+   * income transaction server-side (sync_reimbursement_income_transaction),
+   * so the money lands in that account's balance.
+   */
+  async createReimbursement(input: CreateReimbursementInput) {
+    const { data, error } = await repositories.transactionReimbursements.create(this.toInsert(input));
     if (error) throw error;
     return data;
+  }
+
+  /**
+   * All-or-nothing: one INSERT statement for every row, so a failure never
+   * leaves the expense with only some of its reimbursements (the create
+   * wizard used to insert them one by one).
+   */
+  async createReimbursements(inputs: readonly CreateReimbursementInput[]) {
+    if (inputs.length === 0) return [];
+    const rows = inputs.map((input) => this.toInsert(input));
+    const { data, error } = await repositories.transactionReimbursements.createMany(rows);
+    if (error) throw error;
+    return data ?? [];
   }
 
   async updateReimbursement(input: UpdateReimbursementInput) {
@@ -96,8 +129,17 @@ class TransactionReimbursementsService {
       throw new Error("Invalid reimbursement: missing_payer_name");
     }
 
+    if (rest.source_type === "account" && !rest.account_id) {
+      throw new Error("Invalid reimbursement: missing_source");
+    }
+    if (rest.source_type === "pot" && !rest.pot_id) {
+      throw new Error("Invalid reimbursement: missing_source");
+    }
+
     const { data, error } = await repositories.transactionReimbursements.update(id, {
       ...rest,
+      ...(rest.source_type === "account" ? { pot_id: null } : {}),
+      ...(rest.source_type === "pot" ? { account_id: null } : {}),
       payer_name: rest.payer_name?.trim(),
       note: rest.note === undefined ? undefined : rest.note?.trim() || null,
     });

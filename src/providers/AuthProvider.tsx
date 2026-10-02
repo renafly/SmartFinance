@@ -52,6 +52,8 @@ type AuthContextValue = {
   claims: Claims;
   profile: UserProfile;
   householdId: string | null;
+  /** The profile/household load failed; householdId is unknown, not "none". */
+  sessionError: boolean;
   currency: AppCurrency;
   isLoading: boolean;
   isLoggedIn: boolean;
@@ -179,7 +181,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
-  const { profile, householdId, loading } = useSession(claims, refreshKey);
+  const { profile, householdId, loading, error: sessionError } = useSession(claims, refreshKey);
   const setCurrency = usePreferencesStore((state) => state.setCurrency);
   const currency = usePreferencesStore((state) => state.currency);
   const setLanguage = usePreferencesStore((state) => state.setLanguage);
@@ -267,6 +269,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         claims,
         profile,
         householdId,
+        sessionError,
         currency,
         isLoading: restoring || loading,
         isLoggedIn: claims !== undefined,

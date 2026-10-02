@@ -250,6 +250,18 @@ describe("validateAllocations", () => {
     expect(errors).toContain("duplicate_source");
   });
 
+  it("allows duplicate targets when allowDuplicateTargets is set", () => {
+    const errors = validateAllocations(
+      200,
+      [
+        draft({ id: "a", accountId: "acc-1", amount: 100 }),
+        draft({ id: "b", accountId: "acc-1", amount: 100 }),
+      ],
+      { allowDuplicateTargets: true },
+    );
+    expect(errors).not.toContain("duplicate_source");
+  });
+
   it("flags a duplicate pot source", () => {
     const errors = validateAllocations(200, [
       draft({ id: "a", sourceType: "pot", potId: "pot-1", amount: 100 }),

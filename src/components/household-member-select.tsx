@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
 import type { HouseholdMemberDetails } from '@/features/households/hooks/useHouseholdMemberDetails';
 import { spacing } from '@/theme/spacing';
@@ -16,6 +16,9 @@ type HouseholdMemberSelectProps = {
   showSharedOption?: boolean;
   sharedLabel?: string;
   sharedDescription?: string;
+  /** Passed to SelectionTrigger, e.g. to match neighbouring fields on one row. */
+  labelStyle?: StyleProp<TextStyle>;
+  triggerStyle?: StyleProp<ViewStyle>;
 };
 
 function getMemberLabel(member: HouseholdMemberDetails) {
@@ -33,6 +36,8 @@ export function HouseholdMemberSelect({
   showSharedOption,
   sharedLabel = 'Shared',
   sharedDescription,
+  labelStyle,
+  triggerStyle,
 }: HouseholdMemberSelectProps) {
   const [open, setOpen] = useState(false);
 
@@ -55,6 +60,8 @@ export function HouseholdMemberSelect({
         iconName={showSharedOption && value === '' ? 'people-outline' : 'person-outline'}
         disabled={disabled}
         onPress={() => setOpen(true)}
+        labelStyle={labelStyle}
+        triggerStyle={triggerStyle}
       />
 
       <SelectionShell

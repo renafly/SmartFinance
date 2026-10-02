@@ -12,6 +12,12 @@ export type PlannedItemOccurrenceDestinationRow =
   Database["public"]["Tables"]["planned_item_occurrence_destinations"]["Row"];
 export type PlannedItemMatchRow = Database["public"]["Tables"]["planned_item_matches"]["Row"];
 export type MonthlyBudgetPeriodRow = Database["public"]["Tables"]["monthly_budget_periods"]["Row"];
+export type MonthlyBudgetBatchRow = Database["public"]["Tables"]["monthly_budget_batches"]["Row"];
+/** One transaction created by a Monthly Budget batch -- just what the "View transfers" list needs. */
+export type MonthlyBudgetBatchTransactionRow = Pick<
+  Database["public"]["Tables"]["transactions"]["Row"],
+  "id" | "account_id" | "amount" | "title" | "type" | "transfer_group_id" | "planned_item_transaction_role" | "planned_item_occurrence_id" | "created_at"
+>;
 
 export type PlannedItemRowWithDestinations = PlannedItemRow & {
   planned_item_destinations: PlannedItemDestinationRow[];
@@ -342,5 +348,42 @@ export class PlannedItemsRepository extends BaseRepository<"planned_items"> {
 
     if (error) return { data: null, error };
     return { data: data as PlannedItemOccurrenceRow, error: null };
+  }
+
+  // ------------------------------------------------------------
+  // Monthly Budget "Create all transfers" batches -- see
+  // 20260929120000_monthly_budget_batches.sql.
+  // ------------------------------------------------------------
+
+  /** The month's live (not undone) batch, if any. */
+  async getActiveBatchForMonth(householdId: string, month: string): Promise<RepoResult<MonthlyBudgetBatchRow | null>> {
+    const { data, error } = await this.client
+      .from("monthly_budget_batches")
+      .select("*")
+      .eq("household_id", householdId)
+      .eq("month", month)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (error) return { data: null, error };
+    return { data: (data as MonthlyBudgetBatchRow | null) ?? null, error: null };
+  }
+
+  /** Exactly the transactions a batch created (by transactions.monthly_budget_batch_id -- never by date/amount/account). */
+  async listBatchTransactions(batchId: string): Promise<RepoResult<MonthlyBudgetBatchTransactionRow[]>> {
+    const { data, error } = await this.client
+      .from("transactions")
+      .select("id, account_id, amount, title, type, transfer_group_id, planned_item_transaction_role, planned_item_occurrence_id, created_at")
+      .eq("monthly_budget_batch_id", batchId)
+      .order("created_at", { ascending: true });
+
+    if (error) return { data: null, error };
+    return { data: (data ?? []) as MonthlyBudgetBatchTransactionRow[], error: null };
+  }
+
+  async undoBatch(batchId: string): Promise<RepoResult<MonthlyBudgetBatchRow>> {
+    const { data, error } = await this.client.rpc("undo_monthly_budget_batch", { p_batch_id: batchId });
+    if (error) return { data: null, error };
+    return { data: data as MonthlyBudgetBatchRow, error: null };
   }
 }

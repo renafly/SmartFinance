@@ -35,6 +35,8 @@ function invalidateForTransaction(queryClient: ReturnType<typeof useQueryClient>
   invalidateHouseholdData(queryClient);
   queryClient.invalidateQueries({ queryKey: ["transaction-reimbursements", transactionId] });
   queryClient.invalidateQueries({ queryKey: ["transaction-effective-amount", transactionId] });
+  // The linked income transaction changed too (balances, lists).
+  queryClient.invalidateQueries({ queryKey: ["reimbursement-income-link"] });
 }
 
 export function useCreateReimbursement() {
@@ -46,6 +48,47 @@ export function useCreateReimbursement() {
     onSuccess: (_data, variables) => {
       invalidateForTransaction(queryClient, variables.transaction_id);
     },
+  });
+}
+
+/** Batch create (all-or-nothing) -- used by the create-transaction wizard. */
+export function useCreateReimbursements() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (inputs: CreateReimbursementInput[]) =>
+      transactionReimbursementsService.createReimbursements(inputs),
+    onSuccess: (_data, variables) => {
+      const transactionIds = new Set(variables.map((input) => input.transaction_id));
+      for (const transactionId of transactionIds) {
+        invalidateForTransaction(queryClient, transactionId);
+      }
+    },
+  });
+}
+
+export function useUpdateReimbursement() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ input }: { input: UpdateReimbursementInput; transactionId: string }) =>
+      transactionReimbursementsService.updateReimbursement(input),
+    onSuccess: (_data, variables) => {
+      invalidateForTransaction(queryClient, variables.transactionId);
+    },
+  });
+}
+
+/**
+ * Non-null when `transactionId` is the income automatically created for an
+ * account reimbursement -- the edit modal then shows it as read-only
+ * money (its amount/account/date follow the reimbursement).
+ */
+export function useReimbursementIncomeLink(transactionId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["reimbursement-income-link", transactionId],
+    queryFn: () => transactionReimbursementsService.getIncomeLink(transactionId!),
+    enabled: !!transactionId,
   });
 }
 

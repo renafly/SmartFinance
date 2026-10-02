@@ -33,6 +33,12 @@ const HOUSEHOLD_QUERY_KEYS = [
   ["notifications"],
   ["replenishments"],
   ["transaction-effective-amounts"],
+  ["transaction-tags"],
+  ["transaction-tag-summaries"],
+  ["transaction-tag-transactions"],
+  ["transaction-tag-ids"],
+  ["transaction-reimbursements"],
+  ["reimbursement-income-link"],
 ] as const;
 
 export function invalidateHouseholdData(queryClient: QueryClient) {
