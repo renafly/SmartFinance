@@ -25,6 +25,30 @@ jest.mock('../features/auth/components/auth-loading-transition', () => ({
   },
 }));
 
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: { defaultValue?: string }) => opts?.defaultValue ?? key,
+  }),
+}));
+
+jest.mock('@/theme/ThemeProvider', () => ({
+  useTheme: () => ({ colors: { background: '#fff', text: '#000' } }),
+}));
+
+jest.mock('../features/setup', () => ({
+  SetupWizard: () => {
+    const { Text: MockText } = require('react-native');
+    return <MockText testID="setup-wizard">Setup</MockText>;
+  },
+}));
+
+jest.mock('@/components/migrated-page', () => ({
+  Button: ({ label }: { label: string }) => {
+    const { Text: MockText } = require('react-native');
+    return <MockText>{label}</MockText>;
+  },
+}));
+
 describe('Protected', () => {
   it.each([
     { label: 'the Supabase session is restoring', session: null, restoring: true, isLoading: true },
@@ -47,6 +71,7 @@ describe('Protected', () => {
       session: { user: { id: 'user-1' } },
       restoring: false,
       isLoading: false,
+      householdId: 'household-1',
     });
 
     const view = await render(
