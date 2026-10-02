@@ -123,7 +123,11 @@ describe('useSession', () => {
     mockLoadProfileAndHousehold.mockRejectedValueOnce(new Error('network'));
     jest.spyOn(console, 'error').mockImplementation(() => {});
 
-    const hook = await renderHook(() => useSession({ sub: 'user-1' }, 0));
+    // Hoisted so the claims keep a stable identity across renders: an inline
+    // object literal would re-trigger the [claims] effect on every render and
+    // loop forever (which used to OOM the Jest worker).
+    const claims = { sub: 'user-1' };
+    const hook = await renderHook(() => useSession(claims, 0));
 
     await waitFor(() =>
       expect(hook.result.current).toMatchObject({ loading: false, householdId: null, error: true }),
