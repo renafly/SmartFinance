@@ -79,7 +79,7 @@
     "test": "jest",
     "test:unit": "jest --testMatch \"**/*.unit.test.ts\" \"**/*.unit.test.tsx\"",
     "test:integration": "jest --testMatch \"**/*.integration.test.ts\" \"**/*.integration.test.tsx\"",
-    "test:ci": "jest --runInBand --coverage=false",
+    "test:ci": "jest --ci --maxWorkers=2 --workerIdleMemoryLimit=1024MB --coverage=false",
     "typecheck:test": "tsc --noEmit --pretty false -p tsconfig.test.json",
     "test:supabase": "node ./test/supabase/run-local-contract-tests.mjs",
     "test:e2e:web": "npx expo export --platform web && playwright test",
