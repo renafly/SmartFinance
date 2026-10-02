@@ -141,7 +141,8 @@ export function validateReimbursementAllocations(
   rows: readonly ReimbursementDraft[],
 ): ReimbursementSetValidationError[] {
   const errors: ReimbursementSetValidationError[] = [
-    ...validateAllocations(expectedTotal, rows, { minAllocations: 1 }),
+    // allowDuplicateTargets: two payers can repay into the same account.
+    ...validateAllocations(expectedTotal, rows, { minAllocations: 1, allowDuplicateTargets: true }),
   ];
   if (rows.some((row) => !row.payerName.trim())) {
     errors.push("missing_payer_name");
@@ -167,4 +168,94 @@ export function createEmptyReimbursementDraft(sourceType: AllocationSourceType =
     accountId: null,
     potId: null,
   };
+}
+
+/**
+ * One reimbursement row as the edit-transaction modal holds it while the
+ * user works: changes are staged locally and only written when the whole
+ * transaction is saved (same as the split-source editor next to it), so
+ * Cancel really discards them. `id` is the server row id, or null for a
+ * row added in this edit session; `key` is a client-local React key.
+ */
+export type StagedReimbursement = {
+  key: string;
+  id: string | null;
+  payerName: string;
+  amount: number;
+  receivedOn: string | null;
+  sourceType: AllocationSourceType;
+  accountId: string | null;
+  potId: string | null;
+  note: string | null;
+};
+
+type ReimbursementRowLike = {
+  id: string;
+  payer_name: string;
+  amount: number | string;
+  received_on?: string | null;
+  source_type?: string | null;
+  account_id?: string | null;
+  pot_id?: string | null;
+  note?: string | null;
+};
+
+/** Maps a saved transaction_reimbursements row into edit-modal staged state. */
+export function stagedReimbursementFromRow(row: ReimbursementRowLike): StagedReimbursement {
+  const sourceType: AllocationSourceType = row.source_type === "pot" ? "pot" : "account";
+  return {
+    key: row.id,
+    id: row.id,
+    payerName: row.payer_name,
+    amount: Number(row.amount),
+    receivedOn: row.received_on ?? null,
+    sourceType,
+    accountId: sourceType === "account" ? (row.account_id ?? null) : null,
+    potId: sourceType === "pot" ? (row.pot_id ?? null) : null,
+    note: row.note ?? null,
+  };
+}
+
+function stagedRowChanged(before: StagedReimbursement, after: StagedReimbursement): boolean {
+  return (
+    before.payerName.trim() !== after.payerName.trim() ||
+    toCents(before.amount) !== toCents(after.amount) ||
+    (before.receivedOn ?? null) !== (after.receivedOn ?? null) ||
+    before.sourceType !== after.sourceType ||
+    (before.accountId ?? null) !== (after.accountId ?? null) ||
+    (before.potId ?? null) !== (after.potId ?? null) ||
+    (before.note ?? null) !== (after.note ?? null)
+  );
+}
+
+export type StagedReimbursementDiff = {
+  /** Server ids present when the modal opened but removed since. */
+  toDelete: string[];
+  /** Saved rows whose fields changed. */
+  toUpdate: StagedReimbursement[];
+  /** Rows added in this edit session (id === null). */
+  toCreate: StagedReimbursement[];
+};
+
+/** What has to be written to turn `original` (as loaded) into `current`. */
+export function diffStagedReimbursements(
+  original: readonly StagedReimbursement[],
+  current: readonly StagedReimbursement[],
+): StagedReimbursementDiff {
+  const currentById = new Map(
+    current.filter((row) => row.id !== null).map((row) => [row.id as string, row]),
+  );
+  const toDelete: string[] = [];
+  const toUpdate: StagedReimbursement[] = [];
+  for (const before of original) {
+    if (before.id === null) continue;
+    const after = currentById.get(before.id);
+    if (!after) toDelete.push(before.id);
+    else if (stagedRowChanged(before, after)) toUpdate.push(after);
+  }
+  return { toDelete, toUpdate, toCreate: current.filter((row) => row.id === null) };
+}
+
+export function hasStagedReimbursementChanges(diff: StagedReimbursementDiff): boolean {
+  return diff.toDelete.length > 0 || diff.toUpdate.length > 0 || diff.toCreate.length > 0;
 }

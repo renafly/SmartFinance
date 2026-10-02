@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Platform, Pressable, Text, View } from "react-native";
+import { Platform, Pressable, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { useTranslation } from "react-i18next";
 
@@ -18,6 +18,10 @@ type DatePickerFieldProps = {
   placeholder: string;
   granularity?: DateGranularity;
   disabled?: boolean;
+  /** Extra style for the label, e.g. to line it up with a neighbouring Field. */
+  labelStyle?: StyleProp<TextStyle>;
+  /** Extra style for the tappable box, e.g. a fixed height shared with fields on the same row. */
+  triggerStyle?: StyleProp<ViewStyle>;
 };
 
 function parseDateValue(value: string, granularity: DateGranularity) {
@@ -56,7 +60,7 @@ function isSameDay(left: Date, right: Date) {
     && left.getDate() === right.getDate();
 }
 
-export function DatePickerField({ label, value, onChange, placeholder, granularity = "date", disabled = false }: DatePickerFieldProps) {
+export function DatePickerField({ label, value, onChange, placeholder, granularity = "date", disabled = false, labelStyle, triggerStyle }: DatePickerFieldProps) {
   const { colors } = useTheme();
   const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
@@ -99,11 +103,11 @@ export function DatePickerField({ label, value, onChange, placeholder, granulari
 
   return (
     <View style={{ gap: spacing(2) }}>
-      <Text style={{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold } as any}>{label}</Text>
+      <Text style={[{ color: colors.textSecondary, fontWeight: typography.fontWeight.semibold }, labelStyle] as any}>{label}</Text>
       <Pressable
         onPress={() => setOpen((current) => !current)}
         disabled={disabled}
-        style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing(3.5), paddingVertical: spacing(3), borderRadius: radius.mdPlus, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border, opacity: disabled ? 0.6 : 1 }}
+        style={[{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing(3.5), paddingVertical: spacing(3), borderRadius: radius.mdPlus, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border, opacity: disabled ? 0.6 : 1 }, triggerStyle]}
       >
         <Text style={{ color: value.trim() ? colors.text : colors.textSecondary, fontWeight: typography.fontWeight.bold } as any}>
           {value.trim() ? formatDisplayValue(value, granularity) : placeholder}

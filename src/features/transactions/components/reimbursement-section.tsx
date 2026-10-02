@@ -3,11 +3,11 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 
-import { Badge } from "@/components/data-surface";
-import { Button, Field, Pill, formatCurrency } from "@/components/migrated-page";
-import { GroupedAccountSelect } from "@/components/grouped-account-select";
-import { DropdownField } from "@/features/transactions/components/dropdown-field";
+import { Button, Field, formatCurrency, formatDate } from "@/components/migrated-page";
+import { DatePickerField } from "@/components/date-picker-field";
+import { getLocalCalendarDate } from "@/features/transactions/utils/transaction-create-form";
 import {
+  SectionToggle,
   SplitAllocationsEditor,
   type AccountLike,
   type MemberLike,
@@ -17,18 +17,13 @@ import {
 import { useTheme } from "@/theme/ThemeProvider";
 import { spacing } from "@/theme/spacing";
 import { radius } from "@/theme/radius";
-import type { AllocationSourceType } from "@/features/transactions/utils/transaction-allocations";
+import { createAllocationDraftId } from "@/features/transactions/utils/transaction-allocations";
 import {
-  computeEffectiveAmount,
   createEmptyReimbursementDraft,
   validateReimbursementDraft,
   type ReimbursementDraft,
+  type StagedReimbursement,
 } from "@/features/transactions/utils/reimbursements";
-import {
-  useCreateReimbursement,
-  useDeleteReimbursement,
-  useTransactionReimbursements,
-} from "@/features/transactions/hooks/useTransactionReimbursements";
 
 /**
  * "Reimbursement" section for the expense create/edit form. See
@@ -53,17 +48,30 @@ import {
  *    (via transactionReimbursementsService.createReimbursement) once the
  *    transaction itself has been created and has an id -- the same
  *    after-create pattern already used for split allocations.
- *  - "live": the transaction already has an id (edit flow). Rows are
- *    loaded from the server and each add/remove takes effect immediately,
- *    independent of the form's own Save button -- there's no "sum must
- *    equal expected total" invariant enforced here (unlike the draft-mode
- *    editor above), since edit-mode reimbursements have always been
- *    independent add/remove operations, not a single atomically-replaced
- *    set -- so there's nothing gained by batching. Each row still records
- *    a source account/pot, via the same small inline add-row form.
+ *  - "staged": the transaction already has an id (edit flow). The
+ *    caller loads the saved rows into local state and passes them in as
+ *    `value`; every add/edit/remove here only changes that local list, and
+ *    the caller writes the difference when the whole transaction is saved
+ *    (see diffStagedReimbursements), exactly like the Split Source editor
+ *    beside it -- so Cancel really discards reimbursement changes too.
+ *    Each row records a source account/pot and a "received on" date via
+ *    the small inline add-row form, which doubles as the edit form (pencil
+ *    icon). Removing asks for confirmation. On save, an account
+ *    reimbursement also gets a linked income transaction server-side, so
+ *    the money shows up in its balance (see
+ *    20260929000000_reimbursement_income_transactions.sql).
+ *
+ * The Original / Reimbursed / Effective summary is shown by the
+ * surrounding PaymentBreakdownSection, not here.
  */
 type ReimbursementSectionSharedProps = {
   originalAmount: number;
+  /**
+   * The expense's own "Paid from" account. A reimbursement always goes
+   * back into it (the Split Source editor and reimbursements are mutually
+   * exclusive, so there's exactly one), so rows never pick a target.
+   */
+  fixedAccountId: string | null;
   accounts: AccountLike[];
   members: MemberLike[];
   pots: PotLike[];
@@ -87,10 +95,14 @@ type ReimbursementSectionProps = ReimbursementSectionSharedProps &
         onChange: (next: ReimbursementDraft[]) => void;
       }
     | {
-        mode: "live";
-        transactionId: string;
-        householdId: string;
-        createdById: string;
+        mode: "staged";
+        /** Same on/off switch as Split Source; off hides the controls and saving removes the rows. */
+        enabled: boolean;
+        onToggleEnabled: (enabled: boolean) => void;
+        /** True while the saved rows are still loading. */
+        toggleDisabled?: boolean;
+        value: StagedReimbursement[];
+        onChange: (next: StagedReimbursement[]) => void;
       }
   );
 
@@ -98,47 +110,21 @@ export function ReimbursementSection(props: ReimbursementSectionProps) {
   if (props.mode === "draft") {
     return <DraftReimbursementSection {...props} />;
   }
-  return <LiveReimbursementSection {...props} />;
-}
-
-function EffectiveAmountSummary({
-  originalAmount,
-  rows,
-}: {
-  originalAmount: number;
-  rows: readonly Pick<ReimbursementDraft, "amount">[];
-}) {
-  const { t } = useTranslation("common");
-  const { colors } = useTheme();
-  if (rows.length === 0) return null;
-
-  const breakdown = computeEffectiveAmount(originalAmount, rows);
-
-  return (
-    <View style={[styles.summary, { borderColor: colors.border }]}>
-      <Text style={{ color: colors.textSecondary }}>
-        {t("transactions.reimbursements.originalAmount")}: {formatCurrency(breakdown.originalAmount)}
-      </Text>
-      <Text style={{ color: colors.textSecondary }}>
-        {t("transactions.reimbursements.reimbursedTotal")}: {formatCurrency(breakdown.reimbursedTotal)}
-      </Text>
-      <View style={styles.effectiveRow}>
-        <Text style={{ color: colors.text, fontWeight: "700" as any }}>
-          {t("transactions.reimbursements.effectiveAmount")}: {formatCurrency(breakdown.effectiveAmount)}
-        </Text>
-        {breakdown.isOverReimbursed ? (
-          <Badge label={t("transactions.reimbursements.overReimbursedBadge")} tone="success" />
-        ) : null}
-      </View>
-    </View>
-  );
+  return <StagedReimbursementSection {...props} />;
 }
 
 function DraftReimbursementSection(
   props: ReimbursementSectionSharedProps & Extract<ReimbursementSectionProps, { mode: "draft" }>,
 ) {
   const { t } = useTranslation("common");
+  const { colors } = useTheme();
   const targetAmount = Number(props.targetAmount.replace(",", ".")) || 0;
+  const rows = props.value.map((row) => ({
+    ...row,
+    sourceType: "account" as const,
+    accountId: props.fixedAccountId || null,
+    potId: null,
+  }));
 
   return (
     <View style={styles.container}>
@@ -149,8 +135,10 @@ function DraftReimbursementSection(
         accounts={props.accounts}
         members={props.members}
         pots={props.pots}
-        allocations={props.value}
+        allocations={rows}
         onChangeAllocations={props.onChange}
+        hideTargetPicker
+        toggleIcon="return-down-back-outline"
         inputMode={props.inputMode}
         onChangeInputMode={props.onChangeInputMode}
         accountTypeLabels={props.accountTypeLabels}
@@ -158,9 +146,12 @@ function DraftReimbursementSection(
         unassignedLabel={props.unassignedLabel}
         closeLabel={props.closeLabel}
         minAllocations={1}
+        allowDuplicateTargets
         copyPrefix="transactions.reimbursementSplit"
         createEmptyAllocation={() => createEmptyReimbursementDraft("account")}
         renderExtra={() => (
+          <>
+          <IntoAccountNote accounts={props.accounts} accountId={props.fixedAccountId} />
           <Field
             label={t("transactions.reimbursements.expectedAmount")}
             value={props.targetAmount}
@@ -168,6 +159,7 @@ function DraftReimbursementSection(
             keyboardType="decimal-pad"
             placeholder="0.00"
           />
+          </>
         )}
         renderRowExtra={(allocation, update) => (
           <Field
@@ -178,47 +170,56 @@ function DraftReimbursementSection(
           />
         )}
       />
-      <EffectiveAmountSummary originalAmount={props.originalAmount} rows={props.value} />
+      {props.enabled && props.value.some((row) => !row.payerName.trim()) ? (
+        <Text style={{ color: colors.destructive, fontSize: 12 }}>
+          {t("transactions.reimbursementSplit.errors.missing_payer_name")}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
-function LiveReimbursementSection(
-  props: ReimbursementSectionSharedProps & Extract<ReimbursementSectionProps, { mode: "live" }>,
+function StagedReimbursementSection(
+  props: ReimbursementSectionSharedProps & Extract<ReimbursementSectionProps, { mode: "staged" }>,
 ) {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [payerName, setPayerName] = useState("");
   const [amount, setAmount] = useState("");
-  const [sourceType, setSourceType] = useState<AllocationSourceType>("account");
-  const [accountId, setAccountId] = useState<string | null>(null);
-  const [potId, setPotId] = useState<string | null>(null);
+  const [receivedOn, setReceivedOn] = useState(() => getLocalCalendarDate());
   const [formError, setFormError] = useState<string | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
 
-  const liveQuery = useTransactionReimbursements(props.transactionId, { enabled: true });
-  const createReimbursement = useCreateReimbursement();
-  const deleteReimbursement = useDeleteReimbursement();
+  const rows = props.value;
+  const editingRow = editingId ? rows.find((row) => row.key === editingId) ?? null : null;
 
-  const rows = liveQuery.data ?? [];
 
-  function sourceLabel(row: (typeof rows)[number]): string | null {
-    if (row.source_type === "account") {
-      return props.accounts.find((account) => account.id === row.account_id)?.name ?? null;
-    }
-    if (row.source_type === "pot") {
-      return props.pots.find((pot) => pot.id === row.pot_id)?.name ?? null;
-    }
-    return null;
+  function resetForm() {
+    setEditingId(null);
+    setPayerName("");
+    setAmount("");
+    setReceivedOn(getLocalCalendarDate());
+    setFormError(null);
   }
 
-  async function addRow() {
+  function startEdit(row: StagedReimbursement) {
+    setConfirmRemoveId(null);
+    setEditingId(row.key);
+    setPayerName(row.payerName);
+    setAmount(String(row.amount));
+    setReceivedOn(row.receivedOn ?? getLocalCalendarDate());
+    setFormError(null);
+  }
+
+  function submit() {
     const parsedAmount = Number(amount.replace(",", "."));
     const errors = validateReimbursementDraft({
       payerName,
       amount: parsedAmount,
-      sourceType,
-      accountId,
-      potId,
+      sourceType: "account",
+      accountId: props.fixedAccountId,
+      potId: null,
     });
     if (errors.length > 0) {
       setFormError(
@@ -232,63 +233,123 @@ function LiveReimbursementSection(
     }
     setFormError(null);
 
-    await createReimbursement.mutateAsync({
-      household_id: props.householdId,
-      transaction_id: props.transactionId,
-      payer_name: payerName.trim(),
+    const fields = {
+      payerName: payerName.trim(),
       amount: parsedAmount,
-      created_by: props.createdById,
-      source_type: sourceType,
-      account_id: sourceType === "account" ? accountId : null,
-      pot_id: sourceType === "pot" ? potId : null,
-    });
-    setPayerName("");
-    setAmount("");
-    setAccountId(null);
-    setPotId(null);
+      receivedOn,
+      sourceType: "account" as const,
+      accountId: props.fixedAccountId,
+      potId: null,
+    };
+    if (editingId) {
+      props.onChange(rows.map((row) => (row.key === editingId ? { ...row, ...fields } : row)));
+    } else {
+      props.onChange([
+        ...rows,
+        { key: createAllocationDraftId(), id: null, note: null, ...fields },
+      ]);
+    }
+    resetForm();
   }
 
-  function removeRow(id: string) {
-    void deleteReimbursement.mutateAsync({ id, transactionId: props.transactionId });
+  function removeRow(key: string) {
+    props.onChange(rows.filter((row) => row.key !== key));
+    setConfirmRemoveId(null);
+    if (editingId === key) resetForm();
   }
+
+  const toggle = (
+    <SectionToggle
+      enabled={props.enabled}
+      onToggle={props.onToggleEnabled}
+      label={t("transactions.reimbursementSplit.toggleLabel")}
+      hint={t("transactions.reimbursementSplit.toggleHint")}
+      icon="return-down-back-outline"
+      disabled={props.toggleDisabled}
+    />
+  );
+  if (!props.enabled) return toggle;
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>
-        {t("transactions.reimbursements.title")}
-      </Text>
+      {toggle}
       <Text style={[styles.hint, { color: colors.textSecondary }]}>
-        {t("transactions.reimbursements.hint")}
+        {t("transactions.reimbursements.hint")} {t("transactions.reimbursements.pendingHint")}
       </Text>
 
       {rows.length > 0 ? (
         <View style={styles.rows}>
           {rows.map((row) => (
-            <View key={row.id} style={[styles.row, { borderColor: colors.border }]}>
-              <View style={styles.rowInfo}>
-                <Text style={{ color: colors.text }}>{row.payer_name}</Text>
-                {sourceLabel(row) ? (
+            <View
+              key={row.key}
+              style={[
+                styles.rowCard,
+                { borderColor: row.key === editingId ? colors.primary : colors.border },
+              ]}
+            >
+              <View style={styles.row}>
+                <View style={styles.rowInfo}>
+                  <Text style={{ color: colors.text }}>{row.payerName}</Text>
                   <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                    {t("transactions.reimbursements.fromSource", { source: sourceLabel(row) })}
+                    {[
+                      row.receivedOn
+                        ? t("transactions.reimbursements.receivedOnValue", { date: formatDate(row.receivedOn) })
+                        : null,
+                      row.id === null ? t("transactions.reimbursements.unsavedBadge") : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </Text>
-                ) : null}
+                </View>
+                <Text style={{ color: colors.primary, fontWeight: "600" as any }}>
+                  {formatCurrency(row.amount)}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("transactions.reimbursements.edit")}
+                  onPress={() => startEdit(row)}
+                  style={styles.iconButton}
+                >
+                  <Ionicons name="create-outline" size={18} color={colors.text} />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("transactions.reimbursements.remove")}
+                  onPress={() => setConfirmRemoveId(row.key)}
+                  style={styles.iconButton}
+                >
+                  <Ionicons name="trash-outline" size={18} color={colors.destructive} />
+                </Pressable>
               </View>
-              <Text style={{ color: colors.primary, fontWeight: "600" as any }}>
-                {formatCurrency(row.amount)}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("transactions.reimbursements.remove")}
-                onPress={() => removeRow(row.id)}
-                style={styles.removeButton}
-              >
-                <Ionicons name="close-circle-outline" size={20} color={colors.textSecondary} />
-              </Pressable>
+              {confirmRemoveId === row.key ? (
+                <View style={{ gap: spacing(1.5) }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                    {t("transactions.reimbursements.removeConfirm")}
+                  </Text>
+                  <View style={{ flexDirection: "row", gap: spacing(2), flexWrap: "wrap" } as any}>
+                    <Button
+                      label={t("cancel")}
+                      variant="secondary"
+                      onPress={() => setConfirmRemoveId(null)}
+                    />
+                    <Button
+                      label={t("transactions.reimbursements.removeConfirmYes")}
+                      variant="danger"
+                      onPress={() => removeRow(row.key)}
+                    />
+                  </View>
+                </View>
+              ) : null}
             </View>
           ))}
         </View>
       ) : null}
 
+      {editingRow ? (
+        <Text style={[styles.label, { color: colors.text }]}>
+          {t("transactions.reimbursements.editing", { payer: editingRow.payerName })}
+        </Text>
+      ) : null}
       <View style={styles.addRow}>
         <View style={styles.addField}>
           <Field
@@ -303,68 +364,60 @@ function LiveReimbursementSection(
             label={t("transactions.reimbursements.amount")}
             value={amount}
             onChangeText={setAmount}
-            keyboardType="numeric"
+            keyboardType="decimal-pad"
+            placeholder="0.00"
+          />
+        </View>
+        <View style={styles.addField}>
+          <DatePickerField
+            label={t("transactions.reimbursements.receivedOn")}
+            value={receivedOn}
+            onChange={setReceivedOn}
+            placeholder="DD-MM-YYYY"
           />
         </View>
       </View>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing(2) } as any}>
-        <Pill
-          label={t("transactions.reimbursementSplit.sourceTypeAccount")}
-          active={sourceType === "account"}
-          onPress={() => {
-            setSourceType("account");
-            setPotId(null);
-          }}
-        />
-        <Pill
-          label={t("transactions.reimbursementSplit.sourceTypePot")}
-          active={sourceType === "pot"}
-          onPress={() => {
-            setSourceType("pot");
-            setAccountId(null);
-          }}
-        />
-      </View>
-      {sourceType === "account" ? (
-        <GroupedAccountSelect
-          label={t("transactions.reimbursementSplit.selectAccount")}
-          accounts={props.accounts}
-          members={props.members}
-          value={accountId ?? ""}
-          placeholder={t("transactions.reimbursementSplit.selectAccount")}
-          onChange={setAccountId}
-          closeLabel={props.closeLabel}
-          sharedLabel={props.sharedLabel}
-          unassignedLabel={props.unassignedLabel}
-          typeLabels={props.accountTypeLabels}
-        />
-      ) : props.pots.length > 0 ? (
-        <DropdownField
-          label={t("transactions.reimbursementSplit.selectPot")}
-          valueLabel={
-            props.pots.find((pot) => pot.id === potId)?.name ?? t("transactions.reimbursementSplit.selectPot")
+      <IntoAccountNote accounts={props.accounts} accountId={props.fixedAccountId} />
+      <View style={{ flexDirection: "row", gap: spacing(2), flexWrap: "wrap" } as any}>
+        <Button
+          label={
+            editingId
+              ? t("transactions.reimbursements.applyChanges")
+              : t("transactions.reimbursements.add")
           }
-          placeholder={t("transactions.reimbursementSplit.selectPot")}
-          hint={t("transactions.reimbursementSplit.selectPotHint")}
-          selectedKey={potId ?? undefined}
-          onChange={setPotId}
-          options={props.pots.map((pot) => ({ key: pot.id, label: pot.name }))}
+          variant="secondary"
+          onPress={submit}
         />
-      ) : (
-        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-          {t("transactions.reimbursementSplit.noPots")}
-        </Text>
-      )}
-      <Button
-        label={t("transactions.reimbursements.add")}
-        variant="secondary"
-        onPress={() => void addRow()}
-        disabled={createReimbursement.isPending || !props.transactionId}
-      />
+        {editingId ? (
+          <Button
+            label={t("transactions.reimbursements.cancelEdit")}
+            variant="secondary"
+            onPress={resetForm}
+          />
+        ) : null}
+      </View>
       {formError ? <Text style={{ color: colors.destructive }}>{formError}</Text> : null}
-
-      <EffectiveAmountSummary originalAmount={props.originalAmount} rows={rows} />
     </View>
+  );
+}
+
+/** "Received into <Paid from account>" -- the one place a reimbursement's money can land. */
+function IntoAccountNote({
+  accounts,
+  accountId,
+}: {
+  accounts: AccountLike[];
+  accountId: string | null;
+}) {
+  const { t } = useTranslation("common");
+  const { colors } = useTheme();
+  const name = accountId ? accounts.find((account) => account.id === accountId)?.name : null;
+  return (
+    <Text style={{ color: name ? colors.textSecondary : colors.destructive, fontSize: 12 }}>
+      {name
+        ? t("transactions.paymentBreakdown.receivedInto", { account: name })
+        : t("transactions.paymentBreakdown.choosePaidFromFirst")}
+    </Text>
   );
 }
 
@@ -373,15 +426,19 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: "600" },
   hint: { fontSize: 12 },
   rows: { gap: spacing(1) },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
+  rowCard: {
     gap: spacing(1),
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.md,
     paddingHorizontal: spacing(1.5),
     paddingVertical: spacing(1),
   },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing(1),
+  },
+  iconButton: { padding: spacing(0.75) },
   rowInfo: { flex: 1 },
   removeButton: { padding: spacing(0.5) },
   addRow: { gap: spacing(1) },

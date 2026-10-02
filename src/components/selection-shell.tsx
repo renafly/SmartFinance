@@ -7,6 +7,9 @@ import {
   StyleSheet,
   Text,
   View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -26,6 +29,10 @@ type SelectionTriggerProps = {
   iconName?: keyof typeof Ionicons.glyphMap;
   disabled?: boolean;
   onPress: () => void;
+  /** Extra style for the label, e.g. to line it up with a neighbouring Field. */
+  labelStyle?: StyleProp<TextStyle>;
+  /** Extra style for the tappable box, e.g. a fixed height shared with fields on the same row. */
+  triggerStyle?: StyleProp<ViewStyle>;
 };
 
 export function SelectionTrigger({
@@ -36,6 +43,8 @@ export function SelectionTrigger({
   iconName = "chevron-down-outline",
   disabled,
   onPress,
+  labelStyle,
+  triggerStyle,
 }: SelectionTriggerProps) {
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
@@ -43,7 +52,7 @@ export function SelectionTrigger({
 
   return (
     <View style={styles.triggerWrapper}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>
+      <Text style={[styles.label, { color: colors.textSecondary }, labelStyle]}>
         {label}
       </Text>
       <Pressable
@@ -59,6 +68,7 @@ export function SelectionTrigger({
           },
           pressed && styles.pressed,
           disabled && styles.disabled,
+          triggerStyle,
         ]}
       >
         <View style={styles.triggerIcon}>

@@ -62,6 +62,42 @@ export class TransactionReimbursementsRepository extends BaseRepository<"transac
     return { data: data ?? [], error: null };
   }
 
+  /**
+   * For an income transaction that was generated from a reimbursement
+   * (transactions.reimbursement_id, see
+   * 20260929000000_reimbursement_income_transactions.sql): the
+   * reimbursement and the title of the expense it repaid. Null for any
+   * other transaction.
+   */
+  async findIncomeLink(
+    transactionId: string,
+  ): Promise<RepoResult<{ reimbursement: TransactionReimbursement; expenseTitle: string | null } | null>> {
+    const { data: tx, error: txError } = await this.client
+      .from("transactions")
+      .select("reimbursement_id")
+      .eq("id", transactionId)
+      .maybeSingle();
+    if (txError) return { data: null, error: txError };
+    if (!tx?.reimbursement_id) return { data: null, error: null };
+
+    const { data: reimbursement, error } = await this.client
+      .from("transaction_reimbursements")
+      .select("*")
+      .eq("id", tx.reimbursement_id)
+      .maybeSingle();
+    if (error) return { data: null, error };
+    if (!reimbursement) return { data: null, error: null };
+
+    const { data: expense, error: expenseError } = await this.client
+      .from("transactions")
+      .select("title")
+      .eq("id", reimbursement.transaction_id)
+      .maybeSingle();
+    if (expenseError) return { data: null, error: expenseError };
+
+    return { data: { reimbursement, expenseTitle: expense?.title ?? null }, error: null };
+  }
+
   async getEffectiveAmount(
     transactionId: string,
   ): Promise<RepoResult<TransactionEffectiveAmount | null>> {

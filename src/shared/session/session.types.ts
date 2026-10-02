@@ -10,4 +10,7 @@ export type SessionState = {
   profile: UserProfile;
   householdId: string | null;
   loading: boolean;
+  /** True when the last profile/household load failed (e.g. network error).
+   * householdId is null in that case but does NOT mean "no household". */
+  error: boolean;
 };

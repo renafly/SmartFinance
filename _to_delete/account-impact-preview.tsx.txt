@@ -1,0 +1,132 @@
+import { Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
+
+import { formatCurrency } from '@/components/migrated-page';
+import { useTheme } from '@/theme/ThemeProvider';
+import { typography } from '@/theme/typography';
+import { radius } from '@/theme/radius';
+import { spacing } from '@/theme/spacing';
+import { displayCurrency } from '@/shared/lib/mask-currency';
+import { usePrivacyStore } from '@/stores/privacyStore';
+import type { MonthlyPlanSummary } from '../monthly-plan';
+
+export type AccountImpactPreviewProps = {
+  summary: MonthlyPlanSummary;
+  accountNameMap: Map<string, string>;
+  /** accountId -> owner's name, shown as a caption. */
+  accountOwnerMap?: Map<string, string>;
+  /** accountId -> pot name(s), shown as a caption. */
+  potLabelByAccountId?: Map<string, string>;
+};
+
+/**
+ * The Monthly Preview -- one line per account answering "what happens to
+ * this account this month?". Income accounts get the income line and an
+ * "after transfers" line; every other account just its net change. The
+ * current -> projected balance sits underneath in small print.
+ */
+export function AccountImpactPreview({ summary, accountNameMap, accountOwnerMap, potLabelByAccountId }: AccountImpactPreviewProps) {
+  const { t } = useTranslation('common');
+  const { colors } = useTheme();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
+
+  const money = (amount: number) => displayCurrency(formatCurrency(Math.abs(amount)), hideValues);
+  const signed = (amount: number) => `${amount > 0.004 ? '+' : amount < -0.004 ? '−' : ''}${money(amount)}`;
+  const nameOf = (accountId: string) => accountNameMap.get(accountId) ?? t('budget.selectDestinationAccount');
+
+  if (summary.impacts.length === 0) {
+    return (
+      <View style={{ padding: spacing(4), borderRadius: radius.lg, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border } as any}>
+        <Text style={{ color: colors.textSecondary, textAlign: 'center' } as any}>{t('budget.plan.previewEmpty')}</Text>
+      </View>
+    );
+  }
+
+  const rowStyle = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing(3),
+    paddingVertical: spacing(2.5),
+    paddingHorizontal: spacing(3),
+  } as any;
+
+  return (
+    <View style={{ gap: spacing(3) } as any}>
+      <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' } as any}>
+        <View style={{ ...rowStyle, backgroundColor: colors.surfaceMuted, paddingVertical: spacing(2) }}>
+          <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.bold), textTransform: 'uppercase' } as any}>
+            {t('budget.plan.previewAccount')}
+          </Text>
+          <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12], fontWeight: String(typography.fontWeight.bold), textTransform: 'uppercase' } as any}>
+            {t('budget.plan.previewImpact')}
+          </Text>
+        </View>
+
+        {summary.impacts.map((impact) => {
+          const pot = potLabelByAccountId?.get(impact.accountId);
+          const owner = accountOwnerMap?.get(impact.accountId);
+          const caption = [owner, pot].filter(Boolean).join(' · ');
+          const balanceCaption = t('budget.plan.balanceBeforeAfter', { before: displayCurrency(formatCurrency(impact.before), hideValues), after: displayCurrency(formatCurrency(impact.after), hideValues) });
+          const isOver = summary.overAllocatedAccountIds.includes(impact.accountId);
+          return (
+            <View key={impact.accountId} style={{ borderTopWidth: 1, borderTopColor: colors.border } as any}>
+              <View style={rowStyle}>
+                <View style={{ flex: 1, minWidth: 0, gap: spacing(0.5) } as any}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(1.5) } as any}>
+                    <Ionicons name={impact.isIncomeAccount ? 'cash-outline' : impact.change >= 0 ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'} size={16} color={colors.textSecondary} />
+                    <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.semibold) } as any} numberOfLines={1}>
+                      {nameOf(impact.accountId)}
+                    </Text>
+                  </View>
+                  {caption ? <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any} numberOfLines={1}>{caption}</Text> : null}
+                  {!impact.isIncomeAccount ? <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any}>{balanceCaption}</Text> : null}
+                </View>
+                <Text style={{ color: (impact.isIncomeAccount ? impact.incoming : impact.change) >= 0 ? colors.success : colors.destructive, fontWeight: String(typography.fontWeight.extraBold) } as any}>
+                  {signed(impact.isIncomeAccount ? impact.incoming : impact.change)}
+                </Text>
+              </View>
+
+              {impact.isIncomeAccount && impact.outgoing > 0.004 ? (
+                <>
+                  <View style={{ ...rowStyle, paddingTop: 0 }}>
+                    <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[13], paddingLeft: spacing(5.5) } as any}>{t('budget.plan.movedOut')}</Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[13], fontWeight: String(typography.fontWeight.bold) } as any}>{signed(-impact.outgoing)}</Text>
+                  </View>
+                  <View style={{ ...rowStyle, backgroundColor: isOver ? colors.destructiveSoft : colors.surfaceMuted }}>
+                    <View style={{ flex: 1, minWidth: 0, gap: spacing(0.5) } as any}>
+                      <Text style={{ color: colors.text, fontWeight: String(typography.fontWeight.bold) } as any} numberOfLines={1}>
+                        {t('budget.plan.afterTransfers', { account: nameOf(impact.accountId) })}
+                      </Text>
+                      <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any}>{balanceCaption}</Text>
+                    </View>
+                    <Text style={{ color: isOver ? colors.destructive : colors.text, fontWeight: String(typography.fontWeight.extraBold), fontSize: typography.fontSize[16] } as any}>
+                      {impact.change < -0.004 ? signed(impact.change) : money(impact.change)}
+                    </Text>
+                  </View>
+                </>
+              ) : impact.isIncomeAccount ? (
+                <View style={{ ...rowStyle, paddingTop: 0 }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12], paddingLeft: spacing(5.5) } as any}>{balanceCaption}</Text>
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+
+      {summary.overAllocatedAccountIds.length > 0 ? (
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing(1.5), padding: spacing(3), borderRadius: radius.lg, backgroundColor: colors.destructiveSoft } as any}>
+          <Ionicons name="warning-outline" size={16} color={colors.destructive} style={{ marginTop: spacing(0.25) } as any} />
+          <Text style={{ flex: 1, color: colors.destructive, fontSize: typography.fontSize[13] } as any}>
+            {summary.incomeAccounts
+              .filter((entry) => summary.overAllocatedAccountIds.includes(entry.accountId))
+              .map((entry) => t('budget.plan.overAllocated', { account: nameOf(entry.accountId), amount: money(entry.remaining) }))
+              .join('\n')}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}

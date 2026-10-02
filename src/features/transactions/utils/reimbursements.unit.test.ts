@@ -3,7 +3,10 @@ import {
   createEmptyReimbursementDraft,
   validateReimbursementAllocations,
   validateReimbursementDraft,
+  diffStagedReimbursements,
+  stagedReimbursementFromRow,
   type ReimbursementDraft,
+  type StagedReimbursement,
 } from "./reimbursements";
 
 function row(overrides: Partial<ReimbursementDraft> = {}): ReimbursementDraft {
@@ -148,15 +151,55 @@ describe("validateReimbursementAllocations", () => {
     expect(validateReimbursementAllocations(50, rows)).toContain("missing_target");
   });
 
-  it("flags a duplicate source, reusing transaction-allocations' own rule", () => {
+  it("allows two payers to repay into the same account", () => {
+    // Unlike a funding split (which can't draw from one account twice),
+    // Ana and Bruno can both pay back into the same account.
     const rows = [
       row({ payerName: "Ana", sourceType: "account", accountId: "acc-1", amount: 25 }),
       row({ payerName: "Bruno", sourceType: "account", accountId: "acc-1", amount: 25 }),
     ];
-    expect(validateReimbursementAllocations(50, rows)).toContain("duplicate_source");
+    expect(validateReimbursementAllocations(50, rows)).toEqual([]);
   });
 
   it("requires at least one row", () => {
     expect(validateReimbursementAllocations(50, [])).toContain("too_few_allocations");
+  });
+});
+
+describe("diffStagedReimbursements", () => {
+  const saved = (overrides: Partial<StagedReimbursement> = {}): StagedReimbursement =>
+    ({
+      ...stagedReimbursementFromRow({
+        id: "r1",
+        payer_name: "Ana",
+        amount: "20.00",
+        received_on: "2026-09-01",
+        source_type: "account",
+        account_id: "acc-1",
+        pot_id: null,
+      }),
+      ...overrides,
+    });
+
+  it("reports nothing when nothing changed", () => {
+    expect(diffStagedReimbursements([saved()], [saved()])).toEqual({
+      toDelete: [],
+      toUpdate: [],
+      toCreate: [],
+    });
+  });
+
+  it("treats a numeric-string amount from the server as equal to the same number", () => {
+    expect(diffStagedReimbursements([saved()], [saved({ amount: 20 })]).toUpdate).toEqual([]);
+  });
+
+  it("detects removed, edited and new rows", () => {
+    const original = [saved(), saved({ key: "r2", id: "r2" })];
+    const added = saved({ key: "tmp", id: null, payerName: "Bruno" });
+    const edited = saved({ amount: 25 });
+    const diff = diffStagedReimbursements(original, [edited, added]);
+    expect(diff.toDelete).toEqual(["r2"]);
+    expect(diff.toUpdate).toEqual([edited]);
+    expect(diff.toCreate).toEqual([added]);
   });
 });

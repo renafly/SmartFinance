@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -58,6 +58,8 @@ import { CategoryPicker } from "@/components/category-picker";
 import { useHouseholdMemberDetails } from "../../features/households/hooks";
 import { useTransactionMovementsInfinite, useTransactionMovementsSummary } from "../../features/transactions/hooks/useTransactions";
 import { useCreateTransaction } from "../../features/transactions/hooks/useCreateTransaction";
+import { TagPicker } from "@/features/tags/components/tag-picker";
+import { useSetTransactionTags, useTransactionTagIds } from "@/features/tags/hooks/useTags";
 import { useDeleteTransaction } from "../../features/transactions/hooks/useDeleteTransaction";
 import { useDeleteCompletedTransfer } from "../../features/transactions/hooks/useDeleteCompletedTransfer";
 import { useUpdateCompletedTransfer } from "../../features/transactions/hooks/useUpdateCompletedTransfer";
@@ -96,10 +98,23 @@ import { DropdownField, type DropdownFieldProps } from "@/features/transactions/
 import { DateFilterField, DatePickerField } from "@/features/transactions/components/transaction-date-field";
 import { SplitAllocationsEditor, type SplitInputMode } from "@/features/transactions/components/split-allocations-editor";
 import { ReimbursementSection } from "@/features/transactions/components/reimbursement-section";
-import { useCreateReimbursement, useHouseholdEffectiveAmounts } from "@/features/transactions/hooks/useTransactionReimbursements";
+import { PaymentBreakdownSection } from "@/features/transactions/components/payment-breakdown-section";
 import {
+  useCreateReimbursement,
+  useCreateReimbursements,
+  useDeleteReimbursement,
+  useHouseholdEffectiveAmounts,
+  useReimbursementIncomeLink,
+  useTransactionReimbursements,
+  useUpdateReimbursement,
+} from "@/features/transactions/hooks/useTransactionReimbursements";
+import {
+  diffStagedReimbursements,
+  hasStagedReimbursementChanges,
+  stagedReimbursementFromRow,
   validateReimbursementAllocations,
   type ReimbursementDraft,
+  type StagedReimbursement,
 } from "@/features/transactions/utils/reimbursements";
 import {
   useSavingPotAccountAssignments,
@@ -154,6 +169,13 @@ const TRANSACTIONS_PAGE_SIZE = 25;
 
 type WizardStepKey = "type" | "accounts" | "extras";
 
+// Edit Transaction's Amount | Date | Created by row: three different
+// controls (Field, DatePickerField, HouseholdMemberSelect) given one box
+// height, and their labels matched to Field's (13px, 6px above the box),
+// so the three line up exactly.
+const EDIT_ROW_CONTROL_HEIGHT = 48;
+const EDIT_ROW_LABEL_STYLE = { fontSize: 13, marginBottom: -spacing(0.5) };
+
 // "type" now covers both what used to be separate "type" and "details"
 // (or "form", for recurring transfers) steps: choosing income/expense/
 // transfer and filling in the title/amount/date/notes (or the recurring
@@ -186,6 +208,7 @@ export default function TransactionsScreen() {
   const accountsQuery = useAccountsWithBalances();
   const membersQuery = useHouseholdMemberDetails();
   const createTransaction = useCreateTransaction();
+  const setTransactionTags = useSetTransactionTags();
   const createTransfer = useCreateTransfer();
   const updateTransaction = useUpdateTransaction();
   const bulkUpdateCategories = useBulkUpdateTransactionCategories();
@@ -222,6 +245,16 @@ export default function TransactionsScreen() {
       return next;
     });
   }, []);
+  // Notes in the list are clamped to two lines; tapping one shows it in full.
+  const [expandedNoteIds, setExpandedNoteIds] = useState<Set<string>>(new Set());
+  const toggleNoteExpanded = useCallback((id: string) => {
+    setExpandedNoteIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
   const [type, setType] = useState<"income" | "expense">("expense");
   const [createMovementKind, setCreateMovementKind] = useState<
     "transaction" | "transfer" | "recurring-transfer"
@@ -238,11 +271,14 @@ export default function TransactionsScreen() {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(() => getLocalCalendarDate());
   const [notes, setNotes] = useState("");
+  // Optional custom expense tags for the create form (expenses only).
+  const [tagIds, setTagIds] = useState<string[]>([]);
   const [attachment, setAttachment] = useState<AttachmentDraft | null>(null);
   const [splitEnabled, setSplitEnabled] = useState(false);
   const [splitAllocations, setSplitAllocations] = useState<AllocationDraft[]>([]);
   const [reimbursementDrafts, setReimbursementDrafts] = useState<ReimbursementDraft[]>([]);
-  // Reimbursements live in wizard step 1 ("type"), gated to expense --
+  // Reimbursements live in wizard step 2 ("accounts"), inside the Payment
+  // breakdown card next to Split Source, gated to expense --
   // enabled/targetAmount/inputMode are its own state (separate from
   // splitEnabled/splitInputMode) since a reimbursement's own "expected
   // total" is independent of both the expense amount and any Split Source
@@ -251,7 +287,7 @@ export default function TransactionsScreen() {
   const [reimbursementEnabled, setReimbursementEnabled] = useState(false);
   const [reimbursementTargetAmount, setReimbursementTargetAmount] = useState("");
   const [reimbursementInputMode, setReimbursementInputMode] = useState<SplitInputMode>("value");
-  const createReimbursement = useCreateReimbursement();
+  const createReimbursements = useCreateReimbursements();
   const effectiveAmountsQuery = useHouseholdEffectiveAmounts(householdId);
   // Only transactions with a nonzero reimbursed_total are in this result
   // (see listEffectiveAmountsForHousehold), so a row's absence from the
@@ -304,6 +340,17 @@ export default function TransactionsScreen() {
   const [wizardStep, setWizardStep] = useState(0);
   const [editTransaction, setEditTransaction] =
     useState<TransactionEditDraft | null>(null);
+  // null = the user hasn't touched the edit modal's tags yet, so the
+  // saved assignment (editTagIdsQuery) is shown and left untouched on save.
+  const [editTagIds, setEditTagIds] = useState<string[] | null>(null);
+  const editTagIdsQuery = useTransactionTagIds(editTransaction?.id ?? null);
+  // An income auto-created by a reimbursement: its money fields follow the
+  // reimbursement, so the edit modal shows them read-only.
+  const editReimbursementLinkQuery = useReimbursementIncomeLink(editTransaction?.id ?? null);
+  const editIsReimbursementIncome = !!editReimbursementLinkQuery.data;
+  // Used to warn before an expense with reimbursements is saved as income
+  // (the database then removes them, see drop_reimbursements_when_not_expense).
+  const editReimbursementsQuery = useTransactionReimbursements(editTransaction?.id ?? null);
   const editAttachmentsQuery = useTransactionAttachments(editTransaction?.id);
   const [editSplitEnabled, setEditSplitEnabled] = useState(false);
   const [editSplitAllocations, setEditSplitAllocations] = useState<AllocationDraft[]>([]);
@@ -320,15 +367,24 @@ export default function TransactionsScreen() {
   // Syncs the loaded allocations into local edit-draft state exactly once
   // per opened transaction (not on every background refetch, which would
   // otherwise clobber whatever the user is actively typing).
-  const syncedEditAllocationsIdRef = useRef<string | null>(null);
+  //
+  // Two things matter here, and both used to be wrong (the "Split Source
+  // toggle doesn't react" bug):
+  //  - The sync waits for `isFetching` to settle, not just the first load
+  //    (`isLoading`). After Save the allocations query is invalidated and
+  //    refetched; reopening the same transaction before that refetch landed
+  //    used to copy the OLD cached rows, so the toggle came back wrong.
+  //  - Which transaction has been synced is state, not a ref, and the whole
+  //    payment state is reset on open/close (resetEditPaymentState). Before,
+  //    the previous transaction's toggle stayed on screen until the effect
+  //    ran, and a click made in that window was silently overwritten by the
+  //    effect. Now the controls show a loading line and the switches are
+  //    disabled until `editPaymentReady`.
+  const [editAllocationsSyncedId, setEditAllocationsSyncedId] = useState<string | null>(null);
   useEffect(() => {
-    if (!editTransaction) {
-      syncedEditAllocationsIdRef.current = null;
-      return;
-    }
-    if (syncedEditAllocationsIdRef.current === editTransaction.id) return;
-    if (editAllocationsQuery.isLoading) return;
-    syncedEditAllocationsIdRef.current = editTransaction.id;
+    if (!editTransaction) return;
+    if (editAllocationsSyncedId === editTransaction.id) return;
+    if (editAllocationsQuery.isFetching) return;
     const rows = editAllocationsQuery.data ?? [];
     if (rows.length > 0) {
       setEditSplitEnabled(true);
@@ -348,7 +404,61 @@ export default function TransactionsScreen() {
       setEditSplitAllocations([]);
     }
     setEditSplitInputMode("value");
-  }, [editTransaction, editAllocationsQuery.data, editAllocationsQuery.isLoading]);
+    setEditAllocationsSyncedId(editTransaction.id);
+  }, [
+    editTransaction,
+    editAllocationsSyncedId,
+    editAllocationsQuery.data,
+    editAllocationsQuery.isFetching,
+  ]);
+  // Reimbursements in the edit modal are staged like the split editor next
+  // to them: loaded once per opened transaction, edited locally, and only
+  // written (as a diff against `editReimbursementsOriginal`) when the user
+  // presses Save -- see handleSaveTransaction / diffStagedReimbursements.
+  const [editReimbursements, setEditReimbursements] = useState<StagedReimbursement[]>([]);
+  const [editReimbursementsOriginal, setEditReimbursementsOriginal] = useState<StagedReimbursement[]>([]);
+  const createReimbursement = useCreateReimbursement();
+  const updateReimbursement = useUpdateReimbursement();
+  const deleteReimbursement = useDeleteReimbursement();
+  // On/off like Split Source; off hides the controls and Save removes any
+  // saved rows. Starts on when the expense already has reimbursements.
+  const [editReimbursementEnabled, setEditReimbursementEnabled] = useState(false);
+  const [editReimbursementsSyncedId, setEditReimbursementsSyncedId] = useState<string | null>(null);
+  // Same fresh-data rule as the allocations sync above.
+  useEffect(() => {
+    if (!editTransaction) return;
+    if (editReimbursementsSyncedId === editTransaction.id) return;
+    if (editReimbursementsQuery.isFetching) return;
+    const rows = (editReimbursementsQuery.data ?? []).map((row: any) => stagedReimbursementFromRow(row));
+    setEditReimbursements(rows);
+    setEditReimbursementsOriginal(rows);
+    setEditReimbursementEnabled(rows.length > 0);
+    setEditReimbursementsSyncedId(editTransaction.id);
+  }, [
+    editTransaction,
+    editReimbursementsSyncedId,
+    editReimbursementsQuery.data,
+    editReimbursementsQuery.isFetching,
+  ]);
+  const editPaymentReady =
+    !!editTransaction &&
+    editAllocationsSyncedId === editTransaction.id &&
+    editReimbursementsSyncedId === editTransaction.id;
+  // Clears every split/reimbursement value of the edit modal, so opening
+  // (or reopening) a transaction never shows the previous one's state.
+  function resetEditPaymentState() {
+    setEditSplitEnabled(false);
+    setEditSplitAllocations([]);
+    setEditSplitInputMode("value");
+    setEditSplitWasOriginallySplit(false);
+    setEditAllocationsSyncedId(null);
+    setEditReimbursementEnabled(false);
+    setEditReimbursements([]);
+    setEditReimbursementsOriginal([]);
+    setEditReimbursementsSyncedId(null);
+  }
+  const isSavingEditReimbursements =
+    createReimbursement.isPending || updateReimbursement.isPending || deleteReimbursement.isPending;
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [transferToDelete, setTransferToDelete] = useState<any | null>(null);
   const [transferEdit, setTransferEdit] = useState<TransferEditDraft | null>(
@@ -594,6 +704,19 @@ export default function TransactionsScreen() {
   const firstAccount = accounts[0]?.id ?? "";
   const parsedAmount = Number(amount);
   const effectiveAccountId = accountId || firstAccount;
+  // A reimbursement always goes back into the expense's own "Paid from"
+  // account (Split Source and reimbursements are mutually exclusive), so
+  // the rows' target is derived here rather than picked per row.
+  const reimbursementRowsForAccount = useMemo(
+    () =>
+      reimbursementDrafts.map((row) => ({
+        ...row,
+        sourceType: "account" as const,
+        accountId: effectiveAccountId || null,
+        potId: null,
+      })),
+    [reimbursementDrafts, effectiveAccountId],
+  );
   const titleSuggestions = useTransactionTitleSuggestions({
     title,
     transactionType: type,
@@ -775,9 +898,9 @@ export default function TransactionsScreen() {
   const reimbursementValidationErrors = useMemo(
     () =>
       reimbursementEnabled && type === "expense" && Number.isFinite(parsedReimbursementTarget)
-        ? validateReimbursementAllocations(parsedReimbursementTarget, reimbursementDrafts)
+        ? validateReimbursementAllocations(parsedReimbursementTarget, reimbursementRowsForAccount)
         : [],
-    [reimbursementEnabled, type, parsedReimbursementTarget, reimbursementDrafts],
+    [reimbursementEnabled, type, parsedReimbursementTarget, reimbursementRowsForAccount],
   );
   const canCreateTransaction =
     !createTransaction.isPending &&
@@ -816,11 +939,7 @@ export default function TransactionsScreen() {
     title.trim().length > 0 &&
     Number.isFinite(parsedAmount) &&
     parsedAmount > 0 &&
-    /^\d{4}-\d{2}-\d{2}$/.test(date) &&
-    (createMovementKind !== "transaction" ||
-      type !== "expense" ||
-      !reimbursementEnabled ||
-      reimbursementValidationErrors.length === 0);
+    /^\d{4}-\d{2}-\d{2}$/.test(date);
   const canProceedFromAccountsStep =
     Boolean(effectiveAccountId) &&
     (createMovementKind !== "transfer" ||
@@ -828,7 +947,11 @@ export default function TransactionsScreen() {
         transferDestination?.id !== effectiveAccountId)) &&
     (createMovementKind !== "transaction" ||
       !splitEnabled ||
-      splitValidationErrors.length === 0);
+      splitValidationErrors.length === 0) &&
+    (createMovementKind !== "transaction" ||
+      type !== "expense" ||
+      !reimbursementEnabled ||
+      reimbursementValidationErrors.length === 0);
   const canProceedFromCurrentStep =
     currentWizardStepKey === "type"
       ? createMovementKind === "recurring-transfer" || canProceedFromDetailsStep
@@ -1076,6 +1199,7 @@ export default function TransactionsScreen() {
     setDate(reset.date);
     setNotes(reset.notes);
     setAttachment(reset.attachment);
+    setTagIds([]);
     setSplitEnabled(false);
     setSplitAllocations([]);
     setSplitInputMode("value");
@@ -1130,7 +1254,7 @@ export default function TransactionsScreen() {
       if (
         type === "expense" &&
         reimbursementEnabled &&
-        validateReimbursementAllocations(parsedReimbursementTarget, reimbursementDrafts).length > 0
+        validateReimbursementAllocations(parsedReimbursementTarget, reimbursementRowsForAccount).length > 0
       ) {
         return;
       }
@@ -1148,6 +1272,25 @@ export default function TransactionsScreen() {
         attachment,
       } as any);
       show(t("transactions.createSuccess"));
+
+      // Same after-create pattern (and the same "never re-run the create on
+      // failure" reasoning) as split allocations/reimbursements below --
+      // tag links need the new transaction's id. Kept in its own try so a
+      // tag failure is reported as such and doesn't skip the split save.
+      if (type === "expense" && tagIds.length > 0 && created?.id) {
+        try {
+          await setTransactionTags.mutateAsync({
+            transactionId: created.id,
+            tagIds,
+          });
+        } catch (error) {
+          show(
+            t("tags.assignError", {
+              detail: error instanceof Error ? error.message : t("unknownError"),
+            }),
+          );
+        }
+      }
 
       // The transaction row above is already committed at this point. If
       // either step below fails, the create must not look like it silently
@@ -1167,17 +1310,27 @@ export default function TransactionsScreen() {
             allocations: splitAllocations,
           });
         }
+      } catch (error) {
+        show(
+          t("transactions.split.saveError", {
+            detail: error instanceof Error ? error.message : t("unknownError"),
+          }),
+        );
+      }
 
-        // Reimbursements can only be attached once the transaction has an id
-        // (the FK is required, and the enforce_reimbursement_target trigger
-        // needs a real row to check type = 'expense' against) -- same
-        // after-create pattern as split allocations above. Each draft row
-        // now also carries which account/pot the reimbursement money
-        // landed in (source_type/account_id/pot_id) -- see
-        // 20260901002500_reimbursement_allocations.sql.
-        if (type === "expense" && reimbursementEnabled && created?.id && reimbursementDrafts.length > 0) {
-          for (const draftRow of reimbursementDrafts) {
-            await createReimbursement.mutateAsync({
+      // Reimbursements can only be attached once the transaction has an id
+      // (the FK is required, and the enforce_reimbursement_target trigger
+      // needs a real row to check type = 'expense' against) -- same
+      // after-create pattern as split allocations above. Saved in ONE
+      // insert (all-or-nothing, so a failure never leaves only some of
+      // them), dated with the expense's own date; each account row also
+      // gets its linked income transaction server-side (see
+      // 20260929000000_reimbursement_income_transactions.sql). Kept in its
+      // own try so a split failure doesn't skip them, and vice versa.
+      if (type === "expense" && reimbursementEnabled && created?.id && reimbursementRowsForAccount.length > 0) {
+        try {
+          await createReimbursements.mutateAsync(
+            reimbursementRowsForAccount.map((draftRow) => ({
               household_id: householdId,
               transaction_id: created.id,
               payer_name: draftRow.payerName,
@@ -1187,19 +1340,21 @@ export default function TransactionsScreen() {
               source_type: draftRow.sourceType,
               account_id: draftRow.accountId,
               pot_id: draftRow.potId,
-            });
-          }
+              received_on: date,
+            })),
+          );
+        } catch (error) {
+          show(
+            t("transactions.reimbursements.createError", {
+              detail: error instanceof Error ? error.message : t("unknownError"),
+            }),
+          );
         }
-      } catch (error) {
-        show(
-          t("transactions.split.saveError", {
-            detail: error instanceof Error ? error.message : t("unknownError"),
-          }),
-        );
       }
     }
 
     if (keepOpen) {
+      const keptTagIds = tagIds;
       applyCreateFormReset(
         getAddAnotherTransactionReset({
           accountId: effectiveAccountId,
@@ -1208,6 +1363,9 @@ export default function TransactionsScreen() {
           type,
         }),
       );
+      // Like account/date/person, keep the tag when adding several
+      // expenses for the same trip/project back to back.
+      setTagIds(keptTagIds);
       setTransferDestination(null);
       setWizardStep(0);
       return;
@@ -1221,10 +1379,14 @@ export default function TransactionsScreen() {
   function closeEditTransaction() {
     setDeleteConfirmationOpen(false);
     setEditTransaction(null);
+    setEditTagIds(null);
+    resetEditPaymentState();
   }
 
   function openEditTransaction(item: any) {
     setDeleteConfirmationOpen(false);
+    setEditTagIds(null);
+    resetEditPaymentState();
     setEditTransaction({
       id: item.id,
       title: item.title ?? "",
@@ -1268,22 +1430,51 @@ export default function TransactionsScreen() {
       return;
     }
 
+    const editedFields = {
+      title: editTransaction.title.trim(),
+      notes: editTransaction.notes || null,
+      category_id: editTransaction.categoryId,
+      created_by:
+        editTransaction.createdById ||
+        profile?.id ||
+        editTransaction.createdById,
+    };
+    // A reimbursement's income row: amount/date/type/account belong to the
+    // reimbursement (the database rejects changing them here), so only the
+    // descriptive fields are sent.
     await updateTransaction.mutateAsync({
       id: editTransaction.id,
-      data: {
-        title: editTransaction.title.trim(),
-        amount: nextAmount,
-        transaction_date: editTransaction.date,
-        notes: editTransaction.notes || null,
-        type: editTransaction.type,
-        account_id: editTransaction.accountId,
-        category_id: editTransaction.categoryId,
-        created_by:
-          editTransaction.createdById ||
-          profile?.id ||
-          editTransaction.createdById,
-      } as any,
+      data: (editIsReimbursementIncome
+        ? editedFields
+        : {
+            ...editedFields,
+            amount: nextAmount,
+            transaction_date: editTransaction.date,
+            type: editTransaction.type,
+            account_id: editTransaction.accountId,
+          }) as any,
     });
+
+    // Tags only apply to expenses: save the user's selection, or clear any
+    // saved tags if the transaction was just changed to income.
+    const savedTagIds = editTagIdsQuery.data ?? [];
+    const nextTagIds =
+      editTransaction.type === "expense" ? editTagIds : savedTagIds.length > 0 ? [] : null;
+    if (nextTagIds !== null) {
+      try {
+        await setTransactionTags.mutateAsync({
+          transactionId: editTransaction.id,
+          tagIds: nextTagIds,
+        });
+      } catch (error) {
+        show(
+          t("tags.assignError", {
+            detail: error instanceof Error ? error.message : t("unknownError"),
+          }),
+        );
+        return;
+      }
+    }
 
     // The transaction's own amount just changed above; keep the funding-
     // source breakdown consistent with it (see
@@ -1312,8 +1503,79 @@ export default function TransactionsScreen() {
       }
     }
 
+    // Staged reimbursement changes (see editReimbursements). Skipped when
+    // the transaction is no longer an expense -- the database drops its
+    // reimbursements then (drop_reimbursements_when_not_expense). Each
+    // write updates `editReimbursementsOriginal` as it succeeds, so after a
+    // partial failure a retry only re-sends what's still outstanding.
+    if (editTransaction.type === "expense" && !editIsReimbursementIncome) {
+      // Always received into the expense's own "Paid from" account -- if
+      // that account changed, the diff below moves every row with it.
+      // Switched off = remove every saved reimbursement.
+      const stagedForAccount: StagedReimbursement[] = (
+        editReimbursementEnabled ? editReimbursements : []
+      ).map((row) => ({
+        ...row,
+        sourceType: "account" as const,
+        accountId: editTransaction.accountId,
+        potId: null,
+      }));
+      const diff = diffStagedReimbursements(editReimbursementsOriginal, stagedForAccount);
+      if (hasStagedReimbursementChanges(diff)) {
+        let original = editReimbursementsOriginal;
+        let current = stagedForAccount;
+        try {
+          for (const id of diff.toDelete) {
+            await deleteReimbursement.mutateAsync({ id, transactionId: editTransaction.id });
+            original = original.filter((row) => row.id !== id);
+          }
+          for (const row of diff.toUpdate) {
+            await updateReimbursement.mutateAsync({
+              transactionId: editTransaction.id,
+              input: {
+                id: row.id as string,
+                payer_name: row.payerName,
+                amount: row.amount,
+                ...(row.receivedOn ? { received_on: row.receivedOn } : {}),
+                source_type: row.sourceType,
+                account_id: row.sourceType === "account" ? row.accountId : null,
+                pot_id: row.sourceType === "pot" ? row.potId : null,
+              },
+            });
+            original = original.map((saved) => (saved.id === row.id ? row : saved));
+          }
+          for (const row of diff.toCreate) {
+            const created: any = await createReimbursement.mutateAsync({
+              household_id: householdId,
+              transaction_id: editTransaction.id,
+              payer_name: row.payerName,
+              amount: row.amount,
+              note: row.note,
+              created_by: editTransaction.createdById || profile?.id || "",
+              received_on: row.receivedOn,
+              source_type: row.sourceType,
+              account_id: row.sourceType === "account" ? row.accountId : null,
+              pot_id: row.sourceType === "pot" ? row.potId : null,
+            });
+            const savedRow = { ...row, id: created.id as string };
+            current = current.map((candidate) => (candidate.key === row.key ? savedRow : candidate));
+            original = [...original, savedRow];
+          }
+        } catch (error) {
+          setEditReimbursementsOriginal(original);
+          setEditReimbursements(current);
+          show(
+            t("transactions.reimbursements.saveError", {
+              detail: error instanceof Error ? error.message : t("unknownError"),
+            }),
+          );
+          return;
+        }
+      }
+    }
+
     show(t("transactions.updateSuccess"));
-    setEditTransaction(null);
+    closeEditTransaction();
   }
 
   async function handleSaveTransfer() {
@@ -2149,38 +2411,6 @@ export default function TransactionsScreen() {
                           onChangeText={setNotes}
                           placeholder={t("transactions.notesPlaceholder")}
                         />
-                        {createMovementKind === "transaction" && type === "expense" ? (
-                          <ReimbursementSection
-                            mode="draft"
-                            originalAmount={parsedAmount}
-                            enabled={reimbursementEnabled}
-                            onToggleEnabled={setReimbursementEnabled}
-                            targetAmount={reimbursementTargetAmount}
-                            onChangeTargetAmount={setReimbursementTargetAmount}
-                            inputMode={reimbursementInputMode}
-                            onChangeInputMode={setReimbursementInputMode}
-                            value={reimbursementDrafts}
-                            onChange={setReimbursementDrafts}
-                            accounts={accounts as any}
-                            members={
-                              (membersQuery.data ?? []).filter(
-                                (member) => member.status === "accepted",
-                              ) as any
-                            }
-                            pots={splitPots}
-                            accountTypeLabels={{
-                              bank: t("accounts.types.bank"),
-                              cash: t("accounts.types.cash"),
-                              savings: t("accounts.types.savings"),
-                              credit_card: t("accounts.types.credit_card"),
-                              investment: t("accounts.types.investment"),
-                              ppr: t("accounts.types.ppr"),
-                            }}
-                            sharedLabel={t("dashboard.shared")}
-                            unassignedLabel={t("settings.unnamedUser")}
-                            closeLabel={t("close", { defaultValue: "Close" })}
-                          />
-                        ) : null}
                       </>
                     )}
                     </>
@@ -2208,6 +2438,55 @@ export default function TransactionsScreen() {
                               })),
                           ]}
                         />
+                        <PaymentBreakdownSection
+                          bare={createMovementKind !== "transaction"}
+                          originalAmount={parsedAmount}
+                          reimbursements={
+                            type === "expense" && reimbursementEnabled ? reimbursementDrafts : []
+                          }
+                          reimbursedBy={
+                            createMovementKind === "transaction" &&
+                            type === "expense" &&
+                            splitEnabled &&
+                            !reimbursementEnabled ? (
+                              <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                                {t("transactions.paymentBreakdown.reimbursementUnavailable")}
+                              </Text>
+                            ) : createMovementKind === "transaction" && type === "expense" ? (
+                              <ReimbursementSection
+                              mode="draft"
+                              fixedAccountId={effectiveAccountId || null}
+                              originalAmount={parsedAmount}
+                              enabled={reimbursementEnabled}
+                              onToggleEnabled={setReimbursementEnabled}
+                              targetAmount={reimbursementTargetAmount}
+                              onChangeTargetAmount={setReimbursementTargetAmount}
+                              inputMode={reimbursementInputMode}
+                              onChangeInputMode={setReimbursementInputMode}
+                              value={reimbursementDrafts}
+                              onChange={setReimbursementDrafts}
+                              accounts={accounts as any}
+                              members={
+                                (membersQuery.data ?? []).filter(
+                                  (member) => member.status === "accepted",
+                                ) as any
+                              }
+                              pots={splitPots}
+                              accountTypeLabels={{
+                                bank: t("accounts.types.bank"),
+                                cash: t("accounts.types.cash"),
+                                savings: t("accounts.types.savings"),
+                                credit_card: t("accounts.types.credit_card"),
+                                investment: t("accounts.types.investment"),
+                                ppr: t("accounts.types.ppr"),
+                              }}
+                              sharedLabel={t("dashboard.shared")}
+                              unassignedLabel={t("settings.unnamedUser")}
+                              closeLabel={t("close", { defaultValue: "Close" })}
+                            />
+                            ) : null
+                          }
+                        >
                         {createMovementKind === "transaction" && splitEnabled ? null : (
                           <GroupedAccountSelect
                             label={
@@ -2240,7 +2519,14 @@ export default function TransactionsScreen() {
                             }}
                           />
                         )}
-                        {createMovementKind === "transaction" ? (
+                        {createMovementKind === "transaction" &&
+                        type === "expense" &&
+                        reimbursementEnabled &&
+                        !splitEnabled ? (
+                          <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                            {t("transactions.paymentBreakdown.splitUnavailable")}
+                          </Text>
+                        ) : createMovementKind === "transaction" ? (
                           <SplitAllocationsEditor
                             enabled={splitEnabled}
                             onToggleEnabled={setSplitEnabled}
@@ -2269,6 +2555,7 @@ export default function TransactionsScreen() {
                             closeLabel={t("close", { defaultValue: "Close" })}
                           />
                         ) : null}
+                        </PaymentBreakdownSection>
                         {createMovementKind === "transfer" ? (
                           <GroupedDestinationSelect
                             label={t("transactions.destinationAccount")}
@@ -2353,6 +2640,10 @@ export default function TransactionsScreen() {
                               </Text>
                             ) : null}
                           </View>
+                        ) : null}
+                        {createMovementKind === "transaction" &&
+                        type === "expense" ? (
+                          <TagPicker selectedIds={tagIds} onChange={setTagIds} />
                         ) : null}
                         {createMovementKind === "transaction" ? (
                           <View style={{ gap: spacing(2) } as any}>
@@ -2669,13 +2960,14 @@ export default function TransactionsScreen() {
                 <Table
                   columns={
                     [
-                      { label: t("transactions.titleLabel"), flex: 1.9 },
+                      { label: t("transactions.titleLabel"), flex: 1.7 },
+                      { label: t("transactions.notesLabel"), flex: 1.4 },
                       { label: t("transactions.transactionDate"), flex: 1.1 },
-                      { label: t("transactions.account"), flex: 2.4 },
+                      { label: t("transactions.account"), flex: 2.1 },
                       { label: t("transactions.amountLabel"), align: "right" },
                       { label: t("transactions.balanceAfter"), align: "right" },
                       { label: "", flex: 0.35, align: "right" },
-                    ].filter(Boolean) as any
+                    ] as any
                   }
                 >
                   {transactions.map((item: any) => {
@@ -2705,7 +2997,7 @@ export default function TransactionsScreen() {
                         accentColor={rowTone.accent}
                       >
                         {[
-                        <TableCell key="title" flex={1.9}>
+                        <TableCell key="title" flex={1.7}>
                           <View style={styles.transactionIdentity}>
                             <View
                               style={[
@@ -2781,6 +3073,35 @@ export default function TransactionsScreen() {
                             </View>
                           </View>
                         </TableCell>,
+                        <TableCell key="notes" flex={1.4}>
+                          {item.notes ? (
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityState={{ expanded: expandedNoteIds.has(item.id) }}
+                              accessibilityLabel={t(
+                                expandedNoteIds.has(item.id)
+                                  ? "transactions.hideFullNote"
+                                  : "transactions.showFullNote",
+                              )}
+                              onPress={() => toggleNoteExpanded(item.id)}
+                              style={({ pressed }) =>
+                                [{ flexShrink: 1, maxWidth: "100%" }, pressed && styles.pressed] as any
+                              }
+                            >
+                              <Text
+                                style={[
+                                  styles.transactionContext,
+                                  responsive.isPhone && { textAlign: "right" },
+                                ] as any}
+                                numberOfLines={expandedNoteIds.has(item.id) ? undefined : 2}
+                              >
+                                {item.notes}
+                              </Text>
+                            </Pressable>
+                          ) : (
+                            <Text style={styles.transactionContext}>—</Text>
+                          )}
+                        </TableCell>,
                         <TableCell key="date" flex={1.1}>
                           <View style={{ gap: spacing(0.25) }}>
                             <Text style={styles.transactionAccount}>
@@ -2793,7 +3114,7 @@ export default function TransactionsScreen() {
                             </Text>
                           </View>
                         </TableCell>,
-                        <TableCell key="account" flex={2.4}>
+                        <TableCell key="account" flex={2.1}>
                           {item.is_split && allocationEntries.length > 0 ? (
                             <View style={{ gap: spacing(0.75) }}>
                               {visibleAllocationEntries.map((entry) => (
@@ -2873,24 +3194,32 @@ export default function TransactionsScreen() {
                               );
                             }
                             const isOverReimbursed = reimbursement.reimbursedTotal > item.amount;
+                            // The list is a cash view: the expense shows what
+                            // actually left the account, because each account
+                            // reimbursement now appears as its own income row
+                            // (see 20260929000000_reimbursement_income_transactions.sql).
+                            // Showing the net here as well would count the
+                            // repayment twice on screen, so the net is a hint.
                             return (
                               <View style={{ alignItems: "flex-end", gap: spacing(0.25) }}>
                                 <Text
                                   style={[
-                                    styles.transactionContext,
-                                    { textDecorationLine: "line-through" },
+                                    styles.transactionAmount,
+                                    { color: movementAmountColor(movementKind, colors) },
                                   ]}
                                 >
+                                  {movementAmountSign(movementKind)}
                                   {displayCurrency(formatCurrency(item.amount), hideValues)}
                                 </Text>
                                 <Text
                                   style={[
-                                    styles.transactionAmount,
-                                    { color: isOverReimbursed ? colors.success : movementAmountColor(movementKind, colors) },
+                                    styles.transactionContext,
+                                    { color: isOverReimbursed ? colors.success : colors.textSecondary },
                                   ]}
                                 >
-                                  {movementAmountSign(movementKind)}
-                                  {displayCurrency(formatCurrency(reimbursement.effectiveAmount), hideValues)}
+                                  {t("transactions.reimbursements.netAfter", {
+                                    amount: displayCurrency(formatCurrency(reimbursement.effectiveAmount), hideValues),
+                                  })}
                                 </Text>
                                 {isOverReimbursed ? (
                                   <Badge label={t("transactions.reimbursements.overReimbursedBadge")} tone="success" />
@@ -3451,6 +3780,7 @@ export default function TransactionsScreen() {
           <View style={[styles.modalCard, styles.editModalCard]}>
             <ScrollView
               keyboardShouldPersistTaps="handled"
+              style={styles.createModalScroll}
               contentContainerStyle={styles.editModalContent}
               showsVerticalScrollIndicator
             >
@@ -3477,6 +3807,29 @@ export default function TransactionsScreen() {
               </Text>
               {editTransaction ? (
                 <>
+                  {editIsReimbursementIncome && editReimbursementLinkQuery.data ? (
+                    <View
+                      style={{
+                        gap: spacing(1),
+                        padding: spacing(3),
+                        borderWidth: 1,
+                        borderColor: colors.primary,
+                        borderRadius: radius.lg,
+                        backgroundColor: colors.primarySoft,
+                      }}
+                    >
+                      <Text style={{ color: colors.text, fontWeight: typography.fontWeight.semibold as any }}>
+                        {t("transactions.reimbursements.managedTitle")}
+                      </Text>
+                      <Text style={{ color: colors.textSecondary }}>
+                        {t("transactions.reimbursements.managedBody", {
+                          payer: editReimbursementLinkQuery.data.reimbursement.payer_name,
+                          expense: editReimbursementLinkQuery.data.expenseTitle ?? "",
+                        })}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {!editIsReimbursementIncome ? (
                   <View
                     style={{ flexDirection: "row", gap: spacing(2) } as any}
                   >
@@ -3495,6 +3848,15 @@ export default function TransactionsScreen() {
                       />
                     ))}
                   </View>
+                  ) : null}
+                  {editTransaction.type !== "expense" &&
+                  (editReimbursementsQuery.data?.length ?? 0) > 0 ? (
+                    <Text style={{ color: colors.warning }}>
+                      {t("transactions.reimbursements.typeChangeWarning", {
+                        count: editReimbursementsQuery.data?.length ?? 0,
+                      })}
+                    </Text>
+                  ) : null}
                   <Field
                     label={t("transactions.titleLabel")}
                     value={editTransaction.title}
@@ -3503,28 +3865,6 @@ export default function TransactionsScreen() {
                         current ? { ...current, title: value } : current,
                       )
                     }
-                  />
-                  <Field
-                    label={t("transactions.amountLabel")}
-                    value={editTransaction.amount}
-                    onChangeText={(value) =>
-                      setEditTransaction((current) =>
-                        current ? { ...current, amount: value } : current,
-                      )
-                    }
-                    keyboardType="numeric"
-                  />
-                  <SharedDatePickerField
-                    label={t("transactions.dateLabel")}
-                    value={editTransaction.date}
-                    onChange={(value) =>
-                      setEditTransaction((current) =>
-                        current ? { ...current, date: value } : current,
-                      )
-                    }
-                    placeholder={t("transactions.datePlaceholder", {
-                      defaultValue: "DD-MM-YYYY",
-                    })}
                   />
                   <Field
                     label={t("transactions.notesLabel")}
@@ -3536,21 +3876,119 @@ export default function TransactionsScreen() {
                     }
                     placeholder={t("transactions.notesPlaceholder")}
                   />
-                  <HouseholdMemberSelect
-                    label={t("transactions.createdBy")}
-                    members={(membersQuery.data ?? []).filter(
-                      (member) => member.status === "accepted",
-                    )}
-                    value={editTransaction.createdById || profile?.id || ""}
-                    placeholder={t("transactions.createdByPlaceholder")}
-                    hint={t("transactions.createdByPlaceholder")}
-                    onChange={(value) =>
-                      setEditTransaction((current) =>
-                        current ? { ...current, createdById: value } : current,
-                      )
+                  {/* Amount + Date + Created by on one row -- same formGrid
+                      pattern as the create wizard; stacks on phones. A
+                      reimbursement's income row keeps its amount/date
+                      read-only, so only Created by is shown there. */}
+                  <View
+                    style={[
+                      styles.formGrid,
+                      responsive.isPhone && styles.formGridCompact,
+                    ]}
+                  >
+                    {!editIsReimbursementIncome ? (
+                      <>
+                        <View style={styles.formGridItem}>
+                          <Field
+                            label={t("transactions.amountLabel")}
+                            value={editTransaction.amount}
+                            onChangeText={(value) =>
+                              setEditTransaction((current) =>
+                                current ? { ...current, amount: value } : current,
+                              )
+                            }
+                            keyboardType="numeric"
+                            style={{ height: EDIT_ROW_CONTROL_HEIGHT, paddingVertical: 0 }}
+                          />
+                        </View>
+                        <View style={styles.formGridItem}>
+                          <SharedDatePickerField
+                            label={t("transactions.dateLabel")}
+                            labelStyle={EDIT_ROW_LABEL_STYLE}
+                            triggerStyle={{ height: EDIT_ROW_CONTROL_HEIGHT, paddingVertical: 0 }}
+                            value={editTransaction.date}
+                            onChange={(value) =>
+                              setEditTransaction((current) =>
+                                current ? { ...current, date: value } : current,
+                              )
+                            }
+                            placeholder={t("transactions.datePlaceholder", {
+                              defaultValue: "DD-MM-YYYY",
+                            })}
+                          />
+                        </View>
+                      </>
+                    ) : null}
+                    <View style={styles.formGridItem}>
+                      <HouseholdMemberSelect
+                        label={t("transactions.createdBy")}
+                        members={(membersQuery.data ?? []).filter(
+                          (member) => member.status === "accepted",
+                        )}
+                        value={editTransaction.createdById || profile?.id || ""}
+                        placeholder={t("transactions.createdByPlaceholder")}
+                        labelStyle={EDIT_ROW_LABEL_STYLE}
+                        triggerStyle={{ height: EDIT_ROW_CONTROL_HEIGHT, paddingVertical: 0 }}
+                        onChange={(value) =>
+                          setEditTransaction((current) =>
+                            current ? { ...current, createdById: value } : current,
+                          )
+                        }
+                      />
+                    </View>
+                  </View>
+                  <PaymentBreakdownSection
+                    bare={editIsReimbursementIncome}
+                    originalAmount={Number(editTransaction.amount) || 0}
+                    reimbursements={
+                      editTransaction.type === "expense" && editReimbursementEnabled
+                        ? editReimbursements
+                        : []
                     }
-                  />
-                  {editSplitEnabled ? null : (
+                    reimbursedBy={
+                      editTransaction.type === "expense" && !editPaymentReady ? (
+                        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                          {t("loading")}
+                        </Text>
+                      ) : editTransaction.type === "expense" &&
+                      editSplitEnabled &&
+                      !editReimbursementEnabled ? (
+                        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                          {t("transactions.paymentBreakdown.reimbursementUnavailable")}
+                        </Text>
+                      ) : editTransaction.type === "expense" ? (
+                        <ReimbursementSection
+                          mode="staged"
+                          enabled={editReimbursementEnabled}
+                          onToggleEnabled={setEditReimbursementEnabled}
+                          toggleDisabled={!editPaymentReady}
+                          fixedAccountId={editTransaction.accountId || null}
+                          originalAmount={Number(editTransaction.amount) || 0}
+                          value={editReimbursements}
+                          onChange={setEditReimbursements}
+                          accounts={accounts as any}
+                          members={
+                            (membersQuery.data ?? []).filter(
+                              (member) => member.status === "accepted",
+                            ) as any
+                          }
+                          pots={splitPots}
+                          accountTypeLabels={{
+                            bank: t("accounts.types.bank"),
+                            cash: t("accounts.types.cash"),
+                            savings: t("accounts.types.savings"),
+                            credit_card: t("accounts.types.credit_card"),
+                            investment: t("accounts.types.investment"),
+                            ppr: t("accounts.types.ppr"),
+                          }}
+                          sharedLabel={t("dashboard.shared")}
+                          unassignedLabel={t("settings.unnamedUser")}
+                          closeLabel={t("close", { defaultValue: "Close" })}
+                        />
+                      ) : null
+                    }
+                  >
+                  {editSplitEnabled || editIsReimbursementIncome || !editPaymentReady ? null : (
                     <GroupedAccountSelect
                       label={t("transactions.account")}
                       accounts={accounts as any}
@@ -3582,6 +4020,18 @@ export default function TransactionsScreen() {
                       }}
                     />
                   )}
+                  {!editIsReimbursementIncome && !editPaymentReady ? (
+                    <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                      {t("loading")}
+                    </Text>
+                  ) : !editIsReimbursementIncome &&
+                  editTransaction.type === "expense" &&
+                  editReimbursementEnabled &&
+                  !editSplitEnabled ? (
+                    <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                      {t("transactions.paymentBreakdown.splitUnavailable")}
+                    </Text>
+                  ) : !editIsReimbursementIncome ? (
                   <SplitAllocationsEditor
                     enabled={editSplitEnabled}
                     onToggleEnabled={setEditSplitEnabled}
@@ -3609,6 +4059,8 @@ export default function TransactionsScreen() {
                     unassignedLabel={t("settings.unnamedUser")}
                     closeLabel={t("close", { defaultValue: "Close" })}
                   />
+                  ) : null}
+                  </PaymentBreakdownSection>
                   <CategoryPicker
                     label={t("transactions.categories")}
                     placeholder={t("transactions.categories")}
@@ -3623,30 +4075,10 @@ export default function TransactionsScreen() {
                     }
                   />
                   {editTransaction.type === "expense" ? (
-                    <ReimbursementSection
-                      mode="live"
-                      originalAmount={Number(editTransaction.amount) || 0}
-                      transactionId={editTransaction.id}
-                      householdId={householdId ?? ""}
-                      createdById={editTransaction.createdById || profile?.id || ""}
-                      accounts={accounts as any}
-                      members={
-                        (membersQuery.data ?? []).filter(
-                          (member) => member.status === "accepted",
-                        ) as any
-                      }
-                      pots={splitPots}
-                      accountTypeLabels={{
-                        bank: t("accounts.types.bank"),
-                        cash: t("accounts.types.cash"),
-                        savings: t("accounts.types.savings"),
-                        credit_card: t("accounts.types.credit_card"),
-                        investment: t("accounts.types.investment"),
-                        ppr: t("accounts.types.ppr"),
-                      }}
-                      sharedLabel={t("dashboard.shared")}
-                      unassignedLabel={t("settings.unnamedUser")}
-                      closeLabel={t("close", { defaultValue: "Close" })}
+                    <TagPicker
+                      selectedIds={editTagIds ?? editTagIdsQuery.data ?? []}
+                      onChange={setEditTagIds}
+                      disabled={editTagIdsQuery.isLoading}
                     />
                   ) : null}
                   <View style={styles.editAttachmentsSection}>
@@ -3701,90 +4133,105 @@ export default function TransactionsScreen() {
                       </Text>
                     )}
                   </View>
-                  {deleteConfirmationOpen ? (
-                    <View
+                </>
+              ) : null}
+            </ScrollView>
+            {/* Fixed footer (same pattern as the create wizard): Delete /
+                Cancel / Save stay visible however long the form gets. */}
+            {editTransaction ? (
+              <View
+                style={[
+                  styles.createModalFooter,
+                  { borderColor: colors.border, flexDirection: "column", alignItems: "stretch" },
+                ]}
+              >
+                {deleteConfirmationOpen ? (
+                  <View
+                    style={{
+                      gap: spacing(2),
+                      padding: spacing(3),
+                      borderWidth: 1,
+                      borderColor: colors.destructive,
+                      borderRadius: radius.lg,
+                      backgroundColor: colors.surfaceMuted,
+                    }}
+                  >
+                    <Text
                       style={{
-                        gap: spacing(2),
-                        padding: spacing(3),
-                        borderWidth: 1,
-                        borderColor: colors.destructive,
-                        borderRadius: radius.lg,
-                        backgroundColor: colors.surfaceMuted,
+                        color: colors.destructive,
+                        fontWeight: typography.fontWeight.bold,
                       }}
                     >
-                      <Text
-                        style={{
-                          color: colors.destructive,
-                          fontWeight: typography.fontWeight.bold,
-                        }}
-                      >
-                        {t("transactions.deleteTitle")}
-                      </Text>
-                      <Text style={{ color: colors.textSecondary }}>
-                        {t("transactions.deleteMessage")}
-                      </Text>
-                      <View style={styles.modalActions}>
-                        <Button
-                          label={t("cancel")}
-                          variant="secondary"
-                          onPress={() => setDeleteConfirmationOpen(false)}
-                          disabled={deleteTransaction.isPending}
-                        />
-                        <Button
-                          label={
-                            deleteTransaction.isPending
-                              ? t("deleting")
-                              : t("transactions.delete")
-                          }
-                          variant="danger"
-                          onPress={() => void handleDeleteEditedTransaction()}
-                          disabled={deleteTransaction.isPending}
-                        />
-                      </View>
-                    </View>
-                  ) : null}
-                  {!deleteConfirmationOpen ? (
+                      {t("transactions.deleteTitle")}
+                    </Text>
+                    <Text style={{ color: colors.textSecondary }}>
+                      {t("transactions.deleteMessage")}
+                    </Text>
                     <View style={styles.modalActions}>
-                      <Button
-                        label={t("transactions.delete")}
-                        variant="danger"
-                        onPress={() => setDeleteConfirmationOpen(true)}
-                        disabled={
-                          updateTransaction.isPending ||
-                          deleteTransaction.isPending
-                        }
-                      />
                       <Button
                         label={t("cancel")}
                         variant="secondary"
-                        onPress={closeEditTransaction}
+                        onPress={() => setDeleteConfirmationOpen(false)}
                         disabled={deleteTransaction.isPending}
                       />
                       <Button
                         label={
-                          updateTransaction.isPending
-                            ? t("saving")
-                            : t("transactions.saveChanges", {
-                                defaultValue: t("settings.saveChanges"),
-                              })
+                          deleteTransaction.isPending
+                            ? t("deleting")
+                            : t("transactions.delete")
                         }
-                        onPress={() => void handleSaveTransaction()}
-                        disabled={
-                          updateTransaction.isPending ||
-                          deleteTransaction.isPending ||
-                          saveTransactionAllocations.isPending ||
-                          (editSplitEnabled &&
-                            validateAllocations(
-                              Number(editTransaction.amount) || 0,
-                              editSplitAllocations,
-                            ).length > 0)
-                        }
+                        variant="danger"
+                        onPress={() => void handleDeleteEditedTransaction()}
+                        disabled={deleteTransaction.isPending}
                       />
                     </View>
-                  ) : null}
-                </>
-              ) : null}
-            </ScrollView>
+                  </View>
+                ) : null}
+                {!deleteConfirmationOpen ? (
+                  <View style={styles.modalActions}>
+                    {!editIsReimbursementIncome ? (
+                    <Button
+                      label={t("transactions.delete")}
+                      variant="danger"
+                      onPress={() => setDeleteConfirmationOpen(true)}
+                      disabled={
+                        updateTransaction.isPending ||
+                        deleteTransaction.isPending
+                      }
+                    />
+                    ) : null}
+                    <Button
+                      label={t("cancel")}
+                      variant="secondary"
+                      onPress={closeEditTransaction}
+                      disabled={deleteTransaction.isPending}
+                    />
+                    <Button
+                      label={
+                        updateTransaction.isPending
+                          ? t("saving")
+                          : t("transactions.saveChanges", {
+                              defaultValue: t("settings.saveChanges"),
+                            })
+                      }
+                      onPress={() => void handleSaveTransaction()}
+                      disabled={
+                        updateTransaction.isPending ||
+                        deleteTransaction.isPending ||
+                        saveTransactionAllocations.isPending ||
+                        isSavingEditReimbursements ||
+                        !editPaymentReady ||
+                        (editSplitEnabled &&
+                          validateAllocations(
+                            Number(editTransaction.amount) || 0,
+                            editSplitAllocations,
+                          ).length > 0)
+                      }
+                    />
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
           </View>
         </View>
       </Modal>

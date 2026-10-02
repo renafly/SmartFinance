@@ -190,7 +190,7 @@ function targetKey(allocation: Pick<AllocationDraft, "sourceType" | "accountId" 
 export function validateAllocations(
   totalAmount: number,
   allocations: readonly AllocationDraft[],
-  options?: { minAllocations?: number },
+  options?: { minAllocations?: number; allowDuplicateTargets?: boolean },
 ): AllocationValidationError[] {
   const minAllocations = options?.minAllocations ?? 2;
   const errors: AllocationValidationError[] = [];
@@ -215,7 +215,9 @@ export function validateAllocations(
     if (seen.has(key)) hasDuplicate = true;
     seen.add(key);
   }
-  if (hasDuplicate) {
+  // A funding split can't draw from the same account twice, but other
+  // callers (reimbursements: two people paying back into one account) can.
+  if (hasDuplicate && !options?.allowDuplicateTargets) {
     errors.push("duplicate_source");
   }
 

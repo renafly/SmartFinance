@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Text, View, StyleSheet } from "react-native";
+import { Text, View, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 
 import { useTheme } from "@/theme/ThemeProvider";
 import { spacing } from "@/theme/spacing";
@@ -147,6 +147,9 @@ type GroupedAccountSelectProps = {
     subtitle?: string;
   };
   disabled?: boolean;
+  /** Hides the label above the trigger (the caller shows its own column header) and lets the caller size the trigger, e.g. to match a row of inputs. */
+  hideLabel?: boolean;
+  triggerStyle?: StyleProp<ViewStyle>;
 };
 
 export function GroupedAccountSelect({
@@ -166,6 +169,8 @@ export function GroupedAccountSelect({
   typeLabels = {},
   allOption,
   disabled,
+  hideLabel,
+  triggerStyle,
 }: GroupedAccountSelectProps) {
   const [open, setOpen] = useState(false);
   const hideValues = usePrivacyStore((state) => state.hideValues);
@@ -194,6 +199,8 @@ export function GroupedAccountSelect({
         iconName="wallet-outline"
         disabled={disabled}
         onPress={() => setOpen(true)}
+        labelStyle={hideLabel ? { display: 'none' } : undefined}
+        triggerStyle={triggerStyle}
       />
 
       <SelectionShell

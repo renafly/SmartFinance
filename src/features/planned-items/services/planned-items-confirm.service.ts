@@ -39,16 +39,42 @@ function toMaterializePayload(occurrences: ResolvedOccurrence[]): Json {
 }
 
 /**
+ * Whether an occurrence belongs to the Monthly Budget's "Save" -- income
+ * (no source account) or a movement between accounts (at least one
+ * destination). Plain recurring expenses (source account, zero
+ * destinations) are managed and paid one by one on Category Budgets and
+ * are deliberately never posted by the month-wide save (2026-09-29
+ * Monthly Budget refactor).
+ */
+export function isMonthlyBudgetOccurrence(resolved: ResolvedOccurrence): boolean {
+  const isIncome = resolved.occurrence.sourceAccountId === null;
+  return isIncome || resolved.destinations.length > 0;
+}
+
+/**
  * Everything `confirm_planned_item_month` needs -- the flattened
  * per-occurrence transaction-leg plan, one array entry per transaction
- * row it will insert. Only occurrences still 'planned' and not
- * is_estimate ever contribute legs (an is_estimate occurrence stays
- * 'planned' until it's individually matched via matchOccurrence, never
- * through a month-wide confirm).
+ * row it will insert. Only Monthly Budget occurrences (income +
+ * movements, see isMonthlyBudgetOccurrence) that are still 'planned' and
+ * not is_estimate ever contribute legs.
+ *
+ * Ordering: every income leg comes before every transfer leg. The RPC
+ * enforces the same order server-side (and stamps created_at with
+ * clock_timestamp() so it sticks, see
+ * 20260901002400_confirm_planned_item_month_income_first.sql) and runs the
+ * whole thing as one database transaction -- the income transaction is
+ * always inserted before any transfer out of it, and if anything fails
+ * nothing is kept.
  */
-function toTransferPlanPayload(occurrences: ResolvedOccurrence[]): Json {
-  return occurrences
-    .filter((resolved) => resolved.occurrence.status === "planned" && !resolved.occurrence.isEstimate)
+export function toTransferPlanPayload(occurrences: ResolvedOccurrence[]): Json {
+  const eligible = occurrences.filter(
+    (resolved) => resolved.occurrence.status === "planned" && !resolved.occurrence.isEstimate && isMonthlyBudgetOccurrence(resolved),
+  );
+  const incomeFirst = [
+    ...eligible.filter((resolved) => resolved.occurrence.sourceAccountId === null),
+    ...eligible.filter((resolved) => resolved.occurrence.sourceAccountId !== null),
+  ];
+  return incomeFirst
     .flatMap((resolved) => resolved.transactionLegs.map((leg) => ({ occurrenceId: resolved.occurrence.id, ...leg })))
     .filter((leg) => leg.occurrenceId) as unknown as Json;
 }
@@ -148,7 +174,9 @@ class PlannedItemsConfirmService {
   async confirmMonth(householdId: string, month: string, confirmedBy: string): Promise<MonthlyBudgetPeriod> {
     const resolved = await this.previewMonth(householdId, month);
 
-    const firstIssue = resolved.occurrences.find((occurrence) => !occurrence.isValid)?.validationIssues[0];
+    // Only this screen's own lines (income + movements) can block a save --
+    // a broken plain expense belongs to Category Budgets, not here.
+    const firstIssue = resolved.occurrences.find((occurrence) => !occurrence.isValid && isMonthlyBudgetOccurrence(occurrence))?.validationIssues[0];
     if (firstIssue) throw new Error(firstIssue);
 
     const { data, error } = await repositories.plannedItems.confirmMonth(
