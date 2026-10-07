@@ -341,27 +341,6 @@ export class HouseholdsRepository extends BaseRepository<"households"> {
     return { data: data ?? false, error: null };
   }
 
-  /** Seeds default categories + accounts for a newly created household. */
-  async seedDefaults(householdId: string): Promise<RepoResult<null>> {
-    const { error: catError } = await this.client.rpc(
-      "create_default_categories",
-      {
-        p_household_id: householdId,
-      },
-    );
-    if (catError) return { data: null, error: catError };
-
-    const { error: acctError } = await this.client.rpc(
-      "create_default_accounts",
-      {
-        p_household_id: householdId,
-      },
-    );
-    if (acctError) return { data: null, error: acctError };
-
-    return { data: null, error: null };
-  }
-
   /** Transfer household ownership to another member. */
   async transferOwnership(
     householdId: string,

@@ -14,11 +14,10 @@ import { buildCategoryExplorerTree, getDescendantCategoryIds, type ExplorerNode 
 import { CategoryBrowserSidebar } from '@/features/categories/components/category-browser-sidebar';
 import { CategoryBrowserDetailPanel } from '@/features/categories/components/category-browser-detail-panel';
 import { categoryBrowserPeriodRange, computeCategoryBrowserStats, type CategoryBrowserPeriod } from '@/features/categories/category-browser-data';
-import { DEFAULT_EXPENSE_CATEGORY_SEED, DEFAULT_INCOME_CATEGORY_SEED } from '@/features/categories/default-category-seed';
 import { useAllTransactions } from '@/features/transactions/hooks/useTransactions';
 
 import { useAuth } from '../../providers/AuthProvider';
-import { useCategories, useCreateCategory, useUpdateCategory, useArchiveCategory, useRestoreCategory, useDeleteCategory } from '../../features/categories/hooks';
+import { useCategories, useCreateCategory, useUpdateCategory, useArchiveCategory, useRestoreCategory, useDeleteCategory, useRestoreDefaultCategories } from '../../features/categories/hooks';
 
 const types = ['income', 'expense', 'account'] as const;
 const categoryIconSuggestions: Record<(typeof types)[number], readonly string[]> = {
@@ -140,7 +139,7 @@ function getTypeColor(type: CategoryLike['type'], colors: ReturnType<typeof useT
 
 export default function CategoriesScreen() {
   const { colors } = useTheme();
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const { householdId } = useAuth();
   const { width, height } = useWindowDimensions();
   const isWide = width >= 980;
@@ -162,7 +161,6 @@ export default function CategoriesScreen() {
   );
   const [icon, setIcon] = useState<string | null>('pricetag-outline');
   const [editCategory, setEditCategory] = useState<CategoryEditDraft | null>(null);
-  const [seedingDefaults, setSeedingDefaults] = useState(false);
 
   // State for the two-panel category browser (see categories.browser.* below).
   const [browserSearch, setBrowserSearch] = useState('');
@@ -176,6 +174,8 @@ export default function CategoriesScreen() {
   const archiveCategory = useArchiveCategory();
   const restoreCategory = useRestoreCategory();
   const deleteCategory = useDeleteCategory();
+  const restoreDefaultCategories = useRestoreDefaultCategories();
+  const seedingDefaults = restoreDefaultCategories.isPending;
   // Needs archived categories too (not just active) — the browser tree and
   // the parent-category pickers below rely on the FULL chain to correctly
   // compute descendants for cycle prevention. If an archived category sat
@@ -194,62 +194,18 @@ export default function CategoriesScreen() {
   const hasExpenseMainCategories = activeCategories.some((category) => category.type === 'expense' && !category.parent_id);
   const hasIncomeMainCategories = activeCategories.some((category) => category.type === 'income' && !category.parent_id);
 
-  // Additive-only: skips any main category whose name already exists for
-  // that type, so re-running this (or running it when only expense or only
-  // income is missing) never creates duplicates. For a full wipe-and-reset
-  // instead, see scripts/seed_default_categories.sql.
-  async function handleSeedDefaultCategories() {
+  // Server-side and idempotent (restore_default_categories -> the
+  // default_category_catalog in the database, the same tree new households
+  // get): adds whatever defaults are missing and fixes names/icons/parents of
+  // existing ones, merging duplicates instead of creating them. Custom
+  // categories are never touched. Names use the app's current language.
+  function handleSeedDefaultCategories() {
     if (!householdId || seedingDefaults) return;
 
-    setSeedingDefaults(true);
-    try {
-      const existingExpenseMainNames = new Set(
-        activeCategories.filter((category) => category.type === 'expense' && !category.parent_id).map((category) => category.name),
-      );
-      const existingIncomeMainNames = new Set(
-        activeCategories.filter((category) => category.type === 'income' && !category.parent_id).map((category) => category.name),
-      );
-
-      for (const main of DEFAULT_EXPENSE_CATEGORY_SEED) {
-        const mainName = t(`categories.defaults.${main.key}`);
-        if (existingExpenseMainNames.has(mainName)) continue;
-
-        const created: any = await createCategory.mutateAsync({
-          household_id: householdId,
-          name: mainName,
-          type: 'expense',
-          icon: main.icon,
-          parent_id: null,
-        } as any);
-        const createdParentId = created?.id;
-        if (!createdParentId) continue;
-
-        for (const sub of main.subcategories) {
-          await createCategory.mutateAsync({
-            household_id: householdId,
-            name: t(`categories.defaultsSub.${main.key}.${sub.key}`),
-            type: 'expense',
-            icon: sub.icon,
-            parent_id: createdParentId,
-          } as any);
-        }
-      }
-
-      for (const main of DEFAULT_INCOME_CATEGORY_SEED) {
-        const mainName = t(`categories.defaultsIncome.${main.key}`);
-        if (existingIncomeMainNames.has(mainName)) continue;
-
-        await createCategory.mutateAsync({
-          household_id: householdId,
-          name: mainName,
-          type: 'income',
-          icon: main.icon,
-          parent_id: null,
-        } as any);
-      }
-    } finally {
-      setSeedingDefaults(false);
-    }
+    restoreDefaultCategories.mutate({
+      householdId,
+      locale: i18n.language?.startsWith('pt') ? 'pt' : 'en',
+    });
   }
 
   const summaryCards = useMemo(
@@ -709,7 +665,7 @@ export default function CategoriesScreen() {
             </View>
             <Button
               label={seedingDefaults ? t('categories.seedInProgress') : t('categories.seedAction')}
-              onPress={() => void handleSeedDefaultCategories()}
+              onPress={handleSeedDefaultCategories}
               disabled={seedingDefaults || !householdId}
             />
           </View>

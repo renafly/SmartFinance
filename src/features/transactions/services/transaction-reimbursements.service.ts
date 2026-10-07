@@ -56,6 +56,13 @@ class TransactionReimbursementsService {
     return data;
   }
 
+  async listForHousehold(householdId: string) {
+    const { data, error } =
+      await repositories.transactionReimbursements.listForHousehold(householdId);
+    if (error) throw error;
+    return data ?? [];
+  }
+
   async listEffectiveAmountsForHousehold(householdId: string) {
     const { data, error } =
       await repositories.transactionReimbursements.listEffectiveAmountsForHousehold(householdId);

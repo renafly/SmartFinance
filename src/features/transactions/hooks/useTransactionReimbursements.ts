@@ -18,6 +18,17 @@ export function useTransactionReimbursements(
   });
 }
 
+/** Every reimbursement in the household (Wage Flow nets expenses with these).
+ * Keyed under "transaction-reimbursements" so invalidateHouseholdData and
+ * every reimbursement mutation refresh it too. */
+export function useHouseholdReimbursements(householdId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["transaction-reimbursements", "household", householdId],
+    queryFn: () => transactionReimbursementsService.listForHousehold(householdId!),
+    enabled: !!householdId,
+  });
+}
+
 /**
  * Bulk lookup used by the transactions list to decorate rows that have a
  * reimbursement, without a per-row request. See

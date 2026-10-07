@@ -61,6 +61,14 @@ export interface ConfirmReplenishmentRunInput {
   preview: unknown;
 }
 
+export type ReplenishableUnit = {
+  transactionId: string;
+  accountId: string;
+  unitAmount: number;
+  reimbursedAmount: number;
+  replenishableAmount: number;
+};
+
 export class ReplenishmentsRepository extends BaseRepository<"replenishment_runs"> {
   constructor(client: SupabaseClient<Database>) {
     super(client, "replenishment_runs");
@@ -166,6 +174,34 @@ export class ReplenishmentsRepository extends BaseRepository<"replenishment_runs
 
     if (error) return { data: null, error };
     return { data: data as ReplenishmentRun, error: null };
+  }
+
+  /**
+   * What each unit of these expenses (a whole non-split expense, or one account
+   * allocation of a split one) can still be replenished for: its amount minus
+   * its share of the expense's reimbursements. See replenishable_units in
+   * 20261007000100_replenishment_net_of_reimbursements.sql.
+   */
+  async getReplenishableUnits(
+    householdId: string,
+    transactionIds: string[],
+  ): Promise<RepoResult<ReplenishableUnit[]>> {
+    if (transactionIds.length === 0) return { data: [], error: null };
+    const { data, error } = await this.client.rpc("replenishable_units", {
+      p_household_id: householdId,
+      p_transaction_ids: transactionIds,
+    });
+    if (error) return { data: null, error };
+    return {
+      data: (data ?? []).map((row) => ({
+        transactionId: row.transaction_id,
+        accountId: row.account_id,
+        unitAmount: Number(row.unit_amount),
+        reimbursedAmount: Number(row.reimbursed_amount),
+        replenishableAmount: Number(row.replenishable_amount),
+      })),
+      error: null,
+    };
   }
 
   async deleteDraft(runId: string): Promise<RepoResult<null>> {

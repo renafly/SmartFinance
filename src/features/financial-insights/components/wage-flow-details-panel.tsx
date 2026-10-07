@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
@@ -113,7 +114,7 @@ export function WageFlowDetailsPanel({
       </View>
 
       {category ? (
-        <WageFlowDetailsBody category={category} />
+        <WageFlowDetailsBody key={category.key} category={category} />
       ) : (
         <View
           style={{
@@ -154,8 +155,13 @@ export function WageFlowDetailsPanel({
  */
 function WageFlowSubcategoryBreakdown({
   subcategories,
+  selectedKey,
+  onSelect,
 }: {
   subcategories: WageFlowChartSubcategory[];
+  /** The subcategory whose transactions are listed below, or null for all. */
+  selectedKey: string | null;
+  onSelect: (key: string) => void;
 }) {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
@@ -175,10 +181,27 @@ function WageFlowSubcategoryBreakdown({
         {t("insights.wageFlow.subcategoriesBreakdownTitle")}
       </Text>
       <View style={{ gap: spacing(2) }}>
-        {subcategories.map((sub) => (
-          <View
+        {subcategories.map((sub) => {
+          const isSelected = sub.key === selectedKey;
+          const isDimmed = selectedKey !== null && !isSelected;
+          return (
+          <Pressable
             key={sub.key}
-            style={{ flexDirection: "row", alignItems: "center", gap: spacing(2) }}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isSelected }}
+            accessibilityLabel={`${sub.label}, ${sub.share}%`}
+            onPress={() => onSelect(sub.key)}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: spacing(2),
+              paddingVertical: spacing(1),
+              paddingHorizontal: spacing(1.5),
+              marginHorizontal: -spacing(1.5),
+              borderRadius: radius.md,
+              backgroundColor: isSelected ? colors.surfaceMuted : "transparent",
+              opacity: pressed ? 0.8 : isDimmed ? 0.55 : 1,
+            })}
           >
             <View
               style={{
@@ -212,8 +235,9 @@ function WageFlowSubcategoryBreakdown({
             >
               {`${sub.share}%`}
             </Text>
-          </View>
-        ))}
+          </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -223,7 +247,22 @@ function WageFlowDetailsBody({ category }: { category: WageFlowChartBucket }) {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
   const hideValues = usePrivacyStore((state) => state.hideValues);
-  const matches = category.matches ?? [];
+  const allMatches = category.matches ?? [];
+  // Tapping a subcategory row lists only its transactions; tapping it again
+  // (or another bucket -- this body is keyed by bucket) shows them all. The
+  // synthetic "other" group gets whatever isn't one of the named rows.
+  const [selectedSubKey, setSelectedSubKey] = useState<string | null>(null);
+  const namedSubKeys = new Set(
+    (category.subcategories ?? []).map((sub) => sub.key).filter((key) => !key.endsWith("__other")),
+  );
+  const selectedSub = (category.subcategories ?? []).find((sub) => sub.key === selectedSubKey) ?? null;
+  const matches = selectedSub
+    ? allMatches.filter((match) =>
+        selectedSub.key.endsWith("__other")
+          ? !match.categoryId || !namedSubKeys.has(match.categoryId)
+          : match.categoryId === selectedSub.key,
+      )
+    : allMatches;
 
   return (
     <View style={{ gap: spacing(3) }}>
@@ -288,7 +327,11 @@ function WageFlowDetailsBody({ category }: { category: WageFlowChartBucket }) {
       </View>
 
       {category.subcategories && category.subcategories.length > 0 ? (
-        <WageFlowSubcategoryBreakdown subcategories={category.subcategories} />
+        <WageFlowSubcategoryBreakdown
+          subcategories={category.subcategories}
+          selectedKey={selectedSubKey}
+          onSelect={(key) => setSelectedSubKey((current) => (current === key ? null : key))}
+        />
       ) : null}
 
       {matches.length === 0 ? (
@@ -303,11 +346,27 @@ function WageFlowDetailsBody({ category }: { category: WageFlowChartBucket }) {
           {t("insights.wageFlow.noTransactionsInCategory")}
         </Text>
       ) : (
-        // Same nested-scroll-on-Android gap as the category menu's list in
-        // insight-charts.tsx (WageFlowCategoryMenu) -- this panel also lives
-        // inside the Dashboard's outer Page ScrollView, so without
-        // `nestedScrollEnabled` Android never lets the transaction list
-        // itself scroll once it's taller than LIST_MAX_HEIGHT.
+        <View style={{ gap: spacing(2) }}>
+        {selectedSub ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setSelectedSubKey(null)}
+            style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: spacing(1.5), opacity: pressed ? 0.8 : 1 })}
+          >
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: selectedSub.color }} />
+            <Text style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: typography.fontWeight.semibold }} numberOfLines={1}>
+              {t("insights.wageFlow.filteredBySubcategory", { name: selectedSub.label, count: matches.length })}
+            </Text>
+            <Text style={{ color: colors.primary, fontSize: 12, fontWeight: typography.fontWeight.semibold }}>
+              {t("insights.wageFlow.showAll")}
+            </Text>
+          </Pressable>
+        ) : null}
+        {/* Same nested-scroll-on-Android gap as the category menu's list in
+            insight-charts.tsx (WageFlowCategoryMenu) -- this panel also lives
+            inside the Dashboard's outer Page ScrollView, so without
+            `nestedScrollEnabled` Android never lets the transaction list
+            itself scroll once it's taller than LIST_MAX_HEIGHT. */}
         <ScrollView
           style={{ maxHeight: LIST_MAX_HEIGHT }}
           showsVerticalScrollIndicator={false}
@@ -342,8 +401,10 @@ function WageFlowDetailsBody({ category }: { category: WageFlowChartBucket }) {
                     >
                       {title}
                     </Text>
-                    <Text style={{ color: colors.textSecondary, fontSize: 11 }} numberOfLines={1}>
-                      {`${formatDate(match.transactionDate)} · ${match.accountLabel} · ${match.ownerLabel}`}
+                    <Text style={{ color: colors.textSecondary, fontSize: 11 }} numberOfLines={2}>
+                      {match.destinationLabel
+                        ? `${formatDate(match.transactionDate)} · ${match.accountLabel} → ${match.destinationLabel} · ${match.ownerLabel}`
+                        : `${formatDate(match.transactionDate)} · ${match.accountLabel} · ${match.ownerLabel}`}
                     </Text>
                   </View>
                   <Text
@@ -362,6 +423,7 @@ function WageFlowDetailsBody({ category }: { category: WageFlowChartBucket }) {
             })}
           </View>
         </ScrollView>
+        </View>
       )}
     </View>
   );

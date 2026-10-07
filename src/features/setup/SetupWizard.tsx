@@ -88,7 +88,11 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
   async function handleAcceptInvitation(token: string, name: string) {
     setHouseholdError(null);
     try {
-      await acceptInvitation.mutateAsync(token);
+      // Keep the joined household's id so the accounts step can create
+      // accounts in it (same as the create path below) -- useAuth().householdId
+      // only catches up after the async refreshSession().
+      const joined = await acceptInvitation.mutateAsync(token);
+      setCreatedHouseholdId(joined?.household_id ?? null);
       setCreatedHouseholdName(name);
       setStep("profile");
     } catch (error) {

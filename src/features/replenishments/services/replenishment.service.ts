@@ -15,6 +15,13 @@ class ReplenishmentService {
     return data;
   }
 
+  /** Keyed by `${transactionId}:${accountId}`. */
+  async getReplenishableUnits(householdId: string, transactionIds: string[]) {
+    const { data, error } = await replenishmentsRepository.getReplenishableUnits(householdId, transactionIds);
+    if (error) throw error;
+    return new Map((data ?? []).map((unit) => [`${unit.transactionId}:${unit.accountId}`, unit]));
+  }
+
   async deleteDraft(runId: string) {
     const { error } = await replenishmentsRepository.deleteDraft(runId);
     if (error) throw error;

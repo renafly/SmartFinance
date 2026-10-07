@@ -91,6 +91,25 @@ export class CategoriesRepository extends BaseRepository<"categories"> {
     return this.update(id, { is_archived: false } as any);
   }
 
+  /**
+   * Adds any missing default categories and brings existing ones in line with
+   * the default tree (names, icons, parents), merging duplicates -- never
+   * deletes or duplicates anything. The tree itself lives in the database
+   * (default_category_catalog); see 20261007000000_default_categories_v2.sql.
+   */
+  async restoreDefaults(
+    householdId: string,
+    locale?: string,
+  ): Promise<RepoResult<null>> {
+    const { error } = await this.client.rpc("restore_default_categories", {
+      p_household_id: householdId,
+      ...(locale ? { p_locale: locale } : {}),
+    });
+
+    if (error) return { data: null, error };
+    return { data: null, error: null };
+  }
+
   async updateCategory(
     id: string,
     values: Pick<

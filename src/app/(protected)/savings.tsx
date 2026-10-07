@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HouseholdMemberSelect } from "@/components/household-member-select";
+import { CategoryPicker } from "@/components/category-picker";
+import { useCategories } from "../../features/categories/hooks";
 import { MultiSelectShell, SelectionTrigger } from "@/components/selection-shell";
 import {
   Button,
@@ -65,6 +67,8 @@ type PotDraft = {
   name: string;
   targetAmount: string;
   accountIds: string[];
+  /** Category for money moved into this pot (Monthly Budget movements). */
+  categoryId?: string | null;
 };
 
 function buildAccountGroups(
@@ -127,6 +131,11 @@ export default function SavingsScreen() {
   const hideValues = usePrivacyStore((state) => state.hideValues);
   const { householdId, profile } = useAuth();
   const savingPotsQuery = useSavingPots();
+  const categoriesQuery = useCategories();
+  const expenseCategories = useMemo(
+    () => ((categoriesQuery.data ?? []) as any[]).filter((category) => category.type === "expense" && !category.is_archived),
+    [categoriesQuery.data],
+  );
   const balancesQuery = useSavingPotBalances();
   const assignmentsQuery = useSavingPotAccountAssignments();
   const accountsQuery = useAccountsWithBalances();
@@ -301,6 +310,7 @@ export default function SavingsScreen() {
         name: current[potId]?.name ?? "",
         targetAmount: current[potId]?.targetAmount ?? "",
         accountIds: current[potId]?.accountIds ?? [],
+        categoryId: current[potId]?.categoryId ?? null,
         [field]: value,
       },
     }));
@@ -323,6 +333,10 @@ export default function SavingsScreen() {
             ? String(potTargetAmount)
             : ""),
         accountIds: current?.accountIds ?? selectedAccountIds,
+        categoryId:
+          current?.categoryId !== undefined
+            ? current.categoryId
+            : ((savingPotsQuery.data ?? []) as any[]).find((pot) => pot.id === potId)?.category_id ?? null,
       },
     }));
     setEditingPotId(potId);
@@ -398,6 +412,7 @@ export default function SavingsScreen() {
       id: potId,
       name: draft.name.trim(),
       target_amount: nextTargetAmount,
+      category_id: draft.categoryId ?? null,
     });
 
     await updateSavingPotAccounts.mutateAsync({
@@ -497,6 +512,20 @@ export default function SavingsScreen() {
                     }
                     keyboardType="numeric"
                     placeholder="1000"
+                  />
+                  <CategoryPicker
+                    label={t("savings.destinationCategory")}
+                    placeholder={t("savings.destinationCategoryPlaceholder")}
+                    hint={t("savings.destinationCategoryHint")}
+                    categories={expenseCategories as any}
+                    selectedId={draftPotValues[editingPotId]?.categoryId ?? null}
+                    clearLabel={t("none")}
+                    onChange={(value) =>
+                      setDraftPotValues((current) => ({
+                        ...current,
+                        [editingPotId]: { ...current[editingPotId], categoryId: value ?? null },
+                      }))
+                    }
                   />
                   <View style={styles.editSection}>
                     <SelectionTrigger

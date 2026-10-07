@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 
 import { CategoryPicker } from "@/components/category-picker";
 import { EmptyState } from "@/components/data-surface";
@@ -20,6 +21,9 @@ import {
 import { MemberGroupedList, type MemberGroup } from "../../components/MemberGroupedList";
 import { accountMemberKey, orderMemberSections } from "../../member-grouping";
 import type { ReplenishableTransaction } from "../../types";
+import { replenishmentService } from "../../services/replenishment.service";
+import type { ReplenishableUnit } from "@/repositories/replenishments.repository";
+import { useAuth } from "@/providers/AuthProvider";
 
 const PAGE_SIZE = 25;
 
@@ -36,6 +40,7 @@ export function SelectTransactionsStep({
 }) {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
+  const { householdId } = useAuth();
   const hideValues = usePrivacyStore((state) => state.hideValues);
   const categoriesQuery = useCategories();
   const categories = categoriesQuery.data ?? [];
@@ -71,6 +76,13 @@ export function SelectTransactionsStep({
   const filters = useMemo(
     () => ({
       accountIds: replenishAccountIds,
+      // Only expenses are money that left an account and can be replenished.
+      // Without this, income rows touching the same accounts showed up too --
+      // e.g. a reimbursement's auto-created income ("Continente · <payer>")
+      // appeared as a second, selectable "transaction" next to the expense it
+      // reimburses, inflating the total (and confirm_replenishment_run can't
+      // reassign a reimbursement income row anyway).
+      kind: "expense" as const,
       excludeTransfers: true,
       categoryId: categoryId === "all" ? undefined : categoryId,
       // While the range is invalid, drop both bounds rather than sending a
@@ -98,6 +110,22 @@ export function SelectTransactionsStep({
     return [...byId.values()];
   }, [transactionsQuery.data]);
 
+  // What each loaded expense can still be replenished for: its amount minus
+  // what was already reimbursed by someone else (replenishable_units). The
+  // transactions list keeps showing the full amount; only the replenishment
+  // uses the net one, and confirm_replenishment_run validates against it.
+  const rowIds = useMemo(() => rows.map((row) => row.movement_id as string).sort(), [rows]);
+  const unitsQuery = useQuery({
+    queryKey: ["replenishable-units", householdId, rowIds],
+    queryFn: () => replenishmentService.getReplenishableUnits(householdId!, rowIds),
+    enabled: !!householdId && rowIds.length > 0,
+    placeholderData: (previous) => previous,
+  });
+  // Selection waits until the net amounts for the current rows are in, so a
+  // row can never be selected at its gross (pre-reimbursement) amount.
+  const unitsReady = unitsQuery.isSuccess && !unitsQuery.isPlaceholderData;
+  const units = unitsReady ? unitsQuery.data : undefined;
+
   // A split transaction's own `account_id`/`amount` are only a
   // representative/display value (the largest allocation, set by
   // save_transaction_allocations) -- transaction_allocations is
@@ -114,7 +142,31 @@ export function SelectTransactionsStep({
   // one entry per matching account allocation keeps every entry's
   // amount/accountId equal to what actually left that specific account for
   // this expense, so it's the only part that's real debt owed back to it.
-  function expandRow(row: any): { key: string; transaction: ReplenishableTransaction }[] {
+  function expandRow(
+    row: any,
+    unitMap: Map<string, ReplenishableUnit> | undefined = units,
+  ): { key: string; transaction: ReplenishableTransaction }[] {
+    const gross = expandRowGross(row);
+    if (!unitMap) return gross;
+    // Net of reimbursements; a unit that's fully reimbursed (or isn't a
+    // replenishable expense at all) has nothing left to cover and drops out.
+    return gross.flatMap((entry) => {
+      const unit = unitMap.get(`${entry.transaction.id}:${entry.transaction.accountId}`);
+      if (!unit || unit.replenishableAmount <= 0) return [];
+      return [{ ...entry, transaction: { ...entry.transaction, amount: unit.replenishableAmount } }];
+    });
+  }
+
+  /** Total already reimbursed on the part(s) of this row being replenished. */
+  function rowReimbursedAmount(row: any): number {
+    if (!units) return 0;
+    return expandRowGross(row).reduce(
+      (sum, entry) => sum + (units.get(`${entry.transaction.id}:${entry.transaction.accountId}`)?.reimbursedAmount ?? 0),
+      0,
+    );
+  }
+
+  function expandRowGross(row: any): { key: string; transaction: ReplenishableTransaction }[] {
     if (!row.is_split) {
       return [
         {
@@ -179,6 +231,7 @@ export function SelectTransactionsStep({
   }
 
   function toggleRow(row: any) {
+    if (!unitsReady) return;
     const expanded = expandRow(row);
     if (expanded.length === 0) return;
     onChangeSelected((current) => {
@@ -202,10 +255,12 @@ export function SelectTransactionsStep({
       for (const page of transactionsQuery.data?.pages ?? []) {
         for (const item of page ?? []) byId.set(item.movement_id, item);
       }
+      if (!householdId) return;
+      const allUnits = await replenishmentService.getReplenishableUnits(householdId, [...byId.keys()]);
       onChangeSelected((current) => {
         const next = new Map(current);
         for (const row of byId.values()) {
-          for (const entry of expandRow(row)) next.set(entry.key, entry.transaction);
+          for (const entry of expandRow(row, allUnits)) next.set(entry.key, entry.transaction);
         }
         return next;
       });
@@ -225,26 +280,33 @@ export function SelectTransactionsStep({
   }
 
   const transactionGroups = useMemo<MemberGroup[]>(() => {
-    const keys = rows.map((row) => accountMemberKey(row.account ?? {}));
+    const visibleRows = units ? rows.filter((row) => expandRow(row).length > 0) : rows;
+    const keys = visibleRows.map((row) => accountMemberKey(row.account ?? {}));
     const sections = orderMemberSections(keys, memberLabelMap, t("savings.sharedAccounts"));
 
     return sections.map((section) => ({
       key: section.key,
       label: section.label,
-      primary: rows
+      primary: visibleRows
         .filter((row) => accountMemberKey(row.account ?? {}) === section.key)
-        .map((row) => ({
+        .map((row) => {
+          const reimbursed = rowReimbursedAmount(row);
+          const reimbursedNote = reimbursed > 0
+            ? ` · ${t("replenishments.reimbursedNote", { amount: displayCurrency(formatCurrency(reimbursed), hideValues) })}`
+            : "";
+          return {
           id: row.movement_id,
           title: row.title,
-          subtitle: `${rowAccountLabel(row)} · ${formatDate(row.transaction_date)}`,
+          subtitle: `${rowAccountLabel(row)} · ${formatDate(row.transaction_date)}${reimbursedNote}`,
           rightLabel: displayCurrency(formatCurrency(rowReplenishAmount(row)), hideValues),
           active: isRowSelected(row),
           iconName: isRowSelected(row) ? "checkmark-circle" : "ellipse-outline",
           onPress: () => toggleRow(row),
-        })),
+          };
+        }),
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, memberLabelMap, selected, hideValues, t]);
+  }, [rows, units, memberLabelMap, selected, hideValues, t]);
 
   const totalsByAccount = useMemo(() => {
     const totals = new Map<string, { name: string; amount: number }>();
