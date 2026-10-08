@@ -65,6 +65,7 @@ class SavingPotsService {
     id: string
     name?: string
     target_amount?: number | null
+    category_id?: string | null
   }) {
     const { id, ...data } = input
     const { data: updated, error } = await repositories.savingPots.update(id, data as any)

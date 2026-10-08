@@ -126,6 +126,12 @@ export type WageFlowMatchedTransaction = {
   transactionDate: string;
   accountId: string;
   isTransfer: boolean;
+  /** The transaction's own category (a subcategory or the main one) -- lets
+   * the details panel filter a bucket's transactions by subcategory. */
+  categoryId: string | null;
+  /** For the outgoing leg of a transfer: the account the money went to
+   * (the other leg's account). Null for anything else. */
+  destinationAccountId: string | null;
 };
 
 /** One contributor to a bucket's total, used to split its flow segment into
@@ -171,6 +177,109 @@ export type WageFlowReport = {
   categories: WageFlowCategoryResult[];
 };
 
+/** One reimbursement toward an expense (transaction_reimbursements row). */
+export type WageFlowReimbursement = {
+  transactionId: string;
+  amount: number;
+  /** The account the repayment landed in; null for a pot reimbursement. */
+  accountId: string | null;
+};
+
+/**
+ * Shows expenses net of what other people already paid back, the same way
+ * the replenishment wizard only offers what's still owed:
+ *  - the income row a reimbursement generates is dropped -- it's not
+ *    household income, it's someone settling part of an expense;
+ *  - each expense (or each leg of a split one -- ids `${transactionId}:...`,
+ *    see expandTransactionAllocationLegs) is reduced by its reimbursements:
+ *    first on the leg(s) paid from the account the repayment landed in
+ *    (that's the account that got its money back), then whatever is left
+ *    proportionally across the remaining legs;
+ *  - a leg (or expense) that ends up fully reimbursed disappears, so an
+ *    expense that was entirely paid back shows neither the expense nor the
+ *    repayment, and a partial one shows only what's still missing.
+ * Transfers are never touched.
+ */
+export function netReimbursedWageFlowTransactions<T extends InsightTransaction>(
+  transactions: readonly T[],
+  reimbursements: readonly WageFlowReimbursement[],
+): T[] {
+  const byTransactionId = new Map<string, WageFlowReimbursement[]>();
+  for (const reimbursement of reimbursements) {
+    if (!(reimbursement.amount > 0)) continue;
+    const list = byTransactionId.get(reimbursement.transactionId) ?? [];
+    list.push(reimbursement);
+    byTransactionId.set(reimbursement.transactionId, list);
+  }
+
+  const baseId = (id: string) => id.split(":")[0];
+  const isNettableExpense = (item: InsightTransaction) =>
+    item.type === "expense" && !item.transfer_group_id && byTransactionId.has(baseId(item.id));
+
+  // Remaining cents per leg, keyed by the leg's own id.
+  const remainingCents = new Map<string, number>();
+  const legsByTransactionId = new Map<string, T[]>();
+  for (const item of transactions) {
+    if (!isNettableExpense(item)) continue;
+    const key = baseId(item.id);
+    const legs = legsByTransactionId.get(key) ?? [];
+    legs.push(item);
+    legsByTransactionId.set(key, legs);
+    remainingCents.set(item.id, Math.round(item.amount * 100));
+  }
+
+  for (const [transactionId, legs] of legsByTransactionId) {
+    const list = byTransactionId.get(transactionId) ?? [];
+    let unassignedCents = 0;
+
+    // 1) Against the leg(s) paid from the account the repayment landed in.
+    for (const reimbursement of list) {
+      let cents = Math.round(reimbursement.amount * 100);
+      if (reimbursement.accountId) {
+        for (const leg of legs) {
+          if (cents <= 0) break;
+          if (leg.account_id !== reimbursement.accountId) continue;
+          const take = Math.min(cents, remainingCents.get(leg.id) ?? 0);
+          remainingCents.set(leg.id, (remainingCents.get(leg.id) ?? 0) - take);
+          cents -= take;
+        }
+      }
+      unassignedCents += cents;
+    }
+
+    // 2) Whatever's left, proportionally across the remaining legs (cent
+    //    remainder on the last one), never below zero.
+    const open = legs.filter((leg) => (remainingCents.get(leg.id) ?? 0) > 0);
+    const openTotal = open.reduce((sum, leg) => sum + (remainingCents.get(leg.id) ?? 0), 0);
+    if (unassignedCents > 0 && openTotal > 0) {
+      const toAssign = Math.min(unassignedCents, openTotal);
+      let assigned = 0;
+      open.forEach((leg, index) => {
+        const current = remainingCents.get(leg.id) ?? 0;
+        const take =
+          index === open.length - 1
+            ? Math.min(current, toAssign - assigned)
+            : Math.min(current, Math.floor((toAssign * current) / openTotal));
+        assigned += take;
+        remainingCents.set(leg.id, current - take);
+      });
+    }
+  }
+
+  const result: T[] = [];
+  for (const item of transactions) {
+    if (item.reimbursement_id && !item.transfer_group_id) continue;
+    if (!remainingCents.has(item.id)) {
+      result.push(item);
+      continue;
+    }
+    const cents = remainingCents.get(item.id) ?? 0;
+    if (cents <= 0) continue;
+    result.push({ ...item, amount: cents / 100 });
+  }
+  return result;
+}
+
 export type WageFlowAccount = {
   id: string;
   /** bank | cash | savings | credit_card | investment | ppr */
@@ -182,6 +291,11 @@ export type WageFlowCategory = {
   name: string;
   parent_id?: string | null;
   is_discretionary?: boolean | null;
+  type?: string | null;
+  is_archived?: boolean | null;
+  sort_order?: number | null;
+  color?: string | null;
+  icon?: string | null;
 };
 
 export type WageFlowRange = { from?: string; to?: string };
@@ -231,6 +345,7 @@ function toMatch(
   item: InsightTransaction,
   isTransfer: boolean,
   signedAmount: number,
+  destinationAccountId: string | null = null,
 ): WageFlowMatchedTransaction {
   return {
     id: item.id,
@@ -239,6 +354,8 @@ function toMatch(
     transactionDate: item.transaction_date,
     accountId: item.account_id,
     isTransfer,
+    categoryId: item.category_id ?? null,
+    destinationAccountId,
   };
 }
 
@@ -309,9 +426,33 @@ export function calculateWageFlow(params: {
    * (e.g. account/pot tracking, or uncategorized transactions). Defaults to
    * "Other" for callers that don't localize it. */
   otherCategoryLabel?: string;
+  /** Reimbursements toward the period's expenses. When given, expenses are
+   * shown net of them and reimbursement income is left out (see
+   * netReimbursedWageFlowTransactions); omit to use the raw amounts. */
+  reimbursements?: readonly WageFlowReimbursement[];
 }): WageFlowReport {
-  const { transactions, accounts, categories, config, range = {}, otherCategoryLabel = "Other" } = params;
+  const { accounts, categories, config, range = {}, otherCategoryLabel = "Other" } = params;
+  const transactions = params.reimbursements
+    ? netReimbursedWageFlowTransactions(params.transactions, params.reimbursements)
+    : params.transactions;
   const accountTypeById = new Map(accounts.map((account) => [account.id, account.type]));
+  // Where each transfer's money went: the incoming leg's account, so an
+  // outgoing leg can show its destination in the details panel.
+  const transferDestinationByGroup = new Map<string, string>();
+  for (const item of transactions) {
+    if (item.transfer_group_id && item.type === "income") {
+      transferDestinationByGroup.set(item.transfer_group_id, item.account_id);
+    }
+  }
+  const matchOf = (item: InsightTransaction, isTransfer: boolean, signedAmount: number) =>
+    toMatch(
+      item,
+      isTransfer,
+      signedAmount,
+      item.transfer_group_id && item.type === "expense"
+        ? (transferDestinationByGroup.get(item.transfer_group_id) ?? null)
+        : null,
+    );
   const categoryNameById = new Map(categories.map((category) => [category.id, category.name]));
   const isPotAccount = (accountId: string) => {
     const accountType = accountTypeById.get(accountId);
@@ -366,7 +507,7 @@ export function calculateWageFlow(params: {
       for (const entry of entries) {
         if (matchesTrackedAccount(entry, item.account_id)) {
           entry.amount += item.amount;
-          entry.matches.push(toMatch(item, false, item.amount));
+          entry.matches.push(matchOf(item, false, item.amount));
           break;
         }
       }
@@ -385,7 +526,7 @@ export function calculateWageFlow(params: {
       for (const entry of entries) {
         if (matchesTrackedAccount(entry, item.account_id)) {
           entry.amount += sign * item.amount;
-          entry.matches.push(toMatch(item, true, sign * item.amount));
+          entry.matches.push(matchOf(item, true, sign * item.amount));
           break;
         }
       }
@@ -408,7 +549,7 @@ export function calculateWageFlow(params: {
           if (matchesTrackedAccount(entry, item.account_id)) continue;
           if (entry.expandedCategoryIds.has(item.category_id)) {
             entry.amount += item.amount;
-            entry.matches.push(toMatch(item, false, item.amount));
+            entry.matches.push(matchOf(item, false, item.amount));
             entry.subcategoryAmounts.set(
               item.category_id,
               (entry.subcategoryAmounts.get(item.category_id) ?? 0) + item.amount,
@@ -431,7 +572,7 @@ export function calculateWageFlow(params: {
     for (const entry of entries) {
       if (matchesTrackedAccount(entry, item.account_id)) {
         entry.amount -= item.amount;
-        entry.matches.push(toMatch(item, false, -item.amount));
+        entry.matches.push(matchOf(item, false, -item.amount));
         break;
       }
     }
@@ -455,7 +596,7 @@ export function calculateWageFlow(params: {
       if (cfg.includeAllTransactions || matchesCategory) {
         // Not tied to a specific account -- a plain spend total, unsigned.
         entry.amount += item.amount;
-        entry.matches.push(toMatch(item, false, item.amount));
+        entry.matches.push(matchOf(item, false, item.amount));
         if (item.category_id) {
           entry.subcategoryAmounts.set(
             item.category_id,
@@ -531,121 +672,35 @@ export function calculateWageFlow(params: {
 }
 
 /**
- * Produces the starting set of flow categories, computed from the
- * household's real accounts/categories (never hardcoded ids). Mirrors the
- * previous fixed account-type-based mapping so existing users see the same
- * breakdown by default, but every field here is now just an editable
- * starting point -- the user can rename, edit, reorder, remove, or add to
- * these freely from that point on.
- */
-export function buildDefaultWageFlowConfig(params: {
-  accounts: WageFlowAccount[];
-  categories: WageFlowCategory[];
-  labels: {
-    expenses: string;
-    debtPayments: string;
-    savingsAndGoals: string;
-    discretionary: string;
-  };
-}): WageFlowCategoryConfig[] {
-  const { accounts, categories, labels } = params;
-  const creditCardAccountIds = accounts
-    .filter((account) => account.type === "credit_card")
-    .map((account) => account.id);
-  const discretionaryCategoryIds = categories
-    .filter((category) => !!category.is_discretionary)
-    .map((category) => category.id);
-
-  return [
-    {
-      id: "discretionary",
-      name: labels.discretionary,
-      colorToken: "#8B5CF6",
-      icon: "sparkles-outline",
-      includeAllTransactions: false,
-      accountIds: [],
-      categoryIds: discretionaryCategoryIds,
-      potAccountIds: [],
-      includeTransfersBetweenAccounts: false,
-      includeTransfersIntoPots: false,
-    },
-    {
-      id: "debt-payments",
-      name: labels.debtPayments,
-      colorToken: "#F59E0B",
-      icon: "card-outline",
-      includeAllTransactions: false,
-      accountIds: creditCardAccountIds,
-      categoryIds: [],
-      potAccountIds: [],
-      includeTransfersBetweenAccounts: false,
-      includeTransfersIntoPots: false,
-    },
-    {
-      id: "savings-and-goals",
-      name: labels.savingsAndGoals,
-      colorToken: "#14B8A6",
-      icon: "flag-outline",
-      includeAllTransactions: false,
-      accountIds: [],
-      categoryIds: [],
-      potAccountIds: [],
-      includeTransfersBetweenAccounts: false,
-      includeTransfersIntoPots: true,
-    },
-    {
-      id: "expenses",
-      name: labels.expenses,
-      colorToken: "#EF4444",
-      icon: "cart-outline",
-      includeAllTransactions: true,
-      accountIds: [],
-      categoryIds: [],
-      potAccountIds: [],
-      includeTransfersBetweenAccounts: false,
-      includeTransfersIntoPots: false,
-    },
-  ];
-}
-
-export function createWageFlowCategoryId() {
-  return `wf-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-/**
- * Builds one new draft `WageFlowCategoryConfig` per main (top-level)
- * transaction category that doesn't already have a Wage Flow category
- * filtering on it -- the "Add all main categories" bulk action. A main
- * category already covered by an existing Wage Flow category (i.e. its id
- * appears in some existing config's `categoryIds`) is skipped, so running
- * this again after adding or editing categories only fills in the gaps
- * rather than creating duplicates.
+ * Wage Flow has no category system of its own: its buckets are exactly the
+ * household's main (top-level) expense categories from the Categories
+ * section, in their Categories order, each one also catching its
+ * subcategories (shown as the slices inside the bucket -- see
+ * buildSubcategories). A category that exists there shows up here; one
+ * that doesn't, doesn't. Archived categories are left out.
  *
- * This is a one-time snapshot, not a standing rule: main categories created
- * later are not picked up automatically. Re-run this action to add whatever
- * is still missing at that point.
+ * A bucket receives every non-transfer expense in its category tree plus
+ * the outgoing leg of every transfer carrying one of those categories --
+ * which is how savings/investment movements show up: Monthly Budget
+ * transfers get their category from the destination account/pot (see
+ * destination_category_for_account in
+ * 20261007000200_categories_single_source.sql). Uncategorized spending
+ * isn't assigned to any bucket and stays in the "unallocated" remainder.
  */
-export function buildOneWageFlowCategoryPerMainCategory(params: {
-  mainCategories: { id: string; name: string }[];
-  existingConfigs: WageFlowCategoryConfig[];
-}): WageFlowCategoryConfig[] {
-  const { mainCategories, existingConfigs } = params;
-  const alreadyCoveredIds = new Set(existingConfigs.flatMap((config) => config.categoryIds));
-  const missingMainCategories = mainCategories.filter((main) => !alreadyCoveredIds.has(main.id));
-
-  return missingMainCategories.map((main, index) => ({
-    id: createWageFlowCategoryId(),
-    name: main.name,
-    colorToken: WAGE_FLOW_COLOR_PALETTE[index % WAGE_FLOW_COLOR_PALETTE.length],
-    icon: "pricetag-outline",
-    includeAllTransactions: false,
-    accountIds: [],
-    // Just the main category id -- expandCategoryIds already brings in its
-    // subcategories automatically at match time, the same as any other
-    // manually-selected main category.
-    categoryIds: [main.id],
-    potAccountIds: [],
-    includeTransfersBetweenAccounts: false,
-    includeTransfersIntoPots: false,
-  }));
+export function buildWageFlowConfigFromCategories(categories: readonly WageFlowCategory[]): WageFlowCategoryConfig[] {
+  return categories
+    .filter((category) => !category.parent_id && !category.is_archived && (category.type ?? "expense") === "expense")
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name))
+    .map((category, index) => ({
+      id: category.id,
+      name: category.name,
+      colorToken: category.color || WAGE_FLOW_COLOR_PALETTE[index % WAGE_FLOW_COLOR_PALETTE.length],
+      icon: category.icon || "pricetag-outline",
+      includeAllTransactions: false,
+      accountIds: [],
+      categoryIds: [category.id],
+      potAccountIds: [],
+      includeTransfersBetweenAccounts: false,
+      includeTransfersIntoPots: false,
+    }));
 }

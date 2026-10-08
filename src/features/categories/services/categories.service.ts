@@ -105,6 +105,12 @@ class CategoriesService {
     return data;
   }
 
+  async restoreDefaultCategories(householdId: string, locale?: string) {
+    const { error } = await repositories.categories.restoreDefaults(householdId, locale);
+
+    if (error) throw error;
+  }
+
   async deleteCategory(id: string) {
     const { data, error } = await repositories.categories.delete(id);
 

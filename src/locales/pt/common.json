@@ -768,7 +768,10 @@
       "credit": "Crédito",
       "investment": "Investimento",
       "ppr": "PPR"
-    }
+    },
+    "destinationCategory": "Categoria do dinheiro que entra",
+    "destinationCategoryPlaceholder": "Sem categoria",
+    "destinationCategoryHint": "Os movimentos do Orçamento Mensal para esta conta usam esta categoria (também no Wage Flow). Um pote suportado por esta conta tem prioridade."
   },
   "insights": {
     "wageFlow": {
@@ -852,7 +855,9 @@
       "selectCategoryPrompt": "Selecione uma categoria no fluxo para ver os seus detalhes.",
       "noTransactionsInCategory": "Ainda sem transações nesta categoria.",
       "collapseDetails": "Recolher painel de detalhes",
-      "expandDetails": "Expandir painel de detalhes"
+      "expandDetails": "Expandir painel de detalhes",
+      "filteredBySubcategory": "{{name}} · {{count}} transação(ões)",
+      "showAll": "Ver todas"
     }
   },
   "transactions": {
@@ -1126,7 +1131,9 @@
       "collapse": "Ocultar detalhe do pagamento"
     },
     "showFullNote": "Mostrar a nota completa",
-    "hideFullNote": "Recolher a nota"
+    "hideFullNote": "Recolher a nota",
+    "originallyFrom": "Originalmente de {{source}}",
+    "selectAccount": "Selecionar conta"
   },
   "categories": {
     "title": "Categorias",
@@ -1168,7 +1175,7 @@
       "account": "Conta"
     },
     "seedTitle": "Comece com categorias predefinidas",
-    "seedSubtitle": "Adicione um conjunto pronto de 10 categorias principais de despesa (cada uma com subcategorias comuns) e 10 categorias de receita, para não começar com uma lista vazia. Só preenche o tipo que ainda faltar.",
+    "seedSubtitle": "Adicione um conjunto pronto de 15 categorias principais de despesa (cada uma com subcategorias comuns) e 10 categorias de rendimento. As categorias que já tem são mantidas e organizadas, nunca duplicadas.",
     "seedAction": "Adicionar categorias predefinidas",
     "seedInProgress": "A adicionar categorias...",
     "browser": {
@@ -1197,81 +1204,6 @@
       "noRecentTransactions": "Sem transações neste período.",
       "byAccountTitle": "Por conta",
       "byUserTitle": "Por membro do agregado"
-    },
-    "defaults": {
-      "housing": "Habitação",
-      "utilities": "Serviços Públicos",
-      "groceries": "Compras de Mercearia",
-      "transportation": "Transportes",
-      "healthWellness": "Saúde & Bem-estar",
-      "diningEntertainment": "Restauração & Entretenimento",
-      "shoppingPersonalCare": "Compras & Cuidados Pessoais",
-      "familyEducation": "Família & Educação",
-      "savingsInvestments": "Poupanças & Investimentos",
-      "debtObligations": "Dívidas & Obrigações Financeiras"
-    },
-    "defaultsSub": {
-      "housing": {
-        "rentMortgage": "Renda/Hipoteca",
-        "homeInsurance": "Seguro de Habitação",
-        "maintenance": "Manutenção & Reparações"
-      },
-      "utilities": {
-        "electricity": "Eletricidade",
-        "water": "Água",
-        "internetPhone": "Internet & Telefone"
-      },
-      "groceries": {
-        "supermarket": "Supermercado",
-        "householdSupplies": "Artigos para Casa"
-      },
-      "transportation": {
-        "fuel": "Combustível",
-        "publicTransit": "Transportes Públicos",
-        "carMaintenance": "Manutenção & Seguro do Carro"
-      },
-      "healthWellness": {
-        "doctorPharmacy": "Médico & Farmácia",
-        "healthInsurance": "Seguro de Saúde",
-        "fitness": "Fitness"
-      },
-      "diningEntertainment": {
-        "restaurantsTakeout": "Restaurantes & Take-away",
-        "streamingSubscriptions": "Streaming & Subscrições",
-        "leisureHobbies": "Lazer & Passatempos"
-      },
-      "shoppingPersonalCare": {
-        "clothing": "Roupa",
-        "personalCare": "Cuidados Pessoais",
-        "electronicsGadgets": "Eletrónica & Gadgets"
-      },
-      "familyEducation": {
-        "childcare": "Cuidados Infantis",
-        "tuitionCourses": "Propinas & Cursos",
-        "kidsActivities": "Atividades para Crianças"
-      },
-      "savingsInvestments": {
-        "emergencyFund": "Fundo de Emergência",
-        "investments": "Investimentos",
-        "retirement": "Reforma"
-      },
-      "debtObligations": {
-        "loanPayments": "Pagamento de Empréstimos",
-        "creditCardPayments": "Pagamento de Cartão de Crédito",
-        "taxesFees": "Impostos & Taxas"
-      }
-    },
-    "defaultsIncome": {
-      "salary": "Salário",
-      "freelance": "Freelance & Trabalho Independente",
-      "bonusCommissions": "Bónus & Comissões",
-      "investmentIncome": "Rendimento de Investimentos",
-      "rentalIncome": "Rendimento de Arrendamento",
-      "businessIncome": "Rendimento de Negócio",
-      "giftsInheritance": "Presentes & Heranças",
-      "refundsReimbursements": "Reembolsos",
-      "governmentBenefits": "Apoios do Estado",
-      "otherIncome": "Outros Rendimentos"
     }
   },
   "tags": {
@@ -1414,7 +1346,12 @@
     "forecastYear": "Ano",
     "forecastUnavailableNoTarget": "Adicione um valor de objetivo para ver uma previsão de conclusão.",
     "forecastUnavailableNoContributions": "Ainda não há transferências recorrentes nem regras de orçamento a contribuir para este mealheiro.",
-    "forecastUnavailableBeyondHorizon": "Não é possível prever este objetivo dentro dos próximos 30 anos."
+    "forecastUnavailableBeyondHorizon": "Não é possível prever este objetivo dentro dos próximos 30 anos.",
+    "groupCount_one": "{{count}} conta",
+    "groupCount_other": "{{count}} contas",
+    "destinationCategory": "Categoria do dinheiro que entra",
+    "destinationCategoryPlaceholder": "Sem categoria",
+    "destinationCategoryHint": "Os movimentos do Orçamento Mensal para a conta deste pote usam esta categoria (também no Wage Flow)."
   },
   "forecast": {
     "title": "Previsão de saldo",
@@ -1663,7 +1600,9 @@
     "detailTransactionsSubtitle_one": "{{count}} transação",
     "detailTransactionsSubtitle_other": "{{count}} transações",
     "detailSourcesTitle": "Fontes",
-    "detailTransfersTitle": "Transferências criadas"
+    "detailTransfersTitle": "Transferências criadas",
+    "reimbursedNote": "{{amount}} reembolsado",
+    "detailFundedBy": "Financiado por {{sources}}"
   },
   "notifications": {
     "title": "Notificações",

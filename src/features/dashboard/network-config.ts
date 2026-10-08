@@ -11,7 +11,7 @@
  * (see `useDashboardNetworkConfig` in `hooks/useDashboardNetworkConfig.ts`
  * and `services/dashboard-network-config.service.ts`) -- a personal display
  * preference, like `profiles.theme` / `profiles.locale`, rather than shared
- * household data the way `wage_flow_categories` is. This file only holds
+ * household data. This file only holds
  * the pure, storage-agnostic helpers.
  */
 export type DashboardNetworkConfig = {

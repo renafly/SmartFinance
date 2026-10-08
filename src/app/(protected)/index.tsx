@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +26,7 @@ import { transactionsService } from '../../features/transactions/services/transa
 import { savingPotsService } from '../../features/saving-pots/services/saving-pots.service';
 import { useSavingPotAccountAssignments } from '../../features/saving-pots/hooks';
 import { useAllTransactions } from '../../features/transactions/hooks/useTransactions';
+import { useHouseholdReimbursements } from '../../features/transactions/hooks/useTransactionReimbursements';
 import { transactionAllocationsService } from '../../features/transactions/services/transaction-allocations.service';
 import {
   expandTransactionAllocationLegs,
@@ -64,12 +65,10 @@ import type { DashboardAccount, DashboardPot, MemberDetails, AllocationSegment }
 import { useCategories } from '../../features/categories/hooks';
 
 import {
-  buildDefaultWageFlowConfig,
-  buildOneWageFlowCategoryPerMainCategory,
+  buildWageFlowConfigFromCategories,
   calculateWageFlow,
   computeDateRange,
   resolveWageFlowColor,
-  type WageFlowCategoryConfig,
 } from '@/features/financial-insights';
 import {
   WageFlowChart,
@@ -77,24 +76,6 @@ import {
   type WageFlowChartBucket,
 } from '@/features/financial-insights/components/insight-charts';
 import { WageFlowDetailsPanel } from '@/features/financial-insights/components/wage-flow-details-panel';
-import {
-  WageFlowCategoryEditorModal,
-  WageFlowConfigTable,
-  buildHierarchicalCategoryOptions,
-  blankWageFlowCategory,
-  type WageFlowAccountOption,
-  type WageFlowCategoryOption,
-} from '@/features/financial-insights/components/wage-flow-config-panel';
-import {
-  useCreateManyWageFlowCategories,
-  useCreateWageFlowCategory,
-  useDeleteWageFlowCategory,
-  useReorderWageFlowCategories,
-  useSeedWageFlowCategoryDefaults,
-  useUpdateWageFlowCategory,
-  useWageFlowCategories,
-} from '@/features/financial-insights/hooks/useWageFlowCategories';
-
 function formatSignedCurrency(value: number) {
   return `${value > 0 ? '+' : ''}${formatCurrency(value)}`;
 }
@@ -566,6 +547,23 @@ export default function DashboardScreen() {
     [wageFlowTransactionsQuery.data, wageFlowAllocationsByTransactionId, savingPotAssignmentsQuery.data],
   );
 
+  // Reimbursements net into the expense they repaid (fully repaid -> hidden,
+  // partly repaid -> only what's still missing) instead of showing the
+  // expense and then the repayment as income. See
+  // netReimbursedWageFlowTransactions.
+  const wageFlowReimbursementsQuery = useHouseholdReimbursements(householdId);
+  const wageFlowReimbursements = useMemo(
+    () =>
+      wageFlowReimbursementsQuery.data
+        ? wageFlowReimbursementsQuery.data.map((row) => ({
+            transactionId: row.transaction_id,
+            amount: Number(row.amount),
+            accountId: row.source_type === 'account' ? row.account_id : null,
+          }))
+        : undefined,
+    [wageFlowReimbursementsQuery.data],
+  );
+
   const potLabelByAccountId = useMemo(() => {
     const potNames = new Map(savingPots.map((pot) => [pot.id, pot.name]));
     const map = new Map<string, string>();
@@ -587,7 +585,7 @@ export default function DashboardScreen() {
     return map;
   }, [accounts, memberMap, t]);
 
-  const wageFlowAccountOptions: WageFlowAccountOption[] = useMemo(
+  const wageFlowAccountOptions = useMemo(
     () =>
       accounts.map((account) => ({
         id: account.id,
@@ -599,91 +597,32 @@ export default function DashboardScreen() {
       })),
     [accounts, potLabelByAccountId, t, wageFlowOwnerLabelByAccountId],
   );
-  const wageFlowPotAccountOptions = useMemo(
-    () => wageFlowAccountOptions.filter((account) => ['savings', 'investment', 'ppr'].includes(account.type)),
+  // Transfer destinations show both the account and the pot it backs.
+  const wageFlowDestinationLabelById = useMemo(
+    () =>
+      new Map(
+        wageFlowAccountOptions.map((account) => [
+          account.id,
+          account.potLabel ? `${account.name} (${account.potLabel})` : account.name,
+        ]),
+      ),
     [wageFlowAccountOptions],
   );
   const wageFlowAccountLabelById = useMemo(
     () => new Map(wageFlowAccountOptions.map((account) => [account.id, account.potLabel ?? account.name])),
     [wageFlowAccountOptions],
   );
-  const wageFlowCategoryOptions = useMemo(
-    () => buildHierarchicalCategoryOptions(categories as any[]),
+  // Wage Flow buckets are the household's main expense categories, straight
+  // from the Categories section -- no separate Wage Flow configuration (see
+  // buildWageFlowConfigFromCategories).
+  const wageFlowConfig = useMemo(
+    () => buildWageFlowConfigFromCategories(categories as any[]),
     [categories],
   );
 
-  const wageFlowLabels = useMemo(
-    () => ({
-      expenses: t('insights.wageFlow.expenses'),
-      debtPayments: t('insights.wageFlow.debtPayments'),
-      savingsAndGoals: t('insights.wageFlow.savingsAndGoals'),
-      discretionary: t('insights.wageFlow.discretionary'),
-    }),
-    [t],
-  );
-  const wageFlowCategoriesQuery = useWageFlowCategories();
-  const seedWageFlowDefaults = useSeedWageFlowCategoryDefaults();
-  const createWageFlowCategory = useCreateWageFlowCategory();
-  const createManyWageFlowCategories = useCreateManyWageFlowCategories();
-  const updateWageFlowCategory = useUpdateWageFlowCategory();
-  const deleteWageFlowCategoryMutation = useDeleteWageFlowCategory();
-  const reorderWageFlowCategories = useReorderWageFlowCategories();
-  const wageFlowConfig = useMemo(
-    () => wageFlowCategoriesQuery.data ?? [],
-    [wageFlowCategoriesQuery.data],
-  );
-
-  // Seed the household's starting categories the first time Wage Flow loads
-  // with none saved yet -- runs once per household.
-  const hasSeededWageFlowDefaults = useRef<string | null>(null);
-  useEffect(() => {
-    if (!householdId) return;
-    if (!wageFlowCategoriesQuery.isSuccess) return;
-    if ((wageFlowCategoriesQuery.data ?? []).length > 0) return;
-    if (!(accountsQuery.isSuccess && categoriesQuery.isSuccess)) return;
-    if (hasSeededWageFlowDefaults.current === householdId) return;
-    if (seedWageFlowDefaults.isPending) return;
-
-    hasSeededWageFlowDefaults.current = householdId;
-    seedWageFlowDefaults.mutate(
-      buildDefaultWageFlowConfig({
-        accounts: accounts as any,
-        categories: categories as any,
-        labels: wageFlowLabels,
-      }),
-    );
-  }, [
-    accounts,
-    accountsQuery.isSuccess,
-    categories,
-    categoriesQuery.isSuccess,
-    householdId,
-    seedWageFlowDefaults,
-    wageFlowCategoriesQuery.data,
-    wageFlowCategoriesQuery.isSuccess,
-    wageFlowLabels,
-  ]);
-
-  function removeWageFlowCategory(id: string) {
-    deleteWageFlowCategoryMutation.mutate(id);
-  }
-  function moveWageFlowCategory(id: string, direction: 'up' | 'down') {
-    const index = wageFlowConfig.findIndex((item) => item.id === id);
-    if (index === -1) return;
-    const swapWith = direction === 'up' ? index - 1 : index + 1;
-    if (swapWith < 0 || swapWith >= wageFlowConfig.length) return;
-
-    const nextOrder = wageFlowConfig.map((item) => item.id);
-    [nextOrder[index], nextOrder[swapWith]] = [nextOrder[swapWith], nextOrder[index]];
-    reorderWageFlowCategories.mutate(nextOrder);
-  }
-
-  const [wageFlowDraft, setWageFlowDraft] = useState<WageFlowCategoryConfig | null>(null);
-  const [wageFlowDraftIsNew, setWageFlowDraftIsNew] = useState(false);
   const [selectedWageFlowKey, setSelectedWageFlowKey] = useState<string | null>(null);
   const [wageFlowMenuCollapsed, setWageFlowMenuCollapsed] = useState(false);
   const [wageFlowDetailsCollapsed, setWageFlowDetailsCollapsed] = useState(false);
-  const [wageFlowCategoriesModalOpen, setWageFlowCategoriesModalOpen] = useState(false);
 
   // Shared by both the chart (tapping a segment) and the category menu
   // (tapping a row) so a repeat tap on the already-selected category always
@@ -701,8 +640,9 @@ export default function DashboardScreen() {
         config: wageFlowConfig,
         range: wageFlowRange,
         otherCategoryLabel: t('insights.wageFlow.otherSubcategory'),
+        reimbursements: wageFlowReimbursements,
       }),
-    [accounts, categories, t, wageFlowConfig, wageFlowRange, expandedWageFlowTransactions],
+    [accounts, categories, t, wageFlowConfig, wageFlowRange, expandedWageFlowTransactions, wageFlowReimbursements],
   );
   const wageFlowResultById = useMemo(
     () => new Map(wageFlow.categories.map((category) => [category.id, category])),
@@ -710,7 +650,11 @@ export default function DashboardScreen() {
   );
   const wageFlowBuckets: WageFlowChartBucket[] = useMemo(
     () =>
-      wageFlow.categories.map((category) => {
+      // Always largest share first (ties: larger amount, then name), in the
+      // chart and the category menu alike.
+      [...wageFlow.categories]
+        .sort((a, b) => b.share - a.share || b.amount - a.amount || a.name.localeCompare(b.name))
+        .map((category) => {
         const color = resolveWageFlowColor(
           category.colorToken,
           colors as unknown as Record<string, string>,
@@ -747,65 +691,18 @@ export default function DashboardScreen() {
             accountLabel: wageFlowAccountLabelById.get(match.accountId) ?? match.accountId,
             ownerLabel: wageFlowOwnerLabelByAccountId.get(match.accountId) ?? t('dashboard.shared'),
             isTransfer: match.isTransfer,
+            categoryId: match.categoryId,
+            destinationLabel: match.destinationAccountId
+              ? wageFlowDestinationLabelById.get(match.destinationAccountId) ?? null
+              : null,
           })),
         };
       }),
-    [colors, t, wageFlow.categories, wageFlowAccountLabelById, wageFlowOwnerLabelByAccountId],
-  );
-  const wageFlowTableRows = useMemo(
-    () =>
-      wageFlowConfig.map((config) => {
-        const result = wageFlowResultById.get(config.id);
-        return { config, amount: result?.amount ?? 0, share: result?.share ?? 0 };
-      }),
-    [wageFlowConfig, wageFlowResultById],
+    [colors, t, wageFlow.categories, wageFlowAccountLabelById, wageFlowOwnerLabelByAccountId, wageFlowDestinationLabelById],
   );
   const selectedWageFlowCategory =
     wageFlowBuckets.find((bucket) => bucket.key === selectedWageFlowKey) ?? null;
 
-  function openAddWageFlowCategory() {
-    setWageFlowDraft(blankWageFlowCategory());
-    setWageFlowDraftIsNew(true);
-  }
-  // "Add all main categories": a one-time bulk add of one Wage Flow category
-  // per main transaction category that doesn't already have one -- not a
-  // standing rule, so main categories created afterward aren't picked up
-  // automatically. Skips any main category already covered by an existing
-  // Wage Flow category's categoryIds, so re-running only fills in gaps.
-  function addAllMainCategories() {
-    const newConfigs = buildOneWageFlowCategoryPerMainCategory({
-      mainCategories: wageFlowCategoryOptions.filter((option) => option.parentId === null),
-      existingConfigs: wageFlowConfig,
-    });
-    if (newConfigs.length === 0) return;
-    createManyWageFlowCategories.mutate({
-      configs: newConfigs,
-      startingSortOrder: wageFlowConfig.length,
-    });
-  }
-  function openEditWageFlowCategory(id: string) {
-    const existing = wageFlowConfig.find((item) => item.id === id);
-    if (!existing) return;
-    setWageFlowDraft({ ...existing });
-    setWageFlowDraftIsNew(false);
-  }
-  function closeWageFlowEditor() {
-    setWageFlowDraft(null);
-  }
-  function saveWageFlowDraft() {
-    if (!wageFlowDraft) return;
-    if (wageFlowDraftIsNew) {
-      createWageFlowCategory.mutate({ config: wageFlowDraft, sortOrder: wageFlowConfig.length });
-    } else {
-      updateWageFlowCategory.mutate({ id: wageFlowDraft.id, config: wageFlowDraft });
-    }
-    setWageFlowDraft(null);
-  }
-  function deleteWageFlowDraft() {
-    if (!wageFlowDraft) return;
-    removeWageFlowCategory(wageFlowDraft.id);
-    setWageFlowDraft(null);
-  }
   // ---- end Wage Flow ---------------------------------------------------
 
   if (isPreparingDashboard) return <AuthLoadingTransition />;
@@ -926,28 +823,6 @@ export default function DashboardScreen() {
         <Section
           title={t('insights.wageFlow.title')}
           subtitle={t('insights.wageFlow.subtitle')}
-          action={
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('insights.wageFlow.configTitle')}
-              onPress={() => setWageFlowCategoriesModalOpen(true)}
-              style={({ pressed }) => [
-                {
-                  width: spacing(9),
-                  height: spacing(9),
-                  borderRadius: radius.lg,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  backgroundColor: colors.surfaceMuted,
-                },
-                pressed && { opacity: 0.85 },
-              ]}
-            >
-              <Ionicons name="settings-outline" size={18} color={colors.textSecondary} />
-            </Pressable>
-          }
         >
           <View
             accessibilityRole="radiogroup"
@@ -1052,38 +927,6 @@ export default function DashboardScreen() {
           )}
         </Section>
       </Card>
-
-      <SelectionShell
-        visible={wageFlowCategoriesModalOpen}
-        title={t('insights.wageFlow.configTitle')}
-        subtitle={t('insights.wageFlow.configSubtitle')}
-        closeLabel={t('insights.wageFlow.close')}
-        onClose={() => setWageFlowCategoriesModalOpen(false)}
-      >
-        <WageFlowConfigTable
-          rows={wageFlowTableRows}
-          categoryOptions={wageFlowCategoryOptions}
-          onEdit={openEditWageFlowCategory}
-          onRemove={removeWageFlowCategory}
-          onMoveUp={(id) => moveWageFlowCategory(id, 'up')}
-          onMoveDown={(id) => moveWageFlowCategory(id, 'down')}
-          onAdd={openAddWageFlowCategory}
-          onAddAllMainCategories={addAllMainCategories}
-        />
-      </SelectionShell>
-
-      <WageFlowCategoryEditorModal
-        visible={wageFlowDraft !== null}
-        draft={wageFlowDraft}
-        isNew={wageFlowDraftIsNew}
-        accounts={wageFlowAccountOptions}
-        potAccounts={wageFlowPotAccountOptions}
-        categoryOptions={wageFlowCategoryOptions}
-        onChange={(patch) => setWageFlowDraft((current) => (current ? { ...current, ...patch } : current))}
-        onClose={closeWageFlowEditor}
-        onSave={saveWageFlowDraft}
-        onDelete={deleteWageFlowDraft}
-      />
 
       <DashboardNetworkConfigPanel
         visible={networkConfigOpen}

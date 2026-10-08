@@ -1,7 +1,7 @@
 import {
-  buildDefaultWageFlowConfig,
-  buildOneWageFlowCategoryPerMainCategory,
+  buildWageFlowConfigFromCategories,
   calculateWageFlow,
+  netReimbursedWageFlowTransactions,
   type WageFlowCategoryConfig,
 } from "./wage-flow";
 import type { InsightTransaction } from "./types";
@@ -607,118 +607,129 @@ describe("calculateWageFlow subcategory breakdown", () => {
   });
 });
 
-describe("buildDefaultWageFlowConfig", () => {
-  const labels = {
-    expenses: "Expenses",
-    debtPayments: "Debt Payments",
-    savingsAndGoals: "Savings and Goals",
-    discretionary: "Discretionary Spending",
-  };
+describe("buildWageFlowConfigFromCategories", () => {
+  const appCategories = [
+    { id: "housing", name: "Housing", parent_id: null, type: "expense", sort_order: 0, color: "#3B82F6", icon: "home-outline" },
+    { id: "rent", name: "Rent", parent_id: "housing", type: "expense", sort_order: 0 },
+    { id: "savings", name: "Savings & Investments", parent_id: null, type: "expense", sort_order: 2 },
+    { id: "old", name: "Old", parent_id: null, type: "expense", sort_order: 1, is_archived: true },
+    { id: "salary", name: "Salary", parent_id: null, type: "income", sort_order: 0 },
+  ];
 
-  it("reproduces the previous fixed account-type mapping as an editable starting point", () => {
-    const config = buildDefaultWageFlowConfig({ accounts, categories, labels });
+  it("has exactly one bucket per active main expense category, in Categories order", () => {
+    const config = buildWageFlowConfigFromCategories(appCategories);
+    expect(config.map((item) => item.id)).toEqual(["housing", "savings"]);
+    expect(config[0]).toMatchObject({ name: "Housing", colorToken: "#3B82F6", icon: "home-outline", categoryIds: ["housing"] });
+    expect(config.every((item) => !item.includeAllTransactions && item.accountIds.length === 0 && !item.includeTransfersIntoPots)).toBe(true);
+  });
+
+  it("counts subcategory expenses and categorized transfers into the main category's bucket", () => {
+    const config = buildWageFlowConfigFromCategories(appCategories);
     const report = calculateWageFlow({
       transactions: [
         tx({ id: "salary", type: "income", amount: 2000, account_id: "bank-1" }),
-        tx({ id: "groceries", type: "expense", amount: 200, account_id: "bank-1", category_id: "groceries" }),
-        tx({ id: "dining", type: "expense", amount: 60, account_id: "bank-1", category_id: "dining-out" }),
-        tx({ id: "cc-spend", type: "expense", amount: 75, account_id: "credit-1" }),
-        tx({
-          id: "cc-payment-out",
-          type: "expense",
-          amount: 150,
-          account_id: "bank-1",
-          transfer_group_id: "g1",
-        }),
-        tx({
-          id: "cc-payment-in",
-          type: "income",
-          amount: 150,
-          account_id: "credit-1",
-          transfer_group_id: "g1",
-        }),
-        tx({
-          id: "to-savings-out",
-          type: "expense",
-          amount: 100,
-          account_id: "bank-1",
-          transfer_group_id: "g2",
-        }),
-        tx({
-          id: "to-savings-in",
-          type: "income",
-          amount: 100,
-          account_id: "savings-1",
-          transfer_group_id: "g2",
-        }),
+        tx({ id: "rent", amount: 700, category_id: "rent" }),
+        tx({ id: "to-pot", amount: 300, category_id: "savings", transfer_group_id: "g1" }),
+        tx({ id: "to-pot-in", type: "income", amount: 300, category_id: "savings", transfer_group_id: "g1", account_id: "savings-1" }),
+        tx({ id: "uncategorized", amount: 50 }),
       ],
       accounts,
-      categories,
+      categories: appCategories,
       config,
     });
-
     expect(report.income).toBe(2000);
-    expect(bucket(report, "discretionary").amount).toBe(60);
-    expect(bucket(report, "debt-payments").amount).toBe(75); // 150 transfer-in - 75 direct spend (net)
-    expect(bucket(report, "savings-and-goals").amount).toBe(100);
-    // groceries (200) + the credit-card direct spend (75). The card spend
-    // also nets against debt-payments as an outflow from that tracked
-    // account -- the two flows are not deduplicated against each other, so
-    // the same transaction legitimately counts in both.
-    expect(bucket(report, "expenses").amount).toBe(275);
-  });
-
-  it("puts credit_card account ids in accountIds without hardcoding any specific id", () => {
-    const config = buildDefaultWageFlowConfig({ accounts, categories, labels });
-    const debtPayments = config.find((item) => item.id === "debt-payments")!;
-    expect(debtPayments.accountIds).toEqual(["credit-1"]);
+    expect(report.categories.map((item) => [item.id, item.amount])).toEqual([
+      ["housing", 700],
+      ["savings", 300],
+    ]);
+    expect(report.unallocated).toBe(1000);
   });
 });
 
-describe("buildOneWageFlowCategoryPerMainCategory", () => {
-  const mainCategories = [
-    { id: "housing", name: "Housing" },
-    { id: "groceries", name: "Groceries" },
-    { id: "transport", name: "Transport" },
-  ];
-
-  it("creates one separate config per main category, named after it and filtering only on it", () => {
-    const created = buildOneWageFlowCategoryPerMainCategory({
-      mainCategories,
-      existingConfigs: [],
-    });
-
-    expect(created).toHaveLength(3);
-    expect(created.map((config) => config.name)).toEqual(["Housing", "Groceries", "Transport"]);
-    for (const config of created) {
-      expect(config.categoryIds).toHaveLength(1);
-    }
-    expect(created[0].categoryIds).toEqual(["housing"]);
-    expect(created[1].categoryIds).toEqual(["groceries"]);
-    expect(created[2].categoryIds).toEqual(["transport"]);
-    // Each generated entry gets its own id, distinct from every other config
-    // and from the main category id itself -- these are independent, freely
-    // editable/removable Wage Flow categories, not grouped into one filter.
-    expect(new Set(created.map((config) => config.id)).size).toBe(3);
+describe("netReimbursedWageFlowTransactions", () => {
+  const expense = tx({ id: "exp", title: "Continente", amount: 257.7, account_id: "bank-1" });
+  const reimbursementIncome = tx({
+    id: "inc",
+    title: "Continente · Carlos e Andreia",
+    amount: 84.28,
+    type: "income",
+    reimbursement_id: "r1",
   });
 
-  it("skips a main category that's already covered by an existing Wage Flow category", () => {
-    const existingConfigs: WageFlowCategoryConfig[] = [
-      catchAll({ id: "existing-housing", name: "Home stuff", categoryIds: ["housing"], includeAllTransactions: false }),
-    ];
-
-    const created = buildOneWageFlowCategoryPerMainCategory({ mainCategories, existingConfigs });
-
-    expect(created.map((config) => config.name)).toEqual(["Groceries", "Transport"]);
-  });
-
-  it("adds nothing when every main category is already covered (idempotent re-run)", () => {
-    const existingConfigs: WageFlowCategoryConfig[] = mainCategories.map((main) =>
-      catchAll({ id: `wf-${main.id}`, name: main.name, categoryIds: [main.id], includeAllTransactions: false }),
+  it("hides both the expense and the repayment when it was fully reimbursed", () => {
+    const result = netReimbursedWageFlowTransactions(
+      [tx({ id: "exp", amount: 84.28 }), reimbursementIncome],
+      [{ transactionId: "exp", amount: 84.28, accountId: "bank-1" }],
     );
+    expect(result).toEqual([]);
+  });
 
-    const created = buildOneWageFlowCategoryPerMainCategory({ mainCategories, existingConfigs });
+  it("keeps only what is still missing when partly reimbursed, and drops the repayment income", () => {
+    const result = netReimbursedWageFlowTransactions(
+      [expense, reimbursementIncome],
+      [{ transactionId: "exp", amount: 84.28, accountId: "bank-1" }],
+    );
+    expect(result).toEqual([{ ...expense, amount: 173.42 }]);
+  });
 
-    expect(created).toEqual([]);
+  it("nets a split expense first on the leg paid from the account the repayment landed in", () => {
+    // After a replenishment: 173.42 now funded by savings, 84.28 kept on the bank account
+    // that also received the 84.28 repayment -> that leg disappears, the other is untouched.
+    const legs = [
+      tx({ id: "exp:a1", amount: 173.42, account_id: "savings-1" }),
+      tx({ id: "exp:a2", amount: 84.28, account_id: "bank-1" }),
+    ];
+    const result = netReimbursedWageFlowTransactions(
+      [...legs, reimbursementIncome],
+      [{ transactionId: "exp", amount: 84.28, accountId: "bank-1" }],
+    );
+    expect(result).toEqual([legs[0]]);
+  });
+
+  it("spreads a repayment not tied to a leg's account proportionally across the legs", () => {
+    const legs = [
+      tx({ id: "exp:a1", amount: 150, account_id: "bank-1" }),
+      tx({ id: "exp:a2", amount: 50, account_id: "cash-1" }),
+    ];
+    const result = netReimbursedWageFlowTransactions(legs, [
+      { transactionId: "exp", amount: 40, accountId: null },
+    ]);
+    expect(result.map((leg) => leg.amount)).toEqual([120, 40]);
+  });
+
+  it("never touches transfers or unrelated transactions", () => {
+    const transfer = tx({ id: "t1", transfer_group_id: "g1", amount: 500 });
+    const other = tx({ id: "other", amount: 20 });
+    expect(
+      netReimbursedWageFlowTransactions([transfer, other], [{ transactionId: "exp", amount: 10, accountId: null }]),
+    ).toEqual([transfer, other]);
+  });
+
+  it("is applied by calculateWageFlow when reimbursements are given (repayment no longer counted as income)", () => {
+    const config: WageFlowCategoryConfig[] = [
+      {
+        id: "bank",
+        name: "Bank",
+        colorToken: "#3B82F6",
+        icon: "wallet-outline",
+        includeAllTransactions: false,
+        accountIds: ["bank-1"],
+        categoryIds: [],
+        potAccountIds: [],
+        includeTransfersBetweenAccounts: false,
+        includeTransfersIntoPots: false,
+      },
+    ];
+    const salary = tx({ id: "salary", type: "income", amount: 1000, account_id: "cash-1" });
+    const report = calculateWageFlow({
+      transactions: [salary, tx({ id: "exp", amount: 84.28 }), reimbursementIncome],
+      accounts,
+      categories,
+      config,
+      reimbursements: [{ transactionId: "exp", amount: 84.28, accountId: "bank-1" }],
+    });
+    expect(report.income).toBe(1000);
+    expect(report.categories[0].amount).toBe(0);
+    expect(report.categories[0].matches).toEqual([]);
   });
 });

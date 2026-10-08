@@ -41,6 +41,9 @@ export class AccountsService {
     const ownerMap = new Map(
       (accountsResult.data ?? []).map((account) => [account.id, account.owner_profile_id ?? null]),
     )
+    const categoryMap = new Map(
+      (accountsResult.data ?? []).map((account) => [account.id, (account as any).category_id ?? null]),
+    )
 
     return (balancesResult.data ?? []).map((account) => ({
       ...account,
@@ -48,6 +51,8 @@ export class AccountsService {
       // (including id) as nullable even though the underlying join can
       // never actually produce a null id here.
       owner_profile_id: (account.id ? ownerMap.get(account.id) : undefined) ?? null,
+      // Category for money moved into this account (Monthly Budget movements).
+      category_id: (account.id ? categoryMap.get(account.id) : undefined) ?? null,
     }))
   }
 

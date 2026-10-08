@@ -44,6 +44,9 @@ export type WageFlowChartMatch = {
   accountLabel: string;
   ownerLabel: string;
   isTransfer: boolean;
+  categoryId: string | null;
+  /** Transfers: "Account (Pot)" the money went to; null otherwise. */
+  destinationLabel: string | null;
 };
 
 export type WageFlowChartSubcategory = {
@@ -194,7 +197,7 @@ export function WageFlowChart({
   const remaining = Math.max(0, income - totalAllocated);
   const denominator = Math.max(income, totalAllocated, 1);
 
-  const segments =
+  const allSegments =
     remaining > 0
       ? [
           ...buckets,
@@ -208,11 +211,22 @@ export function WageFlowChart({
           },
         ]
       : buckets;
+  // Only categories that actually received money get a ribbon/bar (and a
+  // gap). Empty (0%) categories stay in the category menu, but giving each
+  // of them a fixed gap here used to eat the whole plot once a household had
+  // ~20 categories, collapsing every ribbon to a 1px line.
+  const segments = allSegments.filter((segment) => segment.amount > 0);
 
   const plotTop = WAGE_FLOW_PAD;
   const plotBottom = WAGE_FLOW_HEIGHT - WAGE_FLOW_PAD;
   const plotHeight = plotBottom - plotTop;
-  const totalGap = WAGE_FLOW_GAP * Math.max(segments.length - 1, 0);
+  // Gaps never take more than a quarter of the plot, however many
+  // categories there are.
+  const gap =
+    segments.length > 1
+      ? Math.min(WAGE_FLOW_GAP, (plotHeight * 0.25) / (segments.length - 1))
+      : 0;
+  const totalGap = gap * Math.max(segments.length - 1, 0);
   const availableHeight = Math.max(plotHeight - totalGap, 1);
 
   const leftX = WAGE_FLOW_PAD;
@@ -228,7 +242,7 @@ export function WageFlowChart({
     const rightTop = rightCursor;
     const rightBottom = rightCursor + height;
     leftCursor = leftBottom;
-    rightCursor = rightBottom + WAGE_FLOW_GAP;
+    rightCursor = rightBottom + gap;
     const d = buildRibbonPath({
       leftX: leftX + WAGE_FLOW_BAR_WIDTH,
       leftTop,

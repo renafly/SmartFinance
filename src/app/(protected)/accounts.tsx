@@ -14,6 +14,8 @@ import { usePrivacyStore } from "@/stores/privacyStore";
 import { Page, Section, Field, Button, Pill, PrivacyToggle, formatCurrency } from "@/components/migrated-page";
 import { Badge, EmptyState, MetricCard, Table, TableCell, TableRow } from "@/components/data-surface";
 import { HouseholdMemberSelect } from "@/components/household-member-select";
+import { CategoryPicker } from "@/components/category-picker";
+import { useCategories } from "../../features/categories/hooks";
 import { useToast } from "@/providers/ToastProvider";
 import { useAuth } from "../../providers/AuthProvider";
 import { useAccountsWithBalances, useCreateAccount, useArchiveAccount, useUnarchiveAccount, useDeleteAccount, useUpdateAccount } from "../../features/accounts/hooks";
@@ -64,6 +66,13 @@ export default function AccountsScreen() {
   const unarchiveAccount = useUnarchiveAccount();
   const deleteAccount = useDeleteAccount();
   const updateAccount = useUpdateAccount();
+  // Expense categories only: an account's category is what money moved into
+  // it counts as (see destination_category_for_account).
+  const categoriesQuery = useCategories();
+  const expenseCategories = useMemo(
+    () => ((categoriesQuery.data ?? []) as any[]).filter((category) => category.type === "expense" && !category.is_archived),
+    [categoriesQuery.data],
+  );
   const { show } = useToast();
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -79,6 +88,7 @@ export default function AccountsScreen() {
     currency: AppCurrency;
     initialBalance: string;
     ownerProfileId: string;
+    categoryId: string | null;
   } | null>(null);
   const [name, setName] = useState("");
   const [type, setType] = useState<(typeof accountTypes)[number]>("bank");
@@ -385,6 +395,7 @@ export default function AccountsScreen() {
       currency: (account.currency ?? preferredCurrency) as AppCurrency,
       initialBalance: String(account.initial_balance ?? 0),
       ownerProfileId: account.owner_profile_id ?? "",
+      categoryId: account.category_id ?? null,
     });
     setMenuAccount(null);
   }
@@ -412,6 +423,7 @@ export default function AccountsScreen() {
         currency: editAccount.currency,
         initial_balance: nextInitialBalance,
         owner_profile_id: editAccount.ownerProfileId || null,
+        category_id: editAccount.categoryId,
       } as any,
     });
     show(t("accounts.updateSuccess"));
@@ -909,6 +921,15 @@ export default function AccountsScreen() {
                   })}
                 />
                 <Field label={t("accounts.initialBalance")} value={editAccount.initialBalance} onChangeText={(value) => setEditAccount((current) => (current ? { ...current, initialBalance: value } : current))} keyboardType="numeric" />
+                <CategoryPicker
+                  label={t("accounts.destinationCategory")}
+                  placeholder={t("accounts.destinationCategoryPlaceholder")}
+                  hint={t("accounts.destinationCategoryHint")}
+                  categories={expenseCategories as any}
+                  selectedId={editAccount.categoryId}
+                  clearLabel={t("none")}
+                  onChange={(value) => setEditAccount((current) => (current ? { ...current, categoryId: value ?? null } : current))}
+                />
                 <View style={styles.modalActions}>
                   <Button label={t("cancel")} variant="secondary" onPress={() => setEditAccount(null)} />
                   <Button

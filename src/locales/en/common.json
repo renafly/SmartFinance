@@ -768,7 +768,10 @@
       "credit": "Credit",
       "investment": "Investment",
       "ppr": "PPR"
-    }
+    },
+    "destinationCategory": "Category for money moved in",
+    "destinationCategoryPlaceholder": "No category",
+    "destinationCategoryHint": "Monthly Budget movements into this account use this category (Wage Flow too). A saving pot backed by this account takes precedence."
   },
   "insights": {
     "wageFlow": {
@@ -852,7 +855,9 @@
       "selectCategoryPrompt": "Select a category from the flow to see its details.",
       "noTransactionsInCategory": "No transactions in this category yet.",
       "collapseDetails": "Collapse details panel",
-      "expandDetails": "Expand details panel"
+      "expandDetails": "Expand details panel",
+      "filteredBySubcategory": "{{name}} · {{count}} transaction(s)",
+      "showAll": "Show all"
     }
   },
   "transactions": {
@@ -1126,7 +1131,9 @@
       "collapse": "Hide payment breakdown"
     },
     "showFullNote": "Show full note",
-    "hideFullNote": "Collapse note"
+    "hideFullNote": "Collapse note",
+    "originallyFrom": "Originally from {{source}}",
+    "selectAccount": "Select account"
   },
   "categories": {
     "title": "Categories",
@@ -1168,7 +1175,7 @@
       "account": "Account"
     },
     "seedTitle": "Start with default categories",
-    "seedSubtitle": "Add a ready-made set of 10 main expense categories (each with a few common subcategories) and 10 income categories, so you're not starting from a blank list. Only fills in whichever type is still missing.",
+    "seedSubtitle": "Add a ready-made set of 15 main expense categories (each with common subcategories) and 10 income categories. Categories you already have are kept and tidied up, never duplicated.",
     "seedAction": "Add default categories",
     "seedInProgress": "Adding categories...",
     "browser": {
@@ -1197,81 +1204,6 @@
       "noRecentTransactions": "No transactions in this period.",
       "byAccountTitle": "By account",
       "byUserTitle": "By household member"
-    },
-    "defaults": {
-      "housing": "Housing",
-      "utilities": "Utilities",
-      "groceries": "Groceries",
-      "transportation": "Transportation",
-      "healthWellness": "Health & Wellness",
-      "diningEntertainment": "Dining & Entertainment",
-      "shoppingPersonalCare": "Shopping & Personal Care",
-      "familyEducation": "Family & Education",
-      "savingsInvestments": "Savings & Investments",
-      "debtObligations": "Debt & Financial Obligations"
-    },
-    "defaultsSub": {
-      "housing": {
-        "rentMortgage": "Rent/Mortgage",
-        "homeInsurance": "Home Insurance",
-        "maintenance": "Maintenance & Repairs"
-      },
-      "utilities": {
-        "electricity": "Electricity",
-        "water": "Water",
-        "internetPhone": "Internet & Phone"
-      },
-      "groceries": {
-        "supermarket": "Supermarket",
-        "householdSupplies": "Household Supplies"
-      },
-      "transportation": {
-        "fuel": "Fuel",
-        "publicTransit": "Public Transit",
-        "carMaintenance": "Car Maintenance & Insurance"
-      },
-      "healthWellness": {
-        "doctorPharmacy": "Doctor & Pharmacy",
-        "healthInsurance": "Health Insurance",
-        "fitness": "Fitness"
-      },
-      "diningEntertainment": {
-        "restaurantsTakeout": "Restaurants & Takeout",
-        "streamingSubscriptions": "Streaming & Subscriptions",
-        "leisureHobbies": "Leisure & Hobbies"
-      },
-      "shoppingPersonalCare": {
-        "clothing": "Clothing",
-        "personalCare": "Personal Care",
-        "electronicsGadgets": "Electronics & Gadgets"
-      },
-      "familyEducation": {
-        "childcare": "Childcare",
-        "tuitionCourses": "Tuition & Courses",
-        "kidsActivities": "Kids' Activities"
-      },
-      "savingsInvestments": {
-        "emergencyFund": "Emergency Fund",
-        "investments": "Investments",
-        "retirement": "Retirement"
-      },
-      "debtObligations": {
-        "loanPayments": "Loan Payments",
-        "creditCardPayments": "Credit Card Payments",
-        "taxesFees": "Taxes & Fees"
-      }
-    },
-    "defaultsIncome": {
-      "salary": "Salary",
-      "freelance": "Freelance & Self-Employment",
-      "bonusCommissions": "Bonus & Commissions",
-      "investmentIncome": "Investment Income",
-      "rentalIncome": "Rental Income",
-      "businessIncome": "Business Income",
-      "giftsInheritance": "Gifts & Inheritance",
-      "refundsReimbursements": "Refunds & Reimbursements",
-      "governmentBenefits": "Government Benefits",
-      "otherIncome": "Other Income"
     }
   },
   "tags": {
@@ -1414,7 +1346,12 @@
     "forecastYear": "Year",
     "forecastUnavailableNoTarget": "Add a target amount to see a completion forecast.",
     "forecastUnavailableNoContributions": "No active recurring transfers or budget rules put money toward this pot yet.",
-    "forecastUnavailableBeyondHorizon": "This target can't be forecast within the next 30 years."
+    "forecastUnavailableBeyondHorizon": "This target can't be forecast within the next 30 years.",
+    "groupCount_one": "{{count}} account",
+    "groupCount_other": "{{count}} accounts",
+    "destinationCategory": "Category for money moved in",
+    "destinationCategoryPlaceholder": "No category",
+    "destinationCategoryHint": "Monthly Budget movements into the account backing this pot use this category (Wage Flow too)."
   },
   "forecast": {
     "title": "Balance forecast",
@@ -1663,7 +1600,9 @@
     "detailTransactionsSubtitle_one": "{{count}} transaction",
     "detailTransactionsSubtitle_other": "{{count}} transactions",
     "detailSourcesTitle": "Sources",
-    "detailTransfersTitle": "Transfers created"
+    "detailTransfersTitle": "Transfers created",
+    "reimbursedNote": "{{amount}} reimbursed",
+    "detailFundedBy": "Funded by {{sources}}"
   },
   "notifications": {
     "title": "Notifications",

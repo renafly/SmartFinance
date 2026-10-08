@@ -11,4 +11,8 @@ export type InsightTransaction = {
   account_id: string;
   category_id?: string | null;
   transfer_group_id?: string | null;
+  /** Set on the income row a reimbursement generated (see
+   * sync_reimbursement_income_transaction) -- Wage Flow folds reimbursements
+   * into the expense they repaid instead of counting them as income. */
+  reimbursement_id?: string | null;
 };

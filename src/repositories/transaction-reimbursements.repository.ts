@@ -41,6 +41,21 @@ export class TransactionReimbursementsRepository extends BaseRepository<"transac
     return { data: data ?? [], error: null };
   }
 
+  /** Every reimbursement row in a household (only the fields needed to net
+   * expenses) -- used by Wage Flow to show expenses net of what other people
+   * paid back. Small table; one request. */
+  async listForHousehold(
+    householdId: string,
+  ): Promise<RepoResult<Pick<TransactionReimbursement, "transaction_id" | "amount" | "account_id" | "source_type">[]>> {
+    const { data, error } = await this.client
+      .from("transaction_reimbursements")
+      .select("transaction_id, amount, account_id, source_type")
+      .eq("household_id", householdId);
+
+    if (error) return { data: null, error };
+    return { data: data ?? [], error: null };
+  }
+
   /**
    * Bulk effective-amounts lookup for a household, so a transactions list
    * can decorate every row (original amount struck through, effective
