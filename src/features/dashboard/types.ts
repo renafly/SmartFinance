@@ -34,6 +34,19 @@ export type MemberDetails = {
 
 export type AllocationKey = 'invested' | 'savings' | 'pots';
 
+/**
+ * Generic slice for the shared donut chart + legend (AllocationDonut /
+ * AllocationLegend). The dashboard's AllocationSegment is one concrete use;
+ * the Tags screen's category breakdown is another.
+ */
+export type DonutSegment = {
+  key: string;
+  label: string;
+  value: number;
+  color: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+};
+
 export type AllocationSegment = {
   key: AllocationKey;
   label: string;

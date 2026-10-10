@@ -27,8 +27,6 @@ export type GuideStep = {
 export type OnboardingGuide = {
   key: OnboardingGuideKey;
   version: number;
-  /** Guides marked automatic appear once when this exact guide version is new. */
-  autoShow?: boolean;
   steps: readonly GuideStep[];
 };
 

@@ -54,6 +54,7 @@ import { AttachmentPreview } from "@/components/attachment-preview";
 import { useAuth } from "../../providers/AuthProvider";
 import { useAccountsWithBalances } from "../../features/accounts/hooks";
 import { useCategories } from "../../features/categories/hooks";
+import { translateCategoryName } from "@/features/categories/category-names";
 import { CategoryPicker } from "@/components/category-picker";
 import { useHouseholdMemberDetails } from "../../features/households/hooks";
 import { useTransactionMovementsInfinite, useTransactionMovementsSummary } from "../../features/transactions/hooks/useTransactions";
@@ -1041,7 +1042,10 @@ export default function TransactionsScreen() {
     const parent = category?.parent_id
       ? (categories as any[]).find((c) => c.id === category.parent_id)
       : null;
-    return parent ? `${parent.name} › ${category?.name ?? item.category.name}` : (category?.name ?? item.category.name);
+    // `categories` (useCategories) is already localized; the joined
+    // item.category name is the raw database value, so translate it too.
+    const name = category?.name ?? translateCategoryName(item.category.name, t);
+    return parent ? `${parent.name} › ${name}` : name;
   };
   const handleTransactionsScroll = useCallback(
     (event: any) => {
@@ -2340,7 +2344,7 @@ export default function TransactionsScreen() {
                                       item.id === suggestion.accountId,
                                   )?.name;
                                   const context = [
-                                    suggestion.categoryName,
+                                    translateCategoryName(suggestion.categoryName, t),
                                     accountName,
                                     t("transactions.titleSuggestionUses", {
                                       count: suggestion.usageCount,
@@ -2633,8 +2637,10 @@ export default function TransactionsScreen() {
                                 "medium" ? (
                               <Text style={styles.categorySuggestionText}>
                                 {t("transactions.categorySuggestionMedium", {
-                                  category:
+                                  category: translateCategoryName(
                                     categorySuggestion.data.categoryName,
+                                    t,
+                                  ),
                                   count: categorySuggestion.data.matchCount,
                                 })}
                               </Text>
@@ -3036,7 +3042,7 @@ export default function TransactionsScreen() {
                                 {item.title}
                               </Text>
                               <Text style={styles.transactionContext}>
-                                {item.category?.name ??
+                                {translateCategoryName(item.category?.name, t) ??
                                   (movementKind === "transfer"
                                     ? t("transactions.filters.transfer")
                                     : t("transactions.uncategorized"))}

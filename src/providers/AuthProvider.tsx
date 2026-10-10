@@ -181,7 +181,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
-  const { profile, householdId, loading, error: sessionError } = useSession(claims, refreshKey);
+  // Membership is loaded for the session's user id (available synchronously
+  // with the session), never for JWT claims that arrive later -- see useSession.
+  const { profile, householdId, loading, error: sessionError } = useSession(session?.user.id ?? null, refreshKey);
   const setCurrency = usePreferencesStore((state) => state.setCurrency);
   const currency = usePreferencesStore((state) => state.currency);
   const setLanguage = usePreferencesStore((state) => state.setLanguage);

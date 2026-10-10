@@ -9,6 +9,7 @@ import { MonthPickerField } from '@/components/date-picker-field';
 import { DateFilterField } from '@/features/transactions/components/transaction-date-field';
 import { getLocalCalendarDate } from '@/features/transactions/utils/transaction-create-form';
 import { DeleteTagDialog } from '@/features/tags/components/delete-tag-dialog';
+import { TagCategoryChart } from '@/features/tags/components/tag-category-chart';
 import { TagNameDialog } from '@/features/tags/components/tag-name-dialog';
 import { TagSummaryCard } from '@/features/tags/components/tag-summary-card';
 import {
@@ -90,6 +91,7 @@ export default function TagsScreen() {
     [summaries, search, sortKey],
   );
   const hasAnyTags = summaries.length > 0;
+  const visibleTagIds = useMemo(() => visibleSummaries.map((tag) => tag.id), [visibleSummaries]);
 
   function toggleExpanded(id: string) {
     setExpandedIds((current) => {
@@ -160,6 +162,12 @@ export default function TagsScreen() {
     fontSize: typography.fontSize[13],
     fontWeight: typography.fontWeight.semibold as any,
   };
+
+  const chart = (
+    <View style={{ flexGrow: 2, flexShrink: 1, flexBasis: responsive.isPhone ? '100%' : 320, minWidth: 0 } as any}>
+      <TagCategoryChart tagIds={visibleTagIds} range={range} hideValues={hideValues} />
+    </View>
+  );
 
   return (
     <Page
@@ -264,21 +272,30 @@ export default function TagsScreen() {
         ) : visibleSummaries.length === 0 ? (
           <Text style={mutedText}>{t('tags.noResults', { query: search.trim() })}</Text>
         ) : (
-          visibleSummaries.map((tag) => (
-            <TagSummaryCard
-              key={tag.id}
-              tag={tag}
-              range={range}
-              expanded={expandedIds.has(tag.id)}
-              hideValues={hideValues}
-              onToggle={() => toggleExpanded(tag.id)}
-              onRename={() => {
-                setNameError(null);
-                setNameDialog({ mode: 'rename', id: tag.id, name: tag.name });
-              }}
-              onDelete={() => setTagToDelete(tag)}
-            />
-          ))
+          // Tag list + "spending by category" chart side by side; wraps to a
+          // single column once there isn't room for both at their minimum
+          // widths. On phones the chart goes first, as a quick overview.
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: spacing(4) } as any}>
+            {responsive.isPhone ? chart : null}
+            <View style={{ flexGrow: 3, flexShrink: 1, flexBasis: responsive.isPhone ? '100%' : 420, minWidth: 0, gap: spacing(3) } as any}>
+              {visibleSummaries.map((tag) => (
+                <TagSummaryCard
+                  key={tag.id}
+                  tag={tag}
+                  range={range}
+                  expanded={expandedIds.has(tag.id)}
+                  hideValues={hideValues}
+                  onToggle={() => toggleExpanded(tag.id)}
+                  onRename={() => {
+                    setNameError(null);
+                    setNameDialog({ mode: 'rename', id: tag.id, name: tag.name });
+                  }}
+                  onDelete={() => setTagToDelete(tag)}
+                />
+              ))}
+            </View>
+            {responsive.isPhone ? null : chart}
+          </View>
         )}
       </Animated.View>
 

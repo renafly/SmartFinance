@@ -1,20 +1,19 @@
 import { sessionRepository } from './session.repository';
-import type { Claims } from './session.types';
 
 export class SessionService {
-  async loadProfileAndHousehold(claims: Claims) {
-    if (!claims?.sub) {
+  async loadProfileAndHousehold(userId: string | null | undefined) {
+    if (!userId) {
       return {
         profile: null,
         householdId: null,
       };
     }
 
-    const { data: profileData, error: profileError } = await sessionRepository.getProfile(claims.sub);
+    const { data: profileData, error: profileError } = await sessionRepository.getProfile(userId);
     if (profileError) throw profileError;
 
     const { data: membershipData, error: membershipError } =
-      await sessionRepository.getAcceptedMemberships(claims.sub);
+      await sessionRepository.getAcceptedMemberships(userId);
 
     if (membershipError) throw membershipError;
 

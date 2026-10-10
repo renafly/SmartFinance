@@ -596,7 +596,7 @@ export default function BudgetScreen() {
 
                       <View style={{ gap: spacing(2), paddingTop: spacing(2), marginTop: spacing(1), borderTopWidth: 1, borderTopColor: colors.border } as any}>
                         <MovedBreakdown movements={summary.movements} total={summary.totalMoved} accountsById={accountsById} ownerLabel={ownerLabel} />
-                        <BalanceAfter summary={summary} accountLabel={accountWithOwner} />
+                        <BalanceAfter summary={summary} accountsById={accountsById} ownerLabel={ownerLabel} />
                         {isEditingMovement ? (
                           <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any}>{t('budget.plan.finishMovementFirst')}</Text>
                         ) : hasUnsavedChanges ? (

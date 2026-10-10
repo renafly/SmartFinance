@@ -17,6 +17,9 @@ export type GroupedRow = {
   danger?: boolean;
   iconName?: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
+  /** Only read by `MemberDropdownList`: close the member's dropdown before
+   * running `onPress` (for rows that open a picker of their own). */
+  closesDropdown?: boolean;
 };
 
 export type MemberGroup = {
@@ -88,7 +91,7 @@ export function MemberGroupedList({
   );
 }
 
-function RowList({ label, rows }: { label?: string; rows: GroupedRow[] }) {
+export function RowList({ label, rows }: { label?: string; rows: GroupedRow[] }) {
   const { colors } = useTheme();
 
   return (

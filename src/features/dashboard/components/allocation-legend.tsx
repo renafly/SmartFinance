@@ -10,10 +10,10 @@ import { displayCurrency } from '@/shared/lib/mask-currency';
 import { usePrivacyStore } from '@/stores/privacyStore';
 
 import { getPercent } from '../utils';
-import type { AllocationSegment } from '../types';
+import type { DonutSegment } from '../types';
 
 type AllocationLegendProps = {
-  segments: AllocationSegment[];
+  segments: DonutSegment[];
   total: number;
 };
 
@@ -26,10 +26,10 @@ export function AllocationLegend({ segments, total }: AllocationLegendProps) {
       {segments.map((segment) => (
         <View key={segment.key} style={[styles.legendItem, { borderColor: colors.border, backgroundColor: colors.surfaceMuted }]}>
           <View style={[styles.legendIcon, { backgroundColor: segment.color }]}>
-            <Ionicons name={segment.icon} size={16} color={colors.primaryForeground} />
+            {segment.icon ? <Ionicons name={segment.icon} size={16} color={colors.primaryForeground} /> : null}
           </View>
           <View style={styles.legendCopy}>
-            <Text style={[styles.legendLabel, { color: colors.text }]}>{segment.label}</Text>
+            <Text numberOfLines={1} style={[styles.legendLabel, { color: colors.text }]}>{segment.label}</Text>
             <Text style={[styles.legendValue, { color: colors.textSecondary }]}>
               {displayCurrency(formatCurrency(segment.value), hideValues)} - {getPercent(segment.value, total)}%
             </Text>

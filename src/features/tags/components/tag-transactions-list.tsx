@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { Table, TableCell, TableRow } from "@/components/data-surface";
 import { formatCurrency, formatDate } from "@/components/migrated-page";
+import { translateCategoryName } from "@/features/categories/category-names";
 import { displayCurrency } from "@/shared/lib/mask-currency";
 import { useResponsiveMetrics } from "@/theme/responsive";
 import { spacing } from "@/theme/spacing";
@@ -91,7 +92,7 @@ export function TagTransactionsList({ tagId, range, hideValues }: TagTransaction
               {formatDate(transaction.date)}
             </TableCell>,
             <TableCell key="category" flex={1} muted mobileLabel={t("tags.details.category")}>
-              {transaction.categoryName ?? t("tags.details.uncategorized")}
+              {translateCategoryName(transaction.categoryName, t) ?? t("tags.details.uncategorized")}
             </TableCell>,
             <TableCell key="account" flex={1} muted mobileLabel={t("tags.details.account")}>
               {transaction.isSplit

@@ -7,14 +7,19 @@ import { typography } from '@/theme/typography';
 import { useResponsiveMetrics } from '@/theme/responsive';
 
 import { getPercent } from '../utils';
-import type { AllocationSegment } from '../types';
+import type { DonutSegment } from '../types';
 
 type AllocationDonutProps = {
-  segments: AllocationSegment[];
+  segments: DonutSegment[];
   total: number;
+  /** Overrides the default center (largest segment's % + label), e.g. a formatted total. */
+  centerValue?: string;
+  centerLabel?: string;
+  /** Rounded slice ends read well with 2-3 slices but overlap small slices; defaults to on. */
+  roundCaps?: boolean;
 };
 
-export function AllocationDonut({ segments, total }: AllocationDonutProps) {
+export function AllocationDonut({ segments, total, centerValue, centerLabel, roundCaps = true }: AllocationDonutProps) {
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
   const size = responsive.isPhone ? spacing(34) : spacing(40);
@@ -54,16 +59,31 @@ export function AllocationDonut({ segments, total }: AllocationDonutProps) {
               strokeWidth={strokeWidth}
               strokeDasharray={[dashLength, gapLength]}
               strokeDashoffset={dashOffset}
-              strokeLinecap={visibleSegments.length > 1 ? 'round' : 'butt'}
+              strokeLinecap={roundCaps && visibleSegments.length > 1 ? 'round' : 'butt'}
               fill="transparent"
             />
           );
         })}
       </Svg>
-      <View style={styles.donutCenter}>
-        <Text style={[styles.donutCenterLabel, { color: colors.textSecondary }]}>{getPercent(segments[0]?.value ?? 0, total)}%</Text>
-        <Text style={[styles.donutCenterText, { color: colors.text }]}>{segments[0]?.label}</Text>
-      </View>
+      {centerValue !== undefined ? (
+        <View style={[styles.donutCenter, { maxWidth: size - strokeWidth * 2 - spacing(4) }]}>
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            style={[styles.donutCenterValue, { color: colors.text }]}
+          >
+            {centerValue}
+          </Text>
+          {centerLabel ? (
+            <Text numberOfLines={1} style={[styles.donutCenterText, { color: colors.textSecondary }]}>{centerLabel}</Text>
+          ) : null}
+        </View>
+      ) : (
+        <View style={styles.donutCenter}>
+          <Text style={[styles.donutCenterLabel, { color: colors.textSecondary }]}>{getPercent(segments[0]?.value ?? 0, total)}%</Text>
+          <Text style={[styles.donutCenterText, { color: colors.text }]}>{segments[0]?.label}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -81,6 +101,11 @@ const styles = StyleSheet.create({
   donutCenterLabel: {
     fontSize: typography.fontSize[28],
     lineHeight: typography.lineHeight[32],
+    fontWeight: typography.fontWeight.extraBold as any,
+  },
+  donutCenterValue: {
+    fontSize: typography.fontSize[18],
+    lineHeight: typography.lineHeight[24],
     fontWeight: typography.fontWeight.extraBold as any,
   },
   donutCenterText: {

@@ -2,14 +2,8 @@ import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import * as Localization from 'expo-localization';
 
-import commonEN from '../locales/en/common.json';
-import commonPT from '../locales/pt/common.json';
 import { getStoredLanguage, normalizeLanguage } from '@/shared/i18n/languages';
-
-const resources = {
-  en: { common: commonEN },
-  pt: { common: commonPT },
-};
+import { resources } from '@/shared/i18n/resources';
 
 // eslint-disable-next-line import/no-named-as-default-member
 i18next.use(initReactI18next).init({

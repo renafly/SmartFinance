@@ -99,11 +99,16 @@ type CategoryLike = {
   parent_id: string | null;
   is_archived: boolean;
   is_discretionary?: boolean;
+  /** Raw database name; `name` is the display name in the current language (useCategories). */
+  stored_name?: string;
 };
 
 type CategoryEditDraft = {
   id: string;
   name: string;
+  /** Display name the form opened with, and the database value behind it. */
+  initialName: string;
+  storedName: string;
   type: CategoryLike['type'];
   parentId: string;
   icon: string | null;
@@ -512,6 +517,8 @@ export default function CategoriesScreen() {
     setEditCategory({
       id: category.id,
       name: category.name,
+      initialName: category.name,
+      storedName: category.stored_name ?? category.name,
       type: category.type,
       parentId: category.parent_id ?? '',
       icon: category.icon,
@@ -603,9 +610,15 @@ export default function CategoriesScreen() {
   async function handleSaveCategory() {
     if (!editCategory?.name.trim()) return;
 
+    // Default categories are shown translated (see category-names.ts). If the
+    // name wasn't touched, keep the stored value instead of overwriting it
+    // with the current language's label.
+    const trimmedName = editCategory.name.trim();
+    const nameToSave = trimmedName === editCategory.initialName.trim() ? editCategory.storedName : trimmedName;
+
     await updateCategory.mutateAsync({
       id: editCategory.id,
-      name: editCategory.name.trim(),
+      name: nameToSave,
       type: editCategory.type,
       icon: editCategory.icon,
       parent_id: editCategory.parentId.trim() || null,
