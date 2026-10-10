@@ -78,7 +78,9 @@ describe('MemberDropdownList', () => {
     await fireEvent.press(view.getByText('Ana Checking'));
     await fireEvent.press(view.getByText('Ana Savings'));
     await fireEvent.press(view.getByText('Ana Wallet'));
-    expect(view.getByText('Ana Wallet')).toBeTruthy();
+    // Still open: each selected account shows both as a dropdown option and as a chip.
+    expect(view.getAllByText('Ana Wallet')).toHaveLength(2);
+    expect(view.getByText('Done')).toBeTruthy();
     expect(latestSelection.sort()).toEqual(['a1', 'a2', 'a3']);
 
     await fireEvent.press(view.getByText('Done'));
