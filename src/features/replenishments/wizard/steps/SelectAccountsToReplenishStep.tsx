@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Card, Section, formatCurrency } from "@/components/migrated-page";
+import { formatCurrency } from "@/components/migrated-page";
 import { displayCurrency } from "@/shared/lib/mask-currency";
 import { usePrivacyStore } from "@/stores/privacyStore";
 import { useAccountsWithBalances } from "@/features/accounts/hooks";
@@ -11,7 +11,8 @@ import {
   useSavingPots,
 } from "@/features/saving-pots/hooks";
 
-import { MemberGroupedList, type MemberGroup } from "../../components/MemberGroupedList";
+import { MemberDropdownList } from "../../components/MemberDropdownList";
+import type { MemberGroup } from "../../components/MemberGroupedList";
 import {
   accountMemberKey,
   orderMemberSections,
@@ -90,23 +91,14 @@ export function SelectAccountsToReplenishStep({
   }, [accounts, pots, potAccountIds, accountOwnerById, potBalanceById, memberLabelMap, selected, hideValues, t, onToggleAccountIds]);
 
   return (
-    <>
-      <Card>
-        <Section
-          title={t("replenishments.selectAccountsTitle")}
-          subtitle={t("replenishments.selectAccountsSubtitle")}
-        >
-          {null}
-        </Section>
-      </Card>
-
-      <MemberGroupedList
-        groups={groups}
-        primaryLabel={t("replenishments.availableAccountsTitle")}
-        secondaryLabel={t("replenishments.availablePotsTitle")}
-        emptyLabel={t("replenishments.noAccounts")}
-        emptyIcon="wallet-outline"
-      />
-    </>
+    <MemberDropdownList
+      title={t("replenishments.selectAccountsTitle")}
+      subtitle={t("replenishments.selectAccountsSubtitle")}
+      groups={groups}
+      primaryLabel={t("replenishments.availableAccountsTitle")}
+      secondaryLabel={t("replenishments.availablePotsTitle")}
+      emptyLabel={t("replenishments.noAccounts")}
+      emptyIcon="wallet-outline"
+    />
   );
 }

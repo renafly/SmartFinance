@@ -21,6 +21,7 @@ import { generateColorShades } from '@/shared/lib/color';
 import { useAuth } from '../../providers/AuthProvider';
 import { useHouseholdMemberDetails } from '../../features/households/hooks/useHouseholdMemberDetails';
 import { useDefaultHousehold, useMyHouseholds } from '../../features/households/hooks';
+import { HouseholdSetupCard } from '../../features/households/components/household-setup-card';
 import { accountsService } from '../../features/accounts/services/accounts.service';
 import { transactionsService } from '../../features/transactions/services/transaction.service';
 import { savingPotsService } from '../../features/saving-pots/services/saving-pots.service';
@@ -84,7 +85,7 @@ type WageFlowRangePreset = '1m' | 'last_month' | '3m' | '6m' | '9m' | '12m' | '2
 
 export default function DashboardScreen() {
   const { t } = useTranslation('common');
-  const { profile, householdId } = useAuth();
+  const { profile, householdId, isLoading: isAuthLoading, sessionError } = useAuth();
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
   const hideValues = usePrivacyStore((state) => state.hideValues);
@@ -705,7 +706,23 @@ export default function DashboardScreen() {
 
   // ---- end Wage Flow ---------------------------------------------------
 
-  if (isPreparingDashboard) return <AuthLoadingTransition />;
+  // Household setup is offered only once membership has been *successfully*
+  // loaded from the database and is empty. While it's loading, or if the load
+  // failed, householdId === null means "unknown", not "no household".
+  const needsHouseholdSetup = !isAuthLoading && !sessionError && householdId === null;
+
+  if (needsHouseholdSetup) {
+    return (
+      <Page
+        title={t('dashboard.title')}
+        subtitle={t('dashboard.subtitle', { name: profile?.full_name ? `, ${profile.full_name}` : '' })}
+      >
+        <HouseholdSetupCard />
+      </Page>
+    );
+  }
+
+  if (isPreparingDashboard || householdId === null) return <AuthLoadingTransition />;
 
   return (
     <Page

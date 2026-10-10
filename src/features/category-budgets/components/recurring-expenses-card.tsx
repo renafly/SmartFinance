@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +13,7 @@ import { spacing } from '@/theme/spacing';
 import { displayCurrency } from '@/shared/lib/mask-currency';
 import { usePrivacyStore } from '@/stores/privacyStore';
 import { useToast } from '@/providers/ToastProvider';
+import { useAuth } from '@/providers/AuthProvider';
 import { MONTH_OPTIONS } from '@/features/monthly-budget/ui-utils';
 import type { BudgetAccountLike, BudgetMemberLike } from '@/features/monthly-budget/types';
 import {
@@ -24,11 +25,7 @@ import {
 } from '@/features/planned-items/hooks';
 import { emptyPlannedItemDraft, formatPlannedItemRecurrenceSummary, plannedItemToDraft } from '@/features/planned-items/utils';
 import type { PlannedItemDraft, PlannedItemWithDestinations } from '@/features/planned-items/types';
-
-function pickDefaultAccountId(accounts: BudgetAccountLike[], allowedTypes: string[]): string {
-  const owned = accounts.find((account) => allowedTypes.includes(account.type));
-  return owned?.id ?? '';
-}
+import { getEligibleSourceAccounts, pickDefaultSourceAccountId } from '../services/source-account-eligibility';
 
 /** Monthly/specific-months/interval/one-time picker, shared by the add and edit forms below -- same fields planned-item-card.tsx exposes for these four recurrence types, just without that card's destinations/estimate/owner/start-end-month sections (out of scope here, see this file's top doc comment). */
 function RecurrenceFields({ draft, onChange }: { draft: PlannedItemDraft; onChange: (patch: Partial<PlannedItemDraft>) => void }) {
@@ -85,6 +82,7 @@ function RecurringExpenseForm({
   onCancel,
   isSaving,
   accounts,
+  accountsLoading,
   members,
   categories,
 }: {
@@ -94,11 +92,13 @@ function RecurringExpenseForm({
   onCancel: () => void;
   isSaving: boolean;
   accounts: BudgetAccountLike[];
+  accountsLoading: boolean;
   members: BudgetMemberLike[];
   categories: CategoryPickerCategory[];
 }) {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
+  const eligibleAccounts = useMemo(() => getEligibleSourceAccounts(accounts, draft.sourceAccountId), [accounts, draft.sourceAccountId]);
 
   return (
     <View style={{ gap: spacing(2), padding: spacing(4), borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceMuted } as any}>
@@ -111,22 +111,38 @@ function RecurringExpenseForm({
         selectedId={draft.categoryId || null}
         onChange={(categoryId) => onChange({ categoryId: categoryId ?? '' })}
       />
-      <GroupedAccountSelect
-        label={t('budget.sourceAccount')}
-        accounts={accounts}
-        members={members}
-        value={draft.sourceAccountId}
-        placeholder={t('budget.selectSourceAccount')}
-        hint={t('budget.plannedItems.sourceAccountHint')}
-        allowedTypes={['cash', 'bank']}
-        sharedLabel={t('budget.shared')}
-        unassignedLabel={t('settings.unnamedUser')}
-        closeLabel={t('cancel')}
-        onChange={(accountId) => onChange({ sourceAccountId: accountId })}
-      />
+      {accountsLoading || eligibleAccounts.length === 0 ? (
+        <View style={{ gap: spacing(1) } as any}>
+          <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any}>{t('budget.sourceAccount')}</Text>
+          <Text style={{ color: accountsLoading ? colors.textSecondary : colors.warning, fontSize: typography.fontSize[14] } as any}>
+            {accountsLoading ? t('loading') : t('budget.categoryBudgets.recurring.noSourceAccounts')}
+          </Text>
+        </View>
+      ) : (
+        <GroupedAccountSelect
+          label={t('budget.sourceAccount')}
+          accounts={eligibleAccounts}
+          members={members}
+          value={draft.sourceAccountId}
+          placeholder={t('budget.selectSourceAccount')}
+          hint={t('budget.plannedItems.sourceAccountHint')}
+          sharedLabel={t('budget.shared')}
+          unassignedLabel={t('settings.unnamedUser')}
+          closeLabel={t('cancel')}
+          typeLabels={{
+            bank: t('accounts.types.bank'),
+            cash: t('accounts.types.cash'),
+            savings: t('accounts.types.savings'),
+            credit_card: t('accounts.types.credit_card'),
+            investment: t('accounts.types.investment'),
+            ppr: t('accounts.types.ppr'),
+          }}
+          onChange={(accountId) => onChange({ sourceAccountId: accountId })}
+        />
+      )}
       <RecurrenceFields draft={draft} onChange={onChange} />
       <View style={{ flexDirection: 'row', gap: spacing(2) } as any}>
-        <Button label={isSaving ? t('saving') : t('budget.plannedItems.save')} onPress={onSave} disabled={isSaving} />
+        <Button label={isSaving ? t('saving') : t('budget.plannedItems.save')} onPress={onSave} disabled={isSaving || !draft.sourceAccountId} />
         <Button label={t('cancel')} onPress={onCancel} variant="secondary" disabled={isSaving} />
       </View>
     </View>
@@ -135,6 +151,8 @@ function RecurringExpenseForm({
 
 export type RecurringExpensesCardProps = {
   accounts: BudgetAccountLike[];
+  /** True while the household's accounts are still loading -- the Source account field shows a loading line instead of an empty picker. */
+  accountsLoading?: boolean;
   members: BudgetMemberLike[];
   categories: CategoryPickerCategory[];
 };
@@ -162,8 +180,10 @@ export type RecurringExpensesCardProps = {
  * this codebase already has (no second recurring-expense table) -- this
  * is a different, smaller FORM over the same data, not a new backend.
  */
-export function RecurringExpensesCard({ accounts, members, categories }: RecurringExpensesCardProps) {
+export function RecurringExpensesCard({ accounts, accountsLoading = false, members, categories }: RecurringExpensesCardProps) {
   const { t } = useTranslation('common');
+  const { profile } = useAuth();
+  const currentProfileId = profile?.id ?? null;
   const { colors } = useTheme();
   const hideValues = usePrivacyStore((state) => state.hideValues);
   const { show: showToast } = useToast();
@@ -188,8 +208,16 @@ export function RecurringExpensesCard({ accounts, members, categories }: Recurri
   function startAdding() {
     setEditingId(null);
     setEditDraft(null);
-    setNewDraft(emptyPlannedItemDraft('outflow', pickDefaultAccountId(accounts, ['cash', 'bank']), ''));
+    setNewDraft(emptyPlannedItemDraft('outflow', pickDefaultSourceAccountId(accounts, currentProfileId), ''));
   }
+
+  // "Add" pressed before the accounts query resolved: fill in the default
+  // once accounts arrive, rather than leaving the new draft without one.
+  useEffect(() => {
+    if (!newDraft || newDraft.sourceAccountId || accounts.length === 0) return;
+    const defaultId = pickDefaultSourceAccountId(accounts, currentProfileId);
+    if (defaultId) setNewDraft((current) => (current && !current.sourceAccountId ? { ...current, sourceAccountId: defaultId } : current));
+  }, [accounts, currentProfileId, newDraft]);
 
   async function handleSaveNew() {
     if (!newDraft) return;
@@ -250,6 +278,7 @@ export function RecurringExpensesCard({ accounts, members, categories }: Recurri
                 }}
                 isSaving={updateItem.isPending}
                 accounts={accounts}
+                accountsLoading={accountsLoading}
                 members={members}
                 categories={categories}
               />
@@ -292,6 +321,7 @@ export function RecurringExpensesCard({ accounts, members, categories }: Recurri
             onCancel={() => setNewDraft(null)}
             isSaving={createItem.isPending}
             accounts={accounts}
+            accountsLoading={accountsLoading}
             members={members}
             categories={categories}
           />

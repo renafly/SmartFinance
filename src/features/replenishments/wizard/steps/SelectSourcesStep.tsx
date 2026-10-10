@@ -15,7 +15,8 @@ import {
   useSavingPots,
 } from "@/features/saving-pots/hooks";
 
-import { MemberGroupedList, type MemberGroup } from "../../components/MemberGroupedList";
+import { MemberDropdownList } from "../../components/MemberDropdownList";
+import type { MemberGroup } from "../../components/MemberGroupedList";
 import {
   accountMemberKey,
   orderMemberSections,
@@ -138,7 +139,15 @@ export function SelectSourcesStep({
           rightLabel: displayCurrency(formatCurrency(account.current_balance ?? 0), hideValues),
           active: usedResolvedAccountIds.has(account.id),
           iconName: usedResolvedAccountIds.has(account.id) ? "checkmark-circle" : "add-circle-outline",
-          onPress: () => addAccountSource(account),
+          // Multi-select toggle inside the member dropdown: tapping an
+          // account chosen directly as a source removes it again (same as
+          // its "x" in the Chosen sources card). An account only in use
+          // through a saving pot stays a no-op here, as before -- that
+          // source is removed from the pot row or the Chosen sources card.
+          onPress: () =>
+            sources.some((source) => source.kind === "account" && source.resolvedAccountId === account.id)
+              ? removeSource(account.id)
+              : addAccountSource(account),
         })),
       secondary: pots
         .filter(
@@ -161,6 +170,10 @@ export function SelectSourcesStep({
             rightLabel: displayCurrency(formatCurrency(balance), hideValues),
             active: isActive,
             iconName: isActive ? "checkmark-circle" : "add-circle-outline",
+            // A pot backed by several eligible accounts opens its own
+            // account picker, so the member dropdown closes first (RN
+            // can't reliably stack a second Modal on an open one).
+            closesDropdown: !disabled && candidateIds.length > 1,
             onPress: () => (disabled ? undefined : handlePotPress(pot)),
           };
         }),
@@ -209,21 +222,17 @@ export function SelectSourcesStep({
         </Section>
       </Card>
 
-      <Card>
-        <Section
-          title={t("replenishments.selectSourcesTitle")}
-          subtitle={t("replenishments.excludedAccountsHint")}
-        >
-          {null}
-        </Section>
-      </Card>
-
-      <MemberGroupedList
+      {/* No per-member chips here: the "Chosen sources" card above
+          already lists every chosen source with its own remove action. */}
+      <MemberDropdownList
+        title={t("replenishments.selectSourcesTitle")}
+        subtitle={t("replenishments.excludedAccountsHint")}
         groups={groups}
         primaryLabel={t("replenishments.availableAccountsTitle")}
         secondaryLabel={t("replenishments.availablePotsTitle")}
         emptyLabel={t("replenishments.noEligibleAccounts")}
         emptyIcon="wallet-outline"
+        showSelectedChips={false}
       />
 
       <SelectionShell

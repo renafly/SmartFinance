@@ -274,7 +274,11 @@ export default function DiagnosticsScreen() {
     };
     const recipientId = profile?.id ?? session?.user.id;
 
-    async function createMenuNotification(title: string, body: string) {
+    async function createMenuNotification(
+      title: string,
+      body: string,
+      { waitForPush = true }: { waitForPush?: boolean } = {},
+    ) {
       if (!recipientId) throw new Error("A signed-in recipient is required.");
 
       const notificationId = await notificationsService.createTestNotification({
@@ -286,7 +290,26 @@ export default function DiagnosticsScreen() {
       await queryClient.invalidateQueries({
         queryKey: ["notifications", recipientId],
       });
-      await notificationsService.waitForPushDispatch(notificationId);
+      if (waitForPush) {
+        await notificationsService.waitForPushDispatch(notificationId);
+      }
+    }
+
+    async function showLocalBrowserNotification(title: string, body: string) {
+      const options = { body, icon: "/favicon.ico", tag: "diagnostics-test" };
+      if ("serviceWorker" in navigator) {
+        try {
+          await navigator.serviceWorker.register("/kintally-notifications-sw.js", {
+            scope: "/",
+          });
+          const swRegistration = await navigator.serviceWorker.ready;
+          await swRegistration.showNotification(title, options);
+          return;
+        } catch {
+          // Fall through to the page-level Notification API.
+        }
+      }
+      new Notification(title, options);
     }
 
     try {
@@ -332,15 +355,34 @@ export default function DiagnosticsScreen() {
           return;
         }
 
+        const title = t("diagnostics.notificationTestMessageTitle");
+        const body = t("diagnostics.notificationTestMessageBody");
         const registration = await registerWebPushDevice(recipientId, true);
+
+        if (registration === "unconfigured" || registration === "unsupported") {
+          // Remote Web Push isn't available here (e.g. no VAPID key in this
+          // build). Still prove notifications work: show a local browser
+          // notification and add the entry to the in-app notification menu.
+          await showLocalBrowserNotification(title, body);
+          await createMenuNotification(title, body, { waitForPush: false });
+          setNotificationStatus({
+            ...defaultItem,
+            status: "warning",
+            value: t(
+              registration === "unconfigured"
+                ? "diagnostics.notificationLocalOnlyUnconfigured"
+                : "diagnostics.notificationLocalOnlyUnsupported",
+            ),
+          });
+          show(t("diagnostics.notificationTestSent"));
+          return;
+        }
+
         if (registration !== "registered") {
           throw new Error(`Web Push registration failed: ${registration}.`);
         }
 
-        await createMenuNotification(
-          t("diagnostics.notificationTestMessageTitle"),
-          t("diagnostics.notificationTestMessageBody"),
-        );
+        await createMenuNotification(title, body);
 
         setNotificationStatus({
           ...defaultItem,

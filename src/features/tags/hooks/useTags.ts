@@ -1,9 +1,9 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/providers/AuthProvider";
 
 import { tagsService } from "../services/tags.service";
-import type { TagPeriodRange, TransactionTag } from "../types";
+import type { TagPeriodRange, TagTransaction, TransactionTag } from "../types";
 
 /**
  * Query keys -- all also registered in HOUSEHOLD_QUERY_KEYS
@@ -45,14 +45,44 @@ export function useTagSummaries(range: TagPeriodRange) {
   });
 }
 
+function tagTransactionsQuery(
+  householdId: string | null | undefined,
+  tagId: string | null,
+  range: TagPeriodRange,
+  enabled: boolean,
+) {
+  return {
+    queryKey: [TAG_QUERY_KEYS.transactions, householdId, tagId, range.from, range.to],
+    queryFn: () => tagsService.getTagTransactions(householdId!, tagId!, range),
+    enabled: enabled && !!householdId && !!tagId,
+  };
+}
+
 /** A tag's transactions for a period -- only fetched while the tag is expanded. */
 export function useTagTransactions(tagId: string | null, range: TagPeriodRange, enabled = true) {
   const { householdId, isLoading } = useAuth();
 
-  return useQuery({
-    queryKey: [TAG_QUERY_KEYS.transactions, householdId, tagId, range.from, range.to],
-    queryFn: () => tagsService.getTagTransactions(householdId!, tagId!, range),
-    enabled: enabled && !!householdId && !!tagId && !isLoading,
+  return useQuery(tagTransactionsQuery(householdId, tagId, range, enabled && !isLoading));
+}
+
+/**
+ * Transactions for several tags at once (the Tags screen's category chart).
+ * Same query key/fn as useTagTransactions, so results are shared with the
+ * expanded tag rows instead of fetched twice.
+ */
+export function useTagTransactionsForTags(tagIds: readonly string[], range: TagPeriodRange) {
+  const { householdId, isLoading } = useAuth();
+
+  return useQueries({
+    queries: tagIds.map((tagId) => tagTransactionsQuery(householdId, tagId, range, !isLoading)),
+    combine: (results) => ({
+      lists: results.map((result) => result.data as TagTransaction[] | undefined),
+      isLoading: results.some((result) => result.isLoading),
+      isError: results.some((result) => result.isError),
+      refetchFailed: () => {
+        for (const result of results) if (result.isError) void result.refetch();
+      },
+    }),
   });
 }
 

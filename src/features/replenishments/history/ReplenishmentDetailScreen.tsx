@@ -12,6 +12,7 @@ import { typography } from "@/theme/typography";
 import { useTheme } from "@/theme/ThemeProvider";
 
 import { useReplenishmentDetail } from "../hooks/useReplenishmentHistory";
+import { translateCategoryName } from "@/features/categories/category-names";
 
 export function ReplenishmentDetailScreen({ runId, onClose }: { runId: string; onClose: () => void }) {
   const { t } = useTranslation("common");
@@ -89,7 +90,7 @@ export function ReplenishmentDetailScreen({ runId, onClose }: { runId: string; o
                     <View style={{ flex: 1, paddingRight: spacing(2) }}>
                       <Text style={{ color: colors.text }}>{transaction.transaction?.title ?? transaction.account?.name ?? ""}</Text>
                       <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] }}>
-                        {[transaction.account?.name, formatDate(transaction.transaction_date), transaction.category?.name]
+                        {[transaction.account?.name, formatDate(transaction.transaction_date), translateCategoryName(transaction.category?.name, t)]
                           .filter(Boolean)
                           .join(" · ")}
                       </Text>

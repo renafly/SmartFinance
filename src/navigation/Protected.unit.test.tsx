@@ -35,13 +35,6 @@ jest.mock('@/theme/ThemeProvider', () => ({
   useTheme: () => ({ colors: { background: '#fff', text: '#000' } }),
 }));
 
-jest.mock('../features/setup', () => ({
-  SetupWizard: () => {
-    const { Text: MockText } = require('react-native');
-    return <MockText testID="setup-wizard">Setup</MockText>;
-  },
-}));
-
 jest.mock('@/components/migrated-page', () => ({
   Button: ({ label }: { label: string }) => {
     const { Text: MockText } = require('react-native');
@@ -84,38 +77,43 @@ describe('Protected', () => {
     expect(view.queryByTestId('auth-loading-transition')).toBeNull();
   });
 
-  // The household-setup suggestion is driven only by the authenticated user's
-  // accepted household_members rows (loaded into useAuth().householdId by
-  // useSession) -- never by a device/local flag -- so the same account gets the
-  // same answer on any device, after a cache clear, or after re-login.
-  describe('household setup suggestion', () => {
+  // Household membership comes only from the database (useAuth().householdId);
+  // the gate never sends a signed-in user to a setup flow, on any device.
+  describe('household membership', () => {
     const signedIn = { session: { user: { id: 'user-1' } }, restoring: false, isLoading: false };
 
-    it('shows the setup wizard when the account has no household', async () => {
+    it('renders the app (dashboard offers setup) when the account has no household', async () => {
       mockUseAuth.mockReturnValue({ ...signedIn, householdId: null, sessionError: false });
 
       const view = await render(<Protected><Text>Dashboard</Text></Protected>);
 
-      expect(view.getByTestId('setup-wizard')).toBeTruthy();
-      expect(view.queryByText('Dashboard')).toBeNull();
+      expect(view.getByText('Dashboard')).toBeTruthy();
+      expect(view.queryByTestId('redirect')).toBeNull();
     });
 
-    it('never shows the setup wizard when the account already belongs to a household', async () => {
+    it('renders the app when the account already belongs to a household', async () => {
       mockUseAuth.mockReturnValue({ ...signedIn, householdId: 'household-1', sessionError: false });
 
       const view = await render(<Protected><Text>Dashboard</Text></Protected>);
 
-      expect(view.queryByTestId('setup-wizard')).toBeNull();
       expect(view.getByText('Dashboard')).toBeTruthy();
     });
 
-    it('does not suggest creating a household when membership could not be loaded', async () => {
+    it('shows a retry state instead of the app when membership could not be loaded', async () => {
       mockUseAuth.mockReturnValue({ ...signedIn, householdId: null, sessionError: true, refreshSession: jest.fn() });
 
       const view = await render(<Protected><Text>Dashboard</Text></Protected>);
 
-      expect(view.queryByTestId('setup-wizard')).toBeNull();
+      expect(view.queryByText('Dashboard')).toBeNull();
       expect(view.getByText('Try again')).toBeTruthy();
+    });
+
+    it('keeps rendering the app if a background refresh failed but the household is known', async () => {
+      mockUseAuth.mockReturnValue({ ...signedIn, householdId: 'household-1', sessionError: true });
+
+      const view = await render(<Protected><Text>Dashboard</Text></Protected>);
+
+      expect(view.getByText('Dashboard')).toBeTruthy();
     });
   });
 });

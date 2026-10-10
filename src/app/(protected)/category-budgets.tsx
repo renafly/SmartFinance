@@ -7,14 +7,14 @@ import { Page, Card } from '@/components/migrated-page';
 import { MonthPickerField } from '@/components/date-picker-field';
 import { spacing } from '@/theme/spacing';
 import { useToast } from '@/providers/ToastProvider';
-import { useAccounts } from '@/features/accounts/hooks';
+import { useAccounts, useAccountsWithBalances } from '@/features/accounts/hooks';
 import { useCategories } from '@/features/categories/hooks';
 import { useHouseholdMemberDetails } from '@/features/households/hooks';
 import { RecurringExpensesCard } from '@/features/category-budgets/components/recurring-expenses-card';
 import { CategoryBudgetsSection } from '@/features/category-budgets/components/category-budgets-section';
 import { AddCategoryBudgetForm } from '@/features/category-budgets/components/add-category-budget-form';
 import { useSetCategoryBudget } from '@/features/category-budgets/hooks/useCategoryBudgets';
-import type { BudgetMemberLike } from '@/features/monthly-budget/types';
+import type { BudgetAccountLike, BudgetMemberLike } from '@/features/monthly-budget/types';
 
 function monthKey(value: string) {
   return value.slice(0, 7);
@@ -46,6 +46,15 @@ export default function CategoryBudgetsScreen() {
 
   const categoriesQuery = useCategories('expense');
   const accountsQuery = useAccounts();
+  const accountBalancesQuery = useAccountsWithBalances();
+  // Same account list shape budget.tsx hands its planned-item/movement
+  // pickers: the household's account rows (incl. owner_profile_id, type,
+  // is_archived) with the live current_balance from account_balances merged
+  // in, so the source-account picker below shows real balances instead of 0.
+  const accounts = useMemo<BudgetAccountLike[]>(() => {
+    const balancesById = new Map((accountBalancesQuery.data ?? []).map((account) => [account.id, Number(account.current_balance ?? 0)]));
+    return (accountsQuery.data ?? []).map((account) => ({ ...account, current_balance: balancesById.get(account.id) ?? 0 }));
+  }, [accountBalancesQuery.data, accountsQuery.data]);
   const membersQuery = useHouseholdMemberDetails();
   const members = ((membersQuery.data ?? []) as BudgetMemberLike[]).filter((member) => member.status === 'accepted');
 
@@ -89,7 +98,8 @@ export default function CategoryBudgetsScreen() {
           <View style={{ flex: 1, minWidth: 320 } as any}>
             <Card>
               <RecurringExpensesCard
-                accounts={accountsQuery.data ?? []}
+                accounts={accounts}
+                accountsLoading={accountsQuery.isLoading}
                 members={members}
                 categories={categoriesQuery.data ?? []}
               />

@@ -10,7 +10,6 @@ export const onboardingGuides: Record<OnboardingGuideKey, OnboardingGuide> = {
   initial: {
     key: 'initial',
     version: 1,
-    autoShow: true,
     steps: [
       step('welcome', { title: 'Bem-vindo ao Kintally', body: 'Organize as financas da casa, as contas individuais e os seus objetivos num unico sitio.' }, { title: 'Welcome to Kintally', body: 'Organize household finances, individual accounts, and goals in one place.' }),
       step('accounts', { title: 'Comece pelas contas', body: 'Adicione as contas que usa no dia a dia, incluindo contas partilhadas e de investimento.' }, { title: 'Start with accounts', body: 'Add the accounts you use every day, including shared and investment accounts.' }),

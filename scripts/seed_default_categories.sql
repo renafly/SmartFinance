@@ -15,6 +15,15 @@
 -- The tree itself lives in public.default_category_catalog() -- edit it
 -- there (in a new migration), not here.
 --
+-- Language: a category row stores one name (the household owner's language
+-- when seeded), but the app shows default categories in each user's CURRENT
+-- language -- it recognises the stored English/Portuguese name and displays
+-- `categories.defaults.<key>` from src/locales/<lang>/common.json (see
+-- src/features/categories/category-names.ts). So when you add or rename a
+-- catalog entry, add/update its name in EVERY locale file under the same key;
+-- src/features/categories/category-names.unit.test.ts fails until the locale
+-- files match the catalog.
+--
 -- HOW TO RUN: set the household name below (or use the "all households"
 -- variant), then run this file in the Supabase SQL editor or with
 -- `psql "$DATABASE_URL" -f scripts/seed_default_categories.sql`.
