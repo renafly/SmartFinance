@@ -29,9 +29,12 @@ import type {
   CategoryBudgetTransactionLine,
 } from '../services/category-budget-view-model';
 
-const STATUS_TONE: Record<CategoryBudgetStatus, 'success' | 'warning' | 'destructive'> = {
+const STATUS_TONE: Record<CategoryBudgetStatus, 'success' | 'primary' | 'warning' | 'destructive'> = {
   ok: 'success',
+  // Limit earmarked by still-unpaid planned expenses -- informational, not a warning.
+  planned: 'primary',
   approaching: 'warning',
+  projectedOver: 'warning',
   over: 'destructive',
 };
 
@@ -529,6 +532,7 @@ export function CategoryBudgetRow({
   month,
   defaultExpanded = true,
   onEditLimit,
+  onDelete,
 }: {
   entry: CategoryBudgetEntry;
   /** "YYYY-MM" -- threaded down to every unpaid planned line's "link an existing transaction" picker. */
@@ -537,6 +541,8 @@ export function CategoryBudgetRow({
   defaultExpanded?: boolean;
   /** Pre-fills the "set a category limit" form with this category + its current amount, so changing a limit doesn't require re-finding the category in a separate picker further down the screen. Optional -- omit to hide the edit affordance entirely. */
   onEditLimit?: (categoryId: string, currentAmount: number) => void;
+  /** Asks to remove this category from Category Budgets (the parent shows a confirmation first). Optional -- omit to hide the delete affordance. */
+  onDelete?: (categoryId: string, categoryName: string) => void;
 }) {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
@@ -544,15 +550,19 @@ export function CategoryBudgetRow({
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   const tone = STATUS_TONE[entry.status];
-  const toneColor = tone === 'success' ? colors.success : tone === 'warning' ? colors.warning : colors.destructive;
-  const barPercent = Math.min(100, Math.max(0, entry.percentUsed));
+  const toneColor =
+    tone === 'success' ? colors.success : tone === 'primary' ? colors.primary : tone === 'warning' ? colors.warning : colors.destructive;
+  // Two-part bar: solid = really paid, faded = still-unpaid planned expenses.
+  const paidBarPercent = Math.min(100, Math.max(0, entry.actualPercentUsed));
+  const plannedBarPercent = Math.min(100 - paidBarPercent, Math.max(0, entry.percentUsed - entry.actualPercentUsed));
+  const hasUnpaid = entry.unpaidTotal > 0.001;
   const statusLabel = t(`budget.categoryBudgets.status.${entry.status}`);
 
   return (
     <View style={{ gap: spacing(2), paddingVertical: spacing(2), borderBottomWidth: 1, borderBottomColor: colors.border } as any}>
       <Pressable onPress={() => setExpanded((current) => !current)} style={{ gap: spacing(1) } as any}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' } as any}>
-          <Text style={{ color: colors.text, fontSize: typography.fontSize[16], fontWeight: String(typography.fontWeight.semibold) } as any}>{entry.categoryName}</Text>
+          <Text style={{ flex: 1, color: colors.text, fontSize: typography.fontSize[16], fontWeight: String(typography.fontWeight.semibold) } as any} numberOfLines={1}>{entry.categoryName}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2) } as any}>
             {onEditLimit ? (
               <Pressable
@@ -564,6 +574,16 @@ export function CategoryBudgetRow({
                 <Ionicons name="create-outline" size={18} color={colors.textSecondary} />
               </Pressable>
             ) : null}
+            {onDelete ? (
+              <Pressable
+                onPress={() => onDelete(entry.categoryId, entry.categoryName)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t('budget.categoryBudgets.deleteBudget', { name: entry.categoryName })}
+              >
+                <Ionicons name="trash-outline" size={18} color={colors.destructive} />
+              </Pressable>
+            ) : null}
             <Badge label={statusLabel} tone={tone} />
           </View>
         </View>
@@ -572,17 +592,27 @@ export function CategoryBudgetRow({
             {displayCurrency(formatCurrency(entry.expectedTotal), hideValues)} / {displayCurrency(formatCurrency(entry.budgetAmount), hideValues)}
           </Text>
           <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[13] } as any}>
-            {t('budget.categoryBudgets.percentUsed', { percent: Math.round(entry.percentUsed) })}
+            {hasUnpaid
+              ? t('budget.categoryBudgets.percentPaidAndExpected', {
+                  paid: Math.round(entry.actualPercentUsed),
+                  expected: Math.round(entry.percentUsed),
+                })
+              : t('budget.categoryBudgets.percentUsed', { percent: Math.round(entry.percentUsed) })}
           </Text>
         </View>
-        <View style={{ height: 6, borderRadius: radius.full, backgroundColor: colors.surfaceMuted, overflow: 'hidden' } as any}>
-          <View style={{ width: `${barPercent}%`, height: '100%', backgroundColor: toneColor, borderRadius: radius.full } as any} />
+        <View style={{ height: 6, flexDirection: 'row', borderRadius: radius.full, backgroundColor: colors.surfaceMuted, overflow: 'hidden' } as any}>
+          <View style={{ width: `${paidBarPercent}%`, height: '100%', backgroundColor: toneColor } as any} />
+          <View style={{ width: `${plannedBarPercent}%`, height: '100%', backgroundColor: toneColor, opacity: 0.35 } as any} />
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' } as any}>
           <Text style={{ color: entry.remaining < 0 ? colors.destructive : colors.textSecondary, fontSize: typography.fontSize[13] } as any}>
             {entry.remaining >= 0
-              ? t('budget.categoryBudgets.remaining', { amount: displayCurrency(formatCurrency(entry.remaining), hideValues) })
-              : t('budget.categoryBudgets.overBy', { amount: displayCurrency(formatCurrency(Math.abs(entry.remaining)), hideValues) })}
+              ? t(hasUnpaid ? 'budget.categoryBudgets.remainingAfterPlanned' : 'budget.categoryBudgets.remaining', {
+                  amount: displayCurrency(formatCurrency(entry.remaining), hideValues),
+                })
+              : t(hasUnpaid ? 'budget.categoryBudgets.overByAfterPlanned' : 'budget.categoryBudgets.overBy', {
+                  amount: displayCurrency(formatCurrency(Math.abs(entry.remaining)), hideValues),
+                })}
           </Text>
           <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} />
         </View>

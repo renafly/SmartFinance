@@ -15,6 +15,24 @@ export function useTransactionAllocations(
   });
 }
 
+/**
+ * Allocation rows for many transactions at once (one round trip, no N+1) --
+ * e.g. to work out which slices of a batch of split transactions were
+ * funded from pots. Keyed under "transactions" so invalidateHouseholdData
+ * (which every transaction/allocation write already calls) refreshes it.
+ */
+export function useTransactionAllocationsForTransactions(
+  transactionIds: readonly string[],
+  options?: { enabled?: boolean },
+) {
+  const sortedIds = [...transactionIds].sort();
+  return useQuery({
+    queryKey: ["transactions", "allocations", sortedIds],
+    queryFn: () => transactionAllocationsService.getForTransactions(sortedIds),
+    enabled: (options?.enabled ?? true) && sortedIds.length > 0,
+  });
+}
+
 export function useSaveTransactionAllocations() {
   const queryClient = useQueryClient();
 

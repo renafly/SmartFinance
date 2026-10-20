@@ -367,12 +367,17 @@
       "empty": "No category budgets set yet. Add one below to start tracking a limit.",
       "status": {
         "ok": "On track",
+        "planned": "Planned",
         "approaching": "Approaching limit",
+        "projectedOver": "Over if all paid",
         "over": "Over budget"
       },
       "percentUsed": "{{percent}}% used",
+      "percentPaidAndExpected": "{{paid}}% paid · {{expected}}% expected",
       "remaining": "{{amount}} remaining",
+      "remainingAfterPlanned": "{{amount}} left after planned expenses",
       "overBy": "{{amount}} over",
+      "overByAfterPlanned": "{{amount}} over once planned expenses are paid",
       "actualSpentWithCount": "{{amount}} actual ({{count}} transactions)",
       "stillUnpaid": "Still unpaid",
       "paidThisMonth": "Paid this month",
@@ -404,6 +409,12 @@
       "unmarkErrorToast": "Couldn't unmark this as paid. Please try again.",
       "currentlyLinked": "Currently linked",
       "unlinkTransaction": "Unlink",
+      "deleteBudget": "Remove {{name}} from category budgets",
+      "deleteTitle": "Remove {{name}} from category budgets?",
+      "deleteBody": "This removes the monthly limit for this category, for every month it was set. The category itself, its transactions and its recurring expenses are kept.",
+      "deleteConfirm": "Remove budget",
+      "deletedToast": "Category removed from category budgets.",
+      "deleteErrorToast": "Couldn't remove this category budget. Please try again.",
       "recurring": {
         "title": "Recurring expenses",
         "subtitle": "Rent, electricity, subscriptions -- anything that repeats every month with its own category.",
@@ -413,7 +424,14 @@
         "updatedToast": "Recurring expense updated.",
         "deletedToast": "Recurring expense deleted.",
         "errorToast": "Couldn't save. Please try again.",
-        "noSourceAccounts": "No accounts available to pay from. Add an account (or unarchive one) in Accounts first."
+        "noSourceAccounts": "No accounts available to pay from. Add an account (or unarchive one) in Accounts first.",
+        "uncategorized": "No category",
+        "groupCount_one": "{{count}} expense",
+        "groupCount_other": "{{count}} expenses",
+        "expandGroup": "Expand {{name}}",
+        "collapseGroup": "Collapse {{name}}",
+        "expandAll": "Expand all",
+        "collapseAll": "Collapse all"
       }
     },
     "confirmMonthHint": "Resolve any invalid planned items before confirming the month.",

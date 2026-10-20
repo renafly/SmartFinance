@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -12,12 +12,16 @@ import { spacing } from '@/theme/spacing';
 import { usePlannedItemMatches, usePlannedItems, usePlannedItemsPreview } from '@/features/planned-items/hooks';
 import { useAllTransactions } from '@/features/transactions/hooks/useTransactions';
 import { useHouseholdEffectiveAmounts } from '@/features/transactions/hooks/useTransactionReimbursements';
+import { useTransactionAllocationsForTransactions } from '@/features/transactions/hooks/useTransactionAllocations';
+import { useToast } from '@/providers/ToastProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { getLocalCalendarDate } from '@/features/transactions/utils/transaction-create-form';
 
-import { useCategoryBudgets } from '../hooks/useCategoryBudgets';
+import { useCategoryBudgets, useDeleteCategoryBudget } from '../hooks/useCategoryBudgets';
 import { buildCategoryBudgetViewModel, type CategoryBudgetAccountLike } from '../services/category-budget-view-model';
+import { type PotAllocationLike } from '../services/pot-exclusion';
 import { CategoryBudgetRow } from './category-budget-row';
+import { DeleteCategoryBudgetDialog } from './delete-category-budget-dialog';
 
 export type CategoryBudgetsSectionProps = {
   /** "YYYY-MM" */
@@ -29,6 +33,10 @@ export type CategoryBudgetsSectionProps = {
    * its own card alongside RecurringExpensesCard) with that category and
    * its current limit. */
   onEditLimit: (categoryId: string, currentAmount: number) => void;
+  /** Called after a category was removed from Category Budgets, so the parent can clear the "set a limit" form if it was prefilled with that category. */
+  onDeleted?: (categoryId: string) => void;
+  /** True while the household's accounts are still loading -- only bank-account money counts (see pot-exclusion.ts), so totals wait for the account types instead of briefly showing zero. */
+  accountsLoading?: boolean;
 };
 
 /** First/last calendar date of `month` ("YYYY-MM"), same local-date convention categoryBrowserPeriodRange (category-browser-data.ts) uses for its own period totals -- kept consistent with that existing feature rather than inventing a second month-bounds convention. */
@@ -43,9 +51,28 @@ function monthDateRange(month: string): { from: string; to: string } {
 // useSetCategoryBudget both pull them from useAuth() internally (same
 // convention as useConfirmPlannedItemMonth etc.), so there is nothing for
 // this component to thread through.
-export function CategoryBudgetsSection({ month, categories, accounts, onEditLimit }: CategoryBudgetsSectionProps) {
+export function CategoryBudgetsSection({ month, categories, accounts, onEditLimit, onDeleted, accountsLoading = false }: CategoryBudgetsSectionProps) {
   const { t } = useTranslation('common');
   const { colors } = useTheme();
+  const { show: showToast } = useToast();
+
+  // Remove-a-category flow: trash icon on a row -> confirmation dialog ->
+  // delete that category's category_budgets rows (nothing else).
+  const deleteBudget = useDeleteCategoryBudget();
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+
+  async function handleConfirmDelete() {
+    if (!pendingDelete) return;
+    const { id } = pendingDelete;
+    try {
+      await deleteBudget.mutateAsync(id);
+      setPendingDelete(null);
+      onDeleted?.(id);
+      showToast(t('budget.categoryBudgets.deletedToast'));
+    } catch {
+      showToast(t('budget.categoryBudgets.deleteErrorToast'));
+    }
+  }
 
   const { from, to } = useMemo(() => monthDateRange(month), [month]);
   // useAllTransactions (not useTransactions) -- pages through every row
@@ -69,6 +96,29 @@ export function CategoryBudgetsSection({ month, categories, accounts, onEditLimi
     [effectiveAmountsQuery.data],
   );
   const budgetsQuery = useCategoryBudgets(month);
+
+  // Only bank-account money counts (see pot-exclusion.ts). Split expenses
+  // need their funding breakdown so only the bank-funded slices count.
+  const splitExpenseIds = useMemo(
+    () => (transactionsQuery.data ?? []).filter((transaction) => transaction.type === 'expense' && transaction.is_split).map((transaction) => transaction.id),
+    [transactionsQuery.data],
+  );
+  const allocationsQuery = useTransactionAllocationsForTransactions(splitExpenseIds);
+  const allocationsByTransactionId = useMemo(() => {
+    const map = new Map<string, PotAllocationLike[]>();
+    for (const row of allocationsQuery.data ?? []) {
+      const list = map.get(row.transaction_id) ?? [];
+      list.push({
+        sourceType: row.source_type === 'pot' ? 'pot' : 'account',
+        accountId: row.account_id,
+        potId: row.pot_id,
+        amount: Number(row.amount ?? 0),
+      });
+      map.set(row.transaction_id, list);
+    }
+    return map;
+  }, [allocationsQuery.data]);
+  const potInputsLoading = accountsLoading || allocationsQuery.isLoading;
   const previewQuery = usePlannedItemsPreview(month);
   const itemsQuery = usePlannedItems();
 
@@ -129,9 +179,11 @@ export function CategoryBudgetsSection({ month, categories, accounts, onEditLimi
           transferGroupId: transaction.transfer_group_id,
           linkedOccurrenceId,
           isAutoCreatedTransaction: !!transaction.planned_item_occurrence_id,
+          potId: transaction.pot_id ?? null,
+          allocations: allocationsByTransactionId.get(transaction.id) ?? null,
         };
       }),
-    [transactionsQuery.data, matchedOccurrenceIdByTransactionId, effectiveAmountById],
+    [transactionsQuery.data, matchedOccurrenceIdByTransactionId, effectiveAmountById, allocationsByTransactionId],
   );
 
   const viewModelCategories = useMemo(
@@ -141,7 +193,7 @@ export function CategoryBudgetsSection({ month, categories, accounts, onEditLimi
 
   const viewModel = useMemo(
     () =>
-      previewQuery.data
+      previewQuery.data && !potInputsLoading
         ? buildCategoryBudgetViewModel({
             month,
             categories: viewModelCategories,
@@ -152,7 +204,7 @@ export function CategoryBudgetsSection({ month, categories, accounts, onEditLimi
             plannedItemNameById,
           })
         : null,
-    [month, viewModelCategories, budgetsQuery.data, transactions, accounts, previewQuery.data, plannedItemNameById],
+    [month, viewModelCategories, budgetsQuery.data, transactions, accounts, previewQuery.data, plannedItemNameById, potInputsLoading],
   );
 
   const entries = viewModel?.entries ?? [];
@@ -180,11 +232,23 @@ export function CategoryBudgetsSection({ month, categories, accounts, onEditLimi
                 backgroundColor: colors.surface,
               } as any}
             >
-              <CategoryBudgetRow entry={entry} month={month} defaultExpanded={columns === 1} onEditLimit={onEditLimit} />
+              <CategoryBudgetRow
+                entry={entry}
+                month={month}
+                defaultExpanded={columns === 1}
+                onEditLimit={onEditLimit}
+                onDelete={(categoryId, categoryName) => setPendingDelete({ id: categoryId, name: categoryName })}
+              />
             </View>
           ))}
         </View>
       )}
+      <DeleteCategoryBudgetDialog
+        category={pendingDelete}
+        deleting={deleteBudget.isPending}
+        onConfirm={() => void handleConfirmDelete()}
+        onClose={() => setPendingDelete(null)}
+      />
     </Section>
   );
 }

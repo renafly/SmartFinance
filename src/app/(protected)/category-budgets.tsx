@@ -73,6 +73,13 @@ export default function CategoryBudgetsScreen() {
     setLimitAmount(String(currentAmount));
   }
 
+  function handleBudgetDeleted(categoryId: string) {
+    if (limitCategoryId === categoryId) {
+      setLimitCategoryId(null);
+      setLimitAmount('');
+    }
+  }
+
   async function handleSaveLimit() {
     if (!limitCategoryId || !limitAmount) return;
     try {
@@ -128,6 +135,8 @@ export default function CategoryBudgetsScreen() {
             categories={categoriesQuery.data ?? []}
             accounts={accountsQuery.data ?? []}
             onEditLimit={handleEditLimit}
+            onDeleted={handleBudgetDeleted}
+            accountsLoading={accountsQuery.isLoading}
           />
         </Card>
       </Animated.View>

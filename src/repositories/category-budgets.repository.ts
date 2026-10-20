@@ -9,7 +9,8 @@ export type CategoryBudgetRow = Database["public"]["Tables"]["category_budgets"]
  * before a given month, for the client-side "active limit per category"
  * resolution in category-budget-view-model.ts's
  * `resolveActiveCategoryBudgets`. `create`/`delete` are inherited from
- * BaseRepository unchanged -- there is no `update`, by design: the
+ * BaseRepository unchanged, plus `deleteForCategory` (removing a category
+ * from Category Budgets clears its whole limit history) -- there is no `update`, by design: the
  * effective-month model means changing a limit is always a new insert,
  * never an in-place update (see the migration's own comment).
  */
@@ -41,6 +42,30 @@ export class CategoryBudgetsRepository extends BaseRepository<"category_budgets"
 
     if (error) return { data: null, error };
     return { data: data as unknown as CategoryBudgetRow, error: null };
+  }
+
+  /**
+   * Removes a category from Category Budgets: deletes every
+   * category_budgets row (all effective months) for that category in this
+   * household, and nothing else -- transactions, the category itself and
+   * any planned/recurring items are untouched. Scoped by household_id AND
+   * category_id so it can never reach another household's or category's
+   * rows. Returns the deleted rows' ids so the caller can tell a real
+   * delete apart from one RLS silently filtered down to zero rows.
+   */
+  async deleteForCategory(
+    householdId: string,
+    categoryId: string,
+  ): Promise<RepoResult<{ id: string }[]>> {
+    const { data, error } = await this.client
+      .from("category_budgets")
+      .delete()
+      .eq("household_id", householdId)
+      .eq("category_id", categoryId)
+      .select("id");
+
+    if (error) return { data: null, error };
+    return { data: (data ?? []) as { id: string }[], error: null };
   }
 
   /**

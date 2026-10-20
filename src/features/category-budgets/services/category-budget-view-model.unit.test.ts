@@ -306,7 +306,10 @@ describe("buildCategoryBudgetViewModel", () => {
     expect(entry.expectedTotal).toBe(185);
     expect(entry.remaining).toBe(15);
     expect(entry.percentUsed).toBe(92.5);
-    expect(entry.status).toBe("approaching");
+    expect(entry.actualPercentUsed).toBe(75);
+    // Real spend is only 75% -- the rest of the 92.5% is Water, still
+    // unpaid, so this is "planned", not "approaching".
+    expect(entry.status).toBe("planned");
 
     expect(entry.own.plannedUnpaid).toHaveLength(1);
     expect(entry.own.plannedUnpaid[0].name).toBe("Water");
@@ -584,5 +587,128 @@ describe("paid occurrence actual-vs-expected amounts and transaction lineage", (
     expect(rentLine.actualAmount).toBe(195);
     expect(insuranceLine.matchedTransactionId).toBe("t-insurance");
     expect(insuranceLine.actualAmount).toBe(30);
+  });
+});
+
+describe("only bank-account money counts toward category budgets", () => {
+  // "acct-meal-card" stands for a bank-type account linked to a saving pot
+  // (e.g. a shared meal card) -- it must still count; savings (e.g. a
+  // Revolut pot) and credit-card accounts must not.
+  const ACCOUNTS = [
+    account("acct-source"),
+    account("acct-checking"),
+    account("acct-meal-card", "bank"),
+    account("acct-revolut-pot", "savings"),
+    account("acct-card", "credit_card"),
+  ];
+
+  function build(transactions: CategoryBudgetTransactionLike[], resolved = resolveMonth([], [], ACCOUNTS)) {
+    return buildCategoryBudgetViewModel({
+      month: MONTH,
+      categories: FOOD_CATEGORIES,
+      budgets: [budget({ categoryId: "food", amount: 500 })],
+      transactions,
+      accounts: ACCOUNTS,
+      resolved,
+      plannedItemNameById: new Map([["item-1", "Groceries box"]]),
+    }).entries.find((e) => e.categoryId === "food")!;
+  }
+
+  it("counts expenses from bank accounts (incl. one linked to a saving pot) and ignores every other account type and pot funding", () => {
+    const entry = build([
+      transaction({ id: "regular", categoryId: "food", amount: 120 }),
+      transaction({ id: "aldi", categoryId: "groceries", amount: 53.55, accountId: "acct-meal-card" }),
+      transaction({ id: "from-revolut-pot", categoryId: "food", amount: 80, accountId: "acct-revolut-pot" }),
+      transaction({ id: "from-card", categoryId: "food", amount: 25, accountId: "acct-card" }),
+      transaction({ id: "funded-by-pot", categoryId: "food", amount: 40, potId: "pot-holiday" }),
+    ]);
+
+    expect(entry.own.transactions.map((t) => t.id)).toEqual(["regular"]);
+    expect(entry.childBreakdown.find((c) => c.categoryId === "groceries")?.actualSpent).toBe(53.55);
+    expect(entry.actualSpent).toBe(173.55);
+  });
+
+  it("excludes a categorized transfer into a non-bank account (a pot allocation)", () => {
+    const entry = build([
+      transaction({ id: "out", type: "expense", categoryId: "food", amount: 200, accountId: "acct-source", transferGroupId: "tg-pot" }),
+      transaction({ id: "in", type: "income", categoryId: null, amount: 200, accountId: "acct-revolut-pot", transferGroupId: "tg-pot" }),
+    ]);
+    expect(entry.actualSpent).toBe(0);
+  });
+
+  it("counts only the bank-funded slices of a split expense, in both the total and the transaction line", () => {
+    const entry = build([
+      transaction({
+        id: "split",
+        categoryId: "food",
+        amount: 100,
+        allocations: [
+          { sourceType: "account", accountId: "acct-source", potId: null, amount: 60 },
+          { sourceType: "pot", accountId: null, potId: "pot-holiday", amount: 25 },
+          { sourceType: "account", accountId: "acct-card", potId: null, amount: 15 },
+        ],
+      }),
+    ]);
+    expect(entry.actualSpent).toBe(60);
+    expect(entry.own.transactions).toEqual([expect.objectContaining({ id: "split", amount: 60 })]);
+  });
+
+  it("ignores planned expenses not paid from a bank account and destination legs into non-bank accounts", () => {
+    const fromPot = plannedItem({ id: "item-1", amount: 50, sourceAccountId: "acct-revolut-pot" });
+    const intoPot = plannedItem({
+      id: "item-2",
+      amount: 300,
+      sourceAccountId: "acct-source",
+      allocationMode: "custom_amount",
+      destinations: [
+        destination({ plannedItemId: "item-2", destinationAccountId: "acct-revolut-pot", amount: 200 }),
+        destination({ plannedItemId: "item-2", destinationAccountId: "acct-checking", amount: 100 }),
+      ],
+    });
+    const regular = plannedItem({ id: "item-3", amount: 70, sourceAccountId: "acct-source" });
+    const entry = build([], resolveMonth([fromPot, intoPot, regular], [], ACCOUNTS));
+
+    const unpaidByItem = Object.fromEntries(entry.own.plannedUnpaid.map((line) => [line.plannedItemId, line.amount]));
+    expect(unpaidByItem["item-1"]).toBeUndefined();
+    expect(unpaidByItem["item-2"]).toBe(100); // 300 - the 200 leg into the pot
+    expect(unpaidByItem["item-3"]).toBe(70);
+    expect(entry.unpaidTotal).toBe(170);
+  });
+});
+
+describe("status separates real spend from still-unpaid planned expenses", () => {
+  function entryFor(spent: number, plannedAmount: number | null, limit = 40) {
+    const items = plannedAmount === null ? [] : [plannedItem({ id: "item-gas", name: "Gas", amount: plannedAmount, categoryId: "food" })];
+    return buildCategoryBudgetViewModel({
+      month: MONTH,
+      categories: FOOD_CATEGORIES,
+      budgets: [budget({ categoryId: "food", amount: limit })],
+      transactions: spent > 0 ? [transaction({ id: "t-spent", categoryId: "food", amount: spent })] : [],
+      accounts: [account("acct-source")],
+      resolved: resolveMonth(items),
+      plannedItemNameById: new Map([["item-gas", "Gas"]]),
+    }).entries.find((e) => e.categoryId === "food")!;
+  }
+
+  it("is 'planned' (not 'approaching') when nothing is paid yet but the unpaid planned expense fills the limit", () => {
+    const entry = entryFor(0, 40);
+    expect(entry.percentUsed).toBe(100);
+    expect(entry.actualPercentUsed).toBe(0);
+    expect(entry.status).toBe("planned");
+  });
+
+  it("is 'projectedOver' (not 'over') when only the unpaid planned expenses push it over the limit", () => {
+    const entry = entryFor(10, 40);
+    expect(entry.status).toBe("projectedOver");
+  });
+
+  it("is 'approaching' / 'over' only for real, already-paid spend", () => {
+    expect(entryFor(38, null).status).toBe("approaching");
+    expect(entryFor(45, null).status).toBe("over");
+    expect(entryFor(45, 10).status).toBe("over");
+  });
+
+  it("is 'ok' when neither real nor expected spend is near the limit", () => {
+    expect(entryFor(5, 10).status).toBe("ok");
   });
 });
