@@ -26,6 +26,7 @@ import {
 import { emptyPlannedItemDraft, formatPlannedItemRecurrenceSummary, plannedItemToDraft } from '@/features/planned-items/utils';
 import type { PlannedItemDraft, PlannedItemWithDestinations } from '@/features/planned-items/types';
 import { getEligibleSourceAccounts, pickDefaultSourceAccountId } from '../services/source-account-eligibility';
+import { groupRecurringExpensesByCategory, recurringExpenseGroupKey, type RecurringExpenseGroup } from '../services/recurring-expense-groups';
 
 /** Monthly/specific-months/interval/one-time picker, shared by the add and edit forms below -- same fields planned-item-card.tsx exposes for these four recurrence types, just without that card's destinations/estimate/owner/start-end-month sections (out of scope here, see this file's top doc comment). */
 function RecurrenceFields({ draft, onChange }: { draft: PlannedItemDraft; onChange: (patch: Partial<PlannedItemDraft>) => void }) {
@@ -149,6 +150,67 @@ function RecurringExpenseForm({
   );
 }
 
+/**
+ * Tappable category header for one group of recurring expenses. The
+ * category name is always rendered (wrapping to two lines rather than
+ * being cut off) whether the group is expanded or collapsed; the count and
+ * active monthly total sit on the right.
+ */
+function RecurringExpenseGroupHeader({
+  label,
+  count,
+  activeTotal,
+  expanded,
+  onToggle,
+  hideValues,
+}: {
+  label: string;
+  count: number;
+  activeTotal: number;
+  expanded: boolean;
+  onToggle: () => void;
+  hideValues: boolean;
+}) {
+  const { t } = useTranslation('common');
+  const { colors } = useTheme();
+
+  return (
+    <Pressable
+      onPress={onToggle}
+      accessibilityRole="button"
+      accessibilityState={{ expanded }}
+      accessibilityLabel={t(expanded ? 'budget.categoryBudgets.recurring.collapseGroup' : 'budget.categoryBudgets.recurring.expandGroup', { name: label })}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing(2),
+        minHeight: 44,
+        paddingVertical: spacing(2),
+        paddingHorizontal: spacing(3),
+        borderRadius: radius.lg,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surfaceMuted,
+        opacity: pressed ? 0.85 : 1,
+      }) as any}
+    >
+      <Ionicons name={expanded ? 'chevron-down' : 'chevron-forward'} size={16} color={colors.textSecondary} />
+      <Text
+        style={{ flex: 1, color: colors.text, fontSize: typography.fontSize[14], fontWeight: String(typography.fontWeight.semibold) } as any}
+        numberOfLines={2}
+      >
+        {label}
+      </Text>
+      <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any}>
+        {t('budget.categoryBudgets.recurring.groupCount', { count })}
+      </Text>
+      <Text style={{ color: colors.text, fontSize: typography.fontSize[14], fontWeight: String(typography.fontWeight.semibold) } as any}>
+        {displayCurrency(formatCurrency(activeTotal), hideValues)}
+      </Text>
+    </Pressable>
+  );
+}
+
 export type RecurringExpensesCardProps = {
   accounts: BudgetAccountLike[];
   /** True while the household's accounts are still loading -- the Source account field shows a loading line instead of an empty picker. */
@@ -181,7 +243,7 @@ export type RecurringExpensesCardProps = {
  * is a different, smaller FORM over the same data, not a new backend.
  */
 export function RecurringExpensesCard({ accounts, accountsLoading = false, members, categories }: RecurringExpensesCardProps) {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const { profile } = useAuth();
   const currentProfileId = profile?.id ?? null;
   const { colors } = useTheme();
@@ -199,7 +261,39 @@ export function RecurringExpensesCard({ accounts, accountsLoading = false, membe
     [itemsQuery.data],
   );
 
-  const categoryNameById = useMemo(() => new Map(categories.map((category) => [category.id, category.name])), [categories]);
+  // Grouped by category (see recurring-expense-groups.ts); every group
+  // starts expanded and can be collapsed on its own -- the header (category
+  // name) stays visible either way.
+  const groups = useMemo(() => groupRecurringExpensesByCategory(items, categories, i18n.language), [items, categories, i18n.language]);
+  const [collapsedGroupKeys, setCollapsedGroupKeys] = useState<Set<string>>(() => new Set());
+  const allCollapsed = groups.length > 0 && groups.every((group) => collapsedGroupKeys.has(recurringExpenseGroupKey(group)));
+
+  function toggleGroup(key: string) {
+    setCollapsedGroupKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function toggleAllGroups() {
+    setCollapsedGroupKeys(allCollapsed ? new Set() : new Set(groups.map(recurringExpenseGroupKey)));
+  }
+
+  /** Re-opens the group an item was just saved into, so the change is visible. */
+  function revealCategory(categoryId: string) {
+    setCollapsedGroupKeys((current) => {
+      if (!current.has(categoryId)) return current;
+      const next = new Set(current);
+      next.delete(categoryId);
+      return next;
+    });
+  }
+
+  function groupLabel(group: RecurringExpenseGroup<PlannedItemWithDestinations>) {
+    return group.categoryId === null ? t('budget.categoryBudgets.recurring.uncategorized') : group.label;
+  }
 
   const [newDraft, setNewDraft] = useState<PlannedItemDraft | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -223,6 +317,7 @@ export function RecurringExpensesCard({ accounts, accountsLoading = false, membe
     if (!newDraft) return;
     try {
       await createItem.mutateAsync(newDraft);
+      revealCategory(newDraft.categoryId);
       setNewDraft(null);
       showToast(t('budget.categoryBudgets.recurring.addedToast'));
     } catch (error) {
@@ -240,6 +335,7 @@ export function RecurringExpensesCard({ accounts, accountsLoading = false, membe
     if (!editDraft) return;
     try {
       await updateItem.mutateAsync(editDraft);
+      revealCategory(editDraft.categoryId);
       setEditingId(null);
       setEditDraft(null);
       showToast(t('budget.categoryBudgets.recurring.updatedToast'));
@@ -258,57 +354,89 @@ export function RecurringExpensesCard({ accounts, accountsLoading = false, membe
   }
 
   return (
-    <Section title={t('budget.categoryBudgets.recurring.title')} subtitle={t('budget.categoryBudgets.recurring.subtitle')}>
+    <Section
+      title={t('budget.categoryBudgets.recurring.title')}
+      subtitle={t('budget.categoryBudgets.recurring.subtitle')}
+      collapsible
+      defaultCollapsed={false}
+    >
       {itemsQuery.isLoading ? (
         <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[14] } as any}>{t('loading')}</Text>
       ) : items.length === 0 && !newDraft ? (
         <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[14] } as any}>{t('budget.categoryBudgets.recurring.empty')}</Text>
       ) : (
-        <View style={{ gap: spacing(2) } as any}>
-          {items.map((item) =>
-            editingId === item.id && editDraft ? (
-              <RecurringExpenseForm
-                key={item.id}
-                draft={editDraft}
-                onChange={(patch) => setEditDraft((current) => (current ? { ...current, ...patch } : current))}
-                onSave={handleSaveEdit}
-                onCancel={() => {
-                  setEditingId(null);
-                  setEditDraft(null);
-                }}
-                isSaving={updateItem.isPending}
-                accounts={accounts}
-                accountsLoading={accountsLoading}
-                members={members}
-                categories={categories}
-              />
-            ) : (
-              <Pressable
-                key={item.id}
-                onPress={() => startEditing(item)}
-                style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing(2), borderBottomWidth: 1, borderBottomColor: colors.border } as any}
-              >
-                <View style={{ flex: 1, gap: 2, paddingRight: spacing(2) } as any}>
-                  <Text style={{ color: colors.text, fontSize: typography.fontSize[14], fontWeight: String(typography.fontWeight.semibold) } as any} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any} numberOfLines={1}>
-                    {categoryNameById.get(item.categoryId) ?? ''} · {formatPlannedItemRecurrenceSummary(item)}
-                    {!item.isActive ? ` · ${t('budget.recurringExpenses.paused')}` : ''}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(4) } as any}>
-                  <Text style={{ color: colors.text, fontSize: typography.fontSize[14] } as any}>{displayCurrency(formatCurrency(item.amount), hideValues)}</Text>
-                  <Pressable onPress={() => setActive.mutate({ id: item.id, isActive: !item.isActive })} hitSlop={8}>
-                    <Ionicons name={item.isActive ? 'pause-outline' : 'play-outline'} size={18} color={colors.textSecondary} />
-                  </Pressable>
-                  <Pressable onPress={() => void handleDelete(item.id)} hitSlop={8}>
-                    <Ionicons name="trash-outline" size={18} color={colors.destructive} />
-                  </Pressable>
-                </View>
-              </Pressable>
-            ),
-          )}
+        <View style={{ gap: spacing(3) } as any}>
+          {groups.length > 1 ? (
+            <Pressable onPress={toggleAllGroups} hitSlop={8} accessibilityRole="button" style={{ alignSelf: 'flex-end' } as any}>
+              <Text style={{ color: colors.primary, fontSize: typography.fontSize[13], fontWeight: String(typography.fontWeight.semibold) } as any}>
+                {allCollapsed ? t('budget.categoryBudgets.recurring.expandAll') : t('budget.categoryBudgets.recurring.collapseAll')}
+              </Text>
+            </Pressable>
+          ) : null}
+          {groups.map((group) => {
+            const key = recurringExpenseGroupKey(group);
+            const expanded = !collapsedGroupKeys.has(key);
+            return (
+              <View key={key} style={{ gap: spacing(1) } as any}>
+                <RecurringExpenseGroupHeader
+                  label={groupLabel(group)}
+                  count={group.items.length}
+                  activeTotal={group.activeTotal}
+                  expanded={expanded}
+                  onToggle={() => toggleGroup(key)}
+                  hideValues={hideValues}
+                />
+                {expanded ? (
+                  <View style={{ gap: spacing(2), paddingLeft: spacing(3) } as any}>
+                    {group.items.map((item) =>
+                      editingId === item.id && editDraft ? (
+                        <RecurringExpenseForm
+                          key={item.id}
+                          draft={editDraft}
+                          onChange={(patch) => setEditDraft((current) => (current ? { ...current, ...patch } : current))}
+                          onSave={handleSaveEdit}
+                          onCancel={() => {
+                            setEditingId(null);
+                            setEditDraft(null);
+                          }}
+                          isSaving={updateItem.isPending}
+                          accounts={accounts}
+                          accountsLoading={accountsLoading}
+                          members={members}
+                          categories={categories}
+                        />
+                      ) : (
+                        <Pressable
+                          key={item.id}
+                          onPress={() => startEditing(item)}
+                          style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing(2), borderBottomWidth: 1, borderBottomColor: colors.border } as any}
+                        >
+                          <View style={{ flex: 1, gap: 2, paddingRight: spacing(2) } as any}>
+                            <Text style={{ color: colors.text, fontSize: typography.fontSize[14], fontWeight: String(typography.fontWeight.semibold) } as any} numberOfLines={1}>
+                              {item.name}
+                            </Text>
+                            <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[12] } as any} numberOfLines={1}>
+                              {formatPlannedItemRecurrenceSummary(item)}
+                              {!item.isActive ? ` · ${t('budget.recurringExpenses.paused')}` : ''}
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(4) } as any}>
+                            <Text style={{ color: colors.text, fontSize: typography.fontSize[14] } as any}>{displayCurrency(formatCurrency(item.amount), hideValues)}</Text>
+                            <Pressable onPress={() => setActive.mutate({ id: item.id, isActive: !item.isActive })} hitSlop={8}>
+                              <Ionicons name={item.isActive ? 'pause-outline' : 'play-outline'} size={18} color={colors.textSecondary} />
+                            </Pressable>
+                            <Pressable onPress={() => void handleDelete(item.id)} hitSlop={8}>
+                              <Ionicons name="trash-outline" size={18} color={colors.destructive} />
+                            </Pressable>
+                          </View>
+                        </Pressable>
+                      )
+                    )}
+                  </View>
+                ) : null}
+              </View>
+            );
+          })}
         </View>
       )}
 

@@ -74,6 +74,28 @@ class CategoryBudgetsService {
     if (error) throw error;
     return rowToCategoryBudget(data);
   }
+
+  /**
+   * Removes a category from Category Budgets (every effective-dated limit
+   * row for it in this household). Only category_budgets rows are deleted
+   * -- the category, its transactions and its recurring expenses stay.
+   * The effective-month model means deleting only the currently active row
+   * would just resurface an older limit, so the whole history goes; that is
+   * what "remove this category's budget" means to the user. Throws when
+   * nothing was deleted (e.g. RLS refused it) so the UI never reports a
+   * delete that did not persist.
+   */
+  async deleteCategoryBudget(categoryId: string, householdId: string): Promise<number> {
+    if (!categoryId || !householdId) {
+      throw new Error("A category and household are required to delete a category budget.");
+    }
+    const { data, error } = await repositories.categoryBudgets.deleteForCategory(householdId, categoryId);
+    if (error) throw error;
+    if (data.length === 0) {
+      throw new Error("Category budget was not deleted.");
+    }
+    return data.length;
+  }
 }
 
 export const categoryBudgetsService = new CategoryBudgetsService();

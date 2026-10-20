@@ -367,12 +367,17 @@
       "empty": "Ainda nao ha orcamentos de categoria definidos. Adicione um abaixo para comecar.",
       "status": {
         "ok": "Dentro do previsto",
+        "planned": "Previsto",
         "approaching": "A aproximar-se do limite",
+        "projectedOver": "Acima se pagar o previsto",
         "over": "Acima do orcamento"
       },
       "percentUsed": "{{percent}}% utilizado",
+      "percentPaidAndExpected": "{{paid}}% pago · {{expected}}% previsto",
       "remaining": "{{amount}} restante",
+      "remainingAfterPlanned": "{{amount}} restante após despesas previstas",
       "overBy": "{{amount}} acima",
+      "overByAfterPlanned": "{{amount}} acima após pagar o previsto",
       "actualSpentWithCount": "{{amount}} reais ({{count}} transacoes)",
       "stillUnpaid": "Ainda por pagar",
       "paidThisMonth": "Pago este mes",
@@ -404,6 +409,12 @@
       "unmarkErrorToast": "Nao foi possivel desmarcar como pago. Tente novamente.",
       "currentlyLinked": "Atualmente ligada",
       "unlinkTransaction": "Desligar",
+      "deleteBudget": "Remover {{name}} dos orçamentos por categoria",
+      "deleteTitle": "Remover {{name}} dos orçamentos por categoria?",
+      "deleteBody": "Isto remove o limite mensal desta categoria, em todos os meses em que foi definido. A categoria, as suas transações e as despesas recorrentes mantêm-se.",
+      "deleteConfirm": "Remover orçamento",
+      "deletedToast": "Categoria removida dos orçamentos por categoria.",
+      "deleteErrorToast": "Não foi possível remover este orçamento de categoria. Tente novamente.",
       "recurring": {
         "title": "Despesas recorrentes",
         "subtitle": "Renda, eletricidade, subscricoes -- tudo o que se repete todos os meses com a sua propria categoria.",
@@ -413,7 +424,14 @@
         "updatedToast": "Despesa recorrente atualizada.",
         "deletedToast": "Despesa recorrente eliminada.",
         "errorToast": "Nao foi possivel guardar. Tente novamente.",
-        "noSourceAccounts": "Não há contas disponíveis para pagar. Adicione uma conta (ou desarquive uma) em Contas primeiro."
+        "noSourceAccounts": "Não há contas disponíveis para pagar. Adicione uma conta (ou desarquive uma) em Contas primeiro.",
+        "uncategorized": "Sem categoria",
+        "groupCount_one": "{{count}} despesa",
+        "groupCount_other": "{{count}} despesas",
+        "expandGroup": "Expandir {{name}}",
+        "collapseGroup": "Recolher {{name}}",
+        "expandAll": "Expandir tudo",
+        "collapseAll": "Recolher tudo"
       }
     },
     "confirmMonthHint": "Resolva os itens planeados inválidos antes de confirmar o mês.",

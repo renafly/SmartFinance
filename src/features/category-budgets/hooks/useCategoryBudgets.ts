@@ -16,6 +16,19 @@ export function useCategoryBudgets(month?: string | null) {
   });
 }
 
+/** Removes a category from Category Budgets -- deletes its limit rows only (see CategoryBudgetsService.deleteCategoryBudget). */
+export function useDeleteCategoryBudget() {
+  const queryClient = useQueryClient();
+  const { householdId } = useAuth();
+
+  return useMutation({
+    mutationFn: (categoryId: string) => categoryBudgetsService.deleteCategoryBudget(categoryId, householdId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["category-budgets"] });
+    },
+  });
+}
+
 /** Sets (or changes) a category's monthly limit -- always inserts a new effective-dated row, never updates one in place (see the migration's own comment on category_budgets and setCategoryBudget's doc comment). */
 export function useSetCategoryBudget() {
   const queryClient = useQueryClient();

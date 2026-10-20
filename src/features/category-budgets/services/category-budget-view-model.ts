@@ -1,10 +1,10 @@
 import type { Database } from "@/types/database.types";
 
-import { splitOutflowOccurrenceExpenseFromPots } from "@/features/planned-items/services/planned-items-resolver";
 import { groupCategoriesByParent } from "@/features/categories/group-categories";
 import type { ResolvedMonth, ResolvedOccurrence } from "@/features/planned-items/types";
 
 import type { CategoryBudget } from "../types";
+import { budgetPlannedExpenseAmount, budgetShareOfExpense, isBudgetAccount, type PotAllocationLike } from "./pot-exclusion";
 
 type AccountType = Database["public"]["Enums"]["account_type"];
 type TransactionType = Database["public"]["Enums"]["transaction_type"];
@@ -13,7 +13,17 @@ function roundMoney(value: number): number {
   return Math.round((Number.isFinite(value) ? value : 0) * 100) / 100;
 }
 
-export type CategoryBudgetStatus = "ok" | "approaching" | "over";
+/**
+ * - "over": real (already paid) spend is above the limit.
+ * - "projectedOver": real spend is within the limit, but adding the
+ *   still-unpaid planned expenses would take it over.
+ * - "approaching": real spend alone is at/above the approaching threshold.
+ * - "planned": real spend is below the threshold, but the still-unpaid
+ *   planned expenses are expected to use most/all of the limit -- nothing is
+ *   wrong yet, the money is simply already earmarked.
+ * - "ok": everything else.
+ */
+export type CategoryBudgetStatus = "ok" | "planned" | "approaching" | "projectedOver" | "over";
 
 export type CategoryBudgetCategoryLike = {
   id: string;
@@ -37,6 +47,10 @@ export type CategoryBudgetTransactionLike = {
   linkedOccurrenceId: string | null;
   /** True when `linkedOccurrenceId` came from transactions.planned_item_occurrence_id (this app generated the transaction directly) rather than from a planned_item_matches row (an existing transaction the user linked). Meaningless when linkedOccurrenceId is null. Determines which "unmark as paid" option set the UI offers -- only an auto-created transaction can be deleted, a matched one is never touched beyond unlinking. */
   isAutoCreatedTransaction: boolean;
+  /** transactions.pot_id -- set when the expense was funded straight from a saving pot. Pot money never counts toward a category budget, see pot-exclusion.ts. */
+  potId?: string | null;
+  /** Funding-source breakdown of a split transaction (transaction_allocations), or null/omitted for a single-source one. Only the slices funded from ordinary (non-pot) accounts count toward a category budget. */
+  allocations?: readonly PotAllocationLike[] | null;
 };
 
 export type CategoryBudgetAccountLike = {
@@ -62,7 +76,7 @@ export type CategoryBudgetPlannedLine = {
   /** The occurrence's own exact category (planned_items.category_id) -- "link an existing transaction" tries this exact category first, only widening to the card's main/root category (CategoryBudgetEntry.mainCategoryId) if nothing turns up there. */
   categoryId: string;
   name: string;
-  /** Pot-excluded (see splitOutflowOccurrenceExpenseFromPots) expected amount for this occurrence. */
+  /** Budget-counted (see budgetPlannedExpenseAmount in pot-exclusion.ts) expected amount for this occurrence. */
   amount: number;
   isPaid: boolean;
   isEstimate: boolean;
@@ -110,6 +124,8 @@ export type CategoryBudgetEntry = {
   remaining: number;
   /** expectedTotal / budgetAmount * 100. Not clamped to 100 -- callers decide how to render an over-budget bar. */
   percentUsed: number;
+  /** actualSpent / budgetAmount * 100 -- what has really been paid so far, without the still-unpaid planned expenses. Not clamped. */
+  actualPercentUsed: number;
   status: CategoryBudgetStatus;
 };
 
@@ -160,7 +176,8 @@ export function resolveActiveCategoryBudgets(budgets: CategoryBudget[]): Map<str
  * splitOutflowOccurrenceExpenseFromPots' treatment of planned items:
  * a transfer's expense leg is excluded from category spend entirely when
  * its OTHER leg (the money's actual destination) lands on a
- * savings/investment-type account -- that's money moving within the
+ * non-bank account (savings/investment/pot/etc. -- only bank accounts
+ * count, see pot-exclusion.ts) -- that's money moving within the
  * household, not spending, category tag or not. A transfer whose
  * destination is an ordinary bank/cash/credit-card account is not
  * excluded by this rule; if it happens to carry a category, it counts
@@ -184,8 +201,7 @@ function computeActualSpendByCategory(
     const legs = legsByTransferGroup.get(transferGroupId) ?? [];
     const destinationLeg = legs.find((leg) => leg.type === "income" && leg.accountId !== ownAccountId);
     if (!destinationLeg) return false;
-    const account = accountsById.get(destinationLeg.accountId);
-    return account?.type === "savings" || account?.type === "investment";
+    return !isBudgetAccount(destinationLeg.accountId, accountsById);
   }
 
   const byCategory = new Map<string, { amount: number; transactions: CategoryBudgetTransactionLine[] }>();
@@ -196,12 +212,17 @@ function computeActualSpendByCategory(
     if (transaction.transferGroupId && transferDestinationIsPot(transaction.transferGroupId, transaction.accountId)) {
       continue;
     }
+    // Only bank-account money counts: nothing paid from another account type
+    // (incl. a transfer leg leaving one), funded from a pot (pot_id), or the
+    // non-bank/pot slices of a split -- see pot-exclusion.ts.
+    const countedAmount = roundMoney(transaction.amount * budgetShareOfExpense(transaction, accountsById));
+    if (countedAmount <= 0.001) continue;
 
     const entry = byCategory.get(transaction.categoryId) ?? { amount: 0, transactions: [] };
-    entry.amount = roundMoney(entry.amount + transaction.amount);
+    entry.amount = roundMoney(entry.amount + countedAmount);
     entry.transactions.push({
       id: transaction.id,
-      amount: transaction.amount,
+      amount: countedAmount,
       title: transaction.title,
       transactionDate: transaction.transactionDate,
       accountName: transaction.accountName,
@@ -253,7 +274,9 @@ function computePlannedLinesByCategory(
     if (!isOutflow) continue;
     if (occurrence.status === "skipped" || occurrence.status === "cancelled") continue;
 
-    const { pureExpenseAmount } = splitOutflowOccurrenceExpenseFromPots(resolvedOccurrence, accountsById);
+    // Same rule as actual spend: only paid from a bank account counts, and
+    // destination legs landing in a non-bank account are not spending.
+    const pureExpenseAmount = budgetPlannedExpenseAmount(occurrence, resolvedOccurrence.destinations, accountsById);
     if (pureExpenseAmount <= 0.001) continue;
 
     const isPaid = occurrence.status !== "planned";
@@ -286,9 +309,17 @@ function computePlannedLinesByCategory(
   return byCategory;
 }
 
-function statusFor(percentUsed: number, approachingThresholdPercent: number): CategoryBudgetStatus {
-  if (percentUsed > 100) return "over";
-  if (percentUsed >= approachingThresholdPercent) return "approaching";
+/**
+ * Status separates what was really spent from what is only expected: a
+ * category whose limit is filled by still-unpaid planned expenses is
+ * "planned" (or "projectedOver"), not "approaching"/"over" -- those two are
+ * reserved for real, already-paid spending.
+ */
+function statusFor(actualPercentUsed: number, expectedPercentUsed: number, approachingThresholdPercent: number): CategoryBudgetStatus {
+  if (actualPercentUsed > 100) return "over";
+  if (expectedPercentUsed > 100) return "projectedOver";
+  if (actualPercentUsed >= approachingThresholdPercent) return "approaching";
+  if (expectedPercentUsed >= approachingThresholdPercent) return "planned";
   return "ok";
 }
 
@@ -310,7 +341,7 @@ export function buildCategoryBudgetViewModel(input: {
   accounts: CategoryBudgetAccountLike[];
   resolved: ResolvedMonth;
   plannedItemNameById: Map<string, string>;
-  /** percentUsed at/above which a category is "approaching" its limit (and below which, "over"). Defaults to 90. */
+  /** Percent at/above which a category is "approaching" (real spend) or "planned" (real + still-unpaid) its limit. Defaults to 90. */
   approachingThresholdPercent?: number;
 }): CategoryBudgetViewModel {
   const { month, categories, budgets, transactions, accounts, resolved, plannedItemNameById, approachingThresholdPercent = 90 } = input;
@@ -371,6 +402,7 @@ export function buildCategoryBudgetViewModel(input: {
     const expectedTotal = roundMoney(actualSpent + unpaidTotal);
     const remaining = roundMoney(budget.amount - expectedTotal);
     const percentUsed = budget.amount > 0 ? roundMoney((expectedTotal / budget.amount) * 100) : 0;
+    const actualPercentUsed = budget.amount > 0 ? roundMoney((actualSpent / budget.amount) * 100) : 0;
 
     entries.push({
       categoryId,
@@ -386,7 +418,8 @@ export function buildCategoryBudgetViewModel(input: {
       expectedTotal,
       remaining,
       percentUsed,
-      status: statusFor(percentUsed, approachingThresholdPercent),
+      actualPercentUsed,
+      status: statusFor(actualPercentUsed, percentUsed, approachingThresholdPercent),
     });
   }
 
