@@ -180,28 +180,6 @@ type AttachmentDraft = {
 
 const TRANSACTIONS_PAGE_SIZE = 25;
 
-type WizardStepKey = "type" | "accounts" | "extras";
-
-// "type" now covers both what used to be separate "type" and "details"
-// (or "form", for recurring transfers) steps: choosing income/expense/
-// transfer and filling in the title/amount/date/notes (or the recurring
-// form) happen on the same first step, since picking a type with nothing
-// else to look at felt like a wasted extra tap.
-const WIZARD_STEP_COPY: Record<WizardStepKey, { titleKey: string; subtitleKey: string }> = {
-  type: {
-    titleKey: "transactions.wizard.stepTypeTitle",
-    subtitleKey: "transactions.wizard.stepTypeSubtitle",
-  },
-  accounts: {
-    titleKey: "transactions.wizard.stepAccountsTitle",
-    subtitleKey: "transactions.wizard.stepAccountsSubtitle",
-  },
-  extras: {
-    titleKey: "transactions.wizard.stepExtrasTitle",
-    subtitleKey: "transactions.wizard.stepExtrasSubtitle",
-  },
-};
-
 export default function TransactionsScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -343,7 +321,6 @@ export default function TransactionsScreen() {
   const [sortBy, setSortBy] = useState<TransactionListSortKey>("newest");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [wizardStep, setWizardStep] = useState(0);
   const [editTransaction, setEditTransaction] =
     useState<TransactionEditDraft | null>(null);
   // null = the user hasn't touched the edit modal's tags yet, so the
@@ -1044,49 +1021,6 @@ export default function TransactionsScreen() {
       (Boolean(transferDestination?.id) &&
         transferDestination?.id !== effectiveAccountId));
 
-  // The "Add movement" modal is a short step-by-step wizard rather than one
-  // long scrolling form. Which steps exist depends on what kind of movement
-  // is being created: a recurring transfer hands off entirely to its own
-  // form (it already has its own save button and validation) with no
-  // further steps, a one-off transfer skips the category/attachment step
-  // since neither applies to transfers, and a plain transaction gets the
-  // full set.
-  const wizardSteps = useMemo<WizardStepKey[]>(() => {
-    if (createMovementKind === "recurring-transfer") return ["type"];
-    if (createMovementKind === "transfer") return ["type", "accounts"];
-    return ["type", "accounts", "extras"];
-  }, [createMovementKind]);
-  const currentWizardStep = Math.min(wizardStep, wizardSteps.length - 1);
-  const currentWizardStepKey = wizardSteps[currentWizardStep];
-  const isLastWizardStep = currentWizardStep === wizardSteps.length - 1;
-  const canProceedFromDetailsStep =
-    title.trim().length > 0 &&
-    Number.isFinite(parsedAmount) &&
-    parsedAmount > 0 &&
-    /^\d{4}-\d{2}-\d{2}$/.test(date);
-  const canProceedFromAccountsStep =
-    Boolean(effectiveAccountId) &&
-    (createMovementKind !== "transfer" ||
-      (Boolean(transferDestination?.id) &&
-        transferDestination?.id !== effectiveAccountId)) &&
-    (createMovementKind !== "transaction" ||
-      !splitEnabled ||
-      splitValidationErrors.length === 0) &&
-    (createMovementKind !== "transaction" ||
-      type !== "expense" ||
-      !reimbursementEnabled ||
-      reimbursementValidationErrors.length === 0);
-  const canProceedFromCurrentStep =
-    currentWizardStepKey === "type"
-      ? createMovementKind === "recurring-transfer" || canProceedFromDetailsStep
-      : currentWizardStepKey === "accounts"
-        ? canProceedFromAccountsStep
-        : true;
-
-  function goToWizardStep(nextStep: number) {
-    setWizardStep(Math.max(0, Math.min(nextStep, wizardSteps.length - 1)));
-  }
-
   const getTransactionAccount = (item: any) => {
     const account =
       item.movement_kind === "transfer"
@@ -1340,13 +1274,11 @@ export default function TransactionsScreen() {
     applyCreateFormReset(getFreshTransactionCreateReset());
     setCreateMovementKind("transaction");
     setTransferDestination(null);
-    setWizardStep(0);
     setCreateModalOpen(true);
   }
 
   function closeCreateModal() {
     setCreateModalOpen(false);
-    setWizardStep(0);
   }
 
   async function handleCreate(keepOpen = false) {
@@ -1495,7 +1427,6 @@ export default function TransactionsScreen() {
       // expenses for the same trip/project back to back.
       setTagIds(keptTagIds);
       setTransferDestination(null);
-      setWizardStep(0);
       return;
     }
 
