@@ -86,3 +86,20 @@ describe('PaymentBreakdownSection without reimbursements editor', () => {
     expect(view.queryByText('Who bears the cost')).toBeNull();
   });
 });
+
+describe('PaymentBreakdownSection with an unparsable amount', () => {
+  it('never shows NaN while the amount is being typed', async () => {
+    const view = await render(
+      <SafeAreaProvider
+        initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } }}
+      >
+        <ThemeProvider>
+          <PaymentBreakdownSection originalAmount={Number('12,')} reimbursements={[]} reimbursedBy={<Text>R</Text>}>
+            <Text>C</Text>
+          </PaymentBreakdownSection>
+        </ThemeProvider>
+      </SafeAreaProvider>,
+    );
+    expect(JSON.stringify(view.toJSON())).not.toContain('NaN');
+  });
+});

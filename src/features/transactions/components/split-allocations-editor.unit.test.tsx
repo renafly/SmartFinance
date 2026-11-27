@@ -88,3 +88,19 @@ describe('SplitAllocationsEditor table layout', () => {
     expect(view.queryByText('Pot')).toBeNull();
   });
 });
+
+describe('SplitAllocationsEditor table layout with a pot row and no pots loaded', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+    usePrivacyStore.setState({ hideValues: false });
+  });
+
+  it('still offers the account/pot switch so the row can go back to an account', async () => {
+    const view = await renderHarness([
+      { id: 'a', sourceType: 'pot', accountId: null, potId: 'gone', amount: 22.76 },
+      complete[1],
+    ]);
+    expect(view.getByText('Pot')).toBeTruthy();
+    expect(view.getByText('Account')).toBeTruthy();
+  });
+});

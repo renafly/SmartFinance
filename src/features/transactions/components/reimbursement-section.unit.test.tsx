@@ -12,7 +12,10 @@ import type { StagedReimbursement } from '@/features/transactions/utils/reimburs
 jest.mock('@/components/bug-report-fab', () => ({ BugReportFab: () => null }));
 jest.setTimeout(60000);
 
-const ACCOUNTS = [{ id: 'activo', name: 'Activo Bank', type: 'bank', current_balance: 97.1, owner_profile_id: null }];
+const ACCOUNTS = [
+  { id: 'activo', name: 'Activo Bank', type: 'bank', current_balance: 97.1, owner_profile_id: null },
+  { id: 'saude', name: 'Saude', type: 'savings', current_balance: 300, owner_profile_id: null },
+];
 
 const RITA: StagedReimbursement = {
   key: 'r1',
@@ -26,8 +29,8 @@ const RITA: StagedReimbursement = {
   note: null,
 };
 
-function Harness() {
-  const [rows, setRows] = useState<StagedReimbursement[]>([RITA]);
+function Harness({ initial = [RITA], fixedAccountId = 'activo' }: { initial?: StagedReimbursement[]; fixedAccountId?: string }) {
+  const [rows, setRows] = useState<StagedReimbursement[]>(initial);
   return (
     <ReimbursementSection
       mode="staged"
@@ -35,7 +38,7 @@ function Harness() {
       onToggleEnabled={() => undefined}
       value={rows}
       onChange={setRows}
-      fixedAccountId="activo"
+      fixedAccountId={fixedAccountId}
       originalAmount={64.15}
       accounts={ACCOUNTS as any}
       members={[]}
@@ -48,13 +51,13 @@ function Harness() {
   );
 }
 
-function renderHarness() {
+function renderHarness(props: { initial?: StagedReimbursement[]; fixedAccountId?: string } = {}) {
   return render(
     <SafeAreaProvider
       initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } }}
     >
       <ThemeProvider>
-        <Harness />
+        <Harness {...props} />
       </ThemeProvider>
     </SafeAreaProvider>,
   );
@@ -80,5 +83,22 @@ describe('ReimbursementSection (staged)', () => {
     expect(view.queryByText(/Money someone paid you back/)).toBeNull();
     await fireEvent.press(view.getByLabelText('About reimbursements'));
     expect(view.getByText(/Money someone paid you back/)).toBeTruthy();
+  });
+});
+
+describe('ReimbursementSection (staged) edge cases', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows the account the reimbursement will really be saved in', async () => {
+    const view = await renderHarness({ fixedAccountId: 'saude' });
+    expect(view.getByText(/Saude/)).toBeTruthy();
+    expect(view.queryByText(/Activo Bank/)).toBeNull();
+  });
+
+  it('opens the form straight away when there are no reimbursements yet', async () => {
+    const view = await renderHarness({ initial: [] });
+    expect(view.getByText('Paid back by')).toBeTruthy();
   });
 });

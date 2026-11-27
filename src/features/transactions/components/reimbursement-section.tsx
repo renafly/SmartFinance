@@ -282,6 +282,8 @@ function StagedReimbursementSection(
   useReceivingAccountSync(props, props.value, props.onChange);
 
   const rows = props.value;
+  // With nothing saved yet there is no list to keep short: show the form.
+  const showForm = formOpen || rows.length === 0;
   const editingRow = editingId ? rows.find((row) => row.key === editingId) ?? null : null;
 
 
@@ -404,9 +406,14 @@ function StagedReimbursementSection(
                       row.receivedOn
                         ? t("transactions.reimbursements.receivedOnValue", { date: formatDate(row.receivedOn) })
                         : null,
-                      row.accountId
-                        ? `→ ${props.accounts.find((account) => account.id === row.accountId)?.name ?? ""}`
-                        : null,
+                      // The account the row will really be saved in (with no
+                      // split that is the "Paid from" account, see
+                      // resolveReceivingAccountId), not a stale stored one.
+                      (() => {
+                        const accountId = resolveReceivingAccountId(row.accountId, props);
+                        const name = accountId ? props.accounts.find((account) => account.id === accountId)?.name : null;
+                        return name ? `→ ${name}` : null;
+                      })(),
                       row.id === null ? t("transactions.reimbursements.unsavedBadge") : null,
                     ]
                       .filter(Boolean)
@@ -457,7 +464,7 @@ function StagedReimbursementSection(
         </View>
       ) : null}
 
-      {!formOpen ? (
+      {!showForm ? (
         <View style={{ flexDirection: "row" } as any}>
           <Button
             label={t("transactions.reimbursements.addReimbursement")}
@@ -466,7 +473,7 @@ function StagedReimbursementSection(
           />
         </View>
       ) : null}
-      {formOpen ? (
+      {showForm ? (
       <>
       {editingRow ? (
         <Text style={[styles.label, { color: colors.text }]}>

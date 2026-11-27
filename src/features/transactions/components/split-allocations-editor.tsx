@@ -266,7 +266,7 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
     if (hideTargetPicker) return null;
     return (
       <>
-        {!compact || pots.length > 0 ? (
+        {!compact || pots.length > 0 || allocation.sourceType === "pot" ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing(2) } as any}>
             <Pill
               label={t(`${copyPrefix}.sourceTypeAccount`)}
@@ -333,7 +333,7 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
     return (
       <View style={{ gap: spacing(2) } as any}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing(2) } as any}>
-          <Text style={[columnHeader, { flex: 1 }]}>{t(`${copyPrefix}.accountColumn`)}</Text>
+          <View style={{ flex: 1 }} />
           {showReceived ? (
             <Text style={[columnHeader, { width: 72, textAlign: "right" }]}>{t(`${copyPrefix}.receivedColumn`)}</Text>
           ) : null}
@@ -351,10 +351,11 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
               key={allocation.id}
               style={{ gap: spacing(1), paddingBottom: spacing(1.5), borderBottomWidth: 1, borderColor: colors.border } as any}
             >
+              {/* Two lines so the account keeps the full width on a phone:
+                  the account picker, then received | cost | remove. */}
+              {renderTargetPicker(allocation, availableAccounts, availablePots, true)}
               <View style={{ flexDirection: "row", alignItems: "center", gap: spacing(2) } as any}>
-                <View style={{ flex: 1, gap: spacing(1) } as any}>
-                  {renderTargetPicker(allocation, availableAccounts, availablePots, true)}
-                </View>
+                <View style={{ flex: 1 }} />
                 {showReceived ? (
                   <Text style={{ width: 72, textAlign: "right", color: colors.textSecondary } as any}>
                     {receivedAmount ? money(receivedAmount) : "—"}
