@@ -1718,7 +1718,14 @@
     "detailSourcesTitle": "Sources",
     "detailTransfersTitle": "Transfers created",
     "reimbursedNote": "{{amount}} reimbursed",
-    "detailFundedBy": "Funded by {{sources}}"
+    "detailFundedBy": "Funded by {{sources}}",
+    "editSources": "Edit sources",
+    "saveSources": "Save",
+    "cancelEdit": "Cancel",
+    "sourceLabel": "Source",
+    "multipleSources": "Multiple accounts",
+    "updateSourcesSuccess": "Sources updated",
+    "updateSourcesError": "Could not update the sources: {{detail}}"
   },
   "notifications": {
     "title": "Notifications",

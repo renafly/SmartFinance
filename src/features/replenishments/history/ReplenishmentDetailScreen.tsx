@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { View, Text } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,7 +11,14 @@ import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useTheme } from "@/theme/ThemeProvider";
 
+import { GroupedAccountSelect } from "@/components/grouped-account-select";
+import { useAccountsWithBalances } from "@/features/accounts/hooks";
+import { useHouseholdMemberDetails } from "@/features/households/hooks";
+import { useToast } from "@/providers/ToastProvider";
+
 import { useReplenishmentDetail } from "../hooks/useReplenishmentHistory";
+import { useUpdateReplenishmentSources } from "../hooks/useUpdateReplenishmentSources";
+import { buildUpdatePayload, currentSoleSourceAccountId, isEditableUnit } from "../edit-sources";
 import { translateCategoryName } from "@/features/categories/category-names";
 
 export function ReplenishmentDetailScreen({ runId, onClose }: { runId: string; onClose: () => void }) {
@@ -20,6 +27,63 @@ export function ReplenishmentDetailScreen({ runId, onClose }: { runId: string; o
   const hideValues = usePrivacyStore((state) => state.hideValues);
   const detailQuery = useReplenishmentDetail(runId);
   const run = detailQuery.data;
+  const { show } = useToast();
+  const accountsQuery = useAccountsWithBalances();
+  const membersQuery = useHouseholdMemberDetails();
+  const updateSources = useUpdateReplenishmentSources();
+  const accounts = accountsQuery.data ?? [];
+  const acceptedMembers = useMemo(
+    () => (membersQuery.data ?? []).filter((member) => member.status === "accepted"),
+    [membersQuery.data],
+  );
+  const accountNameById = useMemo(
+    () =>
+      new Map(
+        accounts.flatMap((account) => (account.id && account.name ? [[account.id, account.name] as const] : [])),
+      ),
+    [accounts],
+  );
+
+  // Edit mode: one selected account per covered unit (keyed by the run
+  // transaction row id). Only runs confirmed under the direct-reassignment
+  // model record per-unit sources, so only those can be edited.
+  const [isEditing, setIsEditing] = useState(false);
+  const [selection, setSelection] = useState<Map<string, string>>(new Map());
+  const canEdit =
+    run?.status === "confirmed" && run.transactions.length > 0 && run.transactions.every((unit) => isEditableUnit(unit));
+  const pendingChanges = useMemo(
+    () => (run && isEditing ? buildUpdatePayload(run.transactions, selection) : []),
+    [isEditing, run, selection],
+  );
+
+  function startEditing() {
+    if (!run) return;
+    const initial = new Map<string, string>();
+    for (const unit of run.transactions) {
+      const current = currentSoleSourceAccountId(unit);
+      if (current) initial.set(unit.id, current);
+    }
+    setSelection(initial);
+    setIsEditing(true);
+  }
+
+  async function saveSources() {
+    if (pendingChanges.length === 0) {
+      setIsEditing(false);
+      return;
+    }
+    try {
+      await updateSources.mutateAsync({ runId, units: pendingChanges });
+      show(t("replenishments.updateSourcesSuccess"));
+      setIsEditing(false);
+    } catch (error) {
+      show(
+        t("replenishments.updateSourcesError", {
+          detail: error instanceof Error ? error.message : t("unknownError"),
+        }),
+      );
+    }
+  }
 
   // Resolves a covered transaction's new_sources (set by
   // confirm_replenishment_run under the direct-source-reassignment model --
@@ -53,7 +117,11 @@ export function ReplenishmentDetailScreen({ runId, onClose }: { runId: string; o
       if (source.source_type === "pot" && source.pot_id) {
         return sourceLabelByPotId.get(source.pot_id) ?? source.pot_id;
       }
-      return (source.account_id && sourceLabelByAccountId.get(source.account_id)) ?? source.account_id ?? "";
+      return (
+        (source.account_id && (sourceLabelByAccountId.get(source.account_id) ?? accountNameById.get(source.account_id))) ??
+        source.account_id ??
+        ""
+      );
     });
     return [...new Set(labels.filter(Boolean))].join(" + ");
   }
@@ -94,10 +162,31 @@ export function ReplenishmentDetailScreen({ runId, onClose }: { runId: string; o
                           .filter(Boolean)
                           .join(" · ")}
                       </Text>
-                      {fundedBy ? (
+                      {fundedBy && !isEditing ? (
                         <Text style={{ color: colors.primary, fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semibold as any }}>
                           {t("replenishments.detailFundedBy", { sources: fundedBy })}
                         </Text>
+                      ) : null}
+                      {isEditing ? (
+                        <GroupedAccountSelect
+                          label={t("replenishments.sourceLabel")}
+                          accounts={accounts as any}
+                          members={acceptedMembers as any}
+                          // A transaction can't be replenished from the
+                          // account it was originally paid from.
+                          allowedAccountIds={accounts.flatMap((account) =>
+                            account.id && account.id !== transaction.account_id ? [account.id] : [],
+                          )}
+                          value={selection.get(transaction.id) ?? ""}
+                          placeholder={fundedBy ?? t("replenishments.multipleSources")}
+                          onChange={(accountId) =>
+                            setSelection((current) => new Map(current).set(transaction.id, accountId))
+                          }
+                          closeLabel={t("close")}
+                          sharedLabel={t("dashboard.shared")}
+                          unassignedLabel={t("settings.unnamedUser")}
+                          disabled={updateSources.isPending}
+                        />
                       ) : null}
                     </View>
                     <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold as any }}>
@@ -171,7 +260,30 @@ export function ReplenishmentDetailScreen({ runId, onClose }: { runId: string; o
         </Card>
       ) : null}
 
-      <Button label={t("close")} variant="secondary" onPress={onClose} />
+      {isEditing ? (
+        <View style={{ flexDirection: "row", gap: spacing(2) }}>
+          <View style={{ flex: 1 }}>
+            <Button
+              label={t("replenishments.cancelEdit")}
+              variant="secondary"
+              onPress={() => setIsEditing(false)}
+              disabled={updateSources.isPending}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button
+              label={t("replenishments.saveSources")}
+              onPress={saveSources}
+              disabled={updateSources.isPending || pendingChanges.length === 0}
+            />
+          </View>
+        </View>
+      ) : (
+        <>
+          {canEdit ? <Button label={t("replenishments.editSources")} variant="secondary" onPress={startEditing} /> : null}
+          <Button label={t("close")} variant="secondary" onPress={onClose} />
+        </>
+      )}
     </>
   );
 }

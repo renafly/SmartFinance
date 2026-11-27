@@ -1718,7 +1718,14 @@
     "detailSourcesTitle": "Fontes",
     "detailTransfersTitle": "Transferências criadas",
     "reimbursedNote": "{{amount}} reembolsado",
-    "detailFundedBy": "Financiado por {{sources}}"
+    "detailFundedBy": "Financiado por {{sources}}",
+    "editSources": "Editar origens",
+    "saveSources": "Guardar",
+    "cancelEdit": "Cancelar",
+    "sourceLabel": "Origem",
+    "multipleSources": "Várias contas",
+    "updateSourcesSuccess": "Origens atualizadas",
+    "updateSourcesError": "Não foi possível atualizar as origens: {{detail}}"
   },
   "notifications": {
     "title": "Notificações",
