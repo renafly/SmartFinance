@@ -1,6 +1,7 @@
 import { replenishmentsRepository } from "@/repositories/replenishments.repository";
 import type { CreateDraftRunInput, ConfirmReplenishmentRunInput } from "@/repositories/replenishments.repository";
 import type { ReplenishmentRunDetail } from "../types";
+import type { UpdateReplenishmentUnitSources } from "../edit-sources";
 
 class ReplenishmentService {
   async saveDraft(input: CreateDraftRunInput, existingRunId?: string | null) {
@@ -11,6 +12,12 @@ class ReplenishmentService {
 
   async confirmRun(input: ConfirmReplenishmentRunInput) {
     const { data, error } = await replenishmentsRepository.confirmRun(input);
+    if (error) throw error;
+    return data;
+  }
+
+  async updateRunSources(input: { runId: string; units: UpdateReplenishmentUnitSources[] }) {
+    const { data, error } = await replenishmentsRepository.updateRunSources(input);
     if (error) throw error;
     return data;
   }
