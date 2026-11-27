@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { useDialog } from '@/providers/ModalProvider';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/theme/ThemeProvider';
 import { typography } from '@/theme/typography';
@@ -26,6 +27,7 @@ const roles = ['owner', 'admin', 'member'] as const;
 export default function MembersScreen() {
   const { colors } = useTheme();
   const { t } = useTranslation('common');
+  const dialog = useDialog();
   const { householdId, profile } = useAuth();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<(typeof roles)[number]>('member');
@@ -62,22 +64,16 @@ export default function MembersScreen() {
 
     const displayName = member.fullName ?? member.email ?? t('members.thisMember');
 
-    Alert.alert(
-      t('members.removeTitle'),
-      t('members.removeMessage', { name: displayName }),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('remove'),
-          style: 'destructive',
-          onPress: () =>
-            void removeMember.mutateAsync({
-              householdId,
-              userIdToRemove: member.userId,
-            }),
-        },
-      ],
-    );
+    void dialog
+      .confirm({
+        title: t('members.removeTitle'),
+        message: t('members.removeMessage', { name: displayName }),
+        confirmLabel: t('remove'),
+        destructive: true,
+      })
+      .then((ok) => {
+        if (ok) void removeMember.mutateAsync({ householdId, userIdToRemove: member.userId });
+      });
   }
 
   return (

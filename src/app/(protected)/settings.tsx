@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Alert, Platform, Pressable, Text, View } from "react-native";
+import { Platform, Pressable, Text, View } from "react-native";
+import { useDialog } from "@/providers/ModalProvider";
 import * as DocumentPicker from "expo-document-picker";
 import { router, type Href } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -68,6 +69,7 @@ const themeOptions: { value: ThemeMode; labelKey: string }[] = [
 export default function SettingsScreen() {
   const { colors } = useTheme();
   const { t } = useTranslation("common");
+  const dialog = useDialog();
   const { profile, householdId } = useAuth();
   const { openGuide } = useOnboarding();
   const language = usePreferencesStore((state) => state.language);
@@ -198,10 +200,10 @@ export default function SettingsScreen() {
       typeof window === "undefined" ||
       typeof document === "undefined"
     ) {
-      Alert.alert(
-        t("settings.backupExportUnavailableTitle"),
-        t("settings.backupExportUnavailableMessage"),
-      );
+      void dialog.alert({
+        title: t("settings.backupExportUnavailableTitle"),
+        message: t("settings.backupExportUnavailableMessage"),
+      });
       return;
     }
 
@@ -225,12 +227,12 @@ export default function SettingsScreen() {
       const backup = await exportHouseholdBackup.mutateAsync(householdId);
       downloadBackupFile(backup);
     } catch (error) {
-      Alert.alert(
-        t("settings.backupErrorTitle"),
-        error instanceof Error
+      void dialog.alert({
+        title: t("settings.backupErrorTitle"),
+        message: error instanceof Error
           ? error.message
           : t("settings.backupUnknownError"),
-      );
+      });
     }
   }
 
@@ -257,12 +259,12 @@ export default function SettingsScreen() {
       const backup = householdBackupService.parseBackup(JSON.parse(text));
       setPendingBackup(backup);
     } catch (error) {
-      Alert.alert(
-        t("settings.backupInvalidTitle"),
-        error instanceof Error
+      void dialog.alert({
+        title: t("settings.backupInvalidTitle"),
+        message: error instanceof Error
           ? error.message
           : t("settings.backupInvalidMessage"),
-      );
+      });
     }
   }
 
@@ -270,30 +272,30 @@ export default function SettingsScreen() {
     if (!pendingBackup) return;
 
     if (!profile?.id) {
-      Alert.alert(
-        t("settings.backupErrorTitle"),
-        t("settings.backupSignInRequired"),
-      );
+      void dialog.alert({
+        title: t("settings.backupErrorTitle"),
+        message: t("settings.backupSignInRequired"),
+      });
       return;
     }
 
     try {
       const summary = await importHouseholdBackup.mutateAsync(pendingBackup);
       setPendingBackup(null);
-      Alert.alert(
-        t("settings.backupImportCompleteTitle"),
-        t("settings.backupImportCompleteMessage", {
+      void dialog.alert({
+        title: t("settings.backupImportCompleteTitle"),
+        message: t("settings.backupImportCompleteMessage", {
           householdName: summary.householdName,
           transactions: summary.transactions,
         }),
-      );
+      });
     } catch (error) {
-      Alert.alert(
-        t("settings.backupErrorTitle"),
-        error instanceof Error
+      void dialog.alert({
+        title: t("settings.backupErrorTitle"),
+        message: error instanceof Error
           ? error.message
           : t("settings.backupUnknownError"),
-      );
+      });
     }
   }
 
@@ -331,37 +333,20 @@ export default function SettingsScreen() {
   async function handleDeleteHousehold(item: { id: string; name: string }) {
     const message = t("settings.deleteHouseholdMessage");
 
-    if (Platform.OS === "web") {
-      const confirmed =
-        typeof window !== "undefined" ? window.confirm(message) : false;
+    const confirmed = await dialog.confirm({
+      title: t("settings.deleteHouseholdTitle"),
+      message,
+      confirmLabel: t("delete"),
+      destructive: true,
+    });
+    if (!confirmed) return;
 
-      if (!confirmed) return;
-
-      await deleteHousehold.mutateAsync(item.id);
-      setDraftNames((current) => {
-        const next = { ...current };
-        delete next[item.id];
-        return next;
-      });
-      return;
-    }
-
-    Alert.alert(t("settings.deleteHouseholdTitle"), message, [
-      { text: t("cancel"), style: "cancel" },
-      {
-        text: t("delete"),
-        style: "destructive",
-        onPress: () => {
-          void deleteHousehold.mutateAsync(item.id).then(() => {
-            setDraftNames((current) => {
-              const next = { ...current };
-              delete next[item.id];
-              return next;
-            });
-          });
-        },
-      },
-    ]);
+    await deleteHousehold.mutateAsync(item.id);
+    setDraftNames((current) => {
+      const next = { ...current };
+      delete next[item.id];
+      return next;
+    });
   }
 
   return (

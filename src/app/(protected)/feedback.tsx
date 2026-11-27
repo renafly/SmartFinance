@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useDialog } from "@/providers/ModalProvider";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -79,6 +80,7 @@ const terminalStatuses: FeedbackStatus[] = ["closed", "withdrawn", "duplicate"];
 
 export default function FeedbackScreen() {
   const { t } = useTranslation("common");
+  const dialog = useDialog();
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
   const { show } = useToast();
@@ -133,12 +135,12 @@ export default function FeedbackScreen() {
         return [...current, ...additions].slice(0, 5);
       });
     } catch (error) {
-      Alert.alert(
-        t("feedback.screenshotErrorTitle"),
-        error instanceof Error
+      void dialog.alert({
+        title: t("feedback.screenshotErrorTitle"),
+        message: error instanceof Error
           ? error.message
           : t("feedback.screenshotErrorMessage"),
-      );
+      });
     }
   }
 
@@ -165,12 +167,12 @@ export default function FeedbackScreen() {
       setScreenshots([]);
       show(t("feedback.submitted"));
     } catch (error) {
-      Alert.alert(
-        t("feedback.submitErrorTitle"),
-        error instanceof Error
+      void dialog.alert({
+        title: t("feedback.submitErrorTitle"),
+        message: error instanceof Error
           ? error.message
           : t("feedback.submitErrorMessage"),
-      );
+      });
     }
   }
 
@@ -183,12 +185,12 @@ export default function FeedbackScreen() {
       setReplyDrafts((current) => ({ ...current, [feedbackId]: "" }));
       show(t("feedback.replySent"));
     } catch (error) {
-      Alert.alert(
-        t("feedback.replyErrorTitle"),
-        error instanceof Error
+      void dialog.alert({
+        title: t("feedback.replyErrorTitle"),
+        message: error instanceof Error
           ? error.message
           : t("feedback.replyErrorMessage"),
-      );
+      });
     }
   }
 
@@ -198,36 +200,25 @@ export default function FeedbackScreen() {
         await withdrawFeedback.mutateAsync(item.id);
         show(t("feedback.withdrawn"));
       } catch (error) {
-        Alert.alert(
-          t("feedback.withdrawErrorTitle"),
-          error instanceof Error
+        void dialog.alert({
+          title: t("feedback.withdrawErrorTitle"),
+          message: error instanceof Error
             ? error.message
             : t("feedback.withdrawErrorMessage"),
-        );
+        });
       }
     };
 
-    if (Platform.OS === "web") {
-      const confirmed =
-        typeof window !== "undefined"
-          ? window.confirm(t("feedback.withdrawMessage", { title: item.title }))
-          : false;
-      if (confirmed) void run();
-      return;
-    }
-
-    Alert.alert(
-      t("feedback.withdrawTitle"),
-      t("feedback.withdrawMessage", { title: item.title }),
-      [
-        { text: t("cancel"), style: "cancel" },
-        {
-          text: t("feedback.withdraw"),
-          style: "destructive",
-          onPress: () => void run(),
-        },
-      ],
-    );
+    void dialog
+      .confirm({
+        title: t("feedback.withdrawTitle"),
+        message: t("feedback.withdrawMessage", { title: item.title }),
+        confirmLabel: t("feedback.withdraw"),
+        destructive: true,
+      })
+      .then((ok) => {
+        if (ok) void run();
+      });
   }
 
   return (
