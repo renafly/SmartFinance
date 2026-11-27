@@ -554,7 +554,7 @@ export function TransfersContent({
                       {formatDate(item.next_run)}
                     </Text>
                     {endStatusLabel(item, t) ? (
-                      <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
+                      <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
                         {endStatusLabel(item, t)}
                       </Text>
                     ) : null}

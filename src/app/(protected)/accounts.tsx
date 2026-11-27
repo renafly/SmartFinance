@@ -1216,7 +1216,7 @@ function createStyles(colors: any, insets: { top: number; bottom: number } = { t
     },
     balanceChartCenterLabel: {
       color: colors.textSecondary,
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: String(typography.fontWeight.semibold),
     },
     balanceChartCenterValue: {
@@ -1254,7 +1254,7 @@ function createStyles(colors: any, insets: { top: number; bottom: number } = { t
     },
     balanceChartPercentage: {
       color: colors.textSecondary,
-      fontSize: 11,
+      fontSize: 12,
     },
     balanceChartValue: {
       fontSize: typography.fontSize[13],
@@ -1306,7 +1306,7 @@ function createStyles(colors: any, insets: { top: number; bottom: number } = { t
     },
     balanceChartTooltipOwner: {
       color: colors.textSecondary,
-      fontSize: 11,
+      fontSize: 12,
     },
     balanceChartTooltipValue: {
       color: colors.text,

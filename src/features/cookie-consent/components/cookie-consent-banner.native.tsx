@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   button: { minHeight: 44, borderWidth: 1, borderRadius: 11, paddingHorizontal: 15, alignItems: "center", justifyContent: "center" },
   backdrop: { flex: 1, alignItems: "center", justifyContent: "center", padding: 18 },
   dialog: { width: "100%", maxWidth: 580, borderWidth: 1, borderRadius: 20, padding: 22, gap: 8 },
-  dialogTitle: { fontSize: 23, lineHeight: 30, fontWeight: "800" },
+  dialogTitle: { fontSize: 24, lineHeight: 30, fontWeight: "800" },
   preferenceRow: { minHeight: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16, borderBottomWidth: 1 },
   preferenceTitle: { flex: 1, fontSize: 16, fontWeight: "700" },
 });

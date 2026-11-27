@@ -120,7 +120,7 @@ function SummaryTile({ label, value, highlighted = false }: { label: string; val
         { backgroundColor: highlighted ? colors.primarySoft : colors.surfaceMuted },
       ]}
     >
-      <Text style={{ color: highlighted ? colors.primary : colors.textSecondary, fontSize: 11 }}>{label}</Text>
+      <Text style={{ color: highlighted ? colors.primary : colors.textSecondary, fontSize: 12 }}>{label}</Text>
       <Text
         style={{
           color: highlighted ? colors.primary : colors.text,
