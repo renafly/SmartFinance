@@ -25,6 +25,7 @@ import {
   PrivacyToggle,
   Section,
 } from "@/components/migrated-page";
+import { EmptyState } from "@/components/data-surface";
 import { typography } from "@/theme/typography";
 import { getPersistentString, setPersistentString } from "@/shared/lib/persistent-storage";
 import { displayCurrency } from "@/shared/lib/mask-currency";
@@ -439,6 +440,15 @@ export default function SavingsScreen() {
         subtitle={t("savings.currentSubtitle")}
       >
         <View style={{ gap: spacing(2.5) }}>
+          {savingPotsQuery.isSuccess && (savingPotsQuery.data ?? []).length === 0 ? (
+            <EmptyState
+              icon="wallet-outline"
+              title={t("savings.emptyTitle")}
+              description={t("savings.emptyDescription")}
+              actionLabel={t("savings.addPot")}
+              onAction={openCreateModal}
+            />
+          ) : null}
           {(savingPotsQuery.data ?? []).map((pot: any) => {
             const balance = balanceMap.get(pot.id);
             const forecast = savingPotForecasts.get(pot.id);

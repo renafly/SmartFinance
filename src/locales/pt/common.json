@@ -365,7 +365,8 @@
     "categoryBudgets": {
       "title": "Orcamentos por categoria",
       "subtitle": "Defina um limite mensal por categoria e acompanhe o seu progresso.",
-      "empty": "Ainda nao ha orcamentos de categoria definidos. Adicione um abaixo para comecar.",
+      "empty": "Adicione um limite mensal a uma categoria no formulário acima para começar a acompanhar os gastos.",
+      "emptyTitle": "Ainda não há orçamentos de categoria",
       "status": {
         "ok": "Dentro do previsto",
         "planned": "Previsto",
@@ -1435,6 +1436,8 @@
     "remaining": "Restante: {{value}}"
   },
   "savings": {
+    "emptyTitle": "Ainda não tem mealheiros",
+    "emptyDescription": "Crie um mealheiro para separar dinheiro para um objetivo e acompanhar o saldo e a previsão.",
     "title": "Poupanças",
     "subtitle": "Acompanhe os seus mealheiros e os respetivos saldos.",
     "namePlaceholder": "Fundo de emergência",

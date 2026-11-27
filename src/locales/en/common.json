@@ -365,7 +365,8 @@
     "categoryBudgets": {
       "title": "Category Budgets",
       "subtitle": "Set a monthly limit per category and see how you're tracking against it.",
-      "empty": "No category budgets set yet. Add one below to start tracking a limit.",
+      "empty": "Add a monthly limit to a category with the form above to start tracking spending.",
+      "emptyTitle": "No category budgets yet",
       "status": {
         "ok": "On track",
         "planned": "Planned",
@@ -1435,6 +1436,8 @@
     "remaining": "Remaining: {{value}}"
   },
   "savings": {
+    "emptyTitle": "No saving pots yet",
+    "emptyDescription": "Create a pot to set money aside for a goal and follow its balance and forecast.",
     "title": "Savings",
     "subtitle": "Track your saving pots and their balances.",
     "namePlaceholder": "Emergency fund",

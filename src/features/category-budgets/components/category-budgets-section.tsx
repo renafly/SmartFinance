@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Section } from '@/components/migrated-page';
+import { EmptyState } from '@/components/data-surface';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useResponsiveMetrics } from '@/theme/responsive';
 import { type CategoryPickerCategory } from '@/components/category-picker';
@@ -215,7 +216,7 @@ export function CategoryBudgetsSection({ month, categories, accounts, onEditLimi
       {isLoading ? (
         <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[14] } as any}>{t('loading')}</Text>
       ) : entries.length === 0 ? (
-        <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[14] } as any}>{t('budget.categoryBudgets.empty')}</Text>
+        <EmptyState icon="pie-chart-outline" title={t('budget.categoryBudgets.emptyTitle')} description={t('budget.categoryBudgets.empty')} />
       ) : (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing(3) } as any}>
           {entries.map((entry) => (
