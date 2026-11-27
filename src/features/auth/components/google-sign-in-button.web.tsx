@@ -5,11 +5,13 @@ import {
   GoogleOAuthProvider,
 } from "@react-oauth/google";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 
 import "react-native-get-random-values";
 
 export default function GoogleSignInButton() {
+  const { i18n } = useTranslation();
   const [sha256Nonce, setSha256Nonce] = useState("");
   const nonceRef = useRef<string | null>(null);
 
@@ -65,6 +67,7 @@ export default function GoogleSignInButton() {
     <GoogleOAuthProvider
       clientId={process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? ""}
       nonce={sha256Nonce}
+      locale={i18n.language}
     >
       <View style={{ alignSelf: "flex-start" }}>
         <GoogleLogin

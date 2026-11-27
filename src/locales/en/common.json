@@ -102,6 +102,7 @@
     "monthlyBudget": "Monthly Budget",
     "categoryBudgets": "Category Budgets",
     "tags": "Tags",
+    "notes": "Notes",
     "categories": "Categories",
     "members": "Members",
     "diagnostics": "Diagnostics",
@@ -120,6 +121,7 @@
     "openMenu": "Open menu"
   },
   "diagnostics": {
+    "markAsSeen": "Mark as seen",
     "title": "Release diagnostics",
     "subtitle": "Check the production setup before deploying or sharing links.",
     "configurationTitle": "Production readiness",
@@ -167,6 +169,7 @@
     }
   },
   "cancel": "Cancel",
+  "ok": "OK",
   "delete": "Delete",
   "clear": "Clear",
   "done": "Done",
@@ -364,7 +367,8 @@
     "categoryBudgets": {
       "title": "Category Budgets",
       "subtitle": "Set a monthly limit per category and see how you're tracking against it.",
-      "empty": "No category budgets set yet. Add one below to start tracking a limit.",
+      "empty": "Add a monthly limit to a category with the form above to start tracking spending.",
+      "emptyTitle": "No category budgets yet",
       "status": {
         "ok": "On track",
         "planned": "Planned",
@@ -882,6 +886,14 @@
     }
   },
   "transactions": {
+    "transferEditErrors": {
+      "missing_title": "title",
+      "invalid_amount": "amount (above 0)",
+      "invalid_date": "date",
+      "missing_account": "source account",
+      "missing_destination": "destination account",
+      "same_account": "different source and destination accounts"
+    },
     "createSuccess": "Transaction created",
     "updateSuccess": "Transaction updated",
     "deleteSuccess": "Transaction deleted",
@@ -922,17 +934,6 @@
     },
     "createTitle": "Add movement",
     "createSubtitle": "Add an income, expense, or transfer between accounts.",
-    "wizard": {
-      "stepOf": "Step {{current}} of {{total}}",
-      "back": "Back",
-      "next": "Next",
-      "stepTypeTitle": "What kind of movement?",
-      "stepTypeSubtitle": "Choose a type, then add the title, amount, date, and notes.",
-      "stepAccountsTitle": "Accounts & people",
-      "stepAccountsSubtitle": "Where the money moves and who it's for. Split across multiple accounts if needed.",
-      "stepExtrasTitle": "Category & attachment",
-      "stepExtrasSubtitle": "Optional - categorize it and attach a receipt if you have one."
-    },
     "split": {
       "toggleLabel": "Split source",
       "toggleHint": "Fund this transaction from more than one account or pot",
@@ -954,6 +955,11 @@
       "remaining": "Remaining",
       "overAllocated": "Over by {{amount}}",
       "complete": "Fully allocated",
+      "accountColumn": "Account",
+      "receivedColumn": "Received",
+      "costColumn": "Cost",
+      "progress": "{{allocated}} of {{total}} allocated",
+      "left": "{{amount}} left",
       "noPots": "No saving pots yet",
       "badge": "Split",
       "breakdownTitle": "Funding sources",
@@ -1015,6 +1021,10 @@
     "latestSubtitleLoaded": "Showing {{loaded}} of {{total}} rows from the current household.",
     "account": "Account",
     "allAccounts": "All accounts",
+    "accountsSelected_one": "{{count}} account",
+    "accountsSelected_other": "{{count}} accounts",
+    "selectAccountsHint": "Select one or more accounts. Leave empty to show all accounts.",
+    "applyAccountFilter": "Apply",
     "sourceAccount": "Source account",
     "destinationAccount": "Destination account",
     "allSourceAccounts": "All source accounts",
@@ -1086,11 +1096,14 @@
       "expectedAmount": "Expected reimbursement",
       "fromSource": "Into {{source}}",
       "receivedOn": "Received on",
+      "receivedIn": "Received in account",
       "receivedOnValue": "Received {{date}}",
       "edit": "Edit reimbursement",
       "editing": "Editing reimbursement from {{payer}}",
       "saveChanges": "Save changes",
       "cancelEdit": "Cancel",
+      "addReimbursement": "Add reimbursement",
+      "about": "About reimbursements",
       "removeConfirm": "Remove this reimbursement? The income it recorded is removed too.",
       "removeConfirmYes": "Remove",
       "saveError": "Couldn't save the reimbursement: {{detail}}",
@@ -1100,7 +1113,12 @@
       "typeChangeWarning_other": "Saving this as income removes its {{count}} reimbursements and the income they recorded.",
       "managedTitle": "Recorded by a reimbursement",
       "managedBody": "This income was created automatically when {{payer}} paid back “{{expense}}”. To change its amount, account or date, or to remove it, edit that expense's reimbursements.",
-      "netAfter": "{{amount}} after reimbursements",
+      "listNetCost": "Net cost",
+      "listNetGain": "Net gain",
+      "listFull": "Fully reimbursed",
+      "listA11yPartial": "Expense of {{original}}. Reimbursed {{reimbursed}}. Net cost {{net}}.",
+      "listA11yFull": "Expense of {{original}}, fully reimbursed. Net cost zero.",
+      "listA11yOver": "Expense of {{original}}. Reimbursed {{reimbursed}}, {{surplus}} more than spent.",
       "pendingHint": "Changes are applied when you save the transaction.",
       "unsavedBadge": "Not saved yet",
       "applyChanges": "Update"
@@ -1137,6 +1155,15 @@
         "missing_payer_name": "Enter who paid back each repayment"
       }
     },
+    "moreDetails": {
+      "title": "More details",
+      "tags_one": "{{count}} tag",
+      "tags_other": "{{count}} tags",
+      "attachments_one": "{{count}} attachment",
+      "attachments_other": "{{count}} attachments",
+      "hasNotes": "has notes",
+      "by": "by {{name}}"
+    },
     "paymentBreakdown": {
       "title": "Payment breakdown",
       "paidFrom": "Paid from",
@@ -1144,12 +1171,18 @@
       "summaryPaid": "Paid {{amount}}",
       "summaryReimbursed": "Reimbursed {{amount}}",
       "summaryEffective": "Effective cost {{amount}}",
-      "splitUnavailable": "Split source isn't available while this expense has reimbursements. Turn reimbursements off to split it.",
+      "splitUnavailable": "Split source isn't available because this expense was fully reimbursed.",
+      "potsWithReimbursements": "With reimbursements, the split can only use accounts. Remove the pots from the split.",
       "reimbursementUnavailable": "Reimbursements aren't available for a split payment. Turn Split source off to add them.",
       "receivedInto": "Received into {{account}} (the Paid from account)",
       "choosePaidFromFirst": "Choose the Paid from account first.",
       "expand": "Show payment breakdown",
-      "collapse": "Hide payment breakdown"
+      "collapse": "Hide payment breakdown",
+      "tilePaid": "Paid",
+      "tileReimbursed": "Reimbursed",
+      "tileEffective": "Effective cost",
+      "reimbursementsGroup": "Reimbursements",
+      "costBearers": "Who bears the cost"
     },
     "showFullNote": "Show full note",
     "hideFullNote": "Collapse note",
@@ -1305,6 +1338,65 @@
       "otherIncome": "Other Income"
     }
   },
+  "notes": {
+    "subtitle": "Private notes, visible only to you. Changes save automatically.",
+    "newNote": "New note",
+    "searchLabel": "Search notes",
+    "searchPlaceholder": "Search titles and text…",
+    "sort": {
+      "label": "Sort by",
+      "updated": "Last updated",
+      "created": "Date created"
+    },
+    "untitled": "Untitled note",
+    "emptyPreview": "No text yet",
+    "updatedAt": "Updated {{date}}",
+    "openNote": "Open note {{title}}",
+    "loading": "Loading notes…",
+    "loadError": "Couldn't load your notes.",
+    "retry": "Try again",
+    "empty": {
+      "title": "No notes yet",
+      "description": "Write down ideas, reminders or anything you want to keep track of. Notes are private: other household members can't see them."
+    },
+    "listEmpty": "Your notes will appear here.",
+    "noResults": "No notes match “{{query}}”.",
+    "selectPrompt": {
+      "title": "Select a note",
+      "description": "Pick a note from the list or start a new one."
+    },
+    "back": "All notes",
+    "titlePlaceholder": "Title",
+    "titleLabel": "Note title",
+    "contentPlaceholder": "Start writing…",
+    "contentLabel": "Note text",
+    "status": {
+      "pending": "Unsaved changes",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "savedAt": "Saved · {{date}}",
+      "error": "Couldn't save. Your text is kept here.",
+      "retry": "Retry",
+      "conflict": "Not saved"
+    },
+    "conflict": {
+      "title": "This note was changed somewhere else",
+      "description": "It was edited on another device or tab after you opened it. Choose which version to keep.",
+      "keepMine": "Keep my version",
+      "loadLatest": "Load the other version",
+      "deletedTitle": "This note was deleted somewhere else",
+      "deletedDescription": "It was deleted on another device or tab. You can restore it with your text or discard it.",
+      "restore": "Restore my note",
+      "discard": "Discard"
+    },
+    "delete": "Delete note",
+    "discard": "Discard note",
+    "deleteNamed": "Delete note {{title}}",
+    "deleteTitle": "Delete “{{title}}”?",
+    "deleteBody": "This note will be permanently deleted. This can't be undone.",
+    "deletedToast": "Note deleted.",
+    "deleteError": "Couldn't delete the note. Try again."
+  },
   "tags": {
     "title": "Tags",
     "subtitle": "Group expenses across categories and accounts by project or event, and see exactly what each one cost.",
@@ -1410,6 +1502,8 @@
     "remaining": "Remaining: {{value}}"
   },
   "savings": {
+    "emptyTitle": "No saving pots yet",
+    "emptyDescription": "Create a pot to set money aside for a goal and follow its balance and forecast.",
     "title": "Savings",
     "subtitle": "Track your saving pots and their balances.",
     "namePlaceholder": "Emergency fund",
@@ -1556,6 +1650,16 @@
     "endStatusEnded": "Ended"
   },
   "transfers": {
+    "swapAccounts": "Swap source and destination",
+    "missingFields": "Still missing: {{fields}}.",
+    "issues": {
+      "title": "title",
+      "amount": "amount (above 0)",
+      "nextRun": "next run",
+      "endCondition": "end condition",
+      "source": "source account",
+      "destination": "destination"
+    },
     "title": "Transfers",
     "subtitle": "Move money between accounts",
     "formDate": "Date",
@@ -1718,7 +1822,16 @@
     "detailSourcesTitle": "Sources",
     "detailTransfersTitle": "Transfers created",
     "reimbursedNote": "{{amount}} reimbursed",
-    "detailFundedBy": "Funded by {{sources}}"
+    "detailFundedBy": "Funded by {{sources}}",
+    "editSources": "Edit sources",
+    "saveSources": "Save",
+    "cancelEdit": "Cancel",
+    "sourceLabel": "Source",
+    "multipleSources": "Multiple accounts",
+    "updateSourcesSuccess": "Sources updated",
+    "updateSourcesError": "Could not update the sources: {{detail}}",
+    "previewUnitSourcesTitle": "Source of each transaction",
+    "previewUnitSourcesSubtitle": "Suggested automatically. You can pick another account for any transaction."
   },
   "notifications": {
     "title": "Notifications",

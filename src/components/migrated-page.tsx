@@ -306,6 +306,8 @@ export function Pill({ label, active, onPress }: PillProps) {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: !!active }}
+      // Pills are ~28px tall on phones; extend the touch area to 44px.
+      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
       style={({ pressed }) => [styles.pill, responsiveStyle, { backgroundColor: active ? colors.primary : colors.surfaceMuted, borderColor: active ? colors.primary : colors.border }, pressed && styles.pressed]}
     >
       {content}

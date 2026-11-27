@@ -172,7 +172,7 @@ function WageFlowSubcategoryBreakdown({
       <Text
         style={{
           color: colors.textSecondary,
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: typography.fontWeight.semibold,
           textTransform: "uppercase",
           letterSpacing: 0.4,
@@ -320,7 +320,7 @@ function WageFlowDetailsBody({ category }: { category: WageFlowChartBucket }) {
             {category.amount < 0 ? "" : "+"}
             {displayCurrency(formatCurrency(category.amount), hideValues)}
           </Text>
-          <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
+          <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
             {t("insights.wageFlow.transactionCount", { count: matches.length })}
           </Text>
         </View>
@@ -401,7 +401,7 @@ function WageFlowDetailsBody({ category }: { category: WageFlowChartBucket }) {
                     >
                       {title}
                     </Text>
-                    <Text style={{ color: colors.textSecondary, fontSize: 11 }} numberOfLines={2}>
+                    <Text style={{ color: colors.textSecondary, fontSize: 12 }} numberOfLines={2}>
                       {match.destinationLabel
                         ? `${formatDate(match.transactionDate)} · ${match.accountLabel} → ${match.destinationLabel} · ${match.ownerLabel}`
                         : `${formatDate(match.transactionDate)} · ${match.accountLabel} · ${match.ownerLabel}`}

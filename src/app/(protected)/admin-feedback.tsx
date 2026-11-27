@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useDialog } from "@/providers/ModalProvider";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -84,6 +85,7 @@ const priorities: FeedbackPriority[] = ["low", "medium", "high", "urgent"];
 
 export default function AdminFeedbackScreen() {
   const { t } = useTranslation("common");
+  const dialog = useDialog();
   const { colors } = useTheme();
   const responsive = useResponsiveMetrics();
   const { show } = useToast();
@@ -123,12 +125,12 @@ export default function AdminFeedbackScreen() {
       await updateFeedback.mutateAsync({ feedbackId: selected.id, ...changes });
       show(t("adminFeedback.updated"));
     } catch (error) {
-      Alert.alert(
-        t("adminFeedback.updateErrorTitle"),
-        error instanceof Error
+      void dialog.alert({
+        title: t("adminFeedback.updateErrorTitle"),
+        message: error instanceof Error
           ? error.message
           : t("adminFeedback.updateErrorMessage"),
-      );
+      });
     }
   }
 
@@ -147,12 +149,12 @@ export default function AdminFeedbackScreen() {
         ),
       );
     } catch (error) {
-      Alert.alert(
-        t("adminFeedback.replyErrorTitle"),
-        error instanceof Error
+      void dialog.alert({
+        title: t("adminFeedback.replyErrorTitle"),
+        message: error instanceof Error
           ? error.message
           : t("adminFeedback.replyErrorMessage"),
-      );
+      });
     }
   }
 

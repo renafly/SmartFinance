@@ -4,11 +4,24 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Card, Section, formatCurrency } from "@/components/migrated-page";
 import { EmptyState } from "@/components/data-surface";
+import { GroupedAccountSelect } from "@/components/grouped-account-select";
 import { displayCurrency } from "@/shared/lib/mask-currency";
 import { usePrivacyStore } from "@/stores/privacyStore";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useTheme } from "@/theme/ThemeProvider";
+
+/** One selected transaction (or slice of a split one) and the account(s)
+ * currently set to fund it -- suggested by the settlement algorithm or
+ * picked by the user. */
+export type PreviewUnitSource = {
+  unitKey: string;
+  title: string;
+  accountId: string;
+  accountName: string;
+  amount: number;
+  sourceAccountIds: string[];
+};
 
 import type {
   ReplenishmentDestination,
@@ -27,12 +40,23 @@ export function TransferPreviewStep({
   transactionCount,
   totalAmount,
   transfers,
+  units,
+  accounts,
+  members,
+  excludedAccountIds,
+  onChangeUnitSource,
 }: {
   destinations: ReplenishmentDestination[];
   sources: ReplenishmentSourceDraft[];
   transactionCount: number;
   totalAmount: number;
   transfers: ReplenishmentTransferPreview[] | null;
+  units: PreviewUnitSource[];
+  accounts: { id: string | null; name: string | null }[];
+  members: unknown[];
+  /** Accounts being replenished -- never a valid source. */
+  excludedAccountIds: string[];
+  onChangeUnitSource: (unitKey: string, accountId: string) => void;
 }) {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
@@ -80,6 +104,47 @@ export function TransferPreviewStep({
           </View>
         </Section>
       </Card>
+
+      {units.length > 0 ? (
+        <Card>
+          <Section
+            title={t("replenishments.previewUnitSourcesTitle")}
+            subtitle={t("replenishments.previewUnitSourcesSubtitle")}
+          >
+            <View style={{ gap: spacing(3) }}>
+              {units.map((unit) => (
+                <View key={unit.unitKey} style={{ gap: spacing(1) }}>
+                  <View style={styles.row}>
+                    <Text style={{ color: colors.text, flex: 1, paddingRight: spacing(2) }}>
+                      {unit.title} · {unit.accountName}
+                    </Text>
+                    <Text style={{ color: colors.text, fontWeight: typography.fontWeight.bold as any }}>
+                      {displayCurrency(formatCurrency(unit.amount), hideValues)}
+                    </Text>
+                  </View>
+                  <GroupedAccountSelect
+                    label={t("replenishments.sourceLabel")}
+                    hideLabel
+                    accounts={accounts as any}
+                    members={members as any}
+                    allowedAccountIds={accounts.flatMap((account) =>
+                      account.id && account.id !== unit.accountId && !excludedAccountIds.includes(account.id)
+                        ? [account.id]
+                        : [],
+                    )}
+                    value={unit.sourceAccountIds.length === 1 ? unit.sourceAccountIds[0] : ""}
+                    placeholder={t("replenishments.multipleSources")}
+                    onChange={(accountId) => onChangeUnitSource(unit.unitKey, accountId)}
+                    closeLabel={t("close")}
+                    sharedLabel={t("dashboard.shared")}
+                    unassignedLabel={t("settings.unnamedUser")}
+                  />
+                </View>
+              ))}
+            </View>
+          </Section>
+        </Card>
+      ) : null}
 
       <Card>
         <Section

@@ -6,6 +6,7 @@ import { supabase } from "@/shared/lib/supabase/client";
 import type { Database } from "@/types/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ReplenishmentUnitSourceAssignment } from "@/features/replenishments/types";
+import type { UpdateReplenishmentUnitSources } from "@/features/replenishments/edit-sources";
 
 type ReplenishmentRun = Database["public"]["Tables"]["replenishment_runs"]["Row"];
 type ReplenishmentRunTransaction =
@@ -171,6 +172,22 @@ export class ReplenishmentsRepository extends BaseRepository<"replenishment_runs
       })),
       p_preview: input.preview,
     } as never);
+
+    if (error) return { data: null, error };
+    return { data: data as ReplenishmentRun, error: null };
+  }
+
+  /** Changes, on a confirmed run, which account funds each given covered
+   * unit (update_replenishment_run_sources). Atomic: any invalid unit
+   * fails the whole call. */
+  async updateRunSources(input: {
+    runId: string;
+    units: UpdateReplenishmentUnitSources[];
+  }): Promise<RepoResult<ReplenishmentRun>> {
+    const { data, error } = await this.client.rpc("update_replenishment_run_sources", {
+      p_run_id: input.runId,
+      p_unit_sources: input.units,
+    });
 
     if (error) return { data: null, error };
     return { data: data as ReplenishmentRun, error: null };

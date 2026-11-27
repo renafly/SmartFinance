@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Badge } from '@/components/data-surface';
 import { CategoryPicker } from '@/components/category-picker';
@@ -12,6 +13,7 @@ import { styles } from '../ui-styles';
 import { frequencies, months } from '../types';
 import type { EndCondition, ExpenseKind, MovementDraft, MovementTransactionType } from '../types';
 import { DatePickerField } from './movement-date-field';
+import { swapMovementAccounts } from '../utils';
 
 const endConditions: EndCondition[] = ['never', 'count', 'date'];
 
@@ -65,7 +67,7 @@ export function MovementFields({
         />
       )}
       <Field label={t('recurring.titleLabel')} value={value.title} onChangeText={(title) => onChange({ title })} />
-      <Field label={t('recurring.amount')} value={value.amount} onChangeText={(amount) => onChange({ amount })} keyboardType="numeric" />
+      <Field label={t('recurring.amount')} value={value.amount} onChangeText={(amount) => onChange({ amount })} keyboardType="decimal-pad" />
       <Field label={t('transfers.notes')} value={value.notes} onChangeText={(notes) => onChange({ notes })} />
       {isScheduled ? (
         <DatePickerField
@@ -164,7 +166,6 @@ export function MovementFields({
         members={members}
         value={value.sourceAccountId}
         placeholder={isTransfer ? t('transfers.sourceAccount') : t('recurring.account')}
-        hint={isTransfer ? t('transfers.sourceAccount') : t('recurring.account')}
         onChange={(sourceAccountId) => onChange({ sourceAccountId })}
         allowedAccountIds={allowedSourceIds}
         closeLabel={t('close')}
@@ -173,13 +174,38 @@ export function MovementFields({
         typeLabels={typeLabels}
       />
       {isTransfer ? (
+        <Pressable
+          onPress={() => {
+            const swapped = swapMovementAccounts(value);
+            if (swapped !== value) onChange({ sourceAccountId: swapped.sourceAccountId, destination: swapped.destination });
+          }}
+          disabled={!value.sourceAccountId || !value.destination}
+          accessibilityRole="button"
+          accessibilityLabel={t('transfers.swapAccounts')}
+          hitSlop={8}
+          style={({ pressed }) => ({
+            alignSelf: 'center',
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.surface,
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: !value.sourceAccountId || !value.destination ? 0.4 : pressed ? 0.7 : 1,
+          })}
+        >
+          <Ionicons name="swap-vertical-outline" size={20} color={colors.primary} />
+        </Pressable>
+      ) : null}
+      {isTransfer ? (
         <GroupedDestinationSelect
           label={t('transfers.destination')}
           accounts={accounts}
           members={members}
           value={value.destination}
           placeholder={t('transfers.destination')}
-          hint={t('transfers.destination')}
           onChange={(destination) => onChange({ destination })}
           allowedAccountIds={allowedDestinationIds}
           closeLabel={t('close')}

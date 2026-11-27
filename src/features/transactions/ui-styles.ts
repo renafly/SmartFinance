@@ -80,12 +80,6 @@ export function createStyles(colors: any, insets: SafeAreaInsets = NO_INSETS) {
     bulkCheckboxDisabled: {
       opacity: 0.38,
     },
-    transactionHeader: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      justifyContent: "space-between",
-      gap: spacing(3),
-    },
     transactionIdentity: {
       flexDirection: "row",
       alignItems: "center",
@@ -106,10 +100,6 @@ export function createStyles(colors: any, insets: SafeAreaInsets = NO_INSETS) {
     transactionAccount: {
       color: colors.text,
       fontWeight: String(typography.fontWeight.semibold),
-    },
-    transactionCreator: {
-      color: colors.primary,
-      fontWeight: String(typography.fontWeight.bold),
     },
     transactionContext: {
       color: colors.textSecondary,
@@ -357,19 +347,6 @@ export function createStyles(colors: any, insets: SafeAreaInsets = NO_INSETS) {
       borderWidth: 1,
       borderRadius: radius.full,
     },
-    formGrid: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      gap: spacing(3),
-    },
-    formGridCompact: {
-      flexDirection: "column",
-    },
-    formGridItem: {
-      flex: 1,
-      width: "100%",
-      minWidth: 0,
-    },
     createModalFooter: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -424,49 +401,6 @@ export function createStyles(colors: any, insets: SafeAreaInsets = NO_INSETS) {
       fontWeight: String(typography.fontWeight.extraBold),
     },
     modalSubtitle: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[13],
-      lineHeight: typography.lineHeight[18],
-    },
-    wizardProgressTrack: {
-      flexDirection: "row",
-      gap: spacing(1.5),
-    },
-    wizardProgressSegment: {
-      flex: 1,
-      height: spacing(1),
-      borderRadius: radius.full,
-    },
-    wizardStepHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: spacing(2),
-    },
-    wizardBackButton: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing(1),
-      alignSelf: "flex-start",
-    },
-    wizardBackLabel: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[13],
-      fontWeight: typography.fontWeight.semibold as any,
-    },
-    wizardStepIndicator: {
-      color: colors.textSecondary,
-      fontSize: typography.fontSize[12],
-      fontWeight: typography.fontWeight.bold as any,
-      textTransform: "uppercase",
-      letterSpacing: 0.4,
-    },
-    wizardStepTitle: {
-      color: colors.text,
-      fontSize: typography.fontSize[16],
-      fontWeight: String(typography.fontWeight.extraBold),
-    },
-    wizardStepSubtitle: {
       color: colors.textSecondary,
       fontSize: typography.fontSize[13],
       lineHeight: typography.lineHeight[18],
@@ -548,6 +482,23 @@ export function createStyles(colors: any, insets: SafeAreaInsets = NO_INSETS) {
       flexWrap: "wrap",
       gap: spacing(2.5),
       justifyContent: "flex-end",
+    },
+    // Edit modal footer: Delete on the left, Cancel/Save on the right.
+    editFooterActions: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing(2.5),
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    // Keeps Cancel/Save right-aligned when the footer wraps on phones.
+    editFooterPrimary: {
+      marginLeft: "auto",
+    },
+    // The amount is what the user checks first (see EssentialsSection).
+    amountFieldProminent: {
+      fontSize: 22,
+      fontWeight: "700",
     },
     menuItem: {
       paddingVertical: spacing(3.5),

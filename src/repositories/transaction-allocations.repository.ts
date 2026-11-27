@@ -81,4 +81,44 @@ export class TransactionAllocationsRepository extends BaseRepository<"transactio
     if (error) return { data: null, error };
     return { data: null, error: null };
   }
+
+  /**
+   * Saves an expense's final reimbursement set and its split of the
+   * effective cost in ONE transaction (save_transaction_funding). Rows of
+   * `reimbursements` without an id are created; saved ones left out are
+   * deleted. An empty `effectiveAllocations` means no split.
+   */
+  async saveFunding(input: SaveTransactionFundingInput): Promise<RepoResult<null>> {
+    const { error } = await this.client.rpc("save_transaction_funding", {
+      p_transaction_id: input.transactionId,
+      p_effective_allocations: input.effectiveAllocations.map((allocation) => ({
+        account_id: allocation.accountId,
+        amount: allocation.amount,
+      })),
+      p_reimbursements: input.reimbursements.map((reimbursement) => ({
+        id: reimbursement.id,
+        payer_name: reimbursement.payerName,
+        amount: reimbursement.amount,
+        note: reimbursement.note,
+        account_id: reimbursement.accountId,
+        received_on: reimbursement.receivedOn,
+      })),
+    });
+
+    if (error) return { data: null, error };
+    return { data: null, error: null };
+  }
 }
+
+export type SaveTransactionFundingInput = {
+  transactionId: string;
+  effectiveAllocations: { accountId: string; amount: number }[];
+  reimbursements: {
+    id: string | null;
+    payerName: string;
+    amount: number;
+    note: string | null;
+    accountId: string;
+    receivedOn: string | null;
+  }[];
+};

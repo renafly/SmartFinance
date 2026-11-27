@@ -16,6 +16,8 @@ import { useHouseholdMemberDetails } from "@/features/households/hooks";
 
 import { computeMinimalUnitTransfers, SettlementError, type SettlementUnitSource } from "../algorithm/settlement";
 import { fromCents, toCents } from "../algorithm/money";
+import { applyUnitOverrides, deriveSourceAmounts } from "../algorithm/overrides";
+import { useAccountsWithBalances } from "@/features/accounts/hooks";
 import { useSaveReplenishmentDraft } from "../hooks/useReplenishmentDraft";
 import { useConfirmReplenishment } from "../hooks/useConfirmReplenishment";
 import { buildMemberLabelMap } from "../member-grouping";
@@ -34,7 +36,7 @@ import { SelectAccountsToReplenishStep } from "./steps/SelectAccountsToReplenish
 import { SelectTransactionsStep } from "./steps/SelectTransactionsStep";
 import { SelectSourcesStep } from "./steps/SelectSourcesStep";
 import { DistributionStep } from "./steps/DistributionStep";
-import { TransferPreviewStep } from "./steps/TransferPreviewStep";
+import { TransferPreviewStep, type PreviewUnitSource } from "./steps/TransferPreviewStep";
 
 const STEP_KEYS = ["accounts", "transactions", "sources", "distribution", "preview"] as const;
 type StepKey = (typeof STEP_KEYS)[number];
@@ -85,6 +87,12 @@ export function ReplenishmentWizard({
   >(new Map());
   const [sources, setSources] = useState<ReplenishmentSourceDraft[]>([]);
   const [runId, setRunId] = useState<string | null>(null);
+  // Preview step: the account the user picked for a unit (keyed like
+  // selectedTransactions), replacing the algorithm's suggestion for it.
+  // Cleared whenever the selection or the sources change, since the
+  // suggestion it overrides is recomputed from those.
+  const [unitOverrides, setUnitOverrides] = useState<Map<string, string>>(new Map());
+  const accountsQuery = useAccountsWithBalances();
 
   const saveDraft = useSaveReplenishmentDraft();
   const confirmReplenishment = useConfirmReplenishment();
@@ -153,12 +161,61 @@ export function ReplenishmentWizard({
         accountId: transaction.accountId,
         amountCents: toCents(transaction.amount),
       }));
-      return computeMinimalUnitTransfers(settlementSources, units);
+      return applyUnitOverrides(computeMinimalUnitTransfers(settlementSources, units), unitOverrides, units);
     } catch (error) {
       if (error instanceof SettlementError) return null;
       throw error;
     }
-  }, [isDistributionValid, selectedTransactions, sources]);
+  }, [isDistributionValid, selectedTransactions, sources, unitOverrides]);
+
+  useEffect(() => {
+    setUnitOverrides((current) => (current.size === 0 ? current : new Map()));
+  }, [selectedTransactions, sources]);
+
+  // The sources as they will really be used: with per-unit overrides the
+  // amounts typed in the sources step no longer hold, so each source's
+  // amount is derived from the assignments, and an account picked only in
+  // the preview is added as a new account source.
+  const effectiveSources = useMemo<ReplenishmentSourceDraft[]>(() => {
+    if (unitOverrides.size === 0 || !unitTransferAssignments) return sources;
+    const totals = deriveSourceAmounts(unitTransferAssignments);
+    const result = sources.map((source) => ({
+      ...source,
+      amount: fromCents(totals.get(source.resolvedAccountId) ?? 0),
+    }));
+    for (const [accountId, cents] of totals) {
+      if (sources.some((source) => source.resolvedAccountId === accountId)) continue;
+      const account = (accountsQuery.data ?? []).find((item) => item.id === accountId);
+      result.push({
+        kind: "account",
+        potId: null,
+        resolvedAccountId: accountId,
+        label: account?.name ?? accountId,
+        availableAmount: account?.current_balance ?? 0,
+        suggestedAmount: 0,
+        amount: fromCents(cents),
+      });
+    }
+    return result;
+  }, [accountsQuery.data, sources, unitOverrides, unitTransferAssignments]);
+
+  const previewUnits = useMemo<PreviewUnitSource[]>(() => {
+    if (!unitTransferAssignments) return [];
+    const sourcesByUnit = new Map<string, string[]>();
+    for (const assignment of unitTransferAssignments) {
+      const list = sourcesByUnit.get(assignment.unitKey) ?? [];
+      list.push(assignment.sourceAccountId);
+      sourcesByUnit.set(assignment.unitKey, list);
+    }
+    return [...selectedTransactions.entries()].map(([unitKey, transaction]) => ({
+      unitKey,
+      title: transaction.title,
+      accountId: transaction.accountId,
+      accountName: transaction.accountName,
+      amount: transaction.amount,
+      sourceAccountIds: sourcesByUnit.get(unitKey) ?? [],
+    }));
+  }, [selectedTransactions, unitTransferAssignments]);
 
   // Read-only, display-only summary for the Preview step: aggregates the
   // per-unit assignments back up by (source account, destination account)
@@ -168,7 +225,7 @@ export function ReplenishmentWizard({
   const transferPreview = useMemo<ReplenishmentTransferPreview[] | null>(() => {
     if (!unitTransferAssignments) return null;
 
-    const sourceLabelByAccount = new Map(sources.map((source) => [source.resolvedAccountId, source.label]));
+    const sourceLabelByAccount = new Map(effectiveSources.map((source) => [source.resolvedAccountId, source.label]));
     const destinationLabelByAccount = new Map(
       destinations.map((destination) => [destination.accountId, destination.accountName]),
     );
@@ -202,14 +259,14 @@ export function ReplenishmentWizard({
         destinationLabel: destinationLabelByAccount.get(pair.destinationAccountId) ?? pair.destinationAccountId,
         amount: fromCents(pair.amountCents),
       }));
-  }, [destinations, sources, unitTransferAssignments]);
+  }, [destinations, effectiveSources, unitTransferAssignments]);
 
   // The actual confirm_replenishment_run payload: per covered unit, the
   // real source(s) it should be reassigned to.
   const unitSources = useMemo<ReplenishmentUnitSourceAssignment[] | null>(() => {
     if (!unitTransferAssignments) return null;
 
-    const sourceByResolvedAccountId = new Map(sources.map((source) => [source.resolvedAccountId, source]));
+    const sourceByResolvedAccountId = new Map(effectiveSources.map((source) => [source.resolvedAccountId, source]));
 
     const grouped = new Map<string, SettlementUnitSource[]>();
     for (const assignment of unitTransferAssignments) {
@@ -240,7 +297,9 @@ export function ReplenishmentWizard({
 
       const sourceAssignments: ReplenishmentSourceAssignment[] = assignments.map((assignment) => {
         const draft = sourceByResolvedAccountId.get(assignment.sourceAccountId);
-        const kind: ReplenishmentSourceKind = draft?.kind ?? "account";
+        // A unit the user re-pointed in the preview is always funded by
+        // that plain account, even if it also backs a pot source.
+        const kind: ReplenishmentSourceKind = unitOverrides.has(unitKey) ? "account" : (draft?.kind ?? "account");
         const potId = kind === "pot" ? (draft?.potId ?? null) : null;
         const accountId = kind === "account" || isWholeTransactionSingleSource ? assignment.sourceAccountId : null;
         return {
@@ -259,7 +318,7 @@ export function ReplenishmentWizard({
     }
 
     return result;
-  }, [selectedTransactions, sources, unitTransferAssignments]);
+  }, [effectiveSources, selectedTransactions, unitOverrides, unitTransferAssignments]);
 
   function goTo(nextIndex: number) {
     const clamped = Math.max(0, Math.min(nextIndex, STEP_KEYS.length - 1));
@@ -338,7 +397,7 @@ export function ReplenishmentWizard({
           categoryId: transaction.categoryId,
           transactionDate: transaction.transactionDate,
         })),
-        sources: sources.map((source, index) => ({
+        sources: effectiveSources.map((source, index) => ({
           kind: source.kind,
           potId: source.potId,
           resolvedAccountId: source.resolvedAccountId,
@@ -367,7 +426,7 @@ export function ReplenishmentWizard({
       const preview: ReplenishmentPreview = {
         transactionIds: [...selectedTransactions.keys()],
         destinations,
-        sources: sources.map((source) => ({
+        sources: effectiveSources.map((source) => ({
           resolvedAccountId: source.resolvedAccountId,
           amount: source.amount,
           suggestedAmount: source.suggestedAmount,
@@ -571,10 +630,17 @@ export function ReplenishmentWizard({
       {currentStep === "preview" ? (
         <TransferPreviewStep
           destinations={destinations}
-          sources={sources}
+          sources={effectiveSources}
           transactionCount={selectedTransactions.size}
           totalAmount={totalAmount}
           transfers={transferPreview}
+          units={previewUnits}
+          accounts={accountsQuery.data ?? []}
+          members={(membersQuery.data ?? []).filter((member) => member.status === "accepted")}
+          excludedAccountIds={[...replenishAccountIds]}
+          onChangeUnitSource={(unitKey, accountId) =>
+            setUnitOverrides((current) => new Map(current).set(unitKey, accountId))
+          }
         />
       ) : null}
 

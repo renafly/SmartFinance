@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invalidateHouseholdData } from "@/lib/query-invalidation";
 import { transactionAllocationsService } from "../services/transaction-allocations.service";
 import type { AllocationDraft } from "../utils/transaction-allocations";
+import type { SaveTransactionFundingInput } from "@/repositories/transaction-allocations.repository";
 
 export function useTransactionAllocations(
   transactionId: string | null | undefined,
@@ -53,6 +54,24 @@ export function useSaveTransactionAllocations() {
       queryClient.invalidateQueries({
         queryKey: ["transaction-allocations", variables.transactionId],
       });
+    },
+  });
+}
+
+/** Saves an expense's split of the effective cost and its reimbursements
+ * together (save_transaction_funding) -- invalidates everything the
+ * separate allocation and reimbursement writes used to. */
+export function useSaveTransactionFunding() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: SaveTransactionFundingInput) => transactionAllocationsService.saveFunding(input),
+    onSuccess: (_data, variables) => {
+      invalidateHouseholdData(queryClient);
+      queryClient.invalidateQueries({ queryKey: ["transaction-allocations", variables.transactionId] });
+      queryClient.invalidateQueries({ queryKey: ["transaction-reimbursements", variables.transactionId] });
+      queryClient.invalidateQueries({ queryKey: ["transaction-effective-amount", variables.transactionId] });
+      queryClient.invalidateQueries({ queryKey: ["reimbursement-income-link"] });
     },
   });
 }

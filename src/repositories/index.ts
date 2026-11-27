@@ -12,6 +12,7 @@ import { PlannedItemsRepository } from "./planned-items.repository";
 import { ProfilesRepository } from "./profiles.repository";
 import { RecurringExpensesRepository } from "./recurring-expenses.repository";
 import { IncomeSourcesRepository } from "./income-sources.repository";
+import { NotesRepository } from "./notes.repository";
 import { RecurringTransactionsRepository } from "./recurring.transactions.repository";
 import { ReplenishmentsRepository } from "./replenishments.repository";
 import { SavingPotsRepository } from "./saving-pots.repository";
@@ -28,6 +29,7 @@ export * from "./base.repository";
 export * from "./categories.repository";
 export * from "./dashboard-network-config.repository";
 export * from "./households.repository";
+export * from "./notes.repository";
 export * from "./planned-items.repository";
 export * from "./profiles.repository";
 export * from "./recurring-expenses.repository";
@@ -54,6 +56,7 @@ export function createRepositories(
     profiles: new ProfilesRepository(client),
     recurringExpenses: new RecurringExpensesRepository(client),
     incomeSources: new IncomeSourcesRepository(client),
+    notes: new NotesRepository(client),
     recurringTransactions: new RecurringTransactionsRepository(client),
     replenishments: new ReplenishmentsRepository(client),
     savingPots: new SavingPotsRepository(client),

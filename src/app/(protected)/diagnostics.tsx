@@ -501,7 +501,7 @@ export default function DiagnosticsScreen() {
               onPress={() => releaseState.markCurrentVersionSeen()}
               style={({ pressed }) => [styles.checkButton, { backgroundColor: colors.primary, borderColor: colors.primary }, pressed && styles.pressed]}
             >
-              <Text style={[styles.checkButtonText, { color: colors.primaryForeground }]}>Mark as seen</Text>
+              <Text style={[styles.checkButtonText, { color: colors.primaryForeground }]}>{t("diagnostics.markAsSeen")}</Text>
             </Pressable>
           </Section>
         </Card>

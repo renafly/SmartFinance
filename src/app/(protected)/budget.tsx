@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { useDialog } from '@/providers/ModalProvider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,19 +63,6 @@ function errorMessage(err: unknown): string | null {
   return err && typeof err === 'object' && 'message' in err && typeof (err as { message?: unknown }).message === 'string'
     ? (err as { message: string }).message
     : null;
-}
-
-// react-native-web's Alert.alert() is a no-op stub -- fall back to the
-// browser's window.confirm on web so a confirmation still happens there.
-function confirmAction(title: string, message: string, confirmLabel: string, cancelLabel: string, onConfirm: () => void, destructive = false) {
-  if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && window.confirm(`${title}\n\n${message}`)) onConfirm();
-    return;
-  }
-  Alert.alert(title, message, [
-    { text: cancelLabel, style: 'cancel' },
-    { text: confirmLabel, style: destructive ? 'destructive' : 'default', onPress: onConfirm },
-  ]);
 }
 
 type CategoryLike = { id: string; name: string; parent_id?: string | null };
@@ -278,6 +266,15 @@ export default function BudgetScreen() {
   const deleteItem = useDeletePlannedItem();
   const confirmMonth = useConfirmPlannedItemMonth();
   const revertMonth = useRevertMonthlyBudgetMonth();
+
+  // In-app dialog on every platform (react-native-web's Alert.alert is a
+  // no-op, and window.confirm looked like a browser error).
+  const dialog = useDialog();
+  function confirmAction(title: string, message: string, confirmLabel: string, _cancelLabel: string, onConfirm: () => void, destructive = false) {
+    void dialog.confirm({ title, message, confirmLabel, destructive }).then((ok) => {
+      if (ok) onConfirm();
+    });
+  }
 
   /** Refreshes the movement cards from the server without touching unsaved income edits. */
   async function syncMovementsFromServer() {

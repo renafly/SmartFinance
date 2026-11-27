@@ -30,6 +30,7 @@ import { BalanceForecastPanel, CombinedForecastPanel, type CombinedForecastEntit
 import { DEFAULT_FORECAST_PERIOD_MONTHS, type ForecastPeriodMonths } from "../../features/forecast/ui-utils";
 import type { BalanceForecast } from "../../features/forecast/services/balance-forecast.service";
 import { BugReportFab } from "@/components/bug-report-fab";
+import { useTags, useTransactionTagMap } from "../../features/tags/hooks/useTags";
 
 const accountTypes = ACCOUNT_TYPE_ORDER;
 const currencyOptions: AppCurrency[] = ["EUR", "USD", "GBP"];
@@ -312,6 +313,23 @@ export default function AccountsScreen() {
     () => accountTransfersQuery.data?.pages.flat() ?? [],
     [accountTransfersQuery.data],
   );
+  // Custom tags on the ledger rows -- one batched lookup for every loaded
+  // page, resolved to names via the household tag list.
+  const ledgerTransactionIds = useMemo(
+    () => accountTransfers.map((item: any) => item.transaction_id).filter(Boolean) as string[],
+    [accountTransfers],
+  );
+  const ledgerTagMapQuery = useTransactionTagMap(ledgerTransactionIds);
+  const tagsQuery = useTags();
+  const tagNameById = useMemo(
+    () => new Map((tagsQuery.data ?? []).map((tag) => [tag.id, tag.name])),
+    [tagsQuery.data],
+  );
+  const getLedgerTagNames = (item: any): string[] =>
+    (ledgerTagMapQuery.data?.[item.transaction_id] ?? [])
+      .map((id) => tagNameById.get(id))
+      .filter((name): name is string => !!name)
+      .sort((a, b) => a.localeCompare(b));
   // Set only when a replenishment has reassigned this ledger row's real
   // source (account_id/pot_id, or the underlying transaction_allocations
   // row for a split leg) -- see
@@ -1073,6 +1091,14 @@ export default function AccountsScreen() {
                             {t("transactions.originallyFrom", { source: getLedgerOriginalSourceLabel(item) })}
                           </Text>
                         ) : null}
+                        {getLedgerTagNames(item).length > 0 ? (
+                          <View style={styles.ledgerTagRow}>
+                            <Ionicons name="pricetags-outline" size={12} color={colors.textSecondary} />
+                            {getLedgerTagNames(item).map((tagName) => (
+                              <Badge key={tagName} label={tagName} tone="primary" />
+                            ))}
+                          </View>
+                        ) : null}
                       </TableCell>
                       <TableCell flex={1}><Badge label={t(`transactions.types.${item.movement_kind}`, { defaultValue: item.movement_kind })} tone={item.movement_kind === "expense" ? "destructive" : "success"} /></TableCell>
                       <TableCell align="right">
@@ -1180,6 +1206,13 @@ function createStyles(colors: any, insets: { top: number; bottom: number } = { t
       color: colors.textSecondary,
       fontSize: typography.fontSize[12],
     },
+    ledgerTagRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      gap: spacing(1),
+      marginTop: spacing(1),
+    },
     accountBalance: {
       color: colors.primary,
       fontWeight: String(typography.fontWeight.extraBold),
@@ -1216,7 +1249,7 @@ function createStyles(colors: any, insets: { top: number; bottom: number } = { t
     },
     balanceChartCenterLabel: {
       color: colors.textSecondary,
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: String(typography.fontWeight.semibold),
     },
     balanceChartCenterValue: {
@@ -1254,7 +1287,7 @@ function createStyles(colors: any, insets: { top: number; bottom: number } = { t
     },
     balanceChartPercentage: {
       color: colors.textSecondary,
-      fontSize: 11,
+      fontSize: 12,
     },
     balanceChartValue: {
       fontSize: typography.fontSize[13],
@@ -1306,7 +1339,7 @@ function createStyles(colors: any, insets: { top: number; bottom: number } = { t
     },
     balanceChartTooltipOwner: {
       color: colors.textSecondary,
-      fontSize: 11,
+      fontSize: 12,
     },
     balanceChartTooltipValue: {
       color: colors.text,

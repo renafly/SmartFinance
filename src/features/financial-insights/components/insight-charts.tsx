@@ -580,7 +580,7 @@ export function WageFlowCategoryMenu({
                 >
                   {item.label}
                 </Text>
-                <Text style={{ color: colors.textSecondary, fontSize: 11 }}>{item.share}%</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{item.share}%</Text>
               </Pressable>
             );
           })}

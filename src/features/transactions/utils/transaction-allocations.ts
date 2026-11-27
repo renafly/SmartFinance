@@ -174,7 +174,7 @@ export function summarizeAllocations(
   };
 }
 
-function targetKey(allocation: Pick<AllocationDraft, "sourceType" | "accountId" | "potId">): string | null {
+export function targetKey(allocation: Pick<AllocationDraft, "sourceType" | "accountId" | "potId">): string | null {
   if (allocation.sourceType === "account") {
     return allocation.accountId ? `account:${allocation.accountId}` : null;
   }
@@ -190,7 +190,13 @@ function targetKey(allocation: Pick<AllocationDraft, "sourceType" | "accountId" 
 export function validateAllocations(
   totalAmount: number,
   allocations: readonly AllocationDraft[],
-  options?: { minAllocations?: number; allowDuplicateTargets?: boolean },
+  options?: {
+    minAllocations?: number;
+    allowDuplicateTargets?: boolean;
+    /** Targets whose row may be exactly 0 -- e.g. an account whose whole
+     * share of a reimbursed expense was paid back to it (see funding.ts). */
+    zeroAllowedTargetKeys?: ReadonlySet<string>;
+  },
 ): AllocationValidationError[] {
   const minAllocations = options?.minAllocations ?? 2;
   const errors: AllocationValidationError[] = [];
@@ -203,7 +209,16 @@ export function validateAllocations(
     errors.push("missing_target");
   }
 
-  if (allocations.some((allocation) => !Number.isFinite(allocation.amount) || toCents(allocation.amount) <= 0)) {
+  const zeroAllowed = options?.zeroAllowedTargetKeys;
+  if (
+    allocations.some((allocation) => {
+      if (!Number.isFinite(allocation.amount)) return true;
+      const cents = toCents(allocation.amount);
+      if (cents > 0) return false;
+      const key = targetKey(allocation);
+      return !(cents === 0 && key !== null && zeroAllowed?.has(key));
+    })
+  ) {
     errors.push("non_positive_amount");
   }
 

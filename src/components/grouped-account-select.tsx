@@ -57,7 +57,11 @@ function getAccountSubtitle(
   unassignedLabel: string,
   typeLabels: Record<string, string>,
 ) {
-  return `${getOwnerLabel(account, memberMap, sharedLabel, unassignedLabel)} · ${typeLabels[account.type] ?? account.type}`;
+  // Callers that don't pass sharedLabel/unassignedLabel get an empty owner
+  // label; drop it rather than rendering a dangling " · type".
+  return [getOwnerLabel(account, memberMap, sharedLabel, unassignedLabel), typeLabels[account.type] ?? account.type]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 // ------------------------------------------------------------
@@ -194,7 +198,11 @@ export function GroupedAccountSelect({
       <SelectionTrigger
         label={label}
         valueLabel={selectedLabel}
-        hint={hint}
+        // Once an account is picked (by the user or preselected by the
+        // caller), the second line shows its owner + type -- the same
+        // subtitle its row has in the picker -- so the owner stays visible
+        // after selection. The caller's hint only shows while empty.
+        hint={selectedAccount ? getAccountSubtitle(selectedAccount, memberMap, sharedLabel, unassignedLabel, typeLabels) : hint}
         placeholder={placeholder}
         iconName="wallet-outline"
         disabled={disabled}
@@ -389,6 +397,147 @@ export function GroupedAccountMultiSelect({
         </View>
       </MultiSelectShell>
     </>
+  );
+}
+
+type GroupedAccountFilterSelectProps = {
+  label: string;
+  accounts: AccountLike[];
+  members: MemberLike[];
+  /** Selected account ids. Empty means "all accounts" (no account filter). */
+  values: string[];
+  onChange: (accountIds: string[]) => void;
+  /** Label of the "all accounts" option, also shown on the trigger when nothing is selected. */
+  allLabel: string;
+  /** Trigger text when more than one account is selected -- e.g. "3 accounts". */
+  getSelectedCountLabel: (count: number) => string;
+  hint?: string;
+  groupBy?: "member" | "type";
+  sharedLabel?: string;
+  unassignedLabel?: string;
+  closeLabel?: string;
+  confirmLabel?: string;
+  typeLabels?: Record<string, string>;
+  disabled?: boolean;
+};
+
+/**
+ * Multi-value account *filter*: same trigger as GroupedAccountSelect, same
+ * grouped/toned list as GroupedAccountMultiSelect, but it edits an existing
+ * selection instead of bulk-adding new accounts. The picker opens with the
+ * current selection checked, every account toggles independently, and
+ * Apply replaces the selection -- including with nothing checked, which
+ * means "all accounts" (as does the "all accounts" row at the top, which
+ * clears every check). A third sibling rather than a mode on either of the
+ * other two, for the same reason GroupedAccountMultiSelect is one: their
+ * contracts are relied on by other call sites.
+ */
+export function GroupedAccountFilterSelect({
+  label,
+  accounts,
+  members,
+  values,
+  onChange,
+  allLabel,
+  getSelectedCountLabel,
+  hint,
+  groupBy = "member",
+  sharedLabel = "",
+  unassignedLabel = "",
+  closeLabel = "",
+  confirmLabel = "",
+  typeLabels = {},
+  disabled,
+}: GroupedAccountFilterSelectProps) {
+  const [open, setOpen] = useState(false);
+  const [draftIds, setDraftIds] = useState<string[]>([]);
+  const hideValues = usePrivacyStore((state) => state.hideValues);
+  const groupTones = useGroupTones();
+
+  const { groups, memberMap } = useMemo(
+    () => buildGroupedAccounts(accounts, members, { groupBy, sharedLabel, unassignedLabel, typeLabels }),
+    [accounts, groupBy, members, sharedLabel, typeLabels, unassignedLabel],
+  );
+
+  const singleSelected = values.length === 1 ? accounts.find((item) => item.id === values[0]) : undefined;
+  const valueLabel =
+    values.length === 0
+      ? allLabel
+      : singleSelected
+        ? getAccountLabel(singleSelected, hideValues)
+        : getSelectedCountLabel(values.length);
+
+  function handleOpen() {
+    setDraftIds(values);
+    setOpen(true);
+  }
+
+  function toggle(accountId: string) {
+    setDraftIds((previous) =>
+      previous.includes(accountId) ? previous.filter((id) => id !== accountId) : [...previous, accountId],
+    );
+  }
+
+  function handleConfirm() {
+    onChange(draftIds);
+    setOpen(false);
+  }
+
+  return (
+    <View style={styles.wrapper}>
+      <SelectionTrigger
+        label={label}
+        valueLabel={valueLabel}
+        hint={hint}
+        placeholder={allLabel}
+        iconName="wallet-outline"
+        disabled={disabled}
+        onPress={handleOpen}
+      />
+
+      <MultiSelectShell
+        visible={open}
+        title={label}
+        subtitle={hint}
+        closeLabel={closeLabel}
+        confirmLabel={confirmLabel}
+        onClose={() => setOpen(false)}
+        onConfirm={handleConfirm}
+      >
+        <View style={{ gap: spacing(3) }}>
+          <SelectionOptionRow
+            title={allLabel}
+            active={draftIds.length === 0}
+            iconName={draftIds.length === 0 ? "checkmark-circle" : "layers-outline"}
+            onPress={() => setDraftIds([])}
+          />
+          {groups.map((group, groupIndex) => {
+            const tone = groupTones[groupIndex % groupTones.length];
+            return (
+              <View key={group.key} style={[styles.group, { backgroundColor: tone.surface, borderColor: tone.accent }]}>
+                <Text style={[styles.groupTitle, { color: tone.accent }]}>{group.title}</Text>
+                <View style={{ gap: spacing(2) }}>
+                  {group.accounts.map((account) => {
+                    const selected = draftIds.includes(account.id);
+                    return (
+                      <SelectionOptionRow
+                        key={account.id}
+                        title={account.name}
+                        subtitle={getAccountSubtitle(account, memberMap, sharedLabel, unassignedLabel, typeLabels)}
+                        rightLabel={displayCurrency(formatCurrency(account.current_balance ?? account.balance ?? 0), hideValues)}
+                        active={selected}
+                        iconName={selected ? "checkmark-circle" : "ellipse-outline"}
+                        onPress={() => toggle(account.id)}
+                      />
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      </MultiSelectShell>
+    </View>
   );
 }
 

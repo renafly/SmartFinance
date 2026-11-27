@@ -318,7 +318,7 @@ export function DatePickerField({
                           style={{
                             textAlign: "center",
                             color: colors.textSecondary,
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: 700,
                             textTransform: "uppercase",
                           }}

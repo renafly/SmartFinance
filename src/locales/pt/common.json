@@ -102,6 +102,7 @@
     "monthlyBudget": "Orçamento Mensal",
     "categoryBudgets": "Orçamentos por Categoria",
     "tags": "Etiquetas",
+    "notes": "Notas",
     "categories": "Categorias",
     "members": "Membros",
     "diagnostics": "Diagnóstico",
@@ -120,6 +121,7 @@
     "openMenu": "Abrir menu"
   },
   "diagnostics": {
+    "markAsSeen": "Marcar como visto",
     "title": "Diagnóstico de lançamento",
     "subtitle": "Verifique a configuração de produção antes de publicar ou partilhar links.",
     "configurationTitle": "Prontidão para produção",
@@ -167,6 +169,7 @@
     }
   },
   "cancel": "Cancelar",
+  "ok": "OK",
   "delete": "Eliminar",
   "clear": "Limpar",
   "done": "Concluir",
@@ -364,7 +367,8 @@
     "categoryBudgets": {
       "title": "Orcamentos por categoria",
       "subtitle": "Defina um limite mensal por categoria e acompanhe o seu progresso.",
-      "empty": "Ainda nao ha orcamentos de categoria definidos. Adicione um abaixo para comecar.",
+      "empty": "Adicione um limite mensal a uma categoria no formulário acima para começar a acompanhar os gastos.",
+      "emptyTitle": "Ainda não há orçamentos de categoria",
       "status": {
         "ok": "Dentro do previsto",
         "planned": "Previsto",
@@ -882,6 +886,14 @@
     }
   },
   "transactions": {
+    "transferEditErrors": {
+      "missing_title": "título",
+      "invalid_amount": "valor (maior que 0)",
+      "invalid_date": "data",
+      "missing_account": "conta de origem",
+      "missing_destination": "conta de destino",
+      "same_account": "contas diferentes na origem e no destino"
+    },
     "createSuccess": "Transação criada",
     "updateSuccess": "Transação atualizada",
     "deleteSuccess": "Transação eliminada",
@@ -922,17 +934,6 @@
     },
     "createTitle": "Adicionar movimento",
     "createSubtitle": "Adicione uma receita, despesa ou transferência entre contas.",
-    "wizard": {
-      "stepOf": "Passo {{current}} de {{total}}",
-      "back": "Voltar",
-      "next": "Seguinte",
-      "stepTypeTitle": "Que tipo de movimento?",
-      "stepTypeSubtitle": "Escolha um tipo e depois adicione o título, valor, data e notas.",
-      "stepAccountsTitle": "Contas e pessoas",
-      "stepAccountsSubtitle": "Para onde vai o dinheiro e para quem é. Divida por várias contas, se precisar.",
-      "stepExtrasTitle": "Categoria e anexo",
-      "stepExtrasSubtitle": "Opcional - categorize e anexe um recibo, se tiver."
-    },
     "split": {
       "toggleLabel": "Dividir origem",
       "toggleHint": "Financiar esta transação a partir de mais do que uma conta ou pot",
@@ -954,6 +955,11 @@
       "remaining": "Por atribuir",
       "overAllocated": "Em excesso: {{amount}}",
       "complete": "Totalmente atribuído",
+      "accountColumn": "Conta",
+      "receivedColumn": "Recebeu",
+      "costColumn": "Custo",
+      "progress": "{{allocated}} de {{total}} atribuídos",
+      "left": "Faltam {{amount}}",
       "noPots": "Ainda não existem pots",
       "badge": "Dividida",
       "breakdownTitle": "Origens do financiamento",
@@ -1015,6 +1021,10 @@
     "latestSubtitleLoaded": "A mostrar {{loaded}} de {{total}} linhas do agregado atual.",
     "account": "Conta",
     "allAccounts": "Todas as contas",
+    "accountsSelected_one": "{{count}} conta",
+    "accountsSelected_other": "{{count}} contas",
+    "selectAccountsHint": "Selecione uma ou mais contas. Deixe vazio para mostrar todas as contas.",
+    "applyAccountFilter": "Aplicar",
     "sourceAccount": "Conta de origem",
     "destinationAccount": "Conta de destino",
     "allSourceAccounts": "Todas as contas de origem",
@@ -1086,11 +1096,14 @@
       "expectedAmount": "Reembolso esperado",
       "fromSource": "Para {{source}}",
       "receivedOn": "Recebido em",
+      "receivedIn": "Conta onde foi recebido",
       "receivedOnValue": "Recebido a {{date}}",
       "edit": "Editar reembolso",
       "editing": "A editar o reembolso de {{payer}}",
       "saveChanges": "Guardar alterações",
       "cancelEdit": "Cancelar",
+      "addReimbursement": "Adicionar reembolso",
+      "about": "Sobre os reembolsos",
       "removeConfirm": "Remover este reembolso? A receita que registou também é removida.",
       "removeConfirmYes": "Remover",
       "saveError": "Não foi possível guardar o reembolso: {{detail}}",
@@ -1100,7 +1113,12 @@
       "typeChangeWarning_other": "Guardar como receita remove os {{count}} reembolsos desta despesa e a receita que registaram.",
       "managedTitle": "Registado por um reembolso",
       "managedBody": "Esta receita foi criada automaticamente quando {{payer}} reembolsou “{{expense}}”. Para alterar o valor, a conta ou a data, ou para a remover, edite os reembolsos dessa despesa.",
-      "netAfter": "{{amount}} após reembolsos",
+      "listNetCost": "Custo real",
+      "listNetGain": "Ganho líquido",
+      "listFull": "Totalmente reembolsado",
+      "listA11yPartial": "Despesa de {{original}}. Reembolsado {{reimbursed}}. Custo real {{net}}.",
+      "listA11yFull": "Despesa de {{original}}, totalmente reembolsada. Custo real zero.",
+      "listA11yOver": "Despesa de {{original}}. Reembolsado {{reimbursed}}, mais {{surplus}} do que o gasto.",
       "pendingHint": "As alterações são aplicadas quando guardares a transação.",
       "unsavedBadge": "Ainda não guardado",
       "applyChanges": "Atualizar"
@@ -1137,6 +1155,15 @@
         "missing_payer_name": "Indique quem pagou cada reembolso"
       }
     },
+    "moreDetails": {
+      "title": "Mais detalhes",
+      "tags_one": "{{count}} etiqueta",
+      "tags_other": "{{count}} etiquetas",
+      "attachments_one": "{{count}} anexo",
+      "attachments_other": "{{count}} anexos",
+      "hasNotes": "com notas",
+      "by": "por {{name}}"
+    },
     "paymentBreakdown": {
       "title": "Detalhe do pagamento",
       "paidFrom": "Pago a partir de",
@@ -1144,12 +1171,18 @@
       "summaryPaid": "Pago {{amount}}",
       "summaryReimbursed": "Reembolsado {{amount}}",
       "summaryEffective": "Custo efetivo {{amount}}",
-      "splitUnavailable": "A divisão por várias contas não está disponível enquanto esta despesa tiver reembolsos. Desativa os reembolsos para a dividir.",
+      "splitUnavailable": "A divisão por várias contas não está disponível porque esta despesa foi totalmente reembolsada.",
+      "potsWithReimbursements": "Com reembolsos, a divisão só pode usar contas. Remove os potes da divisão.",
       "reimbursementUnavailable": "Os reembolsos não estão disponíveis num pagamento dividido. Desativa a divisão por várias contas para os adicionar.",
       "receivedInto": "Recebido em {{account}} (a conta de onde foi pago)",
       "choosePaidFromFirst": "Escolhe primeiro a conta de onde foi pago.",
       "expand": "Mostrar detalhe do pagamento",
-      "collapse": "Ocultar detalhe do pagamento"
+      "collapse": "Ocultar detalhe do pagamento",
+      "tilePaid": "Pago",
+      "tileReimbursed": "Reembolsado",
+      "tileEffective": "Custo efetivo",
+      "reimbursementsGroup": "Reembolsos",
+      "costBearers": "Quem suporta o custo"
     },
     "showFullNote": "Mostrar a nota completa",
     "hideFullNote": "Recolher a nota",
@@ -1305,6 +1338,65 @@
       "otherIncome": "Outros Rendimentos"
     }
   },
+  "notes": {
+    "subtitle": "Notas privadas, visíveis apenas para si. As alterações são guardadas automaticamente.",
+    "newNote": "Nova nota",
+    "searchLabel": "Pesquisar notas",
+    "searchPlaceholder": "Pesquisar títulos e texto…",
+    "sort": {
+      "label": "Ordenar por",
+      "updated": "Última atualização",
+      "created": "Data de criação"
+    },
+    "untitled": "Nota sem título",
+    "emptyPreview": "Ainda sem texto",
+    "updatedAt": "Atualizada {{date}}",
+    "openNote": "Abrir nota {{title}}",
+    "loading": "A carregar notas…",
+    "loadError": "Não foi possível carregar as suas notas.",
+    "retry": "Tentar novamente",
+    "empty": {
+      "title": "Ainda não tem notas",
+      "description": "Registe ideias, lembretes ou qualquer coisa que queira acompanhar. As notas são privadas: os outros membros do agregado não as veem."
+    },
+    "listEmpty": "As suas notas vão aparecer aqui.",
+    "noResults": "Nenhuma nota corresponde a “{{query}}”.",
+    "selectPrompt": {
+      "title": "Selecione uma nota",
+      "description": "Escolha uma nota da lista ou comece uma nova."
+    },
+    "back": "Todas as notas",
+    "titlePlaceholder": "Título",
+    "titleLabel": "Título da nota",
+    "contentPlaceholder": "Comece a escrever…",
+    "contentLabel": "Texto da nota",
+    "status": {
+      "pending": "Alterações por guardar",
+      "saving": "A guardar…",
+      "saved": "Guardado",
+      "savedAt": "Guardado · {{date}}",
+      "error": "Não foi possível guardar. O seu texto mantém-se aqui.",
+      "retry": "Tentar novamente",
+      "conflict": "Não guardado"
+    },
+    "conflict": {
+      "title": "Esta nota foi alterada noutro sítio",
+      "description": "Foi editada noutro dispositivo ou separador depois de a abrir. Escolha que versão quer manter.",
+      "keepMine": "Manter a minha versão",
+      "loadLatest": "Carregar a outra versão",
+      "deletedTitle": "Esta nota foi eliminada noutro sítio",
+      "deletedDescription": "Foi eliminada noutro dispositivo ou separador. Pode restaurá-la com o seu texto ou descartá-la.",
+      "restore": "Restaurar a minha nota",
+      "discard": "Descartar"
+    },
+    "delete": "Eliminar nota",
+    "discard": "Descartar nota",
+    "deleteNamed": "Eliminar nota {{title}}",
+    "deleteTitle": "Eliminar “{{title}}”?",
+    "deleteBody": "Esta nota será eliminada permanentemente. Esta ação não pode ser anulada.",
+    "deletedToast": "Nota eliminada.",
+    "deleteError": "Não foi possível eliminar a nota. Tente novamente."
+  },
   "tags": {
     "title": "Etiquetas",
     "subtitle": "Agrupe despesas de várias categorias e contas por projeto ou evento e veja exatamente quanto custou cada um.",
@@ -1410,6 +1502,8 @@
     "remaining": "Restante: {{value}}"
   },
   "savings": {
+    "emptyTitle": "Ainda não tem mealheiros",
+    "emptyDescription": "Crie um mealheiro para separar dinheiro para um objetivo e acompanhar o saldo e a previsão.",
     "title": "Poupanças",
     "subtitle": "Acompanhe os seus mealheiros e os respetivos saldos.",
     "namePlaceholder": "Fundo de emergência",
@@ -1556,6 +1650,16 @@
     "endStatusEnded": "Terminada"
   },
   "transfers": {
+    "swapAccounts": "Trocar origem e destino",
+    "missingFields": "Falta preencher: {{fields}}.",
+    "issues": {
+      "title": "título",
+      "amount": "valor (maior que 0)",
+      "nextRun": "próxima execução",
+      "endCondition": "fim da repetição",
+      "source": "conta de origem",
+      "destination": "destino"
+    },
     "title": "Transferências",
     "subtitle": "Mover dinheiro entre contas",
     "formDate": "Data",
@@ -1718,7 +1822,16 @@
     "detailSourcesTitle": "Fontes",
     "detailTransfersTitle": "Transferências criadas",
     "reimbursedNote": "{{amount}} reembolsado",
-    "detailFundedBy": "Financiado por {{sources}}"
+    "detailFundedBy": "Financiado por {{sources}}",
+    "editSources": "Editar origens",
+    "saveSources": "Guardar",
+    "cancelEdit": "Cancelar",
+    "sourceLabel": "Origem",
+    "multipleSources": "Várias contas",
+    "updateSourcesSuccess": "Origens atualizadas",
+    "updateSourcesError": "Não foi possível atualizar as origens: {{detail}}",
+    "previewUnitSourcesTitle": "Origem de cada transação",
+    "previewUnitSourcesSubtitle": "Sugerida automaticamente. Podes escolher outra conta para qualquer transação."
   },
   "notifications": {
     "title": "Notificações",

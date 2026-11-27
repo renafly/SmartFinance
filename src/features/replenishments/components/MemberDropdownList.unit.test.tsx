@@ -10,6 +10,9 @@ import { MemberDropdownList } from './MemberDropdownList';
 import type { MemberGroup } from './MemberGroupedList';
 
 jest.mock('@/components/bug-report-fab', () => ({ BugReportFab: () => null }));
+// The first render loads the whole theme/i18n stack, which can take well
+// over Jest's 5s default on a cold run (same as the other component tests).
+jest.setTimeout(60000);
 
 const OWNERS = {
   ana: [

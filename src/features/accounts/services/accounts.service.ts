@@ -44,6 +44,9 @@ export class AccountsService {
     const categoryMap = new Map(
       (accountsResult.data ?? []).map((account) => [account.id, (account as any).category_id ?? null]),
     )
+    const createdAtMap = new Map(
+      (accountsResult.data ?? []).map((account) => [account.id, account.created_at ?? null]),
+    )
 
     return (balancesResult.data ?? []).map((account) => ({
       ...account,
@@ -53,6 +56,9 @@ export class AccountsService {
       owner_profile_id: (account.id ? ownerMap.get(account.id) : undefined) ?? null,
       // Category for money moved into this account (Monthly Budget movements).
       category_id: (account.id ? categoryMap.get(account.id) : undefined) ?? null,
+      // Stable per-account ordering key (account_balances doesn't expose
+      // it), used to give each account a consistent colour shade.
+      created_at: (account.id ? createdAtMap.get(account.id) : undefined) ?? null,
     }))
   }
 

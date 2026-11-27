@@ -2,6 +2,11 @@ import { createContext, useCallback, useContext, useState, type PropsWithChildre
 import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useTheme } from '@/theme/ThemeProvider';
+import { radius } from '@/theme/radius';
+import { spacing } from '@/theme/spacing';
+import { typography } from '@/theme/typography';
+
 type Toast = { id: number; message: string };
 
 type ToastContextValue = {
@@ -22,6 +27,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
   // put the toast under gesture-nav pills on some Android devices and
   // right on top of the home indicator on others.
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
 
   const show = useCallback((message: string) => {
     const id = Date.now();
@@ -35,8 +41,28 @@ export function ToastProvider({ children }: PropsWithChildren) {
     <ToastContext.Provider value={{ show }}>
       {children}
       {toast && (
-        <View style={{ position: 'absolute', bottom: 24 + insets.bottom, left: 24, right: 24, backgroundColor: '#111', borderRadius: 10, padding: 12 }}>
-          <Text style={{ color: '#fff', textAlign: 'center' }}>{toast.message}</Text>
+        <View
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+          style={{
+            position: 'absolute',
+            bottom: spacing(6) + insets.bottom,
+            left: spacing(6),
+            right: spacing(6),
+            alignSelf: 'center',
+            maxWidth: 480,
+            marginHorizontal: 'auto',
+            // Inverted surface so the toast stands out in light and dark mode
+            // (a fixed #111 vanished against the dark theme's background).
+            backgroundColor: colors.text,
+            borderRadius: radius.md,
+            paddingVertical: spacing(3),
+            paddingHorizontal: spacing(4),
+          }}
+        >
+          <Text style={{ color: colors.background, textAlign: 'center', fontSize: typography.fontSize[14] }}>
+            {toast.message}
+          </Text>
         </View>
       )}
     </ToastContext.Provider>
