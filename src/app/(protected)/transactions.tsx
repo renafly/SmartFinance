@@ -118,11 +118,20 @@ import {
   type StagedReimbursement,
 } from "@/features/transactions/utils/reimbursements";
 import {
+  effectiveTotal,
+  receivingAccountKeys,
+  toEffectiveAllocations,
+  validateFunding,
+  type ReimbursementTarget,
+} from "@/features/transactions/utils/funding";
+import { resolveReceivingAccountId } from "@/features/transactions/components/reimbursement-section";
+import {
   useSavingPotAccountAssignments,
   useSavingPots,
 } from "@/features/saving-pots/hooks";
 import {
   useSaveTransactionAllocations,
+  useSaveTransactionFunding,
   useTransactionAllocations,
 } from "@/features/transactions/hooks/useTransactionAllocations";
 import {
@@ -225,6 +234,7 @@ export default function TransactionsScreen() {
     [savingPotsQuery.data],
   );
   const saveTransactionAllocations = useSaveTransactionAllocations();
+  const saveTransactionFunding = useSaveTransactionFunding();
   // Which accounts/pots a split transaction is funded by is available on
   // the list row itself (list_transaction_movements' `allocations` column,
   // see 20260821090000_transaction_movements_allocations.sql) -- resolving
@@ -445,6 +455,54 @@ export default function TransactionsScreen() {
     !!editTransaction &&
     editAllocationsSyncedId === editTransaction.id &&
     editReimbursementsSyncedId === editTransaction.id;
+  // Split + reimbursements (see funding.ts): the split editor shows the
+  // EFFECTIVE cost per account, i.e. the saved (full) allocations minus what
+  // each account received back -- converted once, after both have loaded.
+  const [editFundingNormalizedId, setEditFundingNormalizedId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!editTransaction || !editPaymentReady) return;
+    if (editFundingNormalizedId === editTransaction.id) return;
+    if (editSplitAllocations.length > 0 && editReimbursements.length > 0) {
+      const effective = toEffectiveAllocations(editSplitAllocations, editReimbursements);
+      if (effective) setEditSplitAllocations(effective);
+    }
+    setEditFundingNormalizedId(editTransaction.id);
+  }, [editTransaction, editPaymentReady, editFundingNormalizedId, editSplitAllocations, editReimbursements]);
+  const editIsFundingExpense = editTransaction?.type === "expense" && !editIsReimbursementIncome;
+  const editSplitAccountIds = editSplitEnabled
+    ? editSplitAllocations.flatMap((allocation) =>
+        allocation.sourceType === "account" && allocation.accountId ? [allocation.accountId] : [],
+      )
+    : [];
+  // A reimbursement is received in an account the expense is paid from:
+  // one of the split's accounts, or the "Paid from" account without one.
+  const editResolvedReimbursements: StagedReimbursement[] =
+    editIsFundingExpense && editReimbursementEnabled
+      ? editReimbursements.map((row) => ({
+          ...row,
+          sourceType: "account" as const,
+          accountId: resolveReceivingAccountId(row.accountId, {
+            fixedAccountId: editTransaction?.accountId ?? null,
+            receivingAccountIds: editSplitAccountIds,
+          }),
+          potId: null,
+        }))
+      : [];
+  const editReimbursementTargets: ReimbursementTarget[] = editResolvedReimbursements;
+  const editAmountValue = Number(editTransaction?.amount) || 0;
+  const editSplitTotal = effectiveTotal(editAmountValue, editReimbursementTargets);
+  const editFullyReimbursed = editReimbursementTargets.length > 0 && editSplitTotal <= 0;
+  const editSplitHasPots = editSplitAllocations.some((allocation) => allocation.sourceType === "pot");
+  const editFundingErrors = [
+    ...validateFunding({
+      amount: editAmountValue,
+      splitEnabled: editSplitEnabled,
+      effective: editSplitAllocations,
+      reimbursements: editReimbursementTargets,
+      paidFromAccountId: editTransaction?.accountId ?? null,
+    }),
+    ...(editSplitEnabled && editSplitHasPots && editReimbursementTargets.length > 0 ? ["pots_with_reimbursements"] : []),
+  ];
   // Clears every split/reimbursement value of the edit modal, so opening
   // (or reopening) a transaction never shows the previous one's state.
   function resetEditPaymentState() {
@@ -457,6 +515,7 @@ export default function TransactionsScreen() {
     setEditReimbursements([]);
     setEditReimbursementsOriginal([]);
     setEditReimbursementsSyncedId(null);
+    setEditFundingNormalizedId(null);
   }
   const isSavingEditReimbursements =
     createReimbursement.isPending || updateReimbursement.isPending || deleteReimbursement.isPending;
@@ -1427,10 +1486,7 @@ export default function TransactionsScreen() {
       return;
     }
 
-    if (
-      editSplitEnabled &&
-      validateAllocations(nextAmount, editSplitAllocations).length > 0
-    ) {
+    if (editFundingErrors.length > 0) {
       return;
     }
 
@@ -1485,7 +1541,44 @@ export default function TransactionsScreen() {
     // TransactionAllocationsService.replace's ordering-contract docstring).
     // `editSplitWasOriginallySplit` covers the "user just turned split off"
     // case, where this write clears out the previously-saved allocations.
-    if (editSplitEnabled || editSplitWasOriginallySplit) {
+    //
+    // An expense that has (or had) reimbursements saves its split and its
+    // reimbursements together, atomically (save_transaction_funding, see
+    // funding.ts); everything else keeps the plain allocations write.
+    const editFinalReimbursements = editIsFundingExpense ? editResolvedReimbursements : [];
+    const editReimbursementDiff = diffStagedReimbursements(editReimbursementsOriginal, editFinalReimbursements);
+    const editUsesFunding =
+      editIsFundingExpense && (editFinalReimbursements.length > 0 || editReimbursementsOriginal.length > 0);
+    if (editUsesFunding) {
+      if (editSplitEnabled || editSplitWasOriginallySplit || hasStagedReimbursementChanges(editReimbursementDiff)) {
+        try {
+          await saveTransactionFunding.mutateAsync({
+            transactionId: editTransaction.id,
+            effectiveAllocations: editSplitEnabled
+              ? editSplitAllocations.map((allocation) => ({
+                  accountId: allocation.accountId as string,
+                  amount: allocation.amount,
+                }))
+              : [],
+            reimbursements: editFinalReimbursements.map((row) => ({
+              id: row.id,
+              payerName: row.payerName,
+              amount: row.amount,
+              note: row.note,
+              accountId: row.accountId as string,
+              receivedOn: row.receivedOn,
+            })),
+          });
+        } catch (error) {
+          show(
+            t("transactions.split.saveError", {
+              detail: error instanceof Error ? error.message : t("unknownError"),
+            }),
+          );
+          return;
+        }
+      }
+    } else if (editSplitEnabled || editSplitWasOriginallySplit) {
       try {
         await saveTransactionAllocations.mutateAsync({
           transactionId: editTransaction.id,
@@ -1504,77 +1597,6 @@ export default function TransactionsScreen() {
           }),
         );
         return;
-      }
-    }
-
-    // Staged reimbursement changes (see editReimbursements). Skipped when
-    // the transaction is no longer an expense -- the database drops its
-    // reimbursements then (drop_reimbursements_when_not_expense). Each
-    // write updates `editReimbursementsOriginal` as it succeeds, so after a
-    // partial failure a retry only re-sends what's still outstanding.
-    if (editTransaction.type === "expense" && !editIsReimbursementIncome) {
-      // Always received into the expense's own "Paid from" account -- if
-      // that account changed, the diff below moves every row with it.
-      // Switched off = remove every saved reimbursement.
-      const stagedForAccount: StagedReimbursement[] = (
-        editReimbursementEnabled ? editReimbursements : []
-      ).map((row) => ({
-        ...row,
-        sourceType: "account" as const,
-        accountId: editTransaction.accountId,
-        potId: null,
-      }));
-      const diff = diffStagedReimbursements(editReimbursementsOriginal, stagedForAccount);
-      if (hasStagedReimbursementChanges(diff)) {
-        let original = editReimbursementsOriginal;
-        let current = stagedForAccount;
-        try {
-          for (const id of diff.toDelete) {
-            await deleteReimbursement.mutateAsync({ id, transactionId: editTransaction.id });
-            original = original.filter((row) => row.id !== id);
-          }
-          for (const row of diff.toUpdate) {
-            await updateReimbursement.mutateAsync({
-              transactionId: editTransaction.id,
-              input: {
-                id: row.id as string,
-                payer_name: row.payerName,
-                amount: row.amount,
-                ...(row.receivedOn ? { received_on: row.receivedOn } : {}),
-                source_type: row.sourceType,
-                account_id: row.sourceType === "account" ? row.accountId : null,
-                pot_id: row.sourceType === "pot" ? row.potId : null,
-              },
-            });
-            original = original.map((saved) => (saved.id === row.id ? row : saved));
-          }
-          for (const row of diff.toCreate) {
-            const created: any = await createReimbursement.mutateAsync({
-              household_id: householdId,
-              transaction_id: editTransaction.id,
-              payer_name: row.payerName,
-              amount: row.amount,
-              note: row.note,
-              created_by: editTransaction.createdById || profile?.id || "",
-              received_on: row.receivedOn,
-              source_type: row.sourceType,
-              account_id: row.sourceType === "account" ? row.accountId : null,
-              pot_id: row.sourceType === "pot" ? row.potId : null,
-            });
-            const savedRow = { ...row, id: created.id as string };
-            current = current.map((candidate) => (candidate.key === row.key ? savedRow : candidate));
-            original = [...original, savedRow];
-          }
-        } catch (error) {
-          setEditReimbursementsOriginal(original);
-          setEditReimbursements(current);
-          show(
-            t("transactions.reimbursements.saveError", {
-              detail: error instanceof Error ? error.message : t("unknownError"),
-            }),
-          );
-          return;
-        }
       }
     }
 
@@ -3956,15 +3978,10 @@ export default function TransactionsScreen() {
                         <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
                           {t("loading")}
                         </Text>
-                      ) : editTransaction.type === "expense" &&
-                      editSplitEnabled &&
-                      !editReimbursementEnabled ? (
-                        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-                          {t("transactions.paymentBreakdown.reimbursementUnavailable")}
-                        </Text>
                       ) : editTransaction.type === "expense" ? (
                         <ReimbursementSection
                           mode="staged"
+                          receivingAccountIds={editSplitEnabled ? editSplitAccountIds : undefined}
                           enabled={editReimbursementEnabled}
                           onToggleEnabled={setEditReimbursementEnabled}
                           toggleDisabled={!editPaymentReady}
@@ -4032,16 +4049,30 @@ export default function TransactionsScreen() {
                     </Text>
                   ) : !editIsReimbursementIncome &&
                   editTransaction.type === "expense" &&
-                  editReimbursementEnabled &&
+                  editFullyReimbursed &&
                   !editSplitEnabled ? (
                     <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
                       {t("transactions.paymentBreakdown.splitUnavailable")}
                     </Text>
                   ) : !editIsReimbursementIncome ? (
+                  <>
+                  {editSplitEnabled && editReimbursementTargets.length > 0 ? (
+                    <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                      {t("transactions.paymentBreakdown.effectiveSplitHint", {
+                        amount: formatCurrency(editSplitTotal),
+                      })}
+                    </Text>
+                  ) : null}
+                  {editFundingErrors.includes("pots_with_reimbursements") ? (
+                    <Text style={{ color: colors.destructive, fontSize: 13 }}>
+                      {t("transactions.paymentBreakdown.potsWithReimbursements")}
+                    </Text>
+                  ) : null}
                   <SplitAllocationsEditor
                     enabled={editSplitEnabled}
                     onToggleEnabled={setEditSplitEnabled}
-                    totalAmount={Number(editTransaction.amount) || 0}
+                    totalAmount={editSplitTotal}
+                    zeroAllowedTargetKeys={receivingAccountKeys(editReimbursementTargets)}
                     accounts={accounts as any}
                     members={
                       (membersQuery.data ?? []).filter(
@@ -4065,6 +4096,7 @@ export default function TransactionsScreen() {
                     unassignedLabel={t("settings.unnamedUser")}
                     closeLabel={t("close", { defaultValue: "Close" })}
                   />
+                  </>
                   ) : null}
                   </PaymentBreakdownSection>
                   <CategoryPicker
@@ -4225,13 +4257,11 @@ export default function TransactionsScreen() {
                         updateTransaction.isPending ||
                         deleteTransaction.isPending ||
                         saveTransactionAllocations.isPending ||
+                        saveTransactionFunding.isPending ||
                         isSavingEditReimbursements ||
                         !editPaymentReady ||
-                        (editSplitEnabled &&
-                          validateAllocations(
-                            Number(editTransaction.amount) || 0,
-                            editSplitAllocations,
-                          ).length > 0)
+                        editFundingNormalizedId !== editTransaction.id ||
+                        editFundingErrors.length > 0
                       }
                     />
                   </View>
