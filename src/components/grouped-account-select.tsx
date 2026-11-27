@@ -57,7 +57,11 @@ function getAccountSubtitle(
   unassignedLabel: string,
   typeLabels: Record<string, string>,
 ) {
-  return `${getOwnerLabel(account, memberMap, sharedLabel, unassignedLabel)} · ${typeLabels[account.type] ?? account.type}`;
+  // Callers that don't pass sharedLabel/unassignedLabel get an empty owner
+  // label; drop it rather than rendering a dangling " · type".
+  return [getOwnerLabel(account, memberMap, sharedLabel, unassignedLabel), typeLabels[account.type] ?? account.type]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 // ------------------------------------------------------------
@@ -194,7 +198,11 @@ export function GroupedAccountSelect({
       <SelectionTrigger
         label={label}
         valueLabel={selectedLabel}
-        hint={hint}
+        // Once an account is picked (by the user or preselected by the
+        // caller), the second line shows its owner + type -- the same
+        // subtitle its row has in the picker -- so the owner stays visible
+        // after selection. The caller's hint only shows while empty.
+        hint={selectedAccount ? getAccountSubtitle(selectedAccount, memberMap, sharedLabel, unassignedLabel, typeLabels) : hint}
         placeholder={placeholder}
         iconName="wallet-outline"
         disabled={disabled}
