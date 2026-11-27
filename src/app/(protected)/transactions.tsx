@@ -101,7 +101,7 @@ import { SplitAllocationsEditor, type SplitInputMode } from "@/features/transact
 import { ReimbursementSection } from "@/features/transactions/components/reimbursement-section";
 import { PaymentBreakdownSection } from "@/features/transactions/components/payment-breakdown-section";
 import { EssentialsSection, MoreDetailsSection } from "@/features/transactions/components/transaction-form-sections";
-import { parseAmountInput, validateTransactionEssentials } from "@/features/transactions/utils/transaction-draft";
+import { parseAmountInput, validateTransactionEssentials, validateTransferEdit } from "@/features/transactions/utils/transaction-draft";
 import {
   useCreateReimbursement,
   useDeleteReimbursement,
@@ -1607,19 +1607,12 @@ export default function TransactionsScreen() {
     closeEditTransaction();
   }
 
+  const transferEditErrors = transferEdit ? validateTransferEdit(transferEdit) : [];
+
   async function handleSaveTransfer() {
     if (!transferEdit) return;
-    const nextAmount = Number(transferEdit.amount);
-    if (
-      !transferEdit.title.trim() ||
-      !transferEdit.sourceAccountId ||
-      !transferEdit.destinationAccountId ||
-      transferEdit.sourceAccountId === transferEdit.destinationAccountId ||
-      !Number.isFinite(nextAmount) ||
-      nextAmount <= 0 ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(transferEdit.date)
-    )
-      return;
+    const nextAmount = parseAmountInput(transferEdit.amount);
+    if (validateTransferEdit(transferEdit).length > 0) return;
 
     await updateCompletedTransfer.mutateAsync({
       transferGroupId: transferEdit.transferGroupId,
@@ -3555,57 +3548,95 @@ export default function TransactionsScreen() {
                       )
                     }
                   />
-                  <DropdownField
+                  <GroupedAccountSelect
                     label={t("transactions.sourceAccount")}
-                    valueLabel={
-                      accounts.find(
-                        (account: any) =>
-                          account.id === transferEdit.sourceAccountId,
-                      )?.name ?? t("transactions.sourceAccount")
-                    }
+                    accounts={accounts as any}
+                    members={acceptedMembers as any}
+                    value={transferEdit.sourceAccountId}
                     placeholder={t("transactions.sourceAccount")}
-                    selectedKey={transferEdit.sourceAccountId}
-                    options={accounts
-                      .filter(
-                        (account: any) =>
-                          account.id !== transferEdit.destinationAccountId,
-                      )
-                      .map((account: any) => ({
-                        key: account.id,
-                        label: account.name,
-                      }))}
+                    hint={t("transactions.sourceAccount")}
+                    allowedAccountIds={accounts
+                      .filter((account: any) => account.id !== transferEdit.destinationAccountId)
+                      .map((account: any) => account.id)}
                     onChange={(sourceAccountId) =>
                       setTransferEdit((current) =>
                         current ? { ...current, sourceAccountId } : current,
                       )
                     }
+                    closeLabel={t("close", { defaultValue: "Close" })}
+                    sharedLabel={t("dashboard.shared")}
+                    unassignedLabel={t("settings.unnamedUser")}
+                    typeLabels={{
+                      bank: t("accounts.types.bank"),
+                      cash: t("accounts.types.cash"),
+                      savings: t("accounts.types.savings"),
+                      credit_card: t("accounts.types.credit_card"),
+                      investment: t("accounts.types.investment"),
+                      ppr: t("accounts.types.ppr"),
+                    }}
                   />
-                  <DropdownField
-                    label={t("transactions.destinationAccount")}
-                    valueLabel={
-                      accounts.find(
-                        (account: any) =>
-                          account.id === transferEdit.destinationAccountId,
-                      )?.name ?? t("transactions.destinationAccount")
-                    }
-                    placeholder={t("transactions.destinationAccount")}
-                    selectedKey={transferEdit.destinationAccountId}
-                    options={accounts
-                      .filter(
-                        (account: any) =>
-                          account.id !== transferEdit.sourceAccountId,
-                      )
-                      .map((account: any) => ({
-                        key: account.id,
-                        label: account.name,
-                      }))}
-                    onChange={(destinationAccountId) =>
+                  <Pressable
+                    onPress={() =>
                       setTransferEdit((current) =>
                         current
-                          ? { ...current, destinationAccountId }
+                          ? {
+                              ...current,
+                              sourceAccountId: current.destinationAccountId,
+                              destinationAccountId: current.sourceAccountId,
+                            }
                           : current,
                       )
                     }
+                    disabled={!transferEdit.sourceAccountId || !transferEdit.destinationAccountId}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("transfers.swapAccounts")}
+                    hitSlop={8}
+                    style={({ pressed }) => ({
+                      alignSelf: "center",
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      backgroundColor: colors.surface,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      opacity:
+                        !transferEdit.sourceAccountId || !transferEdit.destinationAccountId
+                          ? 0.4
+                          : pressed
+                            ? 0.7
+                            : 1,
+                    })}
+                  >
+                    <Ionicons name="swap-vertical-outline" size={20} color={colors.primary} />
+                  </Pressable>
+                  <GroupedAccountSelect
+                    label={t("transactions.destinationAccount")}
+                    accounts={accounts as any}
+                    members={acceptedMembers as any}
+                    value={transferEdit.destinationAccountId}
+                    placeholder={t("transactions.destinationAccount")}
+                    hint={t("transactions.destinationAccount")}
+                    allowedAccountIds={accounts
+                      .filter((account: any) => account.id !== transferEdit.sourceAccountId)
+                      .map((account: any) => account.id)}
+                    onChange={(destinationAccountId) =>
+                      setTransferEdit((current) =>
+                        current ? { ...current, destinationAccountId } : current,
+                      )
+                    }
+                    closeLabel={t("close", { defaultValue: "Close" })}
+                    sharedLabel={t("dashboard.shared")}
+                    unassignedLabel={t("settings.unnamedUser")}
+                    typeLabels={{
+                      bank: t("accounts.types.bank"),
+                      cash: t("accounts.types.cash"),
+                      savings: t("accounts.types.savings"),
+                      credit_card: t("accounts.types.credit_card"),
+                      investment: t("accounts.types.investment"),
+                      ppr: t("accounts.types.ppr"),
+                    }}
                   />
                   <CategoryPicker
                     label={t("transactions.categoryFilter")}
@@ -3642,6 +3673,18 @@ export default function TransactionsScreen() {
                   />
                 </>
               ) : null}
+              {transferEditErrors.length > 0 ? (
+                <Text
+                  accessibilityLiveRegion="polite"
+                  style={{ color: colors.textSecondary, fontSize: typography.fontSize[13] } as any}
+                >
+                  {t("transfers.missingFields", {
+                    fields: transferEditErrors
+                      .map((error) => t(`transactions.transferEditErrors.${error}`))
+                      .join(", "),
+                  })}
+                </Text>
+              ) : null}
               <View style={styles.modalActions}>
                 <Button
                   label={t("cancel")}
@@ -3654,7 +3697,7 @@ export default function TransactionsScreen() {
                       ? t("saving")
                       : t("transactions.saveTransfer")
                   }
-                  disabled={updateCompletedTransfer.isPending}
+                  disabled={updateCompletedTransfer.isPending || transferEditErrors.length > 0}
                   onPress={() => void handleSaveTransfer()}
                 />
               </View>

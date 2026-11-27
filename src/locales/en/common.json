@@ -885,6 +885,14 @@
     }
   },
   "transactions": {
+    "transferEditErrors": {
+      "missing_title": "title",
+      "invalid_amount": "amount (above 0)",
+      "invalid_date": "date",
+      "missing_account": "source account",
+      "missing_destination": "destination account",
+      "same_account": "different source and destination accounts"
+    },
     "createSuccess": "Transaction created",
     "updateSuccess": "Transaction updated",
     "deleteSuccess": "Transaction deleted",

@@ -27,3 +27,24 @@ export function validateTransactionEssentials(input: {
   if (!input.accountId) errors.push("missing_account");
   return errors;
 }
+
+export type TransferEditError = TransactionEssentialsError | "missing_destination" | "same_account";
+
+/** Fields an edited transfer still needs, in form order; empty when it can be saved. */
+export function validateTransferEdit(input: {
+  title: string;
+  amount: string;
+  date: string;
+  sourceAccountId: string | null | undefined;
+  destinationAccountId: string | null | undefined;
+}): TransferEditError[] {
+  const errors: TransferEditError[] = validateTransactionEssentials({
+    title: input.title,
+    amount: input.amount,
+    date: input.date,
+    accountId: input.sourceAccountId,
+  });
+  if (!input.destinationAccountId) errors.push("missing_destination");
+  else if (input.sourceAccountId && input.sourceAccountId === input.destinationAccountId) errors.push("same_account");
+  return errors;
+}
