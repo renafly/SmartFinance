@@ -5,6 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Badge } from "@/components/data-surface";
 import { formatCurrency } from "@/components/migrated-page";
+import { displayCurrency } from "@/shared/lib/mask-currency";
+import { usePrivacyStore } from "@/stores/privacyStore";
 import { useTheme } from "@/theme/ThemeProvider";
 import { spacing } from "@/theme/spacing";
 import { radius } from "@/theme/radius";
@@ -43,12 +45,14 @@ export function PaymentBreakdownSection({
   children: ReactNode;
 }) {
   const { t } = useTranslation("common");
+  const hideValues = usePrivacyStore((state) => state.hideValues);
   const { colors } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
 
   if (bare) return <>{children}</>;
 
   const breakdown = computeEffectiveAmount(originalAmount, reimbursements);
+  const money = (amount: number) => displayCurrency(formatCurrency(amount), hideValues);
   const hasReimbursements = Boolean(reimbursedBy) && breakdown.reimbursedTotal > 0;
 
   return (
@@ -69,16 +73,16 @@ export function PaymentBreakdownSection({
 
       {reimbursedBy ? (
       <View style={styles.tiles}>
-        <SummaryTile label={t("transactions.paymentBreakdown.tilePaid")} value={formatCurrency(breakdown.originalAmount)} />
+        <SummaryTile label={t("transactions.paymentBreakdown.tilePaid")} value={money(breakdown.originalAmount)} />
         {hasReimbursements ? (
           <>
             <SummaryTile
               label={t("transactions.paymentBreakdown.tileReimbursed")}
-              value={`−${formatCurrency(breakdown.reimbursedTotal)}`}
+              value={`−${money(breakdown.reimbursedTotal)}`}
             />
             <SummaryTile
               label={t("transactions.paymentBreakdown.tileEffective")}
-              value={formatCurrency(breakdown.effectiveAmount)}
+              value={money(breakdown.effectiveAmount)}
               highlighted
             />
           </>

@@ -6,6 +6,8 @@ import i18n from '@/config/i18n';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 
+import { usePrivacyStore } from '@/stores/privacyStore';
+
 import { PaymentBreakdownSection } from './payment-breakdown-section';
 
 jest.mock('@/components/bug-report-fab', () => ({ BugReportFab: () => null }));
@@ -101,5 +103,29 @@ describe('PaymentBreakdownSection with an unparsable amount', () => {
       </SafeAreaProvider>,
     );
     expect(JSON.stringify(view.toJSON())).not.toContain('NaN');
+  });
+});
+
+describe('PaymentBreakdownSection privacy', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+  afterEach(() => {
+    usePrivacyStore.setState({ hideValues: true });
+  });
+
+  it('masks the tile amounts while values are hidden', async () => {
+    usePrivacyStore.setState({ hideValues: true });
+    const view = await renderSection([{ amount: 21.39 }]);
+    const tree = JSON.stringify(view.toJSON());
+    expect(tree).not.toMatch(/64[.,]15/);
+    expect(tree).not.toMatch(/21[.,]39/);
+    expect(tree).toContain('•');
+  });
+
+  it('shows the tile amounts when values are visible', async () => {
+    usePrivacyStore.setState({ hideValues: false });
+    const view = await renderSection([{ amount: 21.39 }]);
+    expect(JSON.stringify(view.toJSON())).toMatch(/64[.,]15/);
   });
 });
