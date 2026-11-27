@@ -275,6 +275,10 @@ function StagedReimbursementSection(
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const picker = hasReceivingPicker(props);
   const [receivingAccountId, setReceivingAccountId] = useState<string | null>(null);
+  // The add form stays closed until asked for (or a row is being edited),
+  // so the saved reimbursements read as a short list, not a form.
+  const [formOpen, setFormOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   useReceivingAccountSync(props, props.value, props.onChange);
 
   const rows = props.value;
@@ -288,6 +292,7 @@ function StagedReimbursementSection(
     setReceivedOn(getLocalCalendarDate());
     setReceivingAccountId(null);
     setFormError(null);
+    setFormOpen(false);
   }
 
   function startEdit(row: StagedReimbursement) {
@@ -298,6 +303,7 @@ function StagedReimbursementSection(
     setReceivedOn(row.receivedOn ?? getLocalCalendarDate());
     setReceivingAccountId(row.accountId);
     setFormError(null);
+    setFormOpen(true);
   }
 
   function submit() {
@@ -361,10 +367,24 @@ function StagedReimbursementSection(
 
   return (
     <View style={styles.container}>
-      {toggle}
-      <Text style={[styles.hint, { color: colors.textSecondary }]}>
-        {t("transactions.reimbursements.hint")} {t("transactions.reimbursements.pendingHint")}
-      </Text>
+      <View style={styles.toggleRow}>
+        <View style={{ flex: 1 }}>{toggle}</View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("transactions.reimbursements.about")}
+          accessibilityState={{ expanded: helpOpen }}
+          onPress={() => setHelpOpen((value) => !value)}
+          hitSlop={8}
+          style={styles.iconButton}
+        >
+          <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
+        </Pressable>
+      </View>
+      {helpOpen ? (
+        <Text style={[styles.hint, { color: colors.textSecondary }]}>
+          {t("transactions.reimbursements.hint")} {t("transactions.reimbursements.pendingHint")}
+        </Text>
+      ) : null}
 
       {rows.length > 0 ? (
         <View style={styles.rows}>
@@ -384,8 +404,8 @@ function StagedReimbursementSection(
                       row.receivedOn
                         ? t("transactions.reimbursements.receivedOnValue", { date: formatDate(row.receivedOn) })
                         : null,
-                      picker && row.accountId
-                        ? props.accounts.find((account) => account.id === row.accountId)?.name ?? null
+                      row.accountId
+                        ? `→ ${props.accounts.find((account) => account.id === row.accountId)?.name ?? ""}`
                         : null,
                       row.id === null ? t("transactions.reimbursements.unsavedBadge") : null,
                     ]
@@ -437,6 +457,17 @@ function StagedReimbursementSection(
         </View>
       ) : null}
 
+      {!formOpen ? (
+        <View style={{ flexDirection: "row" } as any}>
+          <Button
+            label={t("transactions.reimbursements.addReimbursement")}
+            variant="secondary"
+            onPress={() => setFormOpen(true)}
+          />
+        </View>
+      ) : null}
+      {formOpen ? (
+      <>
       {editingRow ? (
         <Text style={[styles.label, { color: colors.text }]}>
           {t("transactions.reimbursements.editing", { payer: editingRow.payerName })}
@@ -488,15 +519,15 @@ function StagedReimbursementSection(
           variant="secondary"
           onPress={submit}
         />
-        {editingId ? (
-          <Button
-            label={t("transactions.reimbursements.cancelEdit")}
-            variant="secondary"
-            onPress={resetForm}
-          />
-        ) : null}
+        <Button
+          label={t("transactions.reimbursements.cancelEdit")}
+          variant="secondary"
+          onPress={resetForm}
+        />
       </View>
       {formError ? <Text style={{ color: colors.destructive }}>{formError}</Text> : null}
+      </>
+      ) : null}
     </View>
   );
 }
@@ -523,6 +554,7 @@ function IntoAccountNote({
 
 const styles = StyleSheet.create({
   container: { gap: spacing(1.5) },
+  toggleRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing(1) },
   label: { fontSize: 13, fontWeight: "600" },
   hint: { fontSize: 12 },
   rows: { gap: spacing(1) },

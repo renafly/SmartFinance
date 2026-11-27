@@ -1092,6 +1092,8 @@
       "editing": "A editar o reembolso de {{payer}}",
       "saveChanges": "Guardar alterações",
       "cancelEdit": "Cancelar",
+      "addReimbursement": "Adicionar reembolso",
+      "about": "Sobre os reembolsos",
       "removeConfirm": "Remover este reembolso? A receita que registou também é removida.",
       "removeConfirmYes": "Remover",
       "saveError": "Não foi possível guardar o reembolso: {{detail}}",
@@ -1152,7 +1154,12 @@
       "choosePaidFromFirst": "Escolhe primeiro a conta de onde foi pago.",
       "effectiveSplitHint": "Com reembolsos, divide só o custo efetivo ({{amount}}). Cada reembolso fica na conta onde foi recebido.",
       "expand": "Mostrar detalhe do pagamento",
-      "collapse": "Ocultar detalhe do pagamento"
+      "collapse": "Ocultar detalhe do pagamento",
+      "tilePaid": "Pago",
+      "tileReimbursed": "Reembolsado",
+      "tileEffective": "Custo efetivo",
+      "reimbursementsGroup": "Reembolsos",
+      "costBearers": "Quem suporta o custo"
     },
     "showFullNote": "Mostrar a nota completa",
     "hideFullNote": "Recolher a nota",

@@ -1092,6 +1092,8 @@
       "editing": "Editing reimbursement from {{payer}}",
       "saveChanges": "Save changes",
       "cancelEdit": "Cancel",
+      "addReimbursement": "Add reimbursement",
+      "about": "About reimbursements",
       "removeConfirm": "Remove this reimbursement? The income it recorded is removed too.",
       "removeConfirmYes": "Remove",
       "saveError": "Couldn't save the reimbursement: {{detail}}",
@@ -1152,7 +1154,12 @@
       "choosePaidFromFirst": "Choose the Paid from account first.",
       "effectiveSplitHint": "With reimbursements, split only the effective cost ({{amount}}). Each reimbursement stays in the account it was received in.",
       "expand": "Show payment breakdown",
-      "collapse": "Hide payment breakdown"
+      "collapse": "Hide payment breakdown",
+      "tilePaid": "Paid",
+      "tileReimbursed": "Reimbursed",
+      "tileEffective": "Effective cost",
+      "reimbursementsGroup": "Reimbursements",
+      "costBearers": "Who bears the cost"
     },
     "showFullNote": "Show full note",
     "hideFullNote": "Collapse note",

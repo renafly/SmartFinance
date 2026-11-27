@@ -11,23 +11,19 @@ import { radius } from "@/theme/radius";
 import { computeEffectiveAmount } from "@/features/transactions/utils/reimbursements";
 
 /**
- * One "Payment breakdown" card for the add/edit transaction forms, grouping
- * where the money came from ("Paid from": the account picker or the Split
- * Source editor) with the money that came back ("Reimbursed by": the
- * Reimbursement editor), plus a single Paid / Reimbursed / Effective cost
- * summary line.
+ * The "Payment" card of the add/edit transaction forms, laid out in the
+ * order the money actually works:
+ *   1. Summary: Paid / Reimbursed / Effective cost, always visible (also
+ *      while collapsed), so the number that matters is never at the end.
+ *   2. Reimbursements: what came back -- it decides how much is left to
+ *      split.
+ *   3. Who bears the cost: the "Paid from" account, or the split of the
+ *      effective cost across accounts.
  *
- * Purely presentational: split allocations and reimbursements stay
- * separate data (a split must sum to the expense amount and moves money
- * out now; a reimbursement has its own expected total and moves money back
- * in), each editor keeps its own validation, and the caller still saves
- * them separately.
+ * Purely presentational: the reimbursement and split editors keep their
+ * own state and validation; the caller saves them (see funding.ts).
  *
- * The card is collapsible from its header (expanded by default, since the
- * "Paid from" account is required); collapsed, it shows the Paid /
- * Reimbursed / Effective cost line so the totals stay visible.
- *
- * `bare` renders just `paidFrom` with no card, for movements the card
+ * `bare` renders just `children` with no card, for movements the card
  * doesn't apply to (transfers) so the caller doesn't need two JSX branches.
  */
 export function PaymentBreakdownSection({
@@ -39,11 +35,11 @@ export function PaymentBreakdownSection({
 }: {
   bare?: boolean;
   originalAmount: number;
-  /** Rows counted in the summary line; the summary is hidden while empty. */
+  /** Rows counted in the summary; reimbursed/effective tiles show only when some exist. */
   reimbursements: readonly { amount: number }[];
   /** The Reimbursement editor, or null when the movement isn't an expense. */
   reimbursedBy?: ReactNode;
-  /** The "Paid from" controls. */
+  /** The "Paid from" / split controls. */
   children: ReactNode;
 }) {
   const { t } = useTranslation("common");
@@ -54,7 +50,6 @@ export function PaymentBreakdownSection({
 
   const breakdown = computeEffectiveAmount(originalAmount, reimbursements);
   const hasReimbursements = Boolean(reimbursedBy) && breakdown.reimbursedTotal > 0;
-  const showSummary = hasReimbursements || collapsed;
 
   return (
     <View style={[styles.card, { borderColor: colors.border }]}>
@@ -68,63 +63,73 @@ export function PaymentBreakdownSection({
         hitSlop={8}
         style={styles.header}
       >
-        <Text style={[styles.title, { color: colors.text }]}>
-          {t("transactions.paymentBreakdown.title")}
-        </Text>
-        <Ionicons
-          name={collapsed ? "chevron-down" : "chevron-up"}
-          size={18}
-          color={colors.textSecondary}
-        />
+        <Text style={[styles.title, { color: colors.text }]}>{t("transactions.paymentBreakdown.title")}</Text>
+        <Ionicons name={collapsed ? "chevron-down" : "chevron-up"} size={18} color={colors.textSecondary} />
       </Pressable>
 
-      {collapsed ? null : (
-      <>
-      <View style={styles.group}>
-        <Text style={[styles.groupLabel, { color: colors.textSecondary }]}>
-          {t("transactions.paymentBreakdown.paidFrom")}
-        </Text>
-        {children}
-      </View>
-
       {reimbursedBy ? (
-        <View style={[styles.group, styles.divided, { borderColor: colors.border }]}>
-          <Text style={[styles.groupLabel, { color: colors.textSecondary }]}>
-            {t("transactions.paymentBreakdown.reimbursedBy")}
-          </Text>
-          {reimbursedBy}
-        </View>
+      <View style={styles.tiles}>
+        <SummaryTile label={t("transactions.paymentBreakdown.tilePaid")} value={formatCurrency(breakdown.originalAmount)} />
+        {hasReimbursements ? (
+          <>
+            <SummaryTile
+              label={t("transactions.paymentBreakdown.tileReimbursed")}
+              value={`−${formatCurrency(breakdown.reimbursedTotal)}`}
+            />
+            <SummaryTile
+              label={t("transactions.paymentBreakdown.tileEffective")}
+              value={formatCurrency(breakdown.effectiveAmount)}
+              highlighted
+            />
+          </>
+        ) : null}
+      </View>
       ) : null}
-      </>
-      )}
+      {hasReimbursements && breakdown.isOverReimbursed ? (
+        <Badge label={t("transactions.reimbursements.overReimbursedBadge")} tone="success" />
+      ) : null}
 
-      {showSummary ? (
-        <View style={[styles.summary, collapsed ? null : { borderColor: colors.border }, collapsed ? styles.summaryCollapsed : null]}>
-          <Text style={{ color: colors.textSecondary }}>
-            {t("transactions.paymentBreakdown.summaryPaid", {
-              amount: formatCurrency(breakdown.originalAmount),
-            })}
-            {hasReimbursements ? "  ·  " : null}
-            {hasReimbursements
-              ? t("transactions.paymentBreakdown.summaryReimbursed", {
-                  amount: formatCurrency(breakdown.reimbursedTotal),
-                })
-              : null}
-          </Text>
-          {hasReimbursements ? (
-          <View style={styles.effectiveRow}>
-            <Text style={{ color: colors.text, fontWeight: "700" as any }}>
-              {t("transactions.paymentBreakdown.summaryEffective", {
-                amount: formatCurrency(breakdown.effectiveAmount),
-              })}
-            </Text>
-            {breakdown.isOverReimbursed ? (
-              <Badge label={t("transactions.reimbursements.overReimbursedBadge")} tone="success" />
-            ) : null}
-          </View>
+      {collapsed ? null : (
+        <>
+          {reimbursedBy ? (
+            <View style={styles.group}>
+              <Text style={[styles.groupLabel, { color: colors.textSecondary }]}>
+                {t("transactions.paymentBreakdown.reimbursementsGroup")}
+              </Text>
+              {reimbursedBy}
+            </View>
           ) : null}
-        </View>
-      ) : null}
+          <View style={[styles.group, reimbursedBy ? [styles.divided, { borderColor: colors.border }] : null]}>
+            <Text style={[styles.groupLabel, { color: colors.textSecondary }]}>
+              {t(reimbursedBy ? "transactions.paymentBreakdown.costBearers" : "transactions.paymentBreakdown.paidFrom")}
+            </Text>
+            {children}
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
+
+function SummaryTile({ label, value, highlighted = false }: { label: string; value: string; highlighted?: boolean }) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={[
+        styles.tile,
+        { backgroundColor: highlighted ? colors.primarySoft : colors.surfaceMuted },
+      ]}
+    >
+      <Text style={{ color: highlighted ? colors.primary : colors.textSecondary, fontSize: 11 }}>{label}</Text>
+      <Text
+        style={{
+          color: highlighted ? colors.primary : colors.text,
+          fontSize: 15,
+          fontWeight: highlighted ? "700" : "600",
+        }}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
@@ -143,6 +148,15 @@ const styles = StyleSheet.create({
     gap: spacing(1),
   },
   title: { fontSize: 15, fontWeight: "700" },
+  tiles: { flexDirection: "row", gap: spacing(1.5) },
+  tile: {
+    flex: 1,
+    alignItems: "center",
+    borderRadius: radius.md,
+    paddingVertical: spacing(1.5),
+    paddingHorizontal: spacing(1),
+    gap: spacing(0.5),
+  },
   group: { gap: spacing(1.5) },
   groupLabel: {
     fontSize: 12,
@@ -154,11 +168,4 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: spacing(2),
   },
-  summary: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: spacing(1.5),
-    gap: spacing(0.5),
-  },
-  summaryCollapsed: { borderTopWidth: 0, paddingTop: 0 },
-  effectiveRow: { flexDirection: "row", alignItems: "center", gap: spacing(1), flexWrap: "wrap" },
 });
