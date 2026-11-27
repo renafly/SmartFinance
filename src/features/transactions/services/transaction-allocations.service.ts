@@ -1,5 +1,8 @@
 import { repositories } from "@/repositories";
-import type { SaveTransactionAllocationInput } from "@/repositories/transaction-allocations.repository";
+import type {
+  SaveTransactionAllocationInput,
+  SaveTransactionFundingInput,
+} from "@/repositories/transaction-allocations.repository";
 import {
   allocationsToRpcPayload,
   validateAllocations,
@@ -21,6 +24,12 @@ class TransactionAllocationsService {
       await repositories.transactionAllocations.listForTransaction(transactionId);
     if (error) throw error;
     return data ?? [];
+  }
+
+  /** Split + reimbursements in one atomic write (save_transaction_funding). */
+  async saveFunding(input: SaveTransactionFundingInput) {
+    const { error } = await repositories.transactionAllocations.saveFunding(input);
+    if (error) throw error;
   }
 
   /** Bulk variant of `getForTransaction` -- see the repository method's docstring. */
