@@ -1,6 +1,7 @@
 import {
   effectiveTotal,
   fundingFingerprint,
+  receivedByAccount,
   receivingAccountKeys,
   toEffectiveAllocations,
   toFullAllocations,
@@ -142,5 +143,15 @@ describe("fundingFingerprint", () => {
     expect(fundingFingerprint({ ...base, reimbursements: [] })).not.toBe(original);
     expect(fundingFingerprint({ ...base, amount: 70 })).not.toBe(original);
     expect(fundingFingerprint({ ...base, splitEnabled: false })).not.toBe(original);
+  });
+});
+
+describe("receivedByAccount", () => {
+  it("sums what each account received, in euros", () => {
+    const map = receivedByAccount([...rita, { accountId: ACTIVO, amount: 1.01 }, { accountId: SAUDE, amount: 5 }, { accountId: null, amount: 9 }]);
+    expect([...map.entries()]).toEqual([
+      [ACTIVO, 22.4],
+      [SAUDE, 5],
+    ]);
   });
 });

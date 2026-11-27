@@ -119,6 +119,7 @@ import {
 import {
   effectiveTotal,
   fundingFingerprint,
+  receivedByAccount,
   receivingAccountKeys,
   toEffectiveAllocations,
   validateFunding,
@@ -2616,13 +2617,6 @@ export default function TransactionsScreen() {
                           </Text>
                         ) : createMovementKind === "transaction" ? (
                           <>
-                          {splitEnabled && createReimbursementTargets.length > 0 ? (
-                            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-                              {t("transactions.paymentBreakdown.effectiveSplitHint", {
-                                amount: formatCurrency(createSplitTotal),
-                              })}
-                            </Text>
-                          ) : null}
                           {splitValidationErrors.includes("pots_with_reimbursements") ? (
                             <Text style={{ color: colors.destructive, fontSize: 13 }}>
                               {t("transactions.paymentBreakdown.potsWithReimbursements")}
@@ -2633,6 +2627,8 @@ export default function TransactionsScreen() {
                             onToggleEnabled={setSplitEnabled}
                             totalAmount={createSplitTotal}
                             zeroAllowedTargetKeys={receivingAccountKeys(createReimbursementTargets)}
+                            layout="table"
+                            receivedByAccountId={receivedByAccount(createReimbursementTargets)}
                             accounts={accounts as any}
                             members={
                               (membersQuery.data ?? []).filter(
@@ -4133,13 +4129,6 @@ export default function TransactionsScreen() {
                     </Text>
                   ) : !editIsReimbursementIncome ? (
                   <>
-                  {editSplitEnabled && editReimbursementTargets.length > 0 ? (
-                    <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-                      {t("transactions.paymentBreakdown.effectiveSplitHint", {
-                        amount: formatCurrency(editSplitTotal),
-                      })}
-                    </Text>
-                  ) : null}
                   {editFundingErrors.includes("pots_with_reimbursements") ? (
                     <Text style={{ color: colors.destructive, fontSize: 13 }}>
                       {t("transactions.paymentBreakdown.potsWithReimbursements")}
@@ -4150,6 +4139,8 @@ export default function TransactionsScreen() {
                     onToggleEnabled={setEditSplitEnabled}
                     totalAmount={editSplitTotal}
                     zeroAllowedTargetKeys={receivingAccountKeys(editReimbursementTargets)}
+                    layout="table"
+                    receivedByAccountId={receivedByAccount(editReimbursementTargets)}
                     accounts={accounts as any}
                     members={
                       (membersQuery.data ?? []).filter(

@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { Pressable, Switch, Text, View } from "react-native";
+import { Pressable, Switch, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -158,6 +158,15 @@ type SplitAllocationsEditorProps<T extends AllocationDraft = AllocationDraft> = 
   /** Targets whose row may be exactly 0 (accounts that received a
    * reimbursement, when splitting the effective cost -- see funding.ts). */
   zeroAllowedTargetKeys?: ReadonlySet<string>;
+  /**
+   * "cards" (default): one card per source with labelled fields.
+   * "table": one compact row per source (account | received | cost) with a
+   * progress bar -- the "Quem suporta o custo" view of the payment card.
+   */
+  layout?: "cards" | "table";
+  /** Table layout: what each account received back (reimbursements),
+   * shown read-only next to its cost. The column appears only when set. */
+  receivedByAccountId?: ReadonlyMap<string, number>;
 };
 
 function usedTargetKeys<T extends AllocationDraft>(allocations: T[], excludeId: string): Set<string> {
@@ -207,6 +216,8 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
   toggleIcon = "git-branch-outline",
   toggleDisabled = false,
   zeroAllowedTargetKeys,
+  layout = "cards",
+  receivedByAccountId,
 }: SplitAllocationsEditorProps<T>) {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
@@ -240,6 +251,184 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
 
   function removeAllocation(id: string) {
     onChangeAllocations(allocations.filter((allocation) => allocation.id !== id));
+  }
+
+  const received = receivedByAccountId ?? new Map<string, number>();
+  const showReceived = received.size > 0;
+  const progress = totalCents > 0 ? Math.max(0, Math.min(summary.allocatedCents / totalCents, 1)) : 0;
+  const columnHeader = {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize[12],
+    fontWeight: String(typography.fontWeight.semibold),
+  } as any;
+
+  function renderTargetPicker(allocation: T, availableAccounts: AccountLike[], availablePots: PotLike[], compact: boolean) {
+    if (hideTargetPicker) return null;
+    return (
+      <>
+        {!compact || pots.length > 0 ? (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing(2) } as any}>
+            <Pill
+              label={t(`${copyPrefix}.sourceTypeAccount`)}
+              active={allocation.sourceType === "account"}
+              onPress={() => updateAllocation(allocation.id, { sourceType: "account", potId: null })}
+            />
+            <Pill
+              label={t(`${copyPrefix}.sourceTypePot`)}
+              active={allocation.sourceType === "pot"}
+              onPress={() => updateAllocation(allocation.id, { sourceType: "pot", accountId: null })}
+            />
+          </View>
+        ) : null}
+
+        {allocation.sourceType === "account" ? (
+          <GroupedAccountSelect
+            label={t(`${copyPrefix}.selectAccount`)}
+            hideLabel={compact}
+            accounts={availableAccounts}
+            members={members}
+            value={allocation.accountId ?? ""}
+            placeholder={t(`${copyPrefix}.selectAccount`)}
+            onChange={(accountId) => updateAllocation(allocation.id, { accountId })}
+            closeLabel={closeLabel}
+            sharedLabel={sharedLabel}
+            unassignedLabel={unassignedLabel}
+            typeLabels={accountTypeLabels}
+          />
+        ) : availablePots.length > 0 ? (
+          <DropdownField
+            label={t(`${copyPrefix}.selectPot`)}
+            valueLabel={pots.find((pot) => pot.id === allocation.potId)?.name ?? t(`${copyPrefix}.selectPot`)}
+            placeholder={t(`${copyPrefix}.selectPot`)}
+            hint={t(`${copyPrefix}.selectPotHint`)}
+            selectedKey={allocation.potId ?? undefined}
+            onChange={(potId) => updateAllocation(allocation.id, { potId })}
+            options={availablePots.map((pot) => ({ key: pot.id, label: pot.name }))}
+          />
+        ) : (
+          <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[13] } as any}>
+            {t(`${copyPrefix}.noPots`)}
+          </Text>
+        )}
+      </>
+    );
+  }
+
+  function availableTargets(allocation: T) {
+    const usedKeys = allowDuplicateTargets ? new Set<string>() : usedTargetKeys(allocations, allocation.id);
+    return {
+      availableAccounts: accounts.filter(
+        (account) => account.id === allocation.accountId || !usedKeys.has(`account:${account.id}`),
+      ),
+      availablePots: pots.filter((pot) => pot.id === allocation.potId || !usedKeys.has(`pot:${pot.id}`)),
+    };
+  }
+
+  function renderTable() {
+    const statusColor = summary.isComplete
+      ? colors.success
+      : summary.isOverAllocated
+        ? colors.destructive
+        : colors.warning;
+    return (
+      <View style={{ gap: spacing(2) } as any}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing(2) } as any}>
+          <Text style={[columnHeader, { flex: 1 }]}>{t(`${copyPrefix}.accountColumn`)}</Text>
+          {showReceived ? (
+            <Text style={[columnHeader, { width: 72, textAlign: "right" }]}>{t(`${copyPrefix}.receivedColumn`)}</Text>
+          ) : null}
+          <Text style={[columnHeader, { width: 96, textAlign: "right" }]}>{t(`${copyPrefix}.costColumn`)}</Text>
+          <View style={{ width: 20 }} />
+        </View>
+
+        {allocations.map((allocation, index) => {
+          const { availableAccounts, availablePots } = availableTargets(allocation);
+          const percentage = percentages[index] ?? 0;
+          const receivedAmount =
+            allocation.sourceType === "account" && allocation.accountId ? received.get(allocation.accountId) : undefined;
+          return (
+            <View
+              key={allocation.id}
+              style={{ gap: spacing(1), paddingBottom: spacing(1.5), borderBottomWidth: 1, borderColor: colors.border } as any}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing(2) } as any}>
+                <View style={{ flex: 1, gap: spacing(1) } as any}>
+                  {renderTargetPicker(allocation, availableAccounts, availablePots, true)}
+                </View>
+                {showReceived ? (
+                  <Text style={{ width: 72, textAlign: "right", color: colors.textSecondary } as any}>
+                    {receivedAmount ? money(receivedAmount) : "—"}
+                  </Text>
+                ) : null}
+                <TextInput
+                  accessibilityLabel={t(`${copyPrefix}.costColumn`)}
+                  value={
+                    inputMode === "value"
+                      ? allocation.amount
+                        ? String(allocation.amount)
+                        : ""
+                      : allocation.amount
+                        ? String(percentage)
+                        : ""
+                  }
+                  onChangeText={(value) => {
+                    const parsed = Number(value.replace(",", ".")) || 0;
+                    const amount =
+                      inputMode === "value" ? parsed : fromCents(Math.round((parsed / 100) * totalCents));
+                    updateAllocation(allocation.id, { amount });
+                  }}
+                  keyboardType="decimal-pad"
+                  placeholder={inputMode === "value" ? "0.00" : "0 %"}
+                  placeholderTextColor={colors.textSecondary}
+                  style={{
+                    width: 96,
+                    textAlign: "right",
+                    paddingHorizontal: spacing(2),
+                    paddingVertical: spacing(1.5),
+                    borderWidth: 1,
+                    borderRadius: radius.md,
+                    borderColor: colors.border,
+                    backgroundColor: colors.surfaceMuted,
+                    color: colors.text,
+                  } as any}
+                />
+                {allocations.length > 1 ? (
+                  <Pressable
+                    onPress={() => removeAllocation(allocation.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t(`${copyPrefix}.removeSource`)}
+                    hitSlop={8}
+                    style={{ width: 20 } as any}
+                  >
+                    <Ionicons name="close-circle-outline" size={20} color={colors.destructive} />
+                  </Pressable>
+                ) : (
+                  <View style={{ width: 20 }} />
+                )}
+              </View>
+              {renderRowExtra ? renderRowExtra(allocation, (patch) => updateAllocation(allocation.id, patch)) : null}
+            </View>
+          );
+        })}
+
+        <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.surfaceMuted, overflow: "hidden" } as any}>
+          <View style={{ width: `${Math.round(progress * 100)}%`, height: 6, backgroundColor: statusColor } as any} />
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing(1.5) } as any}>
+          <Ionicons name={summary.isComplete ? "checkmark-circle" : "warning"} size={16} color={statusColor} />
+          <Text style={{ flex: 1, color: statusColor, fontWeight: String(typography.fontWeight.semibold) } as any}>
+            {summary.isComplete
+              ? t(`${copyPrefix}.progress`, {
+                  allocated: money(fromCents(summary.allocatedCents)),
+                  total: money(fromCents(summary.totalCents)),
+                })
+              : summary.isOverAllocated
+                ? t(`${copyPrefix}.overAllocated`, { amount: money(fromCents(Math.abs(summary.remainingCents))) })
+                : t(`${copyPrefix}.left`, { amount: money(fromCents(Math.abs(summary.remainingCents))) })}
+          </Text>
+        </View>
+      </View>
+    );
   }
 
   function distributeEqually() {
@@ -287,6 +476,8 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
             </View>
           </View>
 
+          {layout === "table" ? renderTable() : (
+          <>
           {allocations.map((allocation, index) => {
             const usedKeys = allowDuplicateTargets ? new Set<string>() : usedTargetKeys(allocations, allocation.id);
             const availableAccounts = accounts.filter(
@@ -459,6 +650,9 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
               </View>
             )}
           </View>
+
+          </>
+          )}
 
           {errors.length > 0 ? (
             <View style={{ gap: spacing(1) } as any}>

@@ -144,3 +144,9 @@ export function fundingFingerprint(input: {
     .sort();
   return JSON.stringify([toCents(input.amount), input.splitEnabled, input.paidFromAccountId ?? null, allocations, reimbursements]);
 }
+
+/** What each account received back, in euros -- the "Recebeu" column of
+ * the cost table. */
+export function receivedByAccount(reimbursements: readonly ReimbursementTarget[]): Map<string, number> {
+  return new Map([...receivedCentsByAccount(reimbursements)].map(([accountId, cents]) => [accountId, fromCents(cents)]));
+}
