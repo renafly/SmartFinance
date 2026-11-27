@@ -102,6 +102,7 @@
     "monthlyBudget": "Orçamento Mensal",
     "categoryBudgets": "Orçamentos por Categoria",
     "tags": "Etiquetas",
+    "notes": "Notas",
     "categories": "Categorias",
     "members": "Membros",
     "diagnostics": "Diagnóstico",
@@ -1327,6 +1328,65 @@
       "benefits": "Apoios do Estado",
       "otherIncome": "Outros Rendimentos"
     }
+  },
+  "notes": {
+    "subtitle": "Notas privadas, visíveis apenas para si. As alterações são guardadas automaticamente.",
+    "newNote": "Nova nota",
+    "searchLabel": "Pesquisar notas",
+    "searchPlaceholder": "Pesquisar títulos e texto…",
+    "sort": {
+      "label": "Ordenar por",
+      "updated": "Última atualização",
+      "created": "Data de criação"
+    },
+    "untitled": "Nota sem título",
+    "emptyPreview": "Ainda sem texto",
+    "updatedAt": "Atualizada {{date}}",
+    "openNote": "Abrir nota {{title}}",
+    "loading": "A carregar notas…",
+    "loadError": "Não foi possível carregar as suas notas.",
+    "retry": "Tentar novamente",
+    "empty": {
+      "title": "Ainda não tem notas",
+      "description": "Registe ideias, lembretes ou qualquer coisa que queira acompanhar. As notas são privadas: os outros membros do agregado não as veem."
+    },
+    "listEmpty": "As suas notas vão aparecer aqui.",
+    "noResults": "Nenhuma nota corresponde a “{{query}}”.",
+    "selectPrompt": {
+      "title": "Selecione uma nota",
+      "description": "Escolha uma nota da lista ou comece uma nova."
+    },
+    "back": "Todas as notas",
+    "titlePlaceholder": "Título",
+    "titleLabel": "Título da nota",
+    "contentPlaceholder": "Comece a escrever…",
+    "contentLabel": "Texto da nota",
+    "status": {
+      "pending": "Alterações por guardar",
+      "saving": "A guardar…",
+      "saved": "Guardado",
+      "savedAt": "Guardado · {{date}}",
+      "error": "Não foi possível guardar. O seu texto mantém-se aqui.",
+      "retry": "Tentar novamente",
+      "conflict": "Não guardado"
+    },
+    "conflict": {
+      "title": "Esta nota foi alterada noutro sítio",
+      "description": "Foi editada noutro dispositivo ou separador depois de a abrir. Escolha que versão quer manter.",
+      "keepMine": "Manter a minha versão",
+      "loadLatest": "Carregar a outra versão",
+      "deletedTitle": "Esta nota foi eliminada noutro sítio",
+      "deletedDescription": "Foi eliminada noutro dispositivo ou separador. Pode restaurá-la com o seu texto ou descartá-la.",
+      "restore": "Restaurar a minha nota",
+      "discard": "Descartar"
+    },
+    "delete": "Eliminar nota",
+    "discard": "Descartar nota",
+    "deleteNamed": "Eliminar nota {{title}}",
+    "deleteTitle": "Eliminar “{{title}}”?",
+    "deleteBody": "Esta nota será eliminada permanentemente. Esta ação não pode ser anulada.",
+    "deletedToast": "Nota eliminada.",
+    "deleteError": "Não foi possível eliminar a nota. Tente novamente."
   },
   "tags": {
     "title": "Etiquetas",
