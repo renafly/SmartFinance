@@ -120,6 +120,7 @@
     "openMenu": "Open menu"
   },
   "diagnostics": {
+    "markAsSeen": "Mark as seen",
     "title": "Release diagnostics",
     "subtitle": "Check the production setup before deploying or sharing links.",
     "configurationTitle": "Production readiness",

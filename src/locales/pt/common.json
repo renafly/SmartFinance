@@ -120,6 +120,7 @@
     "openMenu": "Abrir menu"
   },
   "diagnostics": {
+    "markAsSeen": "Marcar como visto",
     "title": "Diagnóstico de lançamento",
     "subtitle": "Verifique a configuração de produção antes de publicar ou partilhar links.",
     "configurationTitle": "Prontidão para produção",
