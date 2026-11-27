@@ -1584,6 +1584,16 @@
     "endStatusEnded": "Terminada"
   },
   "transfers": {
+    "swapAccounts": "Trocar origem e destino",
+    "missingFields": "Falta preencher: {{fields}}.",
+    "issues": {
+      "title": "título",
+      "amount": "valor (maior que 0)",
+      "nextRun": "próxima execução",
+      "endCondition": "fim da repetição",
+      "source": "conta de origem",
+      "destination": "destino"
+    },
     "title": "Transferências",
     "subtitle": "Mover dinheiro entre contas",
     "formDate": "Data",

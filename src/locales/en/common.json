@@ -1584,6 +1584,16 @@
     "endStatusEnded": "Ended"
   },
   "transfers": {
+    "swapAccounts": "Swap source and destination",
+    "missingFields": "Still missing: {{fields}}.",
+    "issues": {
+      "title": "title",
+      "amount": "amount (above 0)",
+      "nextRun": "next run",
+      "endCondition": "end condition",
+      "source": "source account",
+      "destination": "destination"
+    },
     "title": "Transfers",
     "subtitle": "Move money between accounts",
     "formDate": "Date",

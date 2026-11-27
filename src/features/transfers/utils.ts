@@ -1,5 +1,6 @@
 import type { MovementDraft, MovementKind, RuleKind, ScheduledCategory } from './types';
 import { getLocalCalendarDate, parseLocalCalendarDate } from '@/features/transactions/utils/transaction-create-form';
+import { parseAmountInput } from '@/features/transactions/utils/transaction-draft';
 
 // Uses local calendar-day parts (not toISOString, which converts through
 // UTC first) so this matches "today" in the user's own timezone -- an
@@ -106,4 +107,39 @@ export function scheduledCategoryOf(item: any): Exclude<ScheduledCategory, 'all'
   if (item.rule_kind === 'transfer') return 'transfer';
   if (item.type === 'income') return 'income';
   return item.expense_kind === 'subscription' ? 'subscription' : 'bill';
+}
+
+export type MovementIssue = 'title' | 'amount' | 'nextRun' | 'endCondition' | 'source' | 'destination';
+
+/** The draft's amount, accepting a decimal comma ("12,50"); NaN when malformed. */
+export function movementAmount(value: MovementDraft): number {
+  return parseAmountInput(value.amount);
+}
+
+/**
+ * Fields the draft still needs before it can be saved, in the order the form
+ * shows them, so the UI can tell the user what is missing instead of only
+ * disabling the save button.
+ */
+export function movementIssues(value: MovementDraft): MovementIssue[] {
+  const issues: MovementIssue[] = [];
+  const amount = movementAmount(value);
+  const requiresDestination = value.kind === 'one-off' || value.kind === 'recurring-transfer';
+  if (!value.title.trim()) issues.push('title');
+  if (!Number.isFinite(amount) || amount <= 0) issues.push('amount');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value.nextRun)) issues.push('nextRun');
+  if (!isEndConditionValid(value)) issues.push('endCondition');
+  if (!value.sourceAccountId) issues.push('source');
+  if (requiresDestination && !value.destination) issues.push('destination');
+  return issues;
+}
+
+/** Swaps source and destination accounts; returns the same draft when either side is empty. */
+export function swapMovementAccounts(value: MovementDraft): MovementDraft {
+  if (!value.sourceAccountId || value.destination?.kind !== 'account') return value;
+  return {
+    ...value,
+    sourceAccountId: value.destination.id,
+    destination: { kind: 'account', id: value.sourceAccountId },
+  };
 }

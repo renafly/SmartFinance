@@ -48,7 +48,7 @@ import { typography } from "@/theme/typography";
 
 import { styles } from "@/features/transfers/ui-styles";
 import type { MovementDraft, ScheduledCategory } from "@/features/transfers/types";
-import { emptyDraft, endConditionPayload, endStatusLabel, isEndConditionValid, normalizeMonths, ruleKindOf, scheduledCategoryOf, today } from "@/features/transfers/utils";
+import { emptyDraft, endConditionPayload, endStatusLabel, isEndConditionValid, movementAmount, movementIssues, normalizeMonths, ruleKindOf, scheduledCategoryOf, today } from "@/features/transfers/utils";
 import { KindPills } from "@/features/transfers/components/kind-pills";
 import { MovementFields } from "@/features/transfers/components/movement-fields";
 import { RuleMenu } from "@/features/transfers/components/rule-menu";
@@ -105,8 +105,8 @@ export function RecurringTransferCreateForm({
     draft.sourceAccountId &&
     draft.destination &&
     draft.title.trim() &&
-    Number.isFinite(Number(draft.amount)) &&
-    Number(draft.amount) > 0 &&
+    Number.isFinite(movementAmount(draft)) &&
+    movementAmount(draft) > 0 &&
     /^\d{4}-\d{2}-\d{2}$/.test(draft.nextRun) &&
     isEndConditionValid(draft),
   );
@@ -131,7 +131,7 @@ export function RecurringTransferCreateForm({
       category_id: null,
       title: draft.title.trim(),
       notes: draft.notes.trim() || null,
-      amount: Number(draft.amount),
+      amount: movementAmount(draft),
       type: "expense",
       frequency: draft.frequency,
       excluded_months:
@@ -271,7 +271,7 @@ export function TransfersContent({
       : t("transfers.recurringTransactionTitle");
 
   function validMovement(value: MovementDraft) {
-    const amount = Number(value.amount);
+    const amount = movementAmount(value);
     const requiredDestination =
       value.kind === "one-off" || value.kind === "recurring-transfer";
     return Boolean(
@@ -300,7 +300,7 @@ export function TransfersContent({
       category_id: isTransfer ? null : value.categoryId,
       title: value.title.trim(),
       notes: value.notes.trim() || null,
-      amount: Number(value.amount),
+      amount: movementAmount(value),
       type: isTransfer ? "expense" : value.transactionType,
       expense_kind:
         !isTransfer && value.transactionType === "expense"
@@ -685,6 +685,18 @@ export function TransfersContent({
                   t={t}
                   lockKind
                 />
+              ) : null}
+              {editing && movementIssues(editing).length > 0 ? (
+                <Text
+                  accessibilityLiveRegion="polite"
+                  style={{ color: colors.textSecondary, fontSize: typography.fontSize[13] }}
+                >
+                  {t("transfers.missingFields", {
+                    fields: movementIssues(editing)
+                      .map((issue) => t(`transfers.issues.${issue}`))
+                      .join(", "),
+                  })}
+                </Text>
               ) : null}
               <View style={styles.modalActions}>
                 <Button
