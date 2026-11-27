@@ -102,7 +102,6 @@ import { ReimbursementSection } from "@/features/transactions/components/reimbur
 import { PaymentBreakdownSection } from "@/features/transactions/components/payment-breakdown-section";
 import {
   useCreateReimbursement,
-  useCreateReimbursements,
   useDeleteReimbursement,
   useHouseholdEffectiveAmounts,
   useReimbursementIncomeLink,
@@ -298,7 +297,6 @@ export default function TransactionsScreen() {
   const [reimbursementEnabled, setReimbursementEnabled] = useState(false);
   const [reimbursementTargetAmount, setReimbursementTargetAmount] = useState("");
   const [reimbursementInputMode, setReimbursementInputMode] = useState<SplitInputMode>("value");
-  const createReimbursements = useCreateReimbursements();
   const effectiveAmountsQuery = useHouseholdEffectiveAmounts(householdId);
   // Only transactions with a nonzero reimbursed_total are in this result
   // (see listEffectiveAmountsForHousehold), so a row's absence from the
@@ -764,19 +762,34 @@ export default function TransactionsScreen() {
   const firstAccount = accounts[0]?.id ?? "";
   const parsedAmount = Number(amount);
   const effectiveAccountId = accountId || firstAccount;
-  // A reimbursement always goes back into the expense's own "Paid from"
-  // account (Split Source and reimbursements are mutually exclusive), so
-  // the rows' target is derived here rather than picked per row.
+  // A reimbursement is received in an account the expense is paid from:
+  // the "Paid from" account, or -- with Split Source on -- one of the
+  // split's accounts (picked per row, see ReimbursementSection).
+  const createSplitAccountIds = useMemo(
+    () =>
+      splitEnabled
+        ? splitAllocations.flatMap((allocation) =>
+            allocation.sourceType === "account" && allocation.accountId ? [allocation.accountId] : [],
+          )
+        : [],
+    [splitEnabled, splitAllocations],
+  );
   const reimbursementRowsForAccount = useMemo(
     () =>
       reimbursementDrafts.map((row) => ({
         ...row,
         sourceType: "account" as const,
-        accountId: effectiveAccountId || null,
+        accountId: resolveReceivingAccountId(row.accountId, {
+          fixedAccountId: effectiveAccountId || null,
+          receivingAccountIds: createSplitAccountIds,
+        }),
         potId: null,
       })),
-    [reimbursementDrafts, effectiveAccountId],
+    [reimbursementDrafts, effectiveAccountId, createSplitAccountIds],
   );
+  const createReimbursementTargets = type === "expense" && reimbursementEnabled ? reimbursementRowsForAccount : [];
+  const createSplitTotal = Number.isFinite(parsedAmount) ? effectiveTotal(parsedAmount, createReimbursementTargets) : 0;
+  const createFullyReimbursed = createReimbursementTargets.length > 0 && createSplitTotal <= 0;
   const titleSuggestions = useTransactionTitleSuggestions({
     title,
     transactionType: type,
@@ -942,12 +955,26 @@ export default function TransactionsScreen() {
     effectiveCreatedById === currentUserId
       ? currentUserLabel
       : (memberLabelMap.get(effectiveCreatedById) ?? t("settings.unnamedUser"));
+  // With reimbursements the split covers only the effective cost (see
+  // funding.ts) and must use accounts only.
   const splitValidationErrors = useMemo(
     () =>
       splitEnabled && Number.isFinite(parsedAmount)
-        ? validateAllocations(parsedAmount, splitAllocations)
+        ? [
+            ...validateFunding({
+              amount: parsedAmount,
+              splitEnabled: true,
+              effective: splitAllocations,
+              reimbursements: createReimbursementTargets,
+              paidFromAccountId: effectiveAccountId || null,
+            }),
+            ...(createReimbursementTargets.length > 0 &&
+            splitAllocations.some((allocation) => allocation.sourceType === "pot")
+              ? ["pots_with_reimbursements"]
+              : []),
+          ]
         : [],
-    [splitEnabled, parsedAmount, splitAllocations],
+    [splitEnabled, parsedAmount, splitAllocations, createReimbursementTargets, effectiveAccountId],
   );
   // Reimbursement sources must sum to the reimbursement's own "expected
   // total" (reimbursementTargetAmount) -- NOT the expense amount, since a
@@ -1311,7 +1338,7 @@ export default function TransactionsScreen() {
       });
       show(t("transactions.transferCreateSuccess"));
     } else {
-      if (splitEnabled && validateAllocations(parsedAmount, splitAllocations).length > 0) {
+      if (splitEnabled && splitValidationErrors.length > 0) {
         return;
       }
       if (
@@ -1365,47 +1392,31 @@ export default function TransactionsScreen() {
       // surfaced instead of thrown, and the modal below still closes; the
       // user can reopen the transaction via Edit to retry the split/
       // reimbursements against the row that already exists.
-      try {
-        if (splitEnabled && created?.id) {
-          await saveTransactionAllocations.mutateAsync({
-            transactionId: created.id,
-            totalAmount: parsedAmount,
-            allocations: splitAllocations,
-          });
-        }
-      } catch (error) {
-        show(
-          t("transactions.split.saveError", {
-            detail: error instanceof Error ? error.message : t("unknownError"),
-          }),
-        );
-      }
-
-      // Reimbursements can only be attached once the transaction has an id
-      // (the FK is required, and the enforce_reimbursement_target trigger
-      // needs a real row to check type = 'expense' against) -- same
-      // after-create pattern as split allocations above. Saved in ONE
-      // insert (all-or-nothing, so a failure never leaves only some of
-      // them), dated with the expense's own date; each account row also
-      // gets its linked income transaction server-side (see
-      // 20260929000000_reimbursement_income_transactions.sql). Kept in its
-      // own try so a split failure doesn't skip them, and vice versa.
-      if (type === "expense" && reimbursementEnabled && created?.id && reimbursementRowsForAccount.length > 0) {
+      //
+      // With reimbursements, the split (of the effective cost) and the
+      // reimbursements are saved together in one atomic call
+      // (save_transaction_funding); a plain split keeps the allocations write.
+      const createUsesFunding =
+        type === "expense" && reimbursementEnabled && reimbursementRowsForAccount.length > 0;
+      if (createUsesFunding && created?.id) {
         try {
-          await createReimbursements.mutateAsync(
-            reimbursementRowsForAccount.map((draftRow) => ({
-              household_id: householdId,
-              transaction_id: created.id,
-              payer_name: draftRow.payerName,
+          await saveTransactionFunding.mutateAsync({
+            transactionId: created.id,
+            effectiveAllocations: splitEnabled
+              ? splitAllocations.map((allocation) => ({
+                  accountId: allocation.accountId as string,
+                  amount: allocation.amount,
+                }))
+              : [],
+            reimbursements: reimbursementRowsForAccount.map((draftRow) => ({
+              id: null,
+              payerName: draftRow.payerName,
               amount: draftRow.amount,
               note: draftRow.note ?? null,
-              created_by: createdById || profile.id,
-              source_type: draftRow.sourceType,
-              account_id: draftRow.accountId,
-              pot_id: draftRow.potId,
-              received_on: date,
+              accountId: draftRow.accountId as string,
+              receivedOn: date,
             })),
-          );
+          });
         } catch (error) {
           show(
             t("transactions.reimbursements.createError", {
@@ -1413,7 +1424,24 @@ export default function TransactionsScreen() {
             }),
           );
         }
+      } else {
+        try {
+          if (splitEnabled && created?.id) {
+            await saveTransactionAllocations.mutateAsync({
+              transactionId: created.id,
+              totalAmount: parsedAmount,
+              allocations: splitAllocations,
+            });
+          }
+        } catch (error) {
+          show(
+            t("transactions.split.saveError", {
+              detail: error instanceof Error ? error.message : t("unknownError"),
+            }),
+          );
+        }
       }
+
     }
 
     if (keepOpen) {
@@ -2471,17 +2499,11 @@ export default function TransactionsScreen() {
                             type === "expense" && reimbursementEnabled ? reimbursementDrafts : []
                           }
                           reimbursedBy={
-                            createMovementKind === "transaction" &&
-                            type === "expense" &&
-                            splitEnabled &&
-                            !reimbursementEnabled ? (
-                              <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-                                {t("transactions.paymentBreakdown.reimbursementUnavailable")}
-                              </Text>
-                            ) : createMovementKind === "transaction" && type === "expense" ? (
+                            createMovementKind === "transaction" && type === "expense" ? (
                               <ReimbursementSection
                               mode="draft"
                               fixedAccountId={effectiveAccountId || null}
+                              receivingAccountIds={splitEnabled ? createSplitAccountIds : undefined}
                               originalAmount={parsedAmount}
                               enabled={reimbursementEnabled}
                               onToggleEnabled={setReimbursementEnabled}
@@ -2547,16 +2569,30 @@ export default function TransactionsScreen() {
                         )}
                         {createMovementKind === "transaction" &&
                         type === "expense" &&
-                        reimbursementEnabled &&
+                        createFullyReimbursed &&
                         !splitEnabled ? (
                           <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
                             {t("transactions.paymentBreakdown.splitUnavailable")}
                           </Text>
                         ) : createMovementKind === "transaction" ? (
+                          <>
+                          {splitEnabled && createReimbursementTargets.length > 0 ? (
+                            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                              {t("transactions.paymentBreakdown.effectiveSplitHint", {
+                                amount: formatCurrency(createSplitTotal),
+                              })}
+                            </Text>
+                          ) : null}
+                          {splitValidationErrors.includes("pots_with_reimbursements") ? (
+                            <Text style={{ color: colors.destructive, fontSize: 13 }}>
+                              {t("transactions.paymentBreakdown.potsWithReimbursements")}
+                            </Text>
+                          ) : null}
                           <SplitAllocationsEditor
                             enabled={splitEnabled}
                             onToggleEnabled={setSplitEnabled}
-                            totalAmount={parsedAmount}
+                            totalAmount={createSplitTotal}
+                            zeroAllowedTargetKeys={receivingAccountKeys(createReimbursementTargets)}
                             accounts={accounts as any}
                             members={
                               (membersQuery.data ?? []).filter(
@@ -2580,6 +2616,7 @@ export default function TransactionsScreen() {
                             unassignedLabel={t("settings.unnamedUser")}
                             closeLabel={t("close", { defaultValue: "Close" })}
                           />
+                          </>
                         ) : null}
                         </PaymentBreakdownSection>
                         {createMovementKind === "transfer" ? (
