@@ -557,6 +557,10 @@ export function createStyles(colors: any, insets: SafeAreaInsets = NO_INSETS) {
       justifyContent: "space-between",
       alignItems: "center",
     },
+    // Keeps Cancel/Save right-aligned when the footer wraps on phones.
+    editFooterPrimary: {
+      marginLeft: "auto",
+    },
     // The amount is what the user checks first (see EssentialsSection).
     amountFieldProminent: {
       fontSize: 22,

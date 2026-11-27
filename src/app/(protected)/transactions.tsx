@@ -2623,6 +2623,7 @@ export default function TransactionsScreen() {
                         <Field
                           label={t("transactions.notesLabel")}
                           value={notes}
+                          multiline
                           onChangeText={setNotes}
                           placeholder={t("transactions.notesPlaceholder")}
                         />
@@ -3838,6 +3839,7 @@ export default function TransactionsScreen() {
                   <EssentialsSection
                     typeSelector={
                       !editIsReimbursementIncome ? (
+                        <View style={{ gap: spacing(1.5) } as any}>
                         <View style={{ flexDirection: "row", gap: spacing(2) } as any}>
                           {(["income", "expense"] as const).map((item) => (
                             <Pill
@@ -3853,6 +3855,22 @@ export default function TransactionsScreen() {
                               }
                             />
                           ))}
+                        </View>
+                        {/* Next to the type it is about, not under the date. */}
+                        {editTransaction.type !== "expense" &&
+                        (editReimbursementsQuery.data?.length ?? 0) > 0 ? (
+                          <View
+                            accessibilityRole="alert"
+                            style={{ flexDirection: "row", gap: spacing(1.5), alignItems: "flex-start" } as any}
+                          >
+                            <Ionicons name="warning-outline" size={16} color={colors.warning} />
+                            <Text style={{ flex: 1, color: colors.warning, fontSize: typography.fontSize[13] } as any}>
+                              {t("transactions.reimbursements.typeChangeWarning", {
+                                count: editReimbursementsQuery.data?.length ?? 0,
+                              })}
+                            </Text>
+                          </View>
+                        ) : null}
                         </View>
                       ) : null
                     }
@@ -3914,14 +3932,6 @@ export default function TransactionsScreen() {
                       ) : null
                     }
                   >
-                    {editTransaction.type !== "expense" &&
-                    (editReimbursementsQuery.data?.length ?? 0) > 0 ? (
-                      <Text style={{ color: colors.warning }}>
-                        {t("transactions.reimbursements.typeChangeWarning", {
-                          count: editReimbursementsQuery.data?.length ?? 0,
-                        })}
-                      </Text>
-                    ) : null}
                   </EssentialsSection>
                   <PaymentBreakdownSection
                     bare={editIsReimbursementIncome}
@@ -4220,7 +4230,7 @@ export default function TransactionsScreen() {
                       }
                     />
                     ) : <View />}
-                    <View style={styles.modalActions}>
+                    <View style={[styles.modalActions, styles.editFooterPrimary]}>
                     <Button
                       label={t("cancel")}
                       variant="secondary"
