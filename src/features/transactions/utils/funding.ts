@@ -113,3 +113,34 @@ export function validateFunding(input: {
   );
   return errors;
 }
+
+/** Everything that save_transaction_funding writes, as a comparable string
+ * -- lets the edit modal tell whether the user touched the funding at all,
+ * so an expense whose stored funding can't be edited in the effective view
+ * (a pot slice, legacy data) can still have its title/category saved. */
+export function fundingFingerprint(input: {
+  amount: number;
+  splitEnabled: boolean;
+  paidFromAccountId?: string | null;
+  allocations: readonly AllocationDraft[];
+  reimbursements: readonly {
+    id: string | null;
+    payerName: string;
+    amount: number;
+    accountId: string | null;
+    receivedOn: string | null;
+    note: string | null;
+  }[];
+}): string {
+  const allocations = input.splitEnabled
+    ? input.allocations
+        .map((allocation) => `${allocation.sourceType}:${allocation.accountId ?? allocation.potId ?? ""}=${toCents(allocation.amount)}`)
+        .sort()
+    : [];
+  const reimbursements = input.reimbursements
+    .map((row) =>
+      [row.id ?? "new", row.payerName.trim(), toCents(row.amount), row.accountId ?? "", row.receivedOn ?? "", row.note ?? ""].join("|"),
+    )
+    .sort();
+  return JSON.stringify([toCents(input.amount), input.splitEnabled, input.paidFromAccountId ?? null, allocations, reimbursements]);
+}

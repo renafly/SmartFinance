@@ -1,5 +1,6 @@
 import {
   effectiveTotal,
+  fundingFingerprint,
   receivingAccountKeys,
   toEffectiveAllocations,
   toFullAllocations,
@@ -118,5 +119,28 @@ describe("validateFunding", () => {
     expect(
       validateFunding({ ...base, splitEnabled: true, effective: [row("a", ACTIVO, 42.76), row("b", SAUDE, 0)], reimbursements: rita }),
     ).toContain("non_positive_amount");
+  });
+});
+
+describe("fundingFingerprint", () => {
+  const base = {
+    amount: 64.15,
+    splitEnabled: true,
+    allocations: [row("a", ACTIVO, 22.76), row("b", SAUDE, 20)],
+    reimbursements: [{ id: "r1", payerName: "Rita", amount: 21.39, accountId: ACTIVO, receivedOn: "2026-11-16", note: null }],
+  };
+
+  it("is stable for the same funding, whatever the row ids", () => {
+    expect(fundingFingerprint(base)).toBe(
+      fundingFingerprint({ ...base, allocations: [row("x", ACTIVO, 22.76), row("y", SAUDE, 20)] }),
+    );
+  });
+
+  it("changes when the split, a reimbursement or the amount changes", () => {
+    const original = fundingFingerprint(base);
+    expect(fundingFingerprint({ ...base, allocations: [row("a", ACTIVO, 20), row("b", SAUDE, 22.76)] })).not.toBe(original);
+    expect(fundingFingerprint({ ...base, reimbursements: [] })).not.toBe(original);
+    expect(fundingFingerprint({ ...base, amount: 70 })).not.toBe(original);
+    expect(fundingFingerprint({ ...base, splitEnabled: false })).not.toBe(original);
   });
 });

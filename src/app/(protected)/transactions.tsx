@@ -118,6 +118,7 @@ import {
 } from "@/features/transactions/utils/reimbursements";
 import {
   effectiveTotal,
+  fundingFingerprint,
   receivingAccountKeys,
   toEffectiveAllocations,
   validateFunding,
@@ -457,15 +458,41 @@ export default function TransactionsScreen() {
   // EFFECTIVE cost per account, i.e. the saved (full) allocations minus what
   // each account received back -- converted once, after both have loaded.
   const [editFundingNormalizedId, setEditFundingNormalizedId] = useState<string | null>(null);
+  // The funding as loaded (after the conversion above). Split/reimbursement
+  // rules are only enforced -- and the funding only re-saved -- once the
+  // user changes it, so a stored funding the effective view can't express
+  // (a pot slice, legacy data) never blocks saving the title or category.
+  const [editFundingBaseline, setEditFundingBaseline] = useState<string | null>(null);
   useEffect(() => {
     if (!editTransaction || !editPaymentReady) return;
     if (editFundingNormalizedId === editTransaction.id) return;
+    let allocations = editSplitAllocations;
     if (editSplitAllocations.length > 0 && editReimbursements.length > 0) {
       const effective = toEffectiveAllocations(editSplitAllocations, editReimbursements);
-      if (effective) setEditSplitAllocations(effective);
+      if (effective) {
+        allocations = effective;
+        setEditSplitAllocations(effective);
+      }
     }
+    setEditFundingBaseline(
+      fundingFingerprint({
+        amount: Number(editTransaction.amount) || 0,
+        splitEnabled: editSplitEnabled,
+        paidFromAccountId: editTransaction.accountId,
+        allocations,
+        reimbursements: editReimbursementEnabled ? editReimbursements : [],
+      }),
+    );
     setEditFundingNormalizedId(editTransaction.id);
-  }, [editTransaction, editPaymentReady, editFundingNormalizedId, editSplitAllocations, editReimbursements]);
+  }, [
+    editTransaction,
+    editPaymentReady,
+    editFundingNormalizedId,
+    editSplitAllocations,
+    editSplitEnabled,
+    editReimbursements,
+    editReimbursementEnabled,
+  ]);
   const editIsFundingExpense = editTransaction?.type === "expense" && !editIsReimbursementIncome;
   const editSplitAccountIds = editSplitEnabled
     ? editSplitAllocations.flatMap((allocation) =>
@@ -501,6 +528,17 @@ export default function TransactionsScreen() {
     }),
     ...(editSplitEnabled && editSplitHasPots && editReimbursementTargets.length > 0 ? ["pots_with_reimbursements"] : []),
   ];
+  const editFundingDirty =
+    editFundingBaseline !==
+    fundingFingerprint({
+      amount: editAmountValue,
+      splitEnabled: editSplitEnabled,
+      paidFromAccountId: editTransaction?.accountId ?? null,
+      allocations: editSplitAllocations,
+      reimbursements: editReimbursementEnabled ? editReimbursements : [],
+    });
+  // Only what the user changed is validated (see editFundingBaseline).
+  const editBlockingFundingErrors = editFundingDirty ? editFundingErrors : [];
   // Clears every split/reimbursement value of the edit modal, so opening
   // (or reopening) a transaction never shows the previous one's state.
   function resetEditPaymentState() {
@@ -514,6 +552,7 @@ export default function TransactionsScreen() {
     setEditReimbursementsOriginal([]);
     setEditReimbursementsSyncedId(null);
     setEditFundingNormalizedId(null);
+    setEditFundingBaseline(null);
   }
   const isSavingEditReimbursements =
     createReimbursement.isPending || updateReimbursement.isPending || deleteReimbursement.isPending;
@@ -992,6 +1031,7 @@ export default function TransactionsScreen() {
   const canCreateTransaction =
     !createTransaction.isPending &&
     !saveTransactionAllocations.isPending &&
+    !saveTransactionFunding.isPending &&
     Boolean(householdId) &&
     Boolean(profile?.id) &&
     Boolean(effectiveAccountId) &&
@@ -1514,7 +1554,7 @@ export default function TransactionsScreen() {
       return;
     }
 
-    if (editFundingErrors.length > 0) {
+    if (editBlockingFundingErrors.length > 0) {
       return;
     }
 
@@ -1578,7 +1618,7 @@ export default function TransactionsScreen() {
     const editUsesFunding =
       editIsFundingExpense && (editFinalReimbursements.length > 0 || editReimbursementsOriginal.length > 0);
     if (editUsesFunding) {
-      if (editSplitEnabled || editSplitWasOriginallySplit || hasStagedReimbursementChanges(editReimbursementDiff)) {
+      if (editFundingDirty || hasStagedReimbursementChanges(editReimbursementDiff)) {
         try {
           await saveTransactionFunding.mutateAsync({
             transactionId: editTransaction.id,
@@ -4298,7 +4338,7 @@ export default function TransactionsScreen() {
                         isSavingEditReimbursements ||
                         !editPaymentReady ||
                         editFundingNormalizedId !== editTransaction.id ||
-                        editFundingErrors.length > 0
+                        editBlockingFundingErrors.length > 0
                       }
                     />
                   </View>
