@@ -55,6 +55,15 @@ class TagsService {
     return data ?? [];
   }
 
+  /** transaction id -> assigned tag ids (transactions without tags are omitted). */
+  async getTagIdsByTransaction(transactionIds: readonly string[]): Promise<Record<string, string[]>> {
+    const { data, error } = await repositories.transactionTags.listAssignmentsForTransactions(transactionIds);
+    if (error) throw error;
+    const map: Record<string, string[]> = {};
+    for (const row of data ?? []) (map[row.transaction_id] ??= []).push(row.tag_id);
+    return map;
+  }
+
   async createTag(
     input: { name: string },
     context: { householdId: string; createdBy: string; existing: readonly { id: string; name: string }[] },

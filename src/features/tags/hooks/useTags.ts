@@ -1,4 +1,5 @@
-import { useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/providers/AuthProvider";
 
@@ -92,6 +93,22 @@ export function useTransactionTagIds(transactionId: string | null) {
     queryKey: [TAG_QUERY_KEYS.transactionTagIds, transactionId],
     queryFn: () => tagsService.getTransactionTagIds(transactionId!),
     enabled: !!transactionId,
+  });
+}
+
+/**
+ * Tag ids for a batch of transactions (e.g. the loaded pages of an account
+ * ledger), keyed by transaction id. Shares the transactionTagIds key prefix
+ * so tag edits invalidate it too.
+ */
+export function useTransactionTagMap(transactionIds: readonly string[]) {
+  const ids = useMemo(() => [...new Set(transactionIds)].sort(), [transactionIds]);
+
+  return useQuery({
+    queryKey: [TAG_QUERY_KEYS.transactionTagIds, "batch", ids],
+    queryFn: () => tagsService.getTagIdsByTransaction(ids),
+    enabled: ids.length > 0,
+    placeholderData: keepPreviousData,
   });
 }
 

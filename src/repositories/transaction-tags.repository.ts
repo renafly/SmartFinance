@@ -80,6 +80,20 @@ export class TransactionTagsRepository extends BaseRepository<"transaction_tags"
     return { data: (data ?? []).map((row) => row.tag_id), error: null };
   }
 
+  /** Tag assignments for many transactions at once (e.g. a ledger page). */
+  async listAssignmentsForTransactions(
+    transactionIds: readonly string[],
+  ): Promise<RepoResult<{ transaction_id: string; tag_id: string }[]>> {
+    if (transactionIds.length === 0) return { data: [], error: null };
+    const { data, error } = await this.client
+      .from("transaction_tag_assignments")
+      .select("transaction_id, tag_id")
+      .in("transaction_id", [...transactionIds]);
+
+    if (error) return { data: null, error };
+    return { data: data ?? [], error: null };
+  }
+
   /** Atomically replaces a transaction's tags (empty array = remove all). */
   async setTransactionTags(
     transactionId: string,
