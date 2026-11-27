@@ -12,6 +12,7 @@ import {
   TableCell,
   TableRow,
 } from "@/components/data-surface";
+import { SkeletonRows } from "@/components/skeleton";
 import {
   Button,
   Card,
@@ -748,9 +749,7 @@ export function TransfersContent({
               {t("transfers.executionHistoryTitle")}
             </Text>
             {executionHistoryQuery.isLoading ? (
-              <Text style={{ color: colors.textSecondary }}>
-                {t("loading")}
-              </Text>
+              <SkeletonRows count={3} rowHeight={40} />
             ) : null}
             {executionHistoryQuery.data?.length ? (
               executionHistoryQuery.data.map((execution: any) => (

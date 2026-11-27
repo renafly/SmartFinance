@@ -1,6 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -42,6 +41,7 @@ import {
   TableCell,
   TableRow,
 } from "@/components/data-surface";
+import { SkeletonRows } from "@/components/skeleton";
 import { HouseholdMemberSelect } from "@/components/household-member-select";
 import { BugReportFab } from "@/components/bug-report-fab";
 import { GroupedAccountSelect } from "@/components/grouped-account-select";
@@ -2852,21 +2852,7 @@ export default function TransactionsScreen() {
             }
           >
             {transactionsQuery.isPending ? (
-              <View
-                style={
-                  {
-                    alignItems: "center",
-                    justifyContent: "center",
-                    paddingVertical: spacing(8),
-                    gap: spacing(2),
-                  } as any
-                }
-              >
-                <ActivityIndicator color={colors.primary} />
-                <Text style={{ color: colors.textSecondary } as any}>
-                  {t("loading", { defaultValue: "Loading transactions..." })}
-                </Text>
-              </View>
+              <SkeletonRows count={6} rowHeight={52} />
             ) : transactions.length ? (
               <>
                 {bulkSelectionOpen ? (
@@ -3904,9 +3890,7 @@ export default function TransactionsScreen() {
                     }
                     reimbursedBy={
                       editTransaction.type === "expense" && !editPaymentReady ? (
-                        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-                          {t("loading")}
-                        </Text>
+                        <SkeletonRows count={2} rowHeight={36} />
                       ) : editTransaction.type === "expense" ? (
                         <ReimbursementSection
                           mode="staged"
@@ -3973,9 +3957,7 @@ export default function TransactionsScreen() {
                     />
                   )}
                   {!editIsReimbursementIncome && !editPaymentReady ? (
-                    <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-                      {t("loading")}
-                    </Text>
+                    <SkeletonRows count={2} rowHeight={36} />
                   ) : !editIsReimbursementIncome &&
                   editTransaction.type === "expense" &&
                   editFullyReimbursed &&

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Section } from '@/components/migrated-page';
 import { EmptyState } from '@/components/data-surface';
+import { SkeletonRows } from '@/components/skeleton';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useResponsiveMetrics } from '@/theme/responsive';
 import { type CategoryPickerCategory } from '@/components/category-picker';
@@ -214,7 +215,7 @@ export function CategoryBudgetsSection({ month, categories, accounts, onEditLimi
   return (
     <Section title={t('budget.categoryBudgets.title')} subtitle={t('budget.categoryBudgets.subtitle')} collapsible defaultCollapsed={false}>
       {isLoading ? (
-        <Text style={{ color: colors.textSecondary, fontSize: typography.fontSize[14] } as any}>{t('loading')}</Text>
+        <SkeletonRows count={2} rowHeight={120} />
       ) : entries.length === 0 ? (
         <EmptyState icon="pie-chart-outline" title={t('budget.categoryBudgets.emptyTitle')} description={t('budget.categoryBudgets.empty')} />
       ) : (

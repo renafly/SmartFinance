@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Button, Card, Field, Page, Pill } from '@/components/migrated-page';
 import { EmptyState } from '@/components/data-surface';
+import { SkeletonRows } from '@/components/skeleton';
 import { MonthPickerField } from '@/components/date-picker-field';
 import { DateFilterField } from '@/features/transactions/components/transaction-date-field';
 import { getLocalCalendarDate } from '@/features/transactions/utils/transaction-create-form';
@@ -250,10 +251,7 @@ export default function TagsScreen() {
 
       <Animated.View entering={FadeInDown.delay(80).duration(420)} style={{ gap: spacing(3) }}>
         {summariesQuery.isLoading ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2), paddingVertical: spacing(4) }}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={mutedText}>{t('tags.loading')}</Text>
-          </View>
+          <SkeletonRows count={4} rowHeight={64} label={t('tags.loading')} />
         ) : summariesQuery.isError ? (
           <EmptyState
             icon="alert-circle-outline"
