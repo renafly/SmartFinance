@@ -1725,7 +1725,9 @@
     "sourceLabel": "Origem",
     "multipleSources": "Várias contas",
     "updateSourcesSuccess": "Origens atualizadas",
-    "updateSourcesError": "Não foi possível atualizar as origens: {{detail}}"
+    "updateSourcesError": "Não foi possível atualizar as origens: {{detail}}",
+    "previewUnitSourcesTitle": "Origem de cada transação",
+    "previewUnitSourcesSubtitle": "Sugerida automaticamente. Podes escolher outra conta para qualquer transação."
   },
   "notifications": {
     "title": "Notificações",

@@ -1725,7 +1725,9 @@
     "sourceLabel": "Source",
     "multipleSources": "Multiple accounts",
     "updateSourcesSuccess": "Sources updated",
-    "updateSourcesError": "Could not update the sources: {{detail}}"
+    "updateSourcesError": "Could not update the sources: {{detail}}",
+    "previewUnitSourcesTitle": "Source of each transaction",
+    "previewUnitSourcesSubtitle": "Suggested automatically. You can pick another account for any transaction."
   },
   "notifications": {
     "title": "Notifications",
