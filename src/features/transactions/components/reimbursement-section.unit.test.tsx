@@ -6,6 +6,8 @@ import i18n from '@/config/i18n';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 
+import { usePrivacyStore } from '@/stores/privacyStore';
+
 import { ReimbursementSection } from './reimbursement-section';
 import type { StagedReimbursement } from '@/features/transactions/utils/reimbursements';
 
@@ -100,5 +102,26 @@ describe('ReimbursementSection (staged) edge cases', () => {
   it('opens the form straight away when there are no reimbursements yet', async () => {
     const view = await renderHarness({ initial: [] });
     expect(view.getByText('Paid back by')).toBeTruthy();
+  });
+});
+
+describe('ReimbursementSection (staged) privacy', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+  afterEach(() => {
+    usePrivacyStore.setState({ hideValues: true });
+  });
+
+  it('masks each reimbursement amount while values are hidden', async () => {
+    usePrivacyStore.setState({ hideValues: true });
+    const view = await renderHarness();
+    expect(JSON.stringify(view.toJSON())).not.toMatch(/21[.,]39/);
+  });
+
+  it('shows each reimbursement amount when values are visible', async () => {
+    usePrivacyStore.setState({ hideValues: false });
+    const view = await renderHarness();
+    expect(JSON.stringify(view.toJSON())).toMatch(/21[.,]39/);
   });
 });

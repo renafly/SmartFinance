@@ -3555,7 +3555,6 @@ export default function TransactionsScreen() {
                     members={acceptedMembers as any}
                     value={transferEdit.sourceAccountId}
                     placeholder={t("transactions.sourceAccount")}
-                    hint={t("transactions.sourceAccount")}
                     allowedAccountIds={accounts
                       .filter((account: any) => account.id !== transferEdit.destinationAccountId)
                       .map((account: any) => account.id)}
@@ -3618,7 +3617,6 @@ export default function TransactionsScreen() {
                     members={acceptedMembers as any}
                     value={transferEdit.destinationAccountId}
                     placeholder={t("transactions.destinationAccount")}
-                    hint={t("transactions.destinationAccount")}
                     allowedAccountIds={accounts
                       .filter((account: any) => account.id !== transferEdit.sourceAccountId)
                       .map((account: any) => account.id)}

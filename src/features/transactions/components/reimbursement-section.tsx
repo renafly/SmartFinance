@@ -5,6 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Button, Field, formatCurrency, formatDate } from "@/components/migrated-page";
 import { DatePickerField } from "@/components/date-picker-field";
+import { displayCurrency } from "@/shared/lib/mask-currency";
+import { usePrivacyStore } from "@/stores/privacyStore";
 import { getLocalCalendarDate } from "@/features/transactions/utils/transaction-create-form";
 import {
   SectionToggle,
@@ -267,6 +269,7 @@ function StagedReimbursementSection(
 ) {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
+  const hideValues = usePrivacyStore((state) => state.hideValues);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [payerName, setPayerName] = useState("");
   const [amount, setAmount] = useState("");
@@ -421,7 +424,7 @@ function StagedReimbursementSection(
                   </Text>
                 </View>
                 <Text style={{ color: colors.primary, fontWeight: "600" as any }}>
-                  {formatCurrency(row.amount)}
+                  {displayCurrency(formatCurrency(row.amount), hideValues)}
                 </Text>
                 <Pressable
                   accessibilityRole="button"
@@ -577,7 +580,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing(1),
   },
-  iconButton: { padding: spacing(0.75) },
+  // 44×44 touch target (platform minimum) around an 18px icon.
+  iconButton: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
   rowInfo: { flex: 1 },
   removeButton: { padding: spacing(0.5) },
   addRow: { gap: spacing(1) },

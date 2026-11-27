@@ -166,7 +166,6 @@ export function MovementFields({
         members={members}
         value={value.sourceAccountId}
         placeholder={isTransfer ? t('transfers.sourceAccount') : t('recurring.account')}
-        hint={isTransfer ? t('transfers.sourceAccount') : t('recurring.account')}
         onChange={(sourceAccountId) => onChange({ sourceAccountId })}
         allowedAccountIds={allowedSourceIds}
         closeLabel={t('close')}
@@ -207,7 +206,6 @@ export function MovementFields({
           members={members}
           value={value.destination}
           placeholder={t('transfers.destination')}
-          hint={t('transfers.destination')}
           onChange={(destination) => onChange({ destination })}
           allowedAccountIds={allowedDestinationIds}
           closeLabel={t('close')}
