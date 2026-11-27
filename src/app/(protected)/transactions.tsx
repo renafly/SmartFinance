@@ -93,6 +93,10 @@ import {
   SHARED_ACCOUNT_OWNER_KEY,
   getAccountOwnerToneIndex,
 } from "../../features/accounts/account-ordering";
+import {
+  buildAccountShadeIndexMap,
+  getAccountShadeTone,
+} from "../../features/accounts/account-shades";
 import { RecurringTransferCreateForm, TransfersContent } from "./transfers";
 import { createStyles } from "@/features/transactions/ui-styles";
 import { DropdownField, type DropdownFieldProps } from "@/features/transactions/components/dropdown-field";
@@ -1057,15 +1061,27 @@ export default function TransactionsScreen() {
       ? (memberLabelMap.get(ownerId) ?? t("settings.unnamedUser"))
       : t("dashboard.shared");
   };
+  // Each member keeps their base tone; each of their accounts gets its own
+  // shade of it (see account-shades.ts), so rows can be told apart by
+  // account as well as by owner.
+  const accountShadeIndexById = useMemo(
+    () => buildAccountShadeIndexMap(accounts as any[]),
+    [accounts],
+  );
   const getTransactionAccountOwnerTone = (item: any) => {
-    const ownerId = getTransactionAccount(item)?.owner_profile_id;
+    const account = getTransactionAccount(item);
+    const ownerId = account?.owner_profile_id;
     const toneIndex = getAccountOwnerToneIndex(
       ownerId,
       ownerOrder,
       ownerTones.length,
     );
 
-    return ownerTones[toneIndex];
+    return getAccountShadeTone(
+      ownerTones[toneIndex],
+      account?.id ? accountShadeIndexById.get(account.id) : undefined,
+      colors,
+    );
   };
   // ------------------------------------------------------------
   // Split / multi-account transaction detail (the `allocations` column
