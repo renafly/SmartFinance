@@ -21,11 +21,17 @@ declare
     v_orig uuid;
     v_saude uuid;
     v_activo uuid;
+    v_trade uuid;
+    v_potbank uuid;
+    v_pot uuid;
     v_t1 uuid;
     v_t2 uuid;
     v_t3 uuid;
     v_t4 uuid;
     v_t5 uuid;
+    v_t6 uuid;
+    v_t7 uuid;
+    v_t8 uuid;
     v_run_id uuid;
     v_draft_run_id uuid;
     v_unit_sources jsonb;
@@ -70,6 +76,13 @@ begin
     values (v_household_id, 'Saude', 'savings', 'EUR') returning id into v_saude;
     insert into public.accounts (household_id, name, type, currency)
     values (v_household_id, 'Activo Bank', 'bank', 'EUR') returning id into v_activo;
+    insert into public.accounts (household_id, name, type, currency)
+    values (v_household_id, 'Trade Republic', 'bank', 'EUR') returning id into v_trade;
+    insert into public.accounts (household_id, name, type, currency)
+    values (v_household_id, 'Pot Bank', 'savings', 'EUR') returning id into v_potbank;
+    insert into public.saving_pots (household_id, name, created_by)
+    values (v_household_id, 'Ferias', v_user_id) returning id into v_pot;
+    insert into public.saving_pot_accounts (pot_id, account_id) values (v_pot, v_potbank);
 
     perform set_config('request.jwt.claim.sub', v_user_id::text, true);
     perform set_config('request.jwt.claims', json_build_object('sub', v_user_id, 'role', 'authenticated')::text, true);
@@ -85,25 +98,44 @@ begin
     values (v_household_id, v_orig, 'Reimbursed', 100.00, 'expense', v_user_id) returning id into v_t4;
     insert into public.transactions (household_id, account_id, title, amount, type, created_by)
     values (v_household_id, v_orig, 'Edited later', 10.00, 'expense', v_user_id) returning id into v_t5;
+    insert into public.transactions (household_id, account_id, title, amount, type, created_by)
+    values (v_household_id, v_orig, 'From pot', 50.00, 'expense', v_user_id) returning id into v_t6;
+    insert into public.transactions (household_id, account_id, title, amount, type, created_by)
+    values (v_household_id, v_orig, 'Later to pot bank', 20.00, 'expense', v_user_id) returning id into v_t7;
+    insert into public.transactions (household_id, account_id, title, amount, type, created_by)
+    values (v_household_id, v_orig, 'Split before run', 100.00, 'expense', v_user_id) returning id into v_t8;
+    -- T8 was already split before the run: Trading 212 60 + Trade Republic 40.
+    perform public.save_transaction_allocations(v_t8, jsonb_build_array(
+        jsonb_build_object('source_type', 'account', 'account_id', v_orig, 'pot_id', null, 'amount', 60.00),
+        jsonb_build_object('source_type', 'account', 'account_id', v_trade, 'pot_id', null, 'amount', 40.00)
+    ));
 
     insert into public.transaction_reimbursements (household_id, transaction_id, payer_name, amount, created_by)
     values (v_household_id, v_t4, 'Carlos', 30.00, v_user_id);
 
     -- One confirmed run: T1 -> Saude, T2 -> Activo, T3 -> Saude 3.00 + Activo 4.38,
-    -- T4 (70 replenishable of 100) -> Saude, T5 -> Saude.
+    -- T4 (70 replenishable of 100) -> Saude, T5 -> Saude, T6 -> pot Ferias
+    -- (backed by Pot Bank), T7 -> Saude, T8's Trading 212 slice -> Saude and
+    -- its Trade Republic slice -> Activo.
     insert into public.replenishment_runs (household_id, status, total_amount, created_by)
-    values (v_household_id, 'draft', 291.53, v_user_id) returning id into v_run_id;
+    values (v_household_id, 'draft', 461.53, v_user_id) returning id into v_run_id;
 
     insert into public.replenishment_run_transactions (run_id, transaction_id, account_id, amount, transaction_date)
     values (v_run_id, v_t1, v_orig, 64.15, now()),
            (v_run_id, v_t2, v_orig, 140.00, now()),
            (v_run_id, v_t3, v_orig, 7.38, now()),
            (v_run_id, v_t4, v_orig, 70.00, now()),
-           (v_run_id, v_t5, v_orig, 10.00, now());
+           (v_run_id, v_t5, v_orig, 10.00, now()),
+           (v_run_id, v_t6, v_orig, 50.00, now()),
+           (v_run_id, v_t7, v_orig, 20.00, now()),
+           (v_run_id, v_t8, v_orig, 60.00, now()),
+           (v_run_id, v_t8, v_trade, 40.00, now());
 
     insert into public.replenishment_run_sources (run_id, source_kind, resolved_account_id, amount, suggested_amount, sort_order)
-    values (v_run_id, 'account', v_saude, 147.15, 147.15, 0),
-           (v_run_id, 'account', v_activo, 144.38, 144.38, 1);
+    values (v_run_id, 'account', v_saude, 227.15, 227.15, 0),
+           (v_run_id, 'account', v_activo, 184.38, 184.38, 1);
+    insert into public.replenishment_run_sources (run_id, source_kind, pot_id, resolved_account_id, amount, suggested_amount, sort_order)
+    values (v_run_id, 'pot', v_pot, v_potbank, 50.00, 50.00, 2);
 
     v_unit_sources := jsonb_build_array(
         jsonb_build_object('transactionId', v_t1, 'accountId', v_orig, 'sources', jsonb_build_array(
@@ -116,7 +148,15 @@ begin
         jsonb_build_object('transactionId', v_t4, 'accountId', v_orig, 'sources', jsonb_build_array(
             jsonb_build_object('sourceType', 'account', 'accountId', v_saude, 'potId', null, 'amount', 70.00))),
         jsonb_build_object('transactionId', v_t5, 'accountId', v_orig, 'sources', jsonb_build_array(
-            jsonb_build_object('sourceType', 'account', 'accountId', v_saude, 'potId', null, 'amount', 10.00)))
+            jsonb_build_object('sourceType', 'account', 'accountId', v_saude, 'potId', null, 'amount', 10.00))),
+        jsonb_build_object('transactionId', v_t6, 'accountId', v_orig, 'sources', jsonb_build_array(
+            jsonb_build_object('sourceType', 'pot', 'accountId', v_potbank, 'potId', v_pot, 'amount', 50.00))),
+        jsonb_build_object('transactionId', v_t7, 'accountId', v_orig, 'sources', jsonb_build_array(
+            jsonb_build_object('sourceType', 'account', 'accountId', v_saude, 'potId', null, 'amount', 20.00))),
+        jsonb_build_object('transactionId', v_t8, 'accountId', v_orig, 'sources', jsonb_build_array(
+            jsonb_build_object('sourceType', 'account', 'accountId', v_saude, 'potId', null, 'amount', 60.00))),
+        jsonb_build_object('transactionId', v_t8, 'accountId', v_trade, 'sources', jsonb_build_array(
+            jsonb_build_object('sourceType', 'account', 'accountId', v_activo, 'potId', null, 'amount', 40.00)))
     );
 
     perform public.confirm_replenishment_run(v_run_id, v_unit_sources, jsonb_build_object('unitSources', v_unit_sources));
@@ -193,19 +233,68 @@ begin
 
     -- ------------------------------------------------------------
     -- 4. Run sources recomputed; run total unchanged.
-    --    Saude = T2 140 + T5 10; Activo = T1 64.15 + T3 7.38 + T4 70.
+    --    Saude = T2 140 + T5 10 + T7 20 + T8 60;
+    --    Activo = T1 64.15 + T3 7.38 + T4 70 + T8 40.
     -- ------------------------------------------------------------
     select amount into v_amount from public.replenishment_run_sources where run_id = v_run_id and resolved_account_id = v_saude;
-    if v_amount is distinct from 150.00 then
-        raise exception '4: Saude run source expected 150.00, got %', v_amount;
+    if v_amount is distinct from 230.00 then
+        raise exception '4: Saude run source expected 230.00, got %', v_amount;
     end if;
     select amount into v_amount from public.replenishment_run_sources where run_id = v_run_id and resolved_account_id = v_activo;
-    if v_amount is distinct from 141.53 then
-        raise exception '4: Activo run source expected 141.53, got %', v_amount;
+    if v_amount is distinct from 181.53 then
+        raise exception '4: Activo run source expected 181.53, got %', v_amount;
     end if;
     select total_amount into v_total from public.replenishment_runs where id = v_run_id;
-    if v_total <> 291.53 then
+    if v_total <> 461.53 then
         raise exception '4: run total changed to %', v_total;
+    end if;
+
+    -- ------------------------------------------------------------
+    -- 4b. Pot rows in the run's sources follow the units: moving the pot's
+    --     only unit away while an account unit now uses the pot's backing
+    --     account turns the row into a plain account source.
+    -- ------------------------------------------------------------
+    perform public.update_replenishment_run_sources(v_run_id, jsonb_build_array(
+        jsonb_build_object('transactionId', v_t7, 'accountId', v_orig, 'sources', jsonb_build_array(
+            jsonb_build_object('accountId', v_potbank, 'amount', 20.00)))
+    ));
+    perform public.update_replenishment_run_sources(v_run_id, jsonb_build_array(
+        jsonb_build_object('transactionId', v_t6, 'accountId', v_orig, 'sources', jsonb_build_array(
+            jsonb_build_object('accountId', v_saude, 'amount', 50.00)))
+    ));
+    set constraints all immediate;
+    set constraints all deferred;
+
+    select * into v_tx from public.transactions where id = v_t6;
+    if v_tx.is_split or v_tx.account_id <> v_saude or v_tx.pot_id is not null then
+        raise exception '4b: T6 expected plain Saude without pot, got split % account % pot %', v_tx.is_split, v_tx.account_id, v_tx.pot_id;
+    end if;
+    if exists (select 1 from public.replenishment_run_sources where run_id = v_run_id and source_kind = 'pot') then
+        raise exception '4b: a pot source row remains although no unit is funded by the pot';
+    end if;
+    select amount into v_amount from public.replenishment_run_sources
+     where run_id = v_run_id and resolved_account_id = v_potbank and source_kind = 'account' and pot_id is null;
+    if v_amount is distinct from 20.00 then
+        raise exception '4b: Pot Bank account source expected 20.00, got %', v_amount;
+    end if;
+
+    -- ------------------------------------------------------------
+    -- 4c. A split collapsing to one account keeps its replenishment
+    --     provenance (T8: Saude 60 + Activo 40 -> Saude 100).
+    -- ------------------------------------------------------------
+    perform public.update_replenishment_run_sources(v_run_id, jsonb_build_array(
+        jsonb_build_object('transactionId', v_t8, 'accountId', v_trade, 'sources', jsonb_build_array(
+            jsonb_build_object('accountId', v_saude, 'amount', 40.00)))
+    ));
+    set constraints all immediate;
+    set constraints all deferred;
+
+    select * into v_tx from public.transactions where id = v_t8;
+    if v_tx.is_split or v_tx.account_id <> v_saude or v_tx.amount <> 100.00 then
+        raise exception '4c: T8 expected plain Saude 100.00, got split % account % amount %', v_tx.is_split, v_tx.account_id, v_tx.amount;
+    end if;
+    if v_tx.replenishment_run_id is distinct from v_run_id or v_tx.original_account_id is null then
+        raise exception '4c: T8 lost its replenishment provenance (run %, original account %)', v_tx.replenishment_run_id, v_tx.original_account_id;
     end if;
 
     -- ------------------------------------------------------------

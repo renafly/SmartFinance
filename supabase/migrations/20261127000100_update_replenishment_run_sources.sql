@@ -55,6 +55,7 @@ declare
     v_entry_count integer;
     v_plain_backing_account_id uuid;
     v_representative_account_id uuid;
+    v_provenance_account_id uuid;
     v_seen text[] := '{}';
     v_sort_order integer;
 begin
@@ -198,8 +199,17 @@ begin
         select count(*) into v_entry_count from jsonb_object_keys(v_funding);
 
         if v_entry_count = 1 then
-            -- One source left: a plain transaction.
+            -- One source left: a plain transaction. Its allocation rows are
+            -- about to go, so keep their replenishment provenance on the
+            -- transaction itself (as confirm_replenishment_run's own
+            -- collapse does) -- otherwise a transaction that was split
+            -- before the run would lose its link to it.
             select key into v_key from jsonb_object_keys(v_funding) key;
+            select a.original_account_id into v_provenance_account_id
+              from public.transaction_allocations a
+             where a.transaction_id = v_tx.id and a.original_account_id is not null
+             order by a.amount desc, a.sort_order asc
+             limit 1;
             delete from public.transaction_allocations where transaction_id = v_tx.id;
             if v_key like 'account:%' then
                 update public.transactions
@@ -217,6 +227,11 @@ begin
             else
                 raise exception 'Transaction % would be funded only by a pot, which needs to be edited in Transactions', v_tx.id;
             end if;
+            update public.transactions
+               set original_source_type = coalesce(original_source_type, 'account'),
+                   original_account_id = coalesce(original_account_id, v_provenance_account_id, v_old_account_id),
+                   replenishment_run_id = coalesce(replenishment_run_id, v_run.id)
+             where id = v_tx.id;
         else
             -- Several sources: keep untouched allocation rows, adjust or
             -- remove changed ones, insert new ones.
@@ -323,9 +338,28 @@ begin
           where rs.run_id = v_run.id and rs.resolved_account_id = totals.account_id
      );
 
+    -- A pot row no unit is funded by anymore, but whose backing account
+    -- still funds units directly (the unique (run_id, resolved_account_id)
+    -- key put that money on the pot row), becomes a plain account row.
+    update public.replenishment_run_sources rs
+       set source_kind = 'account',
+           pot_id = null
+     where rs.run_id = v_run.id
+       and rs.source_kind = 'pot'
+       and rs.amount > 0
+       and not exists (
+           select 1
+             from public.replenishment_run_transactions rrt,
+                  jsonb_array_elements(coalesce(rrt.new_sources, '[]'::jsonb)) s
+            where rrt.run_id = v_run.id
+              and s ->> 'source_type' = 'pot'
+              and (s ->> 'pot_id')::uuid = rs.pot_id
+       );
+
+    -- Sources that no longer fund anything (account or pot) disappear, so
+    -- "Fontes" only lists what really paid for this run.
     delete from public.replenishment_run_sources
      where run_id = v_run.id
-       and source_kind = 'account'
        and amount = 0;
 
     update public.replenishment_runs
