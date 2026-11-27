@@ -44,7 +44,10 @@ import {
 import { SkeletonRows } from "@/components/skeleton";
 import { HouseholdMemberSelect } from "@/components/household-member-select";
 import { BugReportFab } from "@/components/bug-report-fab";
-import { GroupedAccountSelect } from "@/components/grouped-account-select";
+import {
+  GroupedAccountFilterSelect,
+  GroupedAccountSelect,
+} from "@/components/grouped-account-select";
 import {
   GroupedDestinationSelect,
   type DestinationSelection,
@@ -306,7 +309,10 @@ export default function TransactionsScreen() {
   const [filtersType, setFiltersType] = useState<
     "movements" | "all" | "income" | "expense" | "transfer"
   >("all");
-  const [accountFilter, setAccountFilter] = useState<"all" | string>("all");
+  // Selected account ids; empty = all accounts. One id keeps the original
+  // single-account filter (p_account_id); several match a movement touching
+  // ANY of them (p_account_ids, same matching rules).
+  const [accountFilterIds, setAccountFilterIds] = useState<string[]>([]);
   const [sourceAccountFilter, setSourceAccountFilter] = useState<
     "all" | string
   >("all");
@@ -600,7 +606,8 @@ export default function TransactionsScreen() {
           ? undefined
           : filtersType,
       excludeTransfers: filtersType === "movements",
-      accountId: accountFilter === "all" ? undefined : accountFilter,
+      accountId: accountFilterIds.length === 1 ? accountFilterIds[0] : undefined,
+      accountIds: accountFilterIds.length > 1 ? accountFilterIds : undefined,
       sourceAccountId:
         sourceAccountFilter === "all" ? undefined : sourceAccountFilter,
       destinationAccountId:
@@ -622,7 +629,7 @@ export default function TransactionsScreen() {
     }),
     [
       filtersType,
-      accountFilter,
+      accountFilterIds,
       sourceAccountFilter,
       destinationAccountFilter,
       categoryFilter,
@@ -846,14 +853,19 @@ export default function TransactionsScreen() {
         onClear: () => setSortBy("newest"),
       });
     }
-    if (accountFilter !== "all") {
+    // One chip per selected account, so each can be removed on its own
+    // without clearing the rest of the selection.
+    for (const accountId of accountFilterIds) {
       const account = (accounts as any[]).find(
-        (entry) => entry.id === accountFilter,
+        (entry) => entry.id === accountId,
       );
       chips.push({
-        key: "account",
-        label: `${t("transactions.account")}: ${account?.name ?? accountFilter}`,
-        onClear: () => setAccountFilter("all"),
+        key: `account:${accountId}`,
+        label: `${t("transactions.account")}: ${account?.name ?? accountId}`,
+        onClear: () =>
+          setAccountFilterIds((current) =>
+            current.filter((id) => id !== accountId),
+          ),
       });
     }
     if (filtersType === "transfer" && sourceAccountFilter !== "all") {
@@ -932,7 +944,7 @@ export default function TransactionsScreen() {
   }, [
     filtersType,
     sortBy,
-    accountFilter,
+    accountFilterIds,
     sourceAccountFilter,
     destinationAccountFilter,
     categoryFilter,
@@ -950,7 +962,7 @@ export default function TransactionsScreen() {
 
   function clearAllFilters() {
     setFiltersType("all");
-    setAccountFilter("all");
+    setAccountFilterIds([]);
     setSourceAccountFilter("all");
     setDestinationAccountFilter("all");
     setCategoryFilter("all");
@@ -1823,7 +1835,7 @@ export default function TransactionsScreen() {
                                 setSourceAccountFilter("all");
                                 setDestinationAccountFilter("all");
                               } else {
-                                setAccountFilter("all");
+                                setAccountFilterIds([]);
                               }
                             }}
                           />
@@ -1960,23 +1972,21 @@ export default function TransactionsScreen() {
                         },
                       ]}
                     >
-                      <GroupedAccountSelect
+                      <GroupedAccountFilterSelect
                         label={t("transactions.account")}
                         accounts={accounts as any}
                         members={acceptedMembers as any}
-                        value={accountFilter}
-                        placeholder={t("transactions.allAccounts")}
-                        hint={t("transactions.selectAccountHint", {
-                          defaultValue: t("transactions.account"),
-                        })}
-                        onChange={setAccountFilter}
+                        values={accountFilterIds}
+                        allLabel={t("transactions.allAccounts")}
+                        getSelectedCountLabel={(count) =>
+                          t("transactions.accountsSelected", { count })
+                        }
+                        hint={t("transactions.selectAccountsHint")}
+                        onChange={setAccountFilterIds}
                         closeLabel={t("close", { defaultValue: "Close" })}
+                        confirmLabel={t("transactions.applyAccountFilter")}
                         sharedLabel={t("dashboard.shared")}
                         unassignedLabel={t("settings.unnamedUser")}
-                        allOption={{
-                          value: "all",
-                          label: t("transactions.allAccounts"),
-                        }}
                         typeLabels={{
                           bank: t("accounts.types.bank"),
                           cash: t("accounts.types.cash"),
