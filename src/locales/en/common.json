@@ -1113,7 +1113,12 @@
       "typeChangeWarning_other": "Saving this as income removes its {{count}} reimbursements and the income they recorded.",
       "managedTitle": "Recorded by a reimbursement",
       "managedBody": "This income was created automatically when {{payer}} paid back “{{expense}}”. To change its amount, account or date, or to remove it, edit that expense's reimbursements.",
-      "netAfter": "{{amount}} after reimbursements",
+      "listNetCost": "Net cost",
+      "listNetGain": "Net gain",
+      "listFull": "Fully reimbursed",
+      "listA11yPartial": "Expense of {{original}}. Reimbursed {{reimbursed}}. Net cost {{net}}.",
+      "listA11yFull": "Expense of {{original}}, fully reimbursed. Net cost zero.",
+      "listA11yOver": "Expense of {{original}}. Reimbursed {{reimbursed}}, {{surplus}} more than spent.",
       "pendingHint": "Changes are applied when you save the transaction.",
       "unsavedBadge": "Not saved yet",
       "applyChanges": "Update"

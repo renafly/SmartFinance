@@ -109,6 +109,7 @@ import { ReimbursementSection } from "@/features/transactions/components/reimbur
 import { PaymentBreakdownSection } from "@/features/transactions/components/payment-breakdown-section";
 import { EssentialsSection, MoreDetailsSection } from "@/features/transactions/components/transaction-form-sections";
 import { parseAmountInput, validateTransactionEssentials, validateTransferEdit } from "@/features/transactions/utils/transaction-draft";
+import { ReimbursedAmount } from "@/features/transactions/components/reimbursed-amount";
 import {
   useCreateReimbursement,
   useDeleteReimbursement,
@@ -3157,55 +3158,22 @@ export default function TransactionsScreen() {
                           )}
                         </TableCell>,
                         <TableCell key="amount" align="right">
-                          {(() => {
-                            const reimbursement = effectiveAmountByTransactionId.get(item.id);
-                            if (!reimbursement) {
-                              return (
-                                <Text
-                                  style={[
-                                    styles.transactionAmount,
-                                    { color: movementAmountColor(movementKind, colors) },
-                                  ]}
-                                >
-                                  {movementAmountSign(movementKind)}
-                                  {displayCurrency(formatCurrency(item.amount), hideValues)}
-                                </Text>
-                              );
+                          {/* Cash view: the original amount stays primary
+                              (each account reimbursement is its own income
+                              row, see 20260929000000_reimbursement_income_
+                              transactions.sql); ReimbursedAmount adds one
+                              compact reimbursed / net-cost line beneath it,
+                              and renders just the amount when there is none. */}
+                          <ReimbursedAmount
+                            originalAmount={item.amount}
+                            reimbursedTotal={
+                              effectiveAmountByTransactionId.get(item.id)?.reimbursedTotal ?? 0
                             }
-                            const isOverReimbursed = reimbursement.reimbursedTotal > item.amount;
-                            // The list is a cash view: the expense shows what
-                            // actually left the account, because each account
-                            // reimbursement now appears as its own income row
-                            // (see 20260929000000_reimbursement_income_transactions.sql).
-                            // Showing the net here as well would count the
-                            // repayment twice on screen, so the net is a hint.
-                            return (
-                              <View style={{ alignItems: "flex-end", gap: spacing(0.25) }}>
-                                <Text
-                                  style={[
-                                    styles.transactionAmount,
-                                    { color: movementAmountColor(movementKind, colors) },
-                                  ]}
-                                >
-                                  {movementAmountSign(movementKind)}
-                                  {displayCurrency(formatCurrency(item.amount), hideValues)}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.transactionContext,
-                                    { color: isOverReimbursed ? colors.success : colors.textSecondary },
-                                  ]}
-                                >
-                                  {t("transactions.reimbursements.netAfter", {
-                                    amount: displayCurrency(formatCurrency(reimbursement.effectiveAmount), hideValues),
-                                  })}
-                                </Text>
-                                {isOverReimbursed ? (
-                                  <Badge label={t("transactions.reimbursements.overReimbursedBadge")} tone="success" />
-                                ) : null}
-                              </View>
-                            );
-                          })()}
+                            amountLabel={`${movementAmountSign(movementKind)}${displayCurrency(formatCurrency(item.amount), hideValues)}`}
+                            amountColor={movementAmountColor(movementKind, colors)}
+                            amountStyle={styles.transactionAmount}
+                            formatAmount={(value) => displayCurrency(formatCurrency(value), hideValues)}
+                          />
                         </TableCell>,
                         <TableCell key="balance" align="right">
                           {item.is_split && allocationEntries.length > 0 ? (

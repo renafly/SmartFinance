@@ -4,6 +4,7 @@ import {
   validateReimbursementAllocations,
   validateReimbursementDraft,
   diffStagedReimbursements,
+  getReimbursementDisplay,
   stagedReimbursementFromRow,
   type ReimbursementDraft,
   type StagedReimbursement,
@@ -201,5 +202,41 @@ describe("diffStagedReimbursements", () => {
     expect(diff.toDelete).toEqual(["r2"]);
     expect(diff.toUpdate).toEqual([edited]);
     expect(diff.toCreate).toEqual([added]);
+  });
+});
+
+describe("getReimbursementDisplay", () => {
+  it("reports none when nothing was reimbursed", () => {
+    const d = getReimbursementDisplay(11.98, 0);
+    expect(d.status).toBe("none");
+    expect(d.effectiveAmount).toBe(11.98);
+    expect(d.surplusAmount).toBe(0);
+  });
+
+  it("nets a partial reimbursement to the cent", () => {
+    const d = getReimbursementDisplay(11.98, 3);
+    expect(d.status).toBe("partial");
+    expect(d.reimbursedTotal).toBe(3);
+    expect(d.effectiveAmount).toBe(8.98);
+  });
+
+  it("avoids float drift on awkward cents", () => {
+    const d = getReimbursementDisplay(0.3, 0.1);
+    expect(d.status).toBe("partial");
+    expect(d.effectiveAmount).toBe(0.2);
+  });
+
+  it("treats an exact match as full", () => {
+    const d = getReimbursementDisplay(20, 20);
+    expect(d.status).toBe("full");
+    expect(d.effectiveAmount).toBe(0);
+    expect(d.surplusAmount).toBe(0);
+  });
+
+  it("reports the surplus when over-reimbursed", () => {
+    const d = getReimbursementDisplay(11.98, 15);
+    expect(d.status).toBe("over");
+    expect(d.effectiveAmount).toBe(-3.02);
+    expect(d.surplusAmount).toBe(3.02);
   });
 });

@@ -259,3 +259,41 @@ export function diffStagedReimbursements(
 export function hasStagedReimbursementChanges(diff: StagedReimbursementDiff): boolean {
   return diff.toDelete.length > 0 || diff.toUpdate.length > 0 || diff.toCreate.length > 0;
 }
+
+export type ReimbursementDisplayStatus = "none" | "partial" | "full" | "over";
+
+export type ReimbursementDisplay = EffectiveAmountBreakdown & {
+  status: ReimbursementDisplayStatus;
+  /** reimbursedTotal - originalAmount, only meaningful when status === "over". */
+  surplusAmount: number;
+};
+
+/**
+ * Classifies an expense's reimbursement state for the transaction list's
+ * amount cell. Same cent-exact netting as computeEffectiveAmount (and the
+ * DB's transaction_effective_amounts view), so the list never disagrees
+ * with the Payment breakdown in the details modal:
+ *   none    -> nothing reimbursed, the row renders exactly as before
+ *   partial -> 0 < reimbursed < original, shows reimbursed + net cost
+ *   full    -> reimbursed === original, net cost is 0
+ *   over    -> reimbursed > original, shows the surplus that came back
+ */
+export function getReimbursementDisplay(
+  originalAmount: number,
+  reimbursedTotal: number,
+): ReimbursementDisplay {
+  const breakdown = computeEffectiveAmount(originalAmount, [{ amount: reimbursedTotal }]);
+  const status: ReimbursementDisplayStatus =
+    breakdown.reimbursedTotal <= 0
+      ? "none"
+      : breakdown.isOverReimbursed
+        ? "over"
+        : breakdown.isFullyReimbursed
+          ? "full"
+          : "partial";
+  return {
+    ...breakdown,
+    status,
+    surplusAmount: status === "over" ? fromCents(-toCents(breakdown.effectiveAmount)) : 0,
+  };
+}

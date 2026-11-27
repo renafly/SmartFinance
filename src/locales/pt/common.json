@@ -1113,7 +1113,12 @@
       "typeChangeWarning_other": "Guardar como receita remove os {{count}} reembolsos desta despesa e a receita que registaram.",
       "managedTitle": "Registado por um reembolso",
       "managedBody": "Esta receita foi criada automaticamente quando {{payer}} reembolsou “{{expense}}”. Para alterar o valor, a conta ou a data, ou para a remover, edite os reembolsos dessa despesa.",
-      "netAfter": "{{amount}} após reembolsos",
+      "listNetCost": "Custo real",
+      "listNetGain": "Ganho líquido",
+      "listFull": "Totalmente reembolsado",
+      "listA11yPartial": "Despesa de {{original}}. Reembolsado {{reimbursed}}. Custo real {{net}}.",
+      "listA11yFull": "Despesa de {{original}}, totalmente reembolsada. Custo real zero.",
+      "listA11yOver": "Despesa de {{original}}. Reembolsado {{reimbursed}}, mais {{surplus}} do que o gasto.",
       "pendingHint": "As alterações são aplicadas quando guardares a transação.",
       "unsavedBadge": "Ainda não guardado",
       "applyChanges": "Atualizar"
