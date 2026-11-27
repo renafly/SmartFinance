@@ -1086,6 +1086,7 @@
       "expectedAmount": "Expected reimbursement",
       "fromSource": "Into {{source}}",
       "receivedOn": "Received on",
+      "receivedIn": "Received in account",
       "receivedOnValue": "Received {{date}}",
       "edit": "Edit reimbursement",
       "editing": "Editing reimbursement from {{payer}}",
@@ -1148,6 +1149,7 @@
       "reimbursementUnavailable": "Reimbursements aren't available for a split payment. Turn Split source off to add them.",
       "receivedInto": "Received into {{account}} (the Paid from account)",
       "choosePaidFromFirst": "Choose the Paid from account first.",
+      "effectiveSplitHint": "With reimbursements, split only the effective cost ({{amount}}). Each reimbursement stays in the account it was received in.",
       "expand": "Show payment breakdown",
       "collapse": "Hide payment breakdown"
     },

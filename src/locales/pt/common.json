@@ -1086,6 +1086,7 @@
       "expectedAmount": "Reembolso esperado",
       "fromSource": "Para {{source}}",
       "receivedOn": "Recebido em",
+      "receivedIn": "Conta onde foi recebido",
       "receivedOnValue": "Recebido a {{date}}",
       "edit": "Editar reembolso",
       "editing": "A editar o reembolso de {{payer}}",
@@ -1148,6 +1149,7 @@
       "reimbursementUnavailable": "Os reembolsos não estão disponíveis num pagamento dividido. Desativa a divisão por várias contas para os adicionar.",
       "receivedInto": "Recebido em {{account}} (a conta de onde foi pago)",
       "choosePaidFromFirst": "Escolhe primeiro a conta de onde foi pago.",
+      "effectiveSplitHint": "Com reembolsos, divide só o custo efetivo ({{amount}}). Cada reembolso fica na conta onde foi recebido.",
       "expand": "Mostrar detalhe do pagamento",
       "collapse": "Ocultar detalhe do pagamento"
     },

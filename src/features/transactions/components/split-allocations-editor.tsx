@@ -155,6 +155,9 @@ type SplitAllocationsEditorProps<T extends AllocationDraft = AllocationDraft> = 
   toggleIcon?: keyof typeof Ionicons.glyphMap;
   /** Disables the on/off switch (e.g. while the saved state is still loading). */
   toggleDisabled?: boolean;
+  /** Targets whose row may be exactly 0 (accounts that received a
+   * reimbursement, when splitting the effective cost -- see funding.ts). */
+  zeroAllowedTargetKeys?: ReadonlySet<string>;
 };
 
 function usedTargetKeys<T extends AllocationDraft>(allocations: T[], excludeId: string): Set<string> {
@@ -203,6 +206,7 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
   hideTargetPicker = false,
   toggleIcon = "git-branch-outline",
   toggleDisabled = false,
+  zeroAllowedTargetKeys,
 }: SplitAllocationsEditorProps<T>) {
   const { t } = useTranslation("common");
   const { colors } = useTheme();
@@ -211,7 +215,7 @@ export function SplitAllocationsEditor<T extends AllocationDraft = AllocationDra
 
   const totalCents = toCents(totalAmount);
   const summary = summarizeAllocations(totalAmount, allocations, { minAllocations });
-  const errors = validateAllocations(totalAmount, allocations, { minAllocations, allowDuplicateTargets });
+  const errors = validateAllocations(totalAmount, allocations, { minAllocations, allowDuplicateTargets, zeroAllowedTargetKeys });
   const percentages = allocationsToPercentages(totalAmount, allocations);
 
   // patch is typed against the base AllocationDraft (not Partial<T>) because

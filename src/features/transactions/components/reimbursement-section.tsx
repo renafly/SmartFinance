@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +14,7 @@ import {
   type PotLike,
   type SplitInputMode,
 } from "@/features/transactions/components/split-allocations-editor";
+import { GroupedAccountSelect } from "@/components/grouped-account-select";
 import { useTheme } from "@/theme/ThemeProvider";
 import { spacing } from "@/theme/spacing";
 import { radius } from "@/theme/radius";
@@ -72,6 +73,14 @@ type ReimbursementSectionSharedProps = {
    * exclusive, so there's exactly one), so rows never pick a target.
    */
   fixedAccountId: string | null;
+  /**
+   * The split's accounts, when Split Source is on. A reimbursement can only
+   * be received in an account the expense is paid from, so with two or
+   * more of them each row gets a "Received in" picker limited to this
+   * list (rows outside it move to the first one); otherwise every row is
+   * received in `fixedAccountId`, as before.
+   */
+  receivingAccountIds?: string[];
   accounts: AccountLike[];
   members: MemberLike[];
   pots: PotLike[];
@@ -106,6 +115,69 @@ type ReimbursementSectionProps = ReimbursementSectionSharedProps &
       }
   );
 
+function hasReceivingPicker(props: ReimbursementSectionSharedProps): boolean {
+  return (props.receivingAccountIds?.length ?? 0) >= 2;
+}
+
+/** The account a row is received in, given the current split. */
+export function resolveReceivingAccountId(
+  current: string | null,
+  props: Pick<ReimbursementSectionSharedProps, "fixedAccountId" | "receivingAccountIds">,
+): string | null {
+  const allowed = props.receivingAccountIds ?? [];
+  if (allowed.length >= 2) return current && allowed.includes(current) ? current : allowed[0];
+  return props.fixedAccountId;
+}
+
+/** Keeps every row's account valid when the split's accounts change. */
+function useReceivingAccountSync<T extends { accountId: string | null }>(
+  props: ReimbursementSectionSharedProps,
+  rows: T[],
+  onChange: (next: T[]) => void,
+) {
+  const key = (props.receivingAccountIds ?? []).join(",") + "|" + (props.fixedAccountId ?? "");
+  useEffect(() => {
+    if (!hasReceivingPicker(props)) return;
+    let changed = false;
+    const next = rows.map((row) => {
+      const resolved = resolveReceivingAccountId(row.accountId, props);
+      if (resolved === row.accountId) return row;
+      changed = true;
+      return { ...row, sourceType: "account" as const, accountId: resolved, potId: null };
+    });
+    if (changed) onChange(next);
+    // Re-run only when the allowed accounts change, not on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+}
+
+function ReceivedInPicker({
+  props,
+  value,
+  onChange,
+}: {
+  props: ReimbursementSectionSharedProps;
+  value: string | null;
+  onChange: (accountId: string) => void;
+}) {
+  const { t } = useTranslation("common");
+  return (
+    <GroupedAccountSelect
+      label={t("transactions.reimbursements.receivedIn")}
+      accounts={props.accounts as any}
+      members={props.members as any}
+      allowedAccountIds={props.receivingAccountIds}
+      value={value ?? ""}
+      placeholder={t("transactions.reimbursements.receivedIn")}
+      onChange={onChange}
+      closeLabel={props.closeLabel}
+      sharedLabel={props.sharedLabel}
+      unassignedLabel={props.unassignedLabel}
+      typeLabels={props.accountTypeLabels}
+    />
+  );
+}
+
 export function ReimbursementSection(props: ReimbursementSectionProps) {
   if (props.mode === "draft") {
     return <DraftReimbursementSection {...props} />;
@@ -119,10 +191,12 @@ function DraftReimbursementSection(
   const { t } = useTranslation("common");
   const { colors } = useTheme();
   const targetAmount = Number(props.targetAmount.replace(",", ".")) || 0;
+  const picker = hasReceivingPicker(props);
+  useReceivingAccountSync(props, props.value, props.onChange);
   const rows = props.value.map((row) => ({
     ...row,
     sourceType: "account" as const,
-    accountId: props.fixedAccountId || null,
+    accountId: resolveReceivingAccountId(row.accountId, props) || null,
     potId: null,
   }));
 
@@ -151,7 +225,7 @@ function DraftReimbursementSection(
         createEmptyAllocation={() => createEmptyReimbursementDraft("account")}
         renderExtra={() => (
           <>
-          <IntoAccountNote accounts={props.accounts} accountId={props.fixedAccountId} />
+          {picker ? null : <IntoAccountNote accounts={props.accounts} accountId={props.fixedAccountId} />}
           <Field
             label={t("transactions.reimbursements.expectedAmount")}
             value={props.targetAmount}
@@ -162,12 +236,21 @@ function DraftReimbursementSection(
           </>
         )}
         renderRowExtra={(allocation, update) => (
-          <Field
-            label={t("transactions.reimbursements.payerName")}
-            value={allocation.payerName}
-            onChangeText={(value) => update({ payerName: value })}
-            placeholder={t("transactions.reimbursements.payerNamePlaceholder")}
-          />
+          <>
+            <Field
+              label={t("transactions.reimbursements.payerName")}
+              value={allocation.payerName}
+              onChangeText={(value) => update({ payerName: value })}
+              placeholder={t("transactions.reimbursements.payerNamePlaceholder")}
+            />
+            {picker ? (
+              <ReceivedInPicker
+                props={props}
+                value={allocation.accountId}
+                onChange={(accountId) => update({ sourceType: "account", accountId, potId: null } as Partial<ReimbursementDraft>)}
+              />
+            ) : null}
+          </>
         )}
       />
       {props.enabled && props.value.some((row) => !row.payerName.trim()) ? (
@@ -190,6 +273,9 @@ function StagedReimbursementSection(
   const [receivedOn, setReceivedOn] = useState(() => getLocalCalendarDate());
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const picker = hasReceivingPicker(props);
+  const [receivingAccountId, setReceivingAccountId] = useState<string | null>(null);
+  useReceivingAccountSync(props, props.value, props.onChange);
 
   const rows = props.value;
   const editingRow = editingId ? rows.find((row) => row.key === editingId) ?? null : null;
@@ -200,6 +286,7 @@ function StagedReimbursementSection(
     setPayerName("");
     setAmount("");
     setReceivedOn(getLocalCalendarDate());
+    setReceivingAccountId(null);
     setFormError(null);
   }
 
@@ -209,16 +296,18 @@ function StagedReimbursementSection(
     setPayerName(row.payerName);
     setAmount(String(row.amount));
     setReceivedOn(row.receivedOn ?? getLocalCalendarDate());
+    setReceivingAccountId(row.accountId);
     setFormError(null);
   }
 
   function submit() {
     const parsedAmount = Number(amount.replace(",", "."));
+    const accountId = resolveReceivingAccountId(receivingAccountId, props);
     const errors = validateReimbursementDraft({
       payerName,
       amount: parsedAmount,
       sourceType: "account",
-      accountId: props.fixedAccountId,
+      accountId,
       potId: null,
     });
     if (errors.length > 0) {
@@ -238,7 +327,7 @@ function StagedReimbursementSection(
       amount: parsedAmount,
       receivedOn,
       sourceType: "account" as const,
-      accountId: props.fixedAccountId,
+      accountId,
       potId: null,
     };
     if (editingId) {
@@ -294,6 +383,9 @@ function StagedReimbursementSection(
                     {[
                       row.receivedOn
                         ? t("transactions.reimbursements.receivedOnValue", { date: formatDate(row.receivedOn) })
+                        : null,
+                      picker && row.accountId
+                        ? props.accounts.find((account) => account.id === row.accountId)?.name ?? null
                         : null,
                       row.id === null ? t("transactions.reimbursements.unsavedBadge") : null,
                     ]
@@ -377,7 +469,15 @@ function StagedReimbursementSection(
           />
         </View>
       </View>
-      <IntoAccountNote accounts={props.accounts} accountId={props.fixedAccountId} />
+      {picker ? (
+        <ReceivedInPicker
+          props={props}
+          value={resolveReceivingAccountId(receivingAccountId, props)}
+          onChange={setReceivingAccountId}
+        />
+      ) : (
+        <IntoAccountNote accounts={props.accounts} accountId={props.fixedAccountId} />
+      )}
       <View style={{ flexDirection: "row", gap: spacing(2), flexWrap: "wrap" } as any}>
         <Button
           label={
