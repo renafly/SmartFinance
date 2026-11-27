@@ -31,7 +31,7 @@ function renderSection(reimbursements: { amount: number }[]) {
   );
 }
 
-function textOrder(view: ReturnType<typeof render>) {
+function textOrder(view: Awaited<ReturnType<typeof render>>) {
   return JSON.stringify(view.toJSON());
 }
 
