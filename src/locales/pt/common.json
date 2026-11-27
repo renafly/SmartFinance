@@ -1145,6 +1145,15 @@
         "missing_payer_name": "Indique quem pagou cada reembolso"
       }
     },
+    "moreDetails": {
+      "title": "Mais detalhes",
+      "tags_one": "{{count}} etiqueta",
+      "tags_other": "{{count}} etiquetas",
+      "attachments_one": "{{count}} anexo",
+      "attachments_other": "{{count}} anexos",
+      "hasNotes": "com notas",
+      "by": "por {{name}}"
+    },
     "paymentBreakdown": {
       "title": "Detalhe do pagamento",
       "paidFrom": "Pago a partir de",

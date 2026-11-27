@@ -549,6 +549,19 @@ export function createStyles(colors: any, insets: SafeAreaInsets = NO_INSETS) {
       gap: spacing(2.5),
       justifyContent: "flex-end",
     },
+    // Edit modal footer: Delete on the left, Cancel/Save on the right.
+    editFooterActions: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing(2.5),
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    // The amount is what the user checks first (see EssentialsSection).
+    amountFieldProminent: {
+      fontSize: 22,
+      fontWeight: "700",
+    },
     menuItem: {
       paddingVertical: spacing(3.5),
       paddingHorizontal: spacing(3.5),

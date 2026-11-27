@@ -100,6 +100,7 @@ import { DateFilterField, DatePickerField } from "@/features/transactions/compon
 import { SplitAllocationsEditor, type SplitInputMode } from "@/features/transactions/components/split-allocations-editor";
 import { ReimbursementSection } from "@/features/transactions/components/reimbursement-section";
 import { PaymentBreakdownSection } from "@/features/transactions/components/payment-breakdown-section";
+import { EssentialsSection, MoreDetailsSection } from "@/features/transactions/components/transaction-form-sections";
 import {
   useCreateReimbursement,
   useDeleteReimbursement,
@@ -179,13 +180,6 @@ type AttachmentDraft = {
 const TRANSACTIONS_PAGE_SIZE = 25;
 
 type WizardStepKey = "type" | "accounts" | "extras";
-
-// Edit Transaction's Amount | Date | Created by row: three different
-// controls (Field, DatePickerField, HouseholdMemberSelect) given one box
-// height, and their labels matched to Field's (13px, 6px above the box),
-// so the three line up exactly.
-const EDIT_ROW_CONTROL_HEIGHT = 48;
-const EDIT_ROW_LABEL_STYLE = { fontSize: 13, marginBottom: -spacing(0.5) };
 
 // "type" now covers both what used to be separate "type" and "details"
 // (or "form", for recurring transfers) steps: choosing income/expense/
@@ -3930,114 +3924,98 @@ export default function TransactionsScreen() {
                       </Text>
                     </View>
                   ) : null}
-                  {!editIsReimbursementIncome ? (
-                  <View
-                    style={{ flexDirection: "row", gap: spacing(2) } as any}
-                  >
-                    {(["income", "expense"] as const).map((item) => (
-                      <Pill
-                        key={item}
-                        label={t(`transactions.types.${item}`)}
-                        active={editTransaction.type === item}
-                        onPress={() =>
+                  {/* Same layout as the create form (see
+                      transaction-form-sections.tsx): Essentials -> Payment
+                      -> More details. A reimbursement's income row keeps
+                      its type/amount/date read-only. */}
+                  <EssentialsSection
+                    typeSelector={
+                      !editIsReimbursementIncome ? (
+                        <View style={{ flexDirection: "row", gap: spacing(2) } as any}>
+                          {(["income", "expense"] as const).map((item) => (
+                            <Pill
+                              key={item}
+                              label={t(`transactions.types.${item}`)}
+                              active={editTransaction.type === item}
+                              onPress={() =>
+                                setEditTransaction((current) =>
+                                  current
+                                    ? { ...current, type: item, categoryId: null }
+                                    : current,
+                                )
+                              }
+                            />
+                          ))}
+                        </View>
+                      ) : null
+                    }
+                    amount={
+                      !editIsReimbursementIncome ? (
+                        <Field
+                          label={t("transactions.amountLabel")}
+                          value={editTransaction.amount}
+                          onChangeText={(value) =>
+                            setEditTransaction((current) =>
+                              current ? { ...current, amount: value } : current,
+                            )
+                          }
+                          keyboardType="decimal-pad"
+                          style={styles.amountFieldProminent}
+                        />
+                      ) : null
+                    }
+                    title={
+                      <Field
+                        label={t("transactions.titleLabel")}
+                        value={editTransaction.title}
+                        onChangeText={(value) =>
                           setEditTransaction((current) =>
-                            current
-                              ? { ...current, type: item, categoryId: null }
-                              : current,
+                            current ? { ...current, title: value } : current,
                           )
                         }
                       />
-                    ))}
-                  </View>
-                  ) : null}
-                  {editTransaction.type !== "expense" &&
-                  (editReimbursementsQuery.data?.length ?? 0) > 0 ? (
-                    <Text style={{ color: colors.warning }}>
-                      {t("transactions.reimbursements.typeChangeWarning", {
-                        count: editReimbursementsQuery.data?.length ?? 0,
-                      })}
-                    </Text>
-                  ) : null}
-                  <Field
-                    label={t("transactions.titleLabel")}
-                    value={editTransaction.title}
-                    onChangeText={(value) =>
-                      setEditTransaction((current) =>
-                        current ? { ...current, title: value } : current,
-                      )
                     }
-                  />
-                  <Field
-                    label={t("transactions.notesLabel")}
-                    value={editTransaction.notes}
-                    onChangeText={(value) =>
-                      setEditTransaction((current) =>
-                        current ? { ...current, notes: value } : current,
-                      )
-                    }
-                    placeholder={t("transactions.notesPlaceholder")}
-                  />
-                  {/* Amount + Date + Created by on one row -- same formGrid
-                      pattern as the create wizard; stacks on phones. A
-                      reimbursement's income row keeps its amount/date
-                      read-only, so only Created by is shown there. */}
-                  <View
-                    style={[
-                      styles.formGrid,
-                      responsive.isPhone && styles.formGridCompact,
-                    ]}
-                  >
-                    {!editIsReimbursementIncome ? (
-                      <>
-                        <View style={styles.formGridItem}>
-                          <Field
-                            label={t("transactions.amountLabel")}
-                            value={editTransaction.amount}
-                            onChangeText={(value) =>
-                              setEditTransaction((current) =>
-                                current ? { ...current, amount: value } : current,
-                              )
-                            }
-                            keyboardType="numeric"
-                            style={{ height: EDIT_ROW_CONTROL_HEIGHT, paddingVertical: 0 }}
-                          />
-                        </View>
-                        <View style={styles.formGridItem}>
-                          <SharedDatePickerField
-                            label={t("transactions.dateLabel")}
-                            labelStyle={EDIT_ROW_LABEL_STYLE}
-                            triggerStyle={{ height: EDIT_ROW_CONTROL_HEIGHT, paddingVertical: 0 }}
-                            value={editTransaction.date}
-                            onChange={(value) =>
-                              setEditTransaction((current) =>
-                                current ? { ...current, date: value } : current,
-                              )
-                            }
-                            placeholder={t("transactions.datePlaceholder", {
-                              defaultValue: "DD-MM-YYYY",
-                            })}
-                          />
-                        </View>
-                      </>
-                    ) : null}
-                    <View style={styles.formGridItem}>
-                      <HouseholdMemberSelect
-                        label={t("transactions.createdBy")}
-                        members={(membersQuery.data ?? []).filter(
-                          (member) => member.status === "accepted",
-                        )}
-                        value={editTransaction.createdById || profile?.id || ""}
-                        placeholder={t("transactions.createdByPlaceholder")}
-                        labelStyle={EDIT_ROW_LABEL_STYLE}
-                        triggerStyle={{ height: EDIT_ROW_CONTROL_HEIGHT, paddingVertical: 0 }}
+                    category={
+                      <CategoryPicker
+                        label={t("transactions.categories")}
+                        placeholder={t("transactions.categories")}
+                        hint={t("transactions.categories")}
+                        categories={categories as any}
+                        selectedId={editTransaction.categoryId}
+                        clearLabel={t("none")}
                         onChange={(value) =>
                           setEditTransaction((current) =>
-                            current ? { ...current, createdById: value } : current,
+                            current ? { ...current, categoryId: value } : current,
                           )
                         }
                       />
-                    </View>
-                  </View>
+                    }
+                    date={
+                      !editIsReimbursementIncome ? (
+                        <SharedDatePickerField
+                          label={t("transactions.dateLabel")}
+                          value={editTransaction.date}
+                          onChange={(value) =>
+                            setEditTransaction((current) =>
+                              current ? { ...current, date: value } : current,
+                            )
+                          }
+                          placeholder={t("transactions.datePlaceholder", {
+                            defaultValue: "DD-MM-YYYY",
+                          })}
+                        />
+                      ) : null
+                    }
+                  >
+                    {editTransaction.type !== "expense" &&
+                    (editReimbursementsQuery.data?.length ?? 0) > 0 ? (
+                      <Text style={{ color: colors.warning }}>
+                        {t("transactions.reimbursements.typeChangeWarning", {
+                          count: editReimbursementsQuery.data?.length ?? 0,
+                        })}
+                      </Text>
+                    ) : null}
+                  </EssentialsSection>
                   <PaymentBreakdownSection
                     bare={editIsReimbursementIncome}
                     originalAmount={Number(editTransaction.amount) || 0}
@@ -4167,26 +4145,57 @@ export default function TransactionsScreen() {
                   </>
                   ) : null}
                   </PaymentBreakdownSection>
-                  <CategoryPicker
-                    label={t("transactions.categories")}
-                    placeholder={t("transactions.categories")}
-                    hint={t("transactions.categories")}
-                    categories={categories as any}
-                    selectedId={editTransaction.categoryId}
-                    clearLabel={t("none")}
-                    onChange={(value) =>
-                      setEditTransaction((current) =>
-                        current ? { ...current, categoryId: value } : current,
-                      )
-                    }
-                  />
-                  {editTransaction.type === "expense" ? (
-                    <TagPicker
-                      selectedIds={editTagIds ?? editTagIdsQuery.data ?? []}
-                      onChange={setEditTagIds}
-                      disabled={editTagIdsQuery.isLoading}
+                  <MoreDetailsSection
+                    summary={[
+                      editTransaction.createdById && editTransaction.createdById !== profile?.id
+                        ? t("transactions.moreDetails.by", {
+                            name: memberLabelMap.get(editTransaction.createdById) ?? t("settings.unnamedUser"),
+                          })
+                        : null,
+                      editTransaction.type === "expense" && (editTagIds ?? editTagIdsQuery.data ?? []).length > 0
+                        ? t("transactions.moreDetails.tags", {
+                            count: (editTagIds ?? editTagIdsQuery.data ?? []).length,
+                          })
+                        : null,
+                      editTransaction.notes?.trim() ? t("transactions.moreDetails.hasNotes") : null,
+                      (editAttachmentsQuery.data?.length ?? 0) > 0
+                        ? t("transactions.moreDetails.attachments", {
+                            count: editAttachmentsQuery.data?.length ?? 0,
+                          })
+                        : null,
+                    ].filter((part): part is string => Boolean(part))}
+                  >
+                    <HouseholdMemberSelect
+                      label={t("transactions.createdBy")}
+                      members={(membersQuery.data ?? []).filter(
+                        (member) => member.status === "accepted",
+                      )}
+                      value={editTransaction.createdById || profile?.id || ""}
+                      placeholder={t("transactions.createdByPlaceholder")}
+                      onChange={(value) =>
+                        setEditTransaction((current) =>
+                          current ? { ...current, createdById: value } : current,
+                        )
+                      }
                     />
-                  ) : null}
+                    {editTransaction.type === "expense" ? (
+                      <TagPicker
+                        selectedIds={editTagIds ?? editTagIdsQuery.data ?? []}
+                        onChange={setEditTagIds}
+                        disabled={editTagIdsQuery.isLoading}
+                      />
+                    ) : null}
+                    <Field
+                      label={t("transactions.notesLabel")}
+                      value={editTransaction.notes}
+                      multiline
+                      onChangeText={(value) =>
+                        setEditTransaction((current) =>
+                          current ? { ...current, notes: value } : current,
+                        )
+                      }
+                      placeholder={t("transactions.notesPlaceholder")}
+                    />
                   <View style={styles.editAttachmentsSection}>
                     <View style={styles.editAttachmentsHeading}>
                       <Ionicons
@@ -4239,6 +4248,7 @@ export default function TransactionsScreen() {
                       </Text>
                     )}
                   </View>
+                  </MoreDetailsSection>
                 </>
               ) : null}
             </ScrollView>
@@ -4294,7 +4304,8 @@ export default function TransactionsScreen() {
                   </View>
                 ) : null}
                 {!deleteConfirmationOpen ? (
-                  <View style={styles.modalActions}>
+                  <View style={styles.editFooterActions}>
+                    {/* Delete apart on the left, away from Save. */}
                     {!editIsReimbursementIncome ? (
                     <Button
                       label={t("transactions.delete")}
@@ -4305,7 +4316,8 @@ export default function TransactionsScreen() {
                         deleteTransaction.isPending
                       }
                     />
-                    ) : null}
+                    ) : <View />}
+                    <View style={styles.modalActions}>
                     <Button
                       label={t("cancel")}
                       variant="secondary"
@@ -4332,6 +4344,7 @@ export default function TransactionsScreen() {
                         editBlockingFundingErrors.length > 0
                       }
                     />
+                    </View>
                   </View>
                 ) : null}
               </View>

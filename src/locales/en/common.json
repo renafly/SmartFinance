@@ -1145,6 +1145,15 @@
         "missing_payer_name": "Enter who paid back each repayment"
       }
     },
+    "moreDetails": {
+      "title": "More details",
+      "tags_one": "{{count}} tag",
+      "tags_other": "{{count}} tags",
+      "attachments_one": "{{count}} attachment",
+      "attachments_other": "{{count}} attachments",
+      "hasNotes": "has notes",
+      "by": "by {{name}}"
+    },
     "paymentBreakdown": {
       "title": "Payment breakdown",
       "paidFrom": "Paid from",
