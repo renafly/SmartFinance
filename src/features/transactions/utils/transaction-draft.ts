@@ -7,7 +7,9 @@ export type TransactionEssentialsError = "missing_title" | "invalid_amount" | "i
  * NaN for empty or unparsable input. */
 export function parseAmountInput(value: string): number {
   const normalized = value.trim().replace(",", ".");
-  if (!/^\d+(\.\d+)?$/.test(normalized)) return Number.NaN;
+  // Same shapes Number() used to accept for these fields: "12", "12.5",
+  // ".5" and "12." -- but no exponents, signs or second separator.
+  if (!/^(\d+(\.\d*)?|\.\d+)$/.test(normalized)) return Number.NaN;
   return Number(normalized);
 }
 

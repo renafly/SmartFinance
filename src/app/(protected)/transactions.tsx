@@ -321,6 +321,9 @@ export default function TransactionsScreen() {
   const [sortBy, setSortBy] = useState<TransactionListSortKey>("newest");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  // Bumped by "Create and add another" so the essentials remount and the
+  // amount field gets focus again (web), as the old wizard's reset did.
+  const [createFormKey, setCreateFormKey] = useState(0);
   const [editTransaction, setEditTransaction] =
     useState<TransactionEditDraft | null>(null);
   // null = the user hasn't touched the edit modal's tags yet, so the
@@ -774,6 +777,8 @@ export default function TransactionsScreen() {
   const firstAccount = accounts[0]?.id ?? "";
   // Accepts "12,50" as well as "12.50" (see transaction-draft.ts).
   const parsedAmount = parseAmountInput(amount);
+  // The payment card is visible before an amount is typed: show 0, not NaN.
+  const parsedAmountForDisplay = Number.isFinite(parsedAmount) ? parsedAmount : 0;
   const effectiveAccountId = accountId || firstAccount;
   // A reimbursement is received in an account the expense is paid from:
   // the "Paid from" account, or -- with Split Source on -- one of the
@@ -1427,6 +1432,7 @@ export default function TransactionsScreen() {
       // expenses for the same trip/project back to back.
       setTagIds(keptTagIds);
       setTransferDestination(null);
+      setCreateFormKey((key) => key + 1);
       return;
     }
 
@@ -2246,6 +2252,7 @@ export default function TransactionsScreen() {
                             transaction-form-sections.tsx): Essentials ->
                             Payment -> More details. */}
                         <EssentialsSection
+                          key={createFormKey}
                           amount={
                             <Field
                               label={t("transactions.amountLabel")}
@@ -2254,6 +2261,7 @@ export default function TransactionsScreen() {
                               placeholder="0.00"
                               keyboardType="decimal-pad"
                               style={styles.amountFieldProminent}
+                              autoFocus={Platform.OS === "web"}
                             />
                           }
                           title={
@@ -2299,7 +2307,6 @@ export default function TransactionsScreen() {
                               }
                             }}
                             placeholder={t("transactions.titlePlaceholder")}
-                            autoFocus={Platform.OS === "web"}
                             returnKeyType="next"
                             accessibilityHint={t(
                               "transactions.titleSuggestionHint",
@@ -2431,7 +2438,7 @@ export default function TransactionsScreen() {
                         />
                         <PaymentBreakdownSection
                           bare={createMovementKind !== "transaction"}
-                          originalAmount={parsedAmount}
+                          originalAmount={parsedAmountForDisplay}
                           reimbursements={
                             type === "expense" && reimbursementEnabled ? reimbursementDrafts : []
                           }
@@ -2441,7 +2448,7 @@ export default function TransactionsScreen() {
                               mode="draft"
                               fixedAccountId={effectiveAccountId || null}
                               receivingAccountIds={splitEnabled ? createSplitAccountIds : undefined}
-                              originalAmount={parsedAmount}
+                              originalAmount={parsedAmountForDisplay}
                               enabled={reimbursementEnabled}
                               onToggleEnabled={setReimbursementEnabled}
                               targetAmount={reimbursementTargetAmount}

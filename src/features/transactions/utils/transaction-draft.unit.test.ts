@@ -7,6 +7,13 @@ describe("parseAmountInput", () => {
     expect(parseAmountInput(" 64,15 ")).toBe(64.15);
   });
 
+  it("keeps accepting what Number() used to: a leading or trailing separator", () => {
+    expect(parseAmountInput(".5")).toBe(0.5);
+    expect(parseAmountInput(",5")).toBe(0.5);
+    expect(parseAmountInput("12.")).toBe(12);
+    expect(parseAmountInput("12,")).toBe(12);
+  });
+
   it("returns NaN for empty or unparsable input", () => {
     expect(parseAmountInput("")).toBeNaN();
     expect(parseAmountInput("abc")).toBeNaN();
