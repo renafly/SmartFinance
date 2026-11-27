@@ -101,6 +101,7 @@ import { SplitAllocationsEditor, type SplitInputMode } from "@/features/transact
 import { ReimbursementSection } from "@/features/transactions/components/reimbursement-section";
 import { PaymentBreakdownSection } from "@/features/transactions/components/payment-breakdown-section";
 import { EssentialsSection, MoreDetailsSection } from "@/features/transactions/components/transaction-form-sections";
+import { parseAmountInput, validateTransactionEssentials } from "@/features/transactions/utils/transaction-draft";
 import {
   useCreateReimbursement,
   useDeleteReimbursement,
@@ -471,7 +472,7 @@ export default function TransactionsScreen() {
     }
     setEditFundingBaseline(
       fundingFingerprint({
-        amount: Number(editTransaction.amount) || 0,
+        amount: parseAmountInput(editTransaction.amount) || 0,
         splitEnabled: editSplitEnabled,
         paidFromAccountId: editTransaction.accountId,
         allocations,
@@ -509,7 +510,7 @@ export default function TransactionsScreen() {
         }))
       : [];
   const editReimbursementTargets: ReimbursementTarget[] = editResolvedReimbursements;
-  const editAmountValue = Number(editTransaction?.amount) || 0;
+  const editAmountValue = parseAmountInput(editTransaction?.amount ?? "") || 0;
   const editSplitTotal = effectiveTotal(editAmountValue, editReimbursementTargets);
   const editFullyReimbursed = editReimbursementTargets.length > 0 && editSplitTotal <= 0;
   const editSplitHasPots = editSplitAllocations.some((allocation) => allocation.sourceType === "pot");
@@ -794,7 +795,8 @@ export default function TransactionsScreen() {
     profile?.full_name?.trim() || profile?.email?.trim() || t("settings.you");
   const currentUserId = profile?.id ?? "";
   const firstAccount = accounts[0]?.id ?? "";
-  const parsedAmount = Number(amount);
+  // Accepts "12,50" as well as "12.50" (see transaction-draft.ts).
+  const parsedAmount = parseAmountInput(amount);
   const effectiveAccountId = accountId || firstAccount;
   // A reimbursement is received in an account the expense is paid from:
   // the "Paid from" account, or -- with Split Source on -- one of the
@@ -1538,13 +1540,14 @@ export default function TransactionsScreen() {
   async function handleSaveTransaction() {
     if (!editTransaction || !householdId) return;
 
-    const nextAmount = Number(editTransaction.amount);
+    const nextAmount = parseAmountInput(editTransaction.amount);
     if (
-      !editTransaction.title.trim() ||
-      !editTransaction.accountId ||
-      !Number.isFinite(nextAmount) ||
-      nextAmount <= 0 ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(editTransaction.date)
+      validateTransactionEssentials({
+        title: editTransaction.title,
+        amount: editTransaction.amount,
+        date: editTransaction.date,
+        accountId: editTransaction.accountId,
+      }).length > 0
     ) {
       return;
     }
@@ -2219,61 +2222,6 @@ export default function TransactionsScreen() {
                       />
                     </Pressable>
                   </View>
-                  <View
-                    style={{
-                      gap: spacing(2),
-                      paddingHorizontal: spacing(5),
-                      paddingTop: spacing(3.5),
-                    }}
-                  >
-                    <View style={styles.wizardProgressTrack}>
-                      {wizardSteps.map((step, index) => (
-                        <View
-                          key={step}
-                          style={[
-                            styles.wizardProgressSegment,
-                            {
-                              backgroundColor:
-                                index <= currentWizardStep
-                                  ? colors.primary
-                                  : colors.border,
-                            },
-                          ]}
-                        />
-                      ))}
-                    </View>
-                    <View style={styles.wizardStepHeader}>
-                      <Text style={styles.wizardStepIndicator}>
-                        {t("transactions.wizard.stepOf", {
-                          current: currentWizardStep + 1,
-                          total: wizardSteps.length,
-                        })}
-                      </Text>
-                      {currentWizardStep > 0 ? (
-                        <Pressable
-                          onPress={() => goToWizardStep(currentWizardStep - 1)}
-                          accessibilityRole="button"
-                          accessibilityLabel={t("transactions.wizard.back")}
-                          style={styles.wizardBackButton}
-                        >
-                          <Ionicons
-                            name="chevron-back"
-                            size={16}
-                            color={colors.textSecondary}
-                          />
-                          <Text style={styles.wizardBackLabel}>
-                            {t("transactions.wizard.back")}
-                          </Text>
-                        </Pressable>
-                      ) : null}
-                    </View>
-                    <Text style={styles.wizardStepTitle}>
-                      {t(WIZARD_STEP_COPY[currentWizardStepKey].titleKey)}
-                    </Text>
-                    <Text style={styles.wizardStepSubtitle}>
-                      {t(WIZARD_STEP_COPY[currentWizardStepKey].subtitleKey)}
-                    </Text>
-                  </View>
                   <ScrollView
                     style={styles.createModalScroll}
                     contentContainerStyle={styles.createModalBody}
@@ -2281,8 +2229,6 @@ export default function TransactionsScreen() {
                     showsVerticalScrollIndicator={false}
                   >
                     <View style={styles.wizardStepBody}>
-                    {currentWizardStepKey === "type" ? (
-                    <>
                     <View style={styles.typeSelector}>
                       <Ionicons
                         name="swap-horizontal-outline"
@@ -2365,6 +2311,21 @@ export default function TransactionsScreen() {
                       />
                     ) : (
                       <>
+                        {/* One form, same layout as the edit modal (see
+                            transaction-form-sections.tsx): Essentials ->
+                            Payment -> More details. */}
+                        <EssentialsSection
+                          amount={
+                            <Field
+                              label={t("transactions.amountLabel")}
+                              value={amount}
+                              onChangeText={setAmount}
+                              placeholder="0.00"
+                              keyboardType="decimal-pad"
+                              style={styles.amountFieldProminent}
+                            />
+                          }
+                          title={
                         <View>
                           <Field
                             label={t("transactions.titleLabel")}
@@ -2468,22 +2429,65 @@ export default function TransactionsScreen() {
                             </View>
                           ) : null}
                         </View>
-                        <View
-                          style={[
-                            styles.formGrid,
-                            responsive.isPhone && styles.formGridCompact,
-                          ]}
-                        >
-                          <View style={styles.formGridItem}>
-                            <Field
-                              label={t("transactions.amountLabel")}
-                              value={amount}
-                              onChangeText={setAmount}
-                              placeholder="0.00"
-                              keyboardType="decimal-pad"
-                            />
+                          }
+                          category={
+                            createMovementKind === "transaction" ? (
+                              <View style={{ gap: spacing(1) } as any}>
+                        <CategoryPicker
+                          label={t("transactions.categories")}
+                          placeholder={t("transactions.categories")}
+                          hint={t("transactions.categories")}
+                          categories={categories as any}
+                          selectedId={effectiveCategoryId ?? null}
+                          clearLabel={t("none")}
+                          onChange={(value) => {
+                            setCategoryId(value);
+                            setCategoryIsAutomatic(false);
+                          }}
+                        />
+                        {createMovementKind === "transaction" ? (
+                          <View
+                            style={styles.categorySuggestionStatus}
+                            accessibilityLiveRegion="polite"
+                          >
+                            {categoryIsAutomatic &&
+                            categorySuggestion.isFetching ? (
+                              <Text style={styles.categorySuggestionText}>
+                                {t("transactions.categorySuggestionLoading")}
+                              </Text>
+                            ) : categoryIsAutomatic &&
+                              categorySuggestion.isError ? (
+                              <Text style={styles.categorySuggestionText}>
+                                {t(
+                                  "transactions.categorySuggestionUnavailable",
+                                )}
+                              </Text>
+                            ) : categoryIsAutomatic &&
+                              categorySuggestion.data?.confidence === "high" ? (
+                              <Text style={styles.categorySuggestionText}>
+                                {t("transactions.categorySuggestionHigh", {
+                                  count: categorySuggestion.data.matchCount,
+                                })}
+                              </Text>
+                            ) : categoryIsAutomatic &&
+                              categorySuggestion.data?.confidence ===
+                                "medium" ? (
+                              <Text style={styles.categorySuggestionText}>
+                                {t("transactions.categorySuggestionMedium", {
+                                  category: translateCategoryName(
+                                    categorySuggestion.data.categoryName,
+                                    t,
+                                  ),
+                                  count: categorySuggestion.data.matchCount,
+                                })}
+                              </Text>
+                            ) : null}
                           </View>
-                          <View style={styles.formGridItem}>
+                        ) : null}
+                              </View>
+                            ) : null
+                          }
+                          date={
                             <DatePickerField
                               label={t("transactions.dateLabel")}
                               value={date}
@@ -2492,40 +2496,7 @@ export default function TransactionsScreen() {
                                 defaultValue: "DD-MM-YYYY",
                               })}
                             />
-                          </View>
-                        </View>
-                        <Field
-                          label={t("transactions.notesLabel")}
-                          value={notes}
-                          onChangeText={setNotes}
-                          placeholder={t("transactions.notesPlaceholder")}
-                        />
-                      </>
-                    )}
-                    </>
-                    ) : null}
-                    {currentWizardStepKey === "accounts" ? (
-                      <>
-                        <DropdownField
-                          label={t("transactions.createdBy")}
-                          valueLabel={selectedCreateCreatorLabel}
-                          placeholder={t("transactions.createdByPlaceholder")}
-                          hint={t("transactions.createdByPlaceholder")}
-                          selectedKey={effectiveCreatedById}
-                          onChange={setCreatedById}
-                          options={[
-                            {
-                              key: currentUserId,
-                              label: currentUserLabel,
-                              subtitle: t("settings.you"),
-                            },
-                            ...accountMemberOptions
-                              .filter((member) => member.id !== currentUserId)
-                              .map((member) => ({
-                                key: member.id,
-                                label: member.label,
-                              })),
-                          ]}
+                          }
                         />
                         <PaymentBreakdownSection
                           bare={createMovementKind !== "transaction"}
@@ -2681,65 +2652,49 @@ export default function TransactionsScreen() {
                             }}
                           />
                         ) : null}
-                      </>
-                    ) : null}
-                    {currentWizardStepKey === "extras" ? (
-                      <>
-                        <CategoryPicker
-                          label={t("transactions.categories")}
-                          placeholder={t("transactions.categories")}
-                          hint={t("transactions.categories")}
-                          categories={categories as any}
-                          selectedId={effectiveCategoryId ?? null}
-                          clearLabel={t("none")}
-                          onChange={(value) => {
-                            setCategoryId(value);
-                            setCategoryIsAutomatic(false);
-                          }}
+                        <MoreDetailsSection
+                          summary={[
+                            effectiveCreatedById && effectiveCreatedById !== currentUserId
+                              ? t("transactions.moreDetails.by", { name: selectedCreateCreatorLabel })
+                              : null,
+                            createMovementKind === "transaction" && type === "expense" && tagIds.length > 0
+                              ? t("transactions.moreDetails.tags", { count: tagIds.length })
+                              : null,
+                            notes.trim() ? t("transactions.moreDetails.hasNotes") : null,
+                            attachment ? t("transactions.moreDetails.attachments", { count: 1 }) : null,
+                          ].filter((part): part is string => Boolean(part))}
+                        >
+                        <DropdownField
+                          label={t("transactions.createdBy")}
+                          valueLabel={selectedCreateCreatorLabel}
+                          placeholder={t("transactions.createdByPlaceholder")}
+                          hint={t("transactions.createdByPlaceholder")}
+                          selectedKey={effectiveCreatedById}
+                          onChange={setCreatedById}
+                          options={[
+                            {
+                              key: currentUserId,
+                              label: currentUserLabel,
+                              subtitle: t("settings.you"),
+                            },
+                            ...accountMemberOptions
+                              .filter((member) => member.id !== currentUserId)
+                              .map((member) => ({
+                                key: member.id,
+                                label: member.label,
+                              })),
+                          ]}
                         />
-                        {createMovementKind === "transaction" ? (
-                          <View
-                            style={styles.categorySuggestionStatus}
-                            accessibilityLiveRegion="polite"
-                          >
-                            {categoryIsAutomatic &&
-                            categorySuggestion.isFetching ? (
-                              <Text style={styles.categorySuggestionText}>
-                                {t("transactions.categorySuggestionLoading")}
-                              </Text>
-                            ) : categoryIsAutomatic &&
-                              categorySuggestion.isError ? (
-                              <Text style={styles.categorySuggestionText}>
-                                {t(
-                                  "transactions.categorySuggestionUnavailable",
-                                )}
-                              </Text>
-                            ) : categoryIsAutomatic &&
-                              categorySuggestion.data?.confidence === "high" ? (
-                              <Text style={styles.categorySuggestionText}>
-                                {t("transactions.categorySuggestionHigh", {
-                                  count: categorySuggestion.data.matchCount,
-                                })}
-                              </Text>
-                            ) : categoryIsAutomatic &&
-                              categorySuggestion.data?.confidence ===
-                                "medium" ? (
-                              <Text style={styles.categorySuggestionText}>
-                                {t("transactions.categorySuggestionMedium", {
-                                  category: translateCategoryName(
-                                    categorySuggestion.data.categoryName,
-                                    t,
-                                  ),
-                                  count: categorySuggestion.data.matchCount,
-                                })}
-                              </Text>
-                            ) : null}
-                          </View>
-                        ) : null}
                         {createMovementKind === "transaction" &&
                         type === "expense" ? (
                           <TagPicker selectedIds={tagIds} onChange={setTagIds} />
                         ) : null}
+                        <Field
+                          label={t("transactions.notesLabel")}
+                          value={notes}
+                          onChangeText={setNotes}
+                          placeholder={t("transactions.notesPlaceholder")}
+                        />
                         {createMovementKind === "transaction" ? (
                           <View style={{ gap: spacing(2) } as any}>
                             <View
@@ -2812,8 +2767,9 @@ export default function TransactionsScreen() {
                             ) : null}
                           </View>
                         ) : null}
+                        </MoreDetailsSection>
                       </>
-                    ) : null}
+                    )}
                     </View>
                   </ScrollView>
                   {createMovementKind !== "recurring-transfer" ? (
@@ -2824,19 +2780,10 @@ export default function TransactionsScreen() {
                       ]}
                     >
                       <Button
-                        label={
-                          currentWizardStep > 0
-                            ? t("transactions.wizard.back")
-                            : t("cancel")
-                        }
+                        label={t("cancel")}
                         variant="secondary"
-                        onPress={() =>
-                          currentWizardStep > 0
-                            ? goToWizardStep(currentWizardStep - 1)
-                            : closeCreateModal()
-                        }
+                        onPress={closeCreateModal}
                       />
-                      {isLastWizardStep ? (
                         <View style={styles.createModalPrimaryActions}>
                           <Button
                             label={
@@ -2862,13 +2809,6 @@ export default function TransactionsScreen() {
                             disabled={!canCreateMovement}
                           />
                         </View>
-                      ) : (
-                        <Button
-                          label={t("transactions.wizard.next")}
-                          onPress={() => goToWizardStep(currentWizardStep + 1)}
-                          disabled={!canProceedFromCurrentStep}
-                        />
-                      )}
                     </View>
                   ) : null}
                 </View>
@@ -4018,7 +3958,7 @@ export default function TransactionsScreen() {
                   </EssentialsSection>
                   <PaymentBreakdownSection
                     bare={editIsReimbursementIncome}
-                    originalAmount={Number(editTransaction.amount) || 0}
+                    originalAmount={editAmountValue}
                     reimbursements={
                       editTransaction.type === "expense" && editReimbursementEnabled
                         ? editReimbursements
@@ -4037,7 +3977,7 @@ export default function TransactionsScreen() {
                           onToggleEnabled={setEditReimbursementEnabled}
                           toggleDisabled={!editPaymentReady}
                           fixedAccountId={editTransaction.accountId || null}
-                          originalAmount={Number(editTransaction.amount) || 0}
+                          originalAmount={editAmountValue}
                           value={editReimbursements}
                           onChange={setEditReimbursements}
                           accounts={accounts as any}
