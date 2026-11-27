@@ -933,17 +933,6 @@
     },
     "createTitle": "Add movement",
     "createSubtitle": "Add an income, expense, or transfer between accounts.",
-    "wizard": {
-      "stepOf": "Step {{current}} of {{total}}",
-      "back": "Back",
-      "next": "Next",
-      "stepTypeTitle": "What kind of movement?",
-      "stepTypeSubtitle": "Choose a type, then add the title, amount, date, and notes.",
-      "stepAccountsTitle": "Accounts & people",
-      "stepAccountsSubtitle": "Where the money moves and who it's for. Split across multiple accounts if needed.",
-      "stepExtrasTitle": "Category & attachment",
-      "stepExtrasSubtitle": "Optional - categorize it and attach a receipt if you have one."
-    },
     "split": {
       "toggleLabel": "Split source",
       "toggleHint": "Fund this transaction from more than one account or pot",
@@ -1177,7 +1166,6 @@
       "reimbursementUnavailable": "Reimbursements aren't available for a split payment. Turn Split source off to add them.",
       "receivedInto": "Received into {{account}} (the Paid from account)",
       "choosePaidFromFirst": "Choose the Paid from account first.",
-      "effectiveSplitHint": "With reimbursements, split only the effective cost ({{amount}}). Each reimbursement stays in the account it was received in.",
       "expand": "Show payment breakdown",
       "collapse": "Hide payment breakdown",
       "tilePaid": "Paid",

@@ -933,17 +933,6 @@
     },
     "createTitle": "Adicionar movimento",
     "createSubtitle": "Adicione uma receita, despesa ou transferência entre contas.",
-    "wizard": {
-      "stepOf": "Passo {{current}} de {{total}}",
-      "back": "Voltar",
-      "next": "Seguinte",
-      "stepTypeTitle": "Que tipo de movimento?",
-      "stepTypeSubtitle": "Escolha um tipo e depois adicione o título, valor, data e notas.",
-      "stepAccountsTitle": "Contas e pessoas",
-      "stepAccountsSubtitle": "Para onde vai o dinheiro e para quem é. Divida por várias contas, se precisar.",
-      "stepExtrasTitle": "Categoria e anexo",
-      "stepExtrasSubtitle": "Opcional - categorize e anexe um recibo, se tiver."
-    },
     "split": {
       "toggleLabel": "Dividir origem",
       "toggleHint": "Financiar esta transação a partir de mais do que uma conta ou pot",
@@ -1177,7 +1166,6 @@
       "reimbursementUnavailable": "Os reembolsos não estão disponíveis num pagamento dividido. Desativa a divisão por várias contas para os adicionar.",
       "receivedInto": "Recebido em {{account}} (a conta de onde foi pago)",
       "choosePaidFromFirst": "Escolhe primeiro a conta de onde foi pago.",
-      "effectiveSplitHint": "Com reembolsos, divide só o custo efetivo ({{amount}}). Cada reembolso fica na conta onde foi recebido.",
       "expand": "Mostrar detalhe do pagamento",
       "collapse": "Ocultar detalhe do pagamento",
       "tilePaid": "Pago",
